@@ -23,7 +23,9 @@
 #include "client_events.h"
 #include "errors.h"
 #include "logs.h"
+#include "modem_specific.h"
 #include "socket.h"
+#include "timer_events.h"
 
 #define READ_SIZE 1024
 
@@ -41,28 +43,31 @@ const char *g_mmgr_requests[] = {
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int request_resource_acquire(mmgr_data_t *mmgr)
+static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->modem_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
+    if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
         mmgr->request.client->resource_release = false;
         /* At least one client has acquired the resource. So, cancel
            modem shutdown if it's on going */
         mmgr->events.modem_shutdown = false;
-        if ((mmgr->modem_state != E_MMGR_EVENT_MODEM_UP) &&
-            (mmgr->modem_state != E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) &&
-            (mmgr->modem_state != E_MMGR_NOTIFY_MODEM_SHUTDOWN) &&
-            (mmgr->modem_state != E_MMGR_NOTIFY_MODEM_COLD_RESET)) {
+        mmgr->reset.modem_shutdown = false;
+        if ((mmgr->client_notification != E_MMGR_EVENT_MODEM_UP) &&
+            (mmgr->client_notification != E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) &&
+            (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_SHUTDOWN) &&
+            (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) &&
+            !(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
             LOG_DEBUG("wake up modem");
-            mmgr->info.ev |= E_EV_AP_RESET;
-            mmgr->events.restore_modem = true;
-            mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
-            mmgr->info.ev |= E_EV_FORCE_RESET;
+            if ((ret = modem_up(&mmgr->info)) == E_ERR_SUCCESS) {
+                mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
+                reset_escalation_counter(&mmgr->reset);
+            }
+
         }
     }
 
@@ -78,23 +83,21 @@ out:
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int request_resource_release(mmgr_data_t *mmgr)
+static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
-    int timeout;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->request.client->resource_release = true;
 
-    if ((mmgr->modem_state != E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) &&
+    if ((mmgr->client_notification != E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) &&
         (!mmgr->events.modem_shutdown)) {
         if (check_resource_released(&mmgr->clients, true) == E_ERR_SUCCESS) {
             mmgr->events.modem_shutdown = true;
             LOG_INFO("modem will be shutdown in %ds if no clients request"
                      " the ressource", mmgr->config.delay_before_modem_shtdwn);
-            timeout = (mmgr->config.delay_before_modem_shtdwn * 1000) / STEPS;
-            START_TIMER(mmgr->timer, timeout);
+            start_timer(&mmgr->timer, E_TIMER_NO_RESOURCE_RELEASE_ACK);
         }
     }
 out:
@@ -109,18 +112,18 @@ out:
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int request_modem_recovery(mmgr_data_t *mmgr)
+static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->modem_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
+    if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
         if (mmgr->request.received.ts > mmgr->reset.last_reset_time.tv_sec) {
             mmgr->info.ev |= E_EV_AP_RESET;
-            mmgr->events.restore_modem = true;
+            mmgr->events.do_restore_modem = true;
         } else {
             LOG_DEBUG("skipped. Request older than last recovery operation");
         }
@@ -137,17 +140,17 @@ out:
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int request_modem_restart(mmgr_data_t *mmgr)
+static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->modem_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
+    if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
         mmgr->info.ev |= E_EV_AP_RESET;
-        mmgr->events.restore_modem = true;
+        mmgr->events.do_restore_modem = true;
         mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
     }
 out:
@@ -162,19 +165,19 @@ out:
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int request_ack_cold_reset(mmgr_data_t *mmgr)
+static e_mmgr_errors_t request_ack_cold_reset(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->request.answer = E_MMGR_NUM_EVENTS;
-    if (mmgr->modem_state == E_MMGR_NOTIFY_MODEM_COLD_RESET) {
+    if (mmgr->client_notification == E_MMGR_NOTIFY_MODEM_COLD_RESET) {
         mmgr->request.client->cold_reset = true;
         if (check_cold_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
             LOG_DEBUG("All clients agreed cold reset");
             mmgr->info.ev |= E_EV_AP_RESET;
-            mmgr->events.restore_modem = true;
+            mmgr->events.do_restore_modem = true;
         }
     }
 out:
@@ -189,14 +192,14 @@ out:
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int request_ack_modem_shutdown(mmgr_data_t *mmgr)
+static e_mmgr_errors_t request_ack_modem_shutdown(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->request.answer = E_MMGR_NUM_EVENTS;
-    if (mmgr->modem_state == E_MMGR_NOTIFY_MODEM_SHUTDOWN) {
+    if (mmgr->client_notification == E_MMGR_NOTIFY_MODEM_SHUTDOWN) {
         mmgr->request.client->modem_shutdown = true;
         if (check_shutdown_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
             LOG_DEBUG("All clients agreed modem shutdown");
@@ -215,16 +218,15 @@ out:
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int request_force_modem_shutdown(mmgr_data_t *mmgr)
+static e_mmgr_errors_t request_force_modem_shutdown(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
-    int timeout = TIMEOUT_EPOLL_ACK;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    mmgr->modem_state = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
+    mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
     mmgr->request.additional_info = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-    START_TIMER(mmgr->timer, timeout);
+    start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
 out:
     return ret;
 }
@@ -238,9 +240,9 @@ out:
  * @return E_ERR_FAILED if an error occurs
  * @return E_ERR_SUCCESS if successful
  */
-static int client_request(mmgr_data_t *mmgr)
+static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -275,11 +277,11 @@ out:
  * @return E_ERR_SUCCESS client not banned
  * @return E_ERR_FAILED client banned or bad client
  */
-static int is_client_banned(mmgr_data_t *mmgr, client_t *client,
-                            size_t read_size)
+static e_mmgr_errors_t is_client_banned(mmgr_data_t *mmgr, client_t *client,
+                                        size_t read_size)
 {
     struct timespec current;
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
     CHECK_PARAM(client, ret, out);
@@ -318,12 +320,12 @@ out:
  * @return E_ERR_FAILED if client not found or socket disconnection fails or
  *                       client banned
  */
-int known_client(mmgr_data_t *mmgr)
+e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
 {
     size_t read_size = READ_SIZE;
     char data[READ_SIZE];
     client_t *client = NULL;
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     uint32_t tmp;
     int fd;
 
@@ -361,7 +363,7 @@ int known_client(mmgr_data_t *mmgr)
                 inform_client(client, E_MMGR_ACK, true);
                 /* client is registered and accepted. So, MMGR should provide
                    the current modem status if client has subsribed to it */
-                ret = inform_client(client, mmgr->modem_state, false);
+                ret = inform_client(client, mmgr->client_notification, false);
             }
         } else {
             ret = is_client_banned(mmgr, client, read_size);
@@ -395,10 +397,10 @@ out:
  * @return E_ERR_FAILED if socket connection fails or client rejected
  * @return E_ERR_SUCCESS if successful
  */
-int new_client(mmgr_data_t *mmgr)
+e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
 {
     struct epoll_event ev;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     int conn_sock;
     client_t *client = NULL;
     int fd;
@@ -440,9 +442,9 @@ out:
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-int client_events_init(mmgr_data_t *mmgr)
+e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i;
 
     CHECK_PARAM(mmgr, ret, out);

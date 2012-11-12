@@ -19,7 +19,7 @@
 #ifndef __MMGR_PROPERTY_HEADER_FILE__
 #define __MMGR_PROPERTY_HEADER_FILE__
 
-int set_property(const char *key, int value);
-int get_property(const char *key, int *value);
+e_mmgr_errors_t set_property(const char *key, int value);
+e_mmgr_errors_t get_property(const char *key, int *value);
 
 #endif                          /* __MMGR_PROPERTY_HEADER_FILE__ */

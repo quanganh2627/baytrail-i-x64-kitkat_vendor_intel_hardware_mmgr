@@ -403,7 +403,7 @@ int client_banned(test_data_t *test)
         if (wait_for_state(test, E_MMGR_ACK, 5) != E_ERR_SUCCESS)
             err = E_ERR_FAILED;
         /* force modem state to be sure that ACK is received next time */
-        set_modem_state(test, E_MMGR_NACK);
+        modem_state_set(test, E_MMGR_NACK);
     }
     LOG_DEBUG("i=%d err=%d", i, err);
     if ((i == test->config.max_requests_banned) && (err == E_ERR_FAILED)

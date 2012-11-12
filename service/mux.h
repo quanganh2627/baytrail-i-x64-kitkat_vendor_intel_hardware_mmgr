@@ -21,8 +21,10 @@
 
 #include "config.h"
 
-int modem_handshake(int fd_tty, mmgr_configuration_t *config, int timeout);
-int configure_cmux_driver(int fd_tty, int max_frame_size);
-int send_at_cmux(int fd_tty, mmgr_configuration_t *config, int timeout);
+e_mmgr_errors_t modem_handshake(int fd_tty, mmgr_configuration_t *config,
+                                int timeout);
+e_mmgr_errors_t configure_cmux_driver(int fd_tty, int max_frame_size);
+e_mmgr_errors_t send_at_cmux(int fd_tty, mmgr_configuration_t *config,
+                             int timeout);
 
 #endif                          /* __MCDR_FILE_HEADER__ */

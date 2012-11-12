@@ -31,7 +31,8 @@ typedef struct mcdr_lib {
      mcdr_status_t(*state) (void);
 } mcdr_lib_t;
 
-int core_dump_init(const mmgr_configuration_t *config, mcdr_lib_t *mcdr);
-int retrieve_core_dump(mcdr_lib_t *mcdr);
+e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
+                               mcdr_lib_t *mcdr);
+e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr);
 
 #endif                          /* __CORE_DUMP_HEADER__ */

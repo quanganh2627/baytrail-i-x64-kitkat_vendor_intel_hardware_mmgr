@@ -36,10 +36,11 @@
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if path or value is/are NULL
  */
-int write_to_file(char *path, unsigned long mode, char *value, size_t size)
+e_mmgr_errors_t write_to_file(char *path, unsigned long mode, char *value,
+                              size_t size)
 {
     int fd;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     ssize_t write_size;
 
     CHECK_PARAM(path, ret, out);
@@ -72,10 +73,10 @@ out:
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if sucessful
  */
-int create_empty_file(char *filename, unsigned long rights)
+e_mmgr_errors_t create_empty_file(char *filename, unsigned long rights)
 {
     int fd;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
 
     CHECK_PARAM(filename, ret, out);
 

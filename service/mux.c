@@ -60,7 +60,8 @@
  * @return E_ERR_AT_CMD_RESEND  generic failure
  * @return E_ERR_SUCCESS if successful
  */
-int modem_handshake(int fd_tty, mmgr_configuration_t *config, int timeout)
+e_mmgr_errors_t modem_handshake(int fd_tty, mmgr_configuration_t *config,
+                                int timeout)
 {
     int ret;
 
@@ -85,12 +86,12 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-int configure_cmux_driver(int fd_tty, int max_frame_size)
+e_mmgr_errors_t configure_cmux_driver(int fd_tty, int max_frame_size)
 {
     struct gsm_config cfg;
     int err;
     int ldisc = N_GSM0710;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
 
     LOG_VERBOSE("attach mux ld to initial tty");
     err = ioctl(fd_tty, TIOCSETD, &ldisc);
@@ -180,10 +181,11 @@ out:
  * @return E_ERR_BAD_PARAMETER if config is NULL
  * @return E_ERR_FAILED if AT+CMUX creation command failed
  */
-int send_at_cmux(int fd_tty, mmgr_configuration_t *config, int timeout)
+e_mmgr_errors_t send_at_cmux(int fd_tty, mmgr_configuration_t *config,
+                             int timeout)
 {
     char at_cmux_config[AT_MUX_CMD_SIZE];
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
 
     CHECK_PARAM(config, ret, end_send_at_cmux);
 
