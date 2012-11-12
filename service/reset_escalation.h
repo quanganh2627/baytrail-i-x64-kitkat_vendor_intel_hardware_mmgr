@@ -23,6 +23,7 @@
 #include "config.h"
 #include "errors.h"
 #include "modem_info.h"
+#include "modem_specific.h"
 
 /* persistent android property to count the platform reboot.
    NB: The key length can't exceed PROPERTY_KEY_MAX */
@@ -57,7 +58,7 @@ struct reset_management;
 typedef struct reset_operation {
     int retry_allowed;
     e_escalation_level_t next_level;
-    int (*operation) (modem_info_t *modem_info);
+    e_mmgr_errors_t (*operation) (modem_info_t *modem_info);
     e_reset_operation_state_t (*pre_operation) (struct reset_management *);
 } reset_operation_t;
 
@@ -79,9 +80,11 @@ typedef struct reset_management {
     bool modem_shutdown;
 } reset_management_t;
 
-int escalation_recovery_init(const mmgr_configuration_t *params,
-                             reset_management_t *p_reset, modem_info_t *info);
-int pre_modem_escalation_recovery(reset_management_t *p_reset);
-int modem_escalation_recovery(reset_management_t *p_reset);
+e_mmgr_errors_t escalation_recovery_init(const mmgr_configuration_t *params,
+                                         reset_management_t *p_reset,
+                                         modem_info_t *info);
+e_mmgr_errors_t pre_modem_escalation_recovery(reset_management_t *p_reset);
+e_mmgr_errors_t modem_escalation_recovery(reset_management_t *p_reset);
+e_mmgr_errors_t reset_escalation_counter(reset_management_t *p_reset);
 
 #endif                          /* __MMGR_RESET_ESCALATION_HEADER__ */

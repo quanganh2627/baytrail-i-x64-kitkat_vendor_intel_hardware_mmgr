@@ -19,6 +19,7 @@
 #ifndef __MMGR_CONFIG_HEADER__
 #define __MMGR_CONFIG_HEADER__
 
+#include "errors.h"
 #include <stdbool.h>
 
 /* Maximum size for configuration string value */
@@ -54,6 +55,7 @@ typedef struct mmgr_configuration {
     int max_requests_banned;
 } mmgr_configuration_t;
 
-int mmgr_configure(mmgr_configuration_t *parameters, const char *config_file);
+e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *parameters,
+                               const char *config_file);
 
 #endif                          /* __MMGR_CONFIG_HEADER__ */

@@ -48,9 +48,10 @@ typedef struct core_dump_thread {
  * @return E_ERR_FAILED initialization fails
  * @return E_ERR_SUCCESS if successful
  */
-int core_dump_init(const mmgr_configuration_t *config, mcdr_lib_t *mcdr)
+e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
+                               mcdr_lib_t *mcdr)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     const char *state[] = { "DISABLED", "ENABLED" };
     char *p = NULL;
 
@@ -109,10 +110,10 @@ static void thread_core_dump(core_dump_thread_t *cd_reader)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-int retrieve_core_dump(mcdr_lib_t *mcdr)
+e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
 {
     int err;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     struct timespec ts;
     struct timeval tp;
     struct timeval tp_end;

@@ -37,6 +37,6 @@
 /* content of CL_CORE_DUMP_FILE when panic_id is unknown */
 #define UNKNOWN_PANIC_ID_STR "unkwown"
 
-int crash_logger(modem_info_t *events);
+e_mmgr_errors_t crash_logger(modem_info_t *events);
 
 #endif                          /* __MGR_CRASH_LOGGER_HEADER__ */

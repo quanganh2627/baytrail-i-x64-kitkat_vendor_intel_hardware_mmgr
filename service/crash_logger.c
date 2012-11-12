@@ -33,9 +33,9 @@
  * @return E_ERR_FAILED if write fails
  * @return E_ERR_BAD_PARAMETER if events is NULL
  */
-int crash_logger(modem_info_t *events)
+e_mmgr_errors_t crash_logger(modem_info_t *events)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int err;
     size_t data_size;
     char panic_id[PANIC_ID_LENGTH_MAX];
@@ -71,12 +71,6 @@ int crash_logger(modem_info_t *events)
         }
     }
 
-    events->ev &= ~E_EV_FORCE_RESET;
-
-    if (events->ev != E_EV_NONE)
-        events->ev = E_EV_FORCE_RESET;
-    else
-        events->ev = E_EV_NONE;
 out:
     return ret;
 }
