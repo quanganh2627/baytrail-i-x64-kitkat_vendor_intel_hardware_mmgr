@@ -1,0 +1,206 @@
+/* Modem Manager - mux source file
+ **
+ ** Copyright (C) Intel 2012
+ **
+ ** Licensed under the Apache License, Version 2.0 (the "License");
+ ** you may not use this file except in compliance with the License.
+ ** You may obtain a copy of the License at
+ **
+ **     http://www.apache.org/licenses/LICENSE-2.0
+ **
+ ** Unless required by applicable law or agreed to in writing, software
+ ** distributed under the License is distributed on an "AS IS" BASIS,
+ ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ ** See the License for the specific language governing permissions and
+ ** limitations under the License.
+ **
+ */
+
+#include <errno.h>
+#include <string.h>
+#include <termios.h>
+#include <cutils/sockets.h>
+#include <linux/gsmmux.h>
+#include <linux/hsi_ffl_tty.h>
+#include <linux/ioctl.h>
+#include "at.h"
+#include "errors.h"
+#include "logs.h"
+#include "mux.h"
+
+/* AT commands */
+#define AT_PING_CMD "ATE0\r"
+#define AT_POWER_OFF_MODEM "AT+CFUN=0\r"
+/* Maximum size for configuration string key */
+#define MAX_SIZE_CONF_KEY 100
+
+/* GSM0710 line discipline code */
+#define N_GSM0710 21
+/* AT MUX configuration */
+#define AT_MUX_CMD_SIZE 128
+#define AT_MUX_MODE 0
+#define AT_MUX_SUBSET 0
+#define AT_MUX_PORT_SPEED
+#define AT_MUX_T1 10
+#define AT_MUX_N2 3
+#define AT_MUX_T2 30
+#define AT_MUX_T3
+#define AT_MUX_K
+
+/**
+ * check that modem is alive by sending PING request
+ *
+ * @param [in] fd_tty modem file descriptor
+ * @param [in] config mmgr config
+ * @param [in] timeout timeout
+ *
+ * @return E_ERR_BAD_PARAMETER if config is NULL
+ * @return E_ERR_TTY_BAD_FD bad file descriptor
+ * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
+ * @return E_ERR_AT_CMD_RESEND  generic failure
+ * @return E_ERR_SUCCESS if successful
+ */
+int modem_handshake(int fd_tty, mmgr_configuration_t *config, int timeout)
+{
+    int ret;
+
+    CHECK_PARAM(config, ret, out);
+
+    sleep(config->delay_before_at);
+    LOG_VERBOSE("sending PING to modem");
+
+    ret = send_at_timeout(fd_tty, AT_PING_CMD, strlen(AT_PING_CMD), timeout);
+    if (ret != E_ERR_SUCCESS)
+        LOG_ERROR("PING not successful");
+out:
+    return ret;
+}
+
+/**
+ * configure CMUX driver
+ *
+ * @param [in] fd_tty modem file descriptor
+ * @param [in] max_frame_size maximum frame size
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+int configure_cmux_driver(int fd_tty, int max_frame_size)
+{
+    struct gsm_config cfg;
+    int err;
+    int ldisc = N_GSM0710;
+    int ret = E_ERR_FAILED;
+
+    LOG_VERBOSE("attach mux ld to initial tty");
+    err = ioctl(fd_tty, TIOCSETD, &ldisc);
+    if (err < 0) {
+        LOG_ERROR("set ioctl failed (%s)", strerror(errno));
+        goto out;
+    }
+
+    err = ioctl(fd_tty, TIOCGETD, &ldisc);
+    if (err < 0) {
+        LOG_ERROR("get ioctl failed (%s)", strerror(errno));
+        goto out;
+    }
+
+    if (ldisc != N_GSM0710) {
+        LOG_ERROR("Unable to set line discipline");
+        goto out;
+    }
+
+    /* configure mux */
+    memset(&cfg, 0, sizeof(struct gsm_config));
+
+    err = ioctl(fd_tty, GSMIOC_GETCONF, &cfg);
+    if (err < 0) {
+        LOG_ERROR("get config ioctl failed (%s)", strerror(errno));
+        goto out;
+    }
+    LOG_VERBOSE("Default configuration\n"
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER
+                PRINT_INTEGER,
+                "adaption", cfg.adaption,
+                "encapsulation", cfg.encapsulation,
+                "initiator", cfg.initiator,
+                "t1", cfg.t1,
+                "t2", cfg.t2,
+                "t3", cfg.t3,
+                "n2", cfg.n2,
+                "mru", cfg.mru,
+                "mtu", cfg.mtu,
+                "k", cfg.k,
+                "i", cfg.i, "clocal", cfg.clocal, "burst", cfg.burst);
+
+    /* encoding -- set to basic */
+    cfg.encapsulation = 0;
+    /* we are starting side */
+    cfg.initiator = 1;
+    /* In specification 3GPP TS 27.010, 5.7.2
+     * set same size as MUX configuration */
+    cfg.mru = max_frame_size;
+    cfg.mtu = max_frame_size;
+    /* Disable burst mode (not supported by IMC modem) */
+    cfg.burst = 0;
+
+    LOG_VERBOSE("write config ioctl to mux");
+    err = ioctl(fd_tty, GSMIOC_SETCONF, &cfg);
+    if (err < 0) {
+        LOG_ERROR("config ioctl problem (%s)", strerror(errno));
+        goto out;
+    }
+    ret = E_ERR_SUCCESS;
+out:
+    return ret;
+}
+
+/**
+ * send cmux command
+ *
+ * @param [in] fd_tty modem file descriptor
+ * @param [in] config mmgr config
+ * @param [in] timeout timeout
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_AT_CMD_RESEND  generic failure
+ * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
+ * @return E_ERR_TTY_BAD_FD bad file descriptor
+ * @return E_ERR_BAD_PARAMETER if config is NULL
+ * @return E_ERR_FAILED if AT+CMUX creation command failed
+ */
+int send_at_cmux(int fd_tty, mmgr_configuration_t *config, int timeout)
+{
+    char at_cmux_config[AT_MUX_CMD_SIZE];
+    int ret = E_ERR_FAILED;
+
+    CHECK_PARAM(config, ret, end_send_at_cmux);
+
+    LOG_VERBOSE("sending AT+CMUX to modem");
+    /* NB: Add AT_MUX_PORT_SPEED, AT_MUX_T3, AT_MUX_K if needed */
+    if (snprintf(at_cmux_config, AT_MUX_CMD_SIZE,
+                 "AT+CMUX=%d,%d,,%d,%d,%d,%d,,\r", AT_MUX_MODE, AT_MUX_SUBSET,
+                 config->max_frame_size, AT_MUX_T1, AT_MUX_N2, AT_MUX_T2) < 0) {
+        LOG_ERROR("AT+CMUX creation command failed");
+        goto end_send_at_cmux;
+    }
+
+    ret = send_at_timeout(fd_tty, at_cmux_config,
+                          strnlen(at_cmux_config, AT_MUX_CMD_SIZE), timeout);
+    if (ret != E_ERR_SUCCESS) {
+        LOG_ERROR("AT+CMUX not successful");
+    }
+end_send_at_cmux:
+    return ret;
+}
