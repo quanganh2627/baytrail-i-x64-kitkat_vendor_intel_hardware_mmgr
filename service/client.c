@@ -45,10 +45,11 @@ const char *g_mmgr_events[] = {
  * @return E_ERR_FAILED if at least one client has not acknowledge
  * @return E_ERR_SUCCESS if successful
  */
-static inline int check_all_clients_ack(client_list_t *clients, size_t offset,
-                                        char *msg, bool listing)
+static inline e_mmgr_errors_t check_all_clients_ack(client_list_t *clients,
+                                                    size_t offset, char *msg,
+                                                    bool listing)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i;
     bool *ack = NULL;
 
@@ -82,9 +83,9 @@ out:
  * @return E_ERR_FAILED if at least one client has not acknowledge
  * @return E_ERR_SUCCESS if successful
  */
-static inline int reset_ack(client_list_t *clients, size_t offset)
+static inline e_mmgr_errors_t reset_ack(client_list_t *clients, size_t offset)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i;
     bool *ack;
 
@@ -110,9 +111,9 @@ out:
  * @return E_ERR_FAILED if at least one client has not acknowledge
  * @return E_ERR_SUCCESS if successful
  */
-static inline int init_client(client_t *client, int fd)
+static inline e_mmgr_errors_t init_client(client_t *client, int fd)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(client, ret, out);
 
@@ -137,9 +138,10 @@ out:
  * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int remove_from_list(client_list_t *clients, client_t *client)
+static e_mmgr_errors_t remove_from_list(client_list_t *clients,
+                                        client_t *client)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(clients, ret, out);
     CHECK_PARAM(client, ret, out);
@@ -162,10 +164,10 @@ out:
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-int initialize_list(client_list_t *clients, int list_size)
+e_mmgr_errors_t initialize_list(client_list_t *clients, int list_size)
 {
     int i;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
 
     CHECK_PARAM(clients, ret, out);
 
@@ -192,10 +194,10 @@ out:
  * @return E_ERR_FAILED no space
  * @return E_ERR_SUCCESS if successful
  */
-int add_client(client_list_t *clients, int fd, client_t **client)
+e_mmgr_errors_t add_client(client_list_t *clients, int fd, client_t **client)
 {
     int i;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
 
     CHECK_PARAM(clients, ret, out);
     CHECK_PARAM(client, ret, out);
@@ -228,9 +230,9 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-int remove_client(client_list_t *clients, client_t *client)
+e_mmgr_errors_t remove_client(client_list_t *clients, client_t *client)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int fd;
 
     CHECK_PARAM(clients, ret, out);
@@ -255,9 +257,9 @@ out:
  * @return E_ERR_BAD_PARAMETER if client or name is/are NULL
  * @return E_ERR_SUCCESS if successful
  */
-int set_client_name(client_t *client, char *name)
+e_mmgr_errors_t set_client_name(client_t *client, char *name)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(client, ret, out);
     CHECK_PARAM(name, ret, out);
@@ -278,9 +280,9 @@ out:
  * @return E_ERR_BAD_PARAMETER if client or name is/are NULL
  * @return E_ERR_SUCCESS if successful
  */
-int set_client_filter(client_t *client, uint32_t subscription)
+e_mmgr_errors_t set_client_filter(client_t *client, uint32_t subscription)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(client, ret, out);
 
@@ -302,9 +304,9 @@ out:
  * @return E_ERR_SUCCESS if not found
  * @return E_ERR_SUCCESS if successful
  */
-int find_client(client_list_t *clients, int fd, client_t **client)
+e_mmgr_errors_t find_client(client_list_t *clients, int fd, client_t **client)
 {
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     int i;
 
     CHECK_PARAM(clients, ret, out);
@@ -335,10 +337,11 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-int inform_client(client_t *client, e_mmgr_events_t state, bool force)
+e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
+                              bool force)
 {
     size_t data_size = sizeof(e_mmgr_events_t);
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(client, ret, out);
 
@@ -373,9 +376,10 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-int inform_all_clients(client_list_t *clients, e_mmgr_events_t state)
+e_mmgr_errors_t inform_all_clients(client_list_t *clients,
+                                   e_mmgr_events_t state)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i;
 
     CHECK_PARAM(clients, ret, out);
@@ -396,9 +400,9 @@ out:
  * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  */
-int close_all_clients(client_list_t *clients)
+e_mmgr_errors_t close_all_clients(client_list_t *clients)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i;
 
     CHECK_PARAM(clients, ret, out);
@@ -423,7 +427,7 @@ out:
  * @return E_ERR_FAILED if at least one client has not ack
  * @return E_ERR_SUCCESS all clients have released
  */
-int check_cold_ack(client_list_t *clients, bool listing)
+e_mmgr_errors_t check_cold_ack(client_list_t *clients, bool listing)
 {
     return check_all_clients_ack(clients, offsetof(client_t, cold_reset),
                                  "ack", listing);
@@ -439,7 +443,7 @@ int check_cold_ack(client_list_t *clients, bool listing)
  * @return E_ERR_FAILED if at least one client has not ack
  * @return E_ERR_SUCCESS all clients have released
  */
-int check_shutdown_ack(client_list_t *clients, bool listing)
+e_mmgr_errors_t check_shutdown_ack(client_list_t *clients, bool listing)
 {
     return check_all_clients_ack(clients, offsetof(client_t, modem_shutdown),
                                  "ack", listing);
@@ -455,7 +459,7 @@ int check_shutdown_ack(client_list_t *clients, bool listing)
  * @return E_ERR_FAILED if at least one client has not released
  * @return E_ERR_SUCCESS all clients have released
  */
-int check_resource_released(client_list_t *clients, bool listing)
+e_mmgr_errors_t check_resource_released(client_list_t *clients, bool listing)
 {
     return check_all_clients_ack(clients, offsetof(client_t, resource_release),
                                  "release", listing);
@@ -469,7 +473,7 @@ int check_resource_released(client_list_t *clients, bool listing)
  * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  */
-int reset_cold_ack(client_list_t *clients)
+e_mmgr_errors_t reset_cold_ack(client_list_t *clients)
 {
     return reset_ack(clients, offsetof(client_t, cold_reset));
 }
@@ -482,7 +486,7 @@ int reset_cold_ack(client_list_t *clients)
  * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  */
-int reset_shutdown_ack(client_list_t *clients)
+e_mmgr_errors_t reset_shutdown_ack(client_list_t *clients)
 {
     return reset_ack(clients, offsetof(client_t, modem_shutdown));
 }

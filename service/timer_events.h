@@ -1,4 +1,4 @@
-/* Modem Manager - client events header file
+/* Modem Manager - timer manager header file
  **
  ** Copyright (C) Intel 2012
  **
@@ -16,13 +16,20 @@
  **
  */
 
-#ifndef __MMGR_CLIENT_EVENTS_HEADER__
-#define __MMGR_CLIENT_EVENTS_HEADER__
+#ifndef __MMGR_TIMER_HEADER__
+#define __MMGR_TIMER_HEADER__
 
 #include "events_manager.h"
 
-e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr);
-e_mmgr_errors_t new_client(mmgr_data_t *mmgr);
-e_mmgr_errors_t known_client(mmgr_data_t *mmgr);
+#define FORCE_MODEM_SHUTDOWN(mmgr) do { \
+    mmgr->info.ev |= E_EV_FORCE_RESET; \
+    mmgr->events.do_restore_modem = true; \
+    mmgr->reset.modem_shutdown = true; \
+} while (0)
 
-#endif                          /* __MMGR_CLIENT_EVENTS_HEADER__ */
+e_mmgr_errors_t timer_init(mmgr_timer_t *timer, mmgr_configuration_t *config);
+e_mmgr_errors_t start_timer(mmgr_timer_t *timer, e_timer_type_t type);
+e_mmgr_errors_t stop_timer(mmgr_timer_t *timer, e_timer_type_t type);
+e_mmgr_errors_t timer_event(mmgr_data_t *mmgr);
+
+#endif                          /* __MMGR_TIMER_HEADER__ */

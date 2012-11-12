@@ -33,9 +33,9 @@
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if not
  */
-int set_property(const char *key, int value)
+e_mmgr_errors_t set_property(const char *key, int value)
 {
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     char write_value[PROPERTY_VALUE_MAX];
 
     CHECK_PARAM(key, ret, out);
@@ -63,10 +63,10 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if not
  */
-int get_property(const char *key, int *value)
+e_mmgr_errors_t get_property(const char *key, int *value)
 {
     char read_value[PROPERTY_VALUE_MAX];
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(key, ret, out);
     CHECK_PARAM(value, ret, out);

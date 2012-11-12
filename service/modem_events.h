@@ -21,8 +21,10 @@
 
 #include "events_manager.h"
 
-int modem_events_init(mmgr_data_t *mmgr);
-int modem_event(mmgr_data_t *mmgr);
-int restore_modem(mmgr_data_t *mmgr);
+e_mmgr_errors_t modem_events_init(mmgr_data_t *mmgr);
+e_mmgr_errors_t modem_event(mmgr_data_t *mmgr);
+e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr);
+e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr);
+inline e_mmgr_errors_t set_mcd_poll_states(mmgr_data_t *mmgr);
 
 #endif                          /* __MMGR_MODEM_EVENTS_HEADER__ */
