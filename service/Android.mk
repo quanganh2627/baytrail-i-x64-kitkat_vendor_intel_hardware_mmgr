@@ -41,7 +41,8 @@ LOCAL_REQUIRED_MODULES := \
 ifneq (, $(findstring "$(TARGET_BUILD_VARIANT)", "eng" "userdebug"))
 LOCAL_REQUIRED_MODULES += \
     libmcdr \
-    mmgr-test
+    mmgr-test \
+    MMGR_test
 endif
 #uncomment this to enable gcov
 #LOCAL_CFLAGS += -fprofile-arcs -ftest-coverage -DGOCV_MMGR
