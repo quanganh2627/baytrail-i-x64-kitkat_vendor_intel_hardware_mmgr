@@ -61,6 +61,7 @@ static int request_resource_acquire(mmgr_data_t *mmgr)
             LOG_DEBUG("wake up modem");
             mmgr->info.ev |= E_EV_AP_RESET;
             mmgr->events.restore_modem = true;
+            mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
             mmgr->info.ev |= E_EV_FORCE_RESET;
         }
     }
@@ -371,7 +372,7 @@ int known_client(mmgr_data_t *mmgr)
                 memcpy(&mmgr->request.received.ts,
                        data + sizeof(e_mmgr_requests_t), sizeof(uint32_t));
 
-                tmp = (e_mmgr_requests_t)ntohl(tmp);
+                tmp = (e_mmgr_requests_t) ntohl(tmp);
                 memcpy(&mmgr->request.received, &tmp,
                        sizeof(e_mmgr_requests_t));
                 mmgr->request.received.ts = ntohl(mmgr->request.received.ts);

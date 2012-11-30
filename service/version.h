@@ -64,9 +64,10 @@
  ** 3.2.2  - 2012-10-25 - BZ 60084 - mmgr client library and socket improvements
  ** 3.2.3  - 2012-10-25 - BZ 64484 - reset modem after open failure
  ** 3.2.4  - 2012-10-26 - BZ 58703 - Disable burst mode
+ ** 3.2.5  - 2012-11-30 - BZ 71835 - fix modem_reset_delay configuration
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "3.2.4"
+#define MODULE_VERSION "3.2.5"

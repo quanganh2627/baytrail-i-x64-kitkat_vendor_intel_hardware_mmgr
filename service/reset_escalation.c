@@ -366,9 +366,11 @@ int pre_modem_escalation_recovery(reset_management_t *p_reset)
        we were in a stable state before the issue. So, reset the escalation
        recovery variable to default. */
     if ((p_reset->level.id != E_EL_MODEM_OUT_OF_SERVICE) &&
-        (p_reset->level.id != E_EL_MODEM_SHUTDOWN)) {
-        /*clock_gettime(CLOCK_MONOTONIC, &current_time); */
+        (p_reset->level.id != E_EL_MODEM_SHUTDOWN) &&
+        (p_reset->modem_restart != E_FORCE_RESET_ON_GOING)) {
+
         gettimeofday(&current_time, NULL);
+
         if (current_time.tv_sec - p_reset->last_reset_time.tv_sec
             > p_reset->config->min_time_issue) {
             /* The modem behavior was correct during at least min_time_issue,

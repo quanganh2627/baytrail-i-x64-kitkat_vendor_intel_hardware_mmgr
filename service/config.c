@@ -38,7 +38,7 @@
 #define DEF_NB_COLD_RESET            1
 #define DEF_PLATFORM_REBOOT_ENABLE   true
 #define DEF_NB_PLATFORM_REBOOT       1
-#define DEF_MODEM_RESET_DELAY        3  /* in seconds */
+#define DEF_MODEM_RESET_DELAY        5  /* in seconds */
 #define DEF_MIN_TIME_ISSUE           600        /* in seconds */
 #define DEF_DELAY_BEFORE_RESET       300        /* in milliseconds */
 #define DEF_DELAY_BEFORE_REBOOT      3  /* in seconds */
@@ -210,7 +210,7 @@ static int read_config_file(const char *config_file,
     get_boolean(fd, recov_grp, modem_reset_enable_key,
                 &param->modem_reset_enable);
     get_boolean(fd, recov_grp, mcdr_enable_key, &param->modem_core_dump_enable);
-    get_integer(fd, recov_grp, reset_delay_key, &param->delay_before_reset);
+    get_integer(fd, recov_grp, reset_delay_key, &param->modem_reset_delay);
     get_integer(fd, recov_grp, nb_warm_reset_key, &param->nb_warm_reset);
     get_boolean(fd, recov_grp, cold_reset_enabled_key,
                 &param->modem_cold_reset_enable);
