@@ -1,6 +1,6 @@
 package com.intel.internal.telephony.mmgrtest.fragments;
 
-import com.intel.internal.telephony.MmgrClientException;
+import com.intel.internal.telephony.AsyncOperationResultListener;
 import com.intel.internal.telephony.ModemEventListener;
 import com.intel.internal.telephony.ModemNotification;
 import com.intel.internal.telephony.ModemNotificationArgs;
@@ -9,16 +9,15 @@ import com.intel.internal.telephony.ModemStatusManager;
 import com.intel.internal.telephony.mmgrtest.R;
 import com.intel.internal.telephony.mmgrtest.helpers.MessageBoxHelper;
 
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class ModemStatusFragment extends Fragment implements
         ModemEventListener, OnClickListener {
@@ -93,9 +92,18 @@ public class ModemStatusFragment extends Fragment implements
         }
 
         this.textViewClientStatus.setText("CONNECTING...");
-        new AsyncConnectTask(this.modemManager, "MMGR Test")
-                .execute((Void) null);
 
+        this.modemManager.connectAsync("MMGR Test", new AsyncOperationResultListener() {
+            @Override
+            public void onOperationError(Exception ex) {
+                ModemStatusFragment.this.setUIDisconnectedMode();
+            }
+
+            @Override
+            public void onOperationComplete() {
+                ModemStatusFragment.this.setUIConnectedMode();
+            }
+        });
         return ret;
     }
 
@@ -158,33 +166,22 @@ public class ModemStatusFragment extends Fragment implements
     @Override
     public void onClick(View view) {
         if (view != null) {
-
             try {
                 switch (view.getId()) {
                 case R.id.buttonRequestRecovery:
-                    if (this.modemManager != null) {
-                        this.modemManager.recoverModem();
-                    }
+                    this.doRecoverModem();
                     break;
                 case R.id.buttonRequestRestart:
-                    if (this.modemManager != null) {
-                        this.modemManager.restartModem();
-                    }
+                    this.doRestartModem();
                     break;
                 case R.id.buttonRequestShutdown:
-                    if (this.modemManager != null) {
-                        this.modemManager.shutdowModem();
-                    }
+                    this.doShutdownModem();
                     break;
                 case R.id.buttonRequestLock:
-                    if (this.modemManager != null) {
-                        this.modemManager.acquireModem();
-                    }
+                    this.doLockModem();
                     break;
                 case R.id.buttonRequestRelease:
-                    if (this.modemManager != null) {
-                        this.modemManager.releaseModem();
-                    }
+                    this.doReleaseModem();
                     break;
                 }
             } catch (Exception ex) {
@@ -193,48 +190,98 @@ public class ModemStatusFragment extends Fragment implements
         }
     }
 
-    private class AsyncConnectTask extends AsyncTask<Void, Integer, Boolean> {
-
-        private Exception lastException = null;
-        private ModemStatusManager manager = null;
-        private String clientName = "";
-
-        public AsyncConnectTask(ModemStatusManager modemManager,
-                String clientName) {
-            this.manager = modemManager;
-            this.clientName = clientName;
-        }
-
-        @Override
-        protected Boolean doInBackground(Void... params) {
-            Boolean ret = false;
-
-            if (this.manager != null) {
-                try {
-                    this.manager.connect(clientName);
-                    ret = true;
-                } catch (MmgrClientException ex) {
-                    this.lastException = ex;
-                    ret = false;
-                }
-            }
-            return ret;
-        }
-
-        @Override
-        protected void onPostExecute(Boolean result) {
-            super.onPostExecute(result);
-
-            if (result) {
-                ModemStatusFragment.this.setUIConnectedMode();
-            } else {
-                ModemStatusFragment.this.setUIDisconnectedMode();
-                if (this.lastException != null) {
+    private void doRecoverModem() {
+        if (this.modemManager != null) {
+            this.modemManager.recoverModemAsync(new AsyncOperationResultListener() {
+                @Override
+                public void onOperationError(Exception ex) {
                     MessageBoxHelper.showException(
-                            ModemStatusFragment.this.getActivity(),
-                            this.lastException);
+                            ModemStatusFragment.this.getActivity(), ex);
                 }
-            }
+
+                @Override
+                public void onOperationComplete() {
+                    Toast.makeText(ModemStatusFragment.this.getActivity(),
+                            "Recover request sent",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    private void doRestartModem() {
+        if (this.modemManager != null) {
+            this.modemManager.restartModemAsync(new AsyncOperationResultListener() {
+                @Override
+                public void onOperationError(Exception ex) {
+                    MessageBoxHelper.showException(
+                            ModemStatusFragment.this.getActivity(), ex);
+                }
+
+                @Override
+                public void onOperationComplete() {
+                    Toast.makeText(ModemStatusFragment.this.getActivity(),
+                            "Restart request sent",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    private void doShutdownModem() {
+        if (this.modemManager != null) {
+            this.modemManager.shutdownModemAsync(new AsyncOperationResultListener() {
+                @Override
+                public void onOperationError(Exception ex) {
+                    MessageBoxHelper.showException(
+                            ModemStatusFragment.this.getActivity(), ex);
+                }
+
+                @Override
+                public void onOperationComplete() {
+                    Toast.makeText(ModemStatusFragment.this.getActivity(),
+                            "Shutdown request sent",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    private void doLockModem() {
+        if (this.modemManager != null) {
+            this.modemManager.acquireModemAsync(new AsyncOperationResultListener() {
+                @Override
+                public void onOperationError(Exception ex) {
+                    MessageBoxHelper.showException(
+                            ModemStatusFragment.this.getActivity(), ex);
+                }
+
+                @Override
+                public void onOperationComplete() {
+                    Toast.makeText(ModemStatusFragment.this.getActivity(),
+                            "Acquire request sent",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    private void doReleaseModem() {
+        if (this.modemManager != null) {
+            this.modemManager.releaseModemAsync(new AsyncOperationResultListener() {
+                @Override
+                public void onOperationError(Exception ex) {
+                    MessageBoxHelper.showException(
+                            ModemStatusFragment.this.getActivity(), ex);
+                }
+
+                @Override
+                public void onOperationComplete() {
+                    Toast.makeText(ModemStatusFragment.this.getActivity(),
+                            "Release request sent",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
         }
     }
 
