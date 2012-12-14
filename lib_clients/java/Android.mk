@@ -25,4 +25,4 @@ LOCAL_MODULE_TAGS := optional
 # Only compile source java files in this jar.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-include $(BUILD_JAVA_LIBRARY)
+include $(BUILD_STATIC_JAVA_LIBRARY)
