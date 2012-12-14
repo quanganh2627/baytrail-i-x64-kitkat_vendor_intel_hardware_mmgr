@@ -9,7 +9,10 @@ LOCAL_CFLAGS += -Wall -DSTDIO_LOGS -Wvla
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../../service \
     $(TARGET_OUT_HEADERS)/IFX-modem \
-    $(call include-path-for, glib)
+    $(TARGET_OUT_HEADERS) \
+        hardware/intel/glib/ \
+        hardware/intel/glib/android
+
 LOCAL_SRC_FILES:= \
     ../../service/at.c \
     ../../service/config.c \

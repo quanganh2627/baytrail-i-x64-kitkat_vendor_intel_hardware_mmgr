@@ -8,7 +8,10 @@ LOCAL_MODULE := mmgr
 LOCAL_CFLAGS += -Wall -Wvla
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/IFX-modem \
-    $(call include-path-for, glib)
+    $(TARGET_OUT_HEADERS) \
+        hardware/intel/glib/ \
+        hardware/intel/glib/android
+
 LOCAL_SRC_FILES:= \
     at.c \
     client.c \
