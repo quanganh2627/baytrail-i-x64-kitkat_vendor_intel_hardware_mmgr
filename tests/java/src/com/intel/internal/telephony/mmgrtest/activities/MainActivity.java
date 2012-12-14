@@ -31,6 +31,11 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
 
         // Set up the ViewPager with the sections adapter.
         this.viewPager = (ViewPager) super.findViewById(R.id.pager);
+
+        if (this.viewPager == null) {
+            return;
+        }
+
         this.viewPager.setAdapter(this.sectionsPagerAdapter);
 
         // When swiping between different sections, select the corresponding

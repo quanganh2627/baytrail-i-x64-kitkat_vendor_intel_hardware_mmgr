@@ -84,14 +84,30 @@ public class ModemStatusFragment extends Fragment implements
             this.buttonRequestRelease = (Button) ret
                     .findViewById(R.id.buttonRequestRelease);
 
-            this.buttonRequestRecovery.setOnClickListener(this);
-            this.buttonRequestRestart.setOnClickListener(this);
-            this.buttonRequestShutdown.setOnClickListener(this);
-            this.buttonRequestLock.setOnClickListener(this);
-            this.buttonRequestRelease.setOnClickListener(this);
+            if (this.buttonRequestRecovery != null) {
+                this.buttonRequestRecovery.setOnClickListener(this);
+            }
+
+            if (this.buttonRequestRestart != null) {
+                this.buttonRequestRestart.setOnClickListener(this);
+            }
+
+            if (this.buttonRequestShutdown != null) {
+                this.buttonRequestShutdown.setOnClickListener(this);
+            }
+
+            if (this.buttonRequestLock != null) {
+                this.buttonRequestLock.setOnClickListener(this);
+            }
+
+            if (this.buttonRequestRelease != null) {
+                this.buttonRequestRelease.setOnClickListener(this);
+            }
         }
 
-        this.textViewClientStatus.setText("CONNECTING...");
+        if (this.textViewClientStatus != null) {
+            this.textViewClientStatus.setText("CONNECTING...");
+        }
 
         this.modemManager.connectAsync("MMGR Test", new AsyncOperationResultListener() {
             @Override
