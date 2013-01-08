@@ -149,14 +149,14 @@ static e_reset_operation_state_t pre_out_of_service(reset_management_t *none)
  */
 static e_reset_operation_state_t pre_modem_shutdown(reset_management_t *p_reset)
 {
-    const char gsm_tty1[] = "/dev/gsmtty1";
+    const char shutdown_port[] = "/dev/gsmtty22";
     e_reset_operation_state_t ret = E_OPERATION_CONTINUE;
     int err;
     int fd;
 
     CHECK_PARAM(p_reset, ret, out);
 
-    err = open_tty(gsm_tty1, &fd);
+    err = open_tty(shutdown_port, &fd);
     if (fd < 0) {
         LOG_ERROR("operation FAILED");
     } else {
