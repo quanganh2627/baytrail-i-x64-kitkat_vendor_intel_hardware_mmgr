@@ -349,6 +349,7 @@ static int run_at_xlog(int fd_tty, mmgr_configuration_t *config,
     do {
         read_size = AT_ANSWER_SIZE;
         ret = read_from_tty(fd_tty, data, &read_size, AT_READ_MAX_RETRIES);
+        data[read_size] = '\0';
         if (ret != E_ERR_SUCCESS)
             goto out_xlog;
 
@@ -400,6 +401,7 @@ static int detect_mcdr_protocol(int fd, modem_info_t *info)
     do {
         read_size = AT_ANSWER_SIZE;
         ret = read_from_tty(fd, data, &read_size, AT_READ_MAX_RETRIES);
+        data[read_size] = '\0';
         if (ret != E_ERR_SUCCESS)
             goto out;
 

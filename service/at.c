@@ -50,7 +50,7 @@ static int send_at(int fd, const char *command, int command_size)
 {
     int ret;
     int data_size = AT_SIZE;
-    char data[AT_SIZE];
+    char data[AT_SIZE + 1];
 
     CHECK_PARAM(command, ret, failure);
 
@@ -80,6 +80,7 @@ static int send_at(int fd, const char *command, int command_size)
 
         /* Read response data but give up after AT_READ_MAX_RETRIES tries */
         ret = read_from_tty(fd, data, &data_size, AT_READ_MAX_RETRIES);
+        data[data_size] = '\0';
         if (ret != E_ERR_SUCCESS) {
             if (ret != E_ERR_TTY_BAD_FD)
                 ret = E_ERR_AT_CMD_RESEND;

@@ -152,7 +152,6 @@ int read_from_tty(int fd, char *data, int *data_size, int max_retries)
     }
 
     *data_size = read_size;
-    data[read_size] = '\0';
 failure:
     return ret;
 }
