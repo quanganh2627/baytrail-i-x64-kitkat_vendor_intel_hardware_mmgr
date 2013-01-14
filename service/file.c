@@ -79,7 +79,7 @@ int create_empty_file(char *filename, unsigned long rights)
 
     CHECK_PARAM(filename, ret, out);
 
-    fd = open(filename, O_CREAT, rights);
+    fd = open(filename, O_RDWR | O_CREAT, rights);
     if (fd < 0) {
         LOG_ERROR("Failed to create file %s: (%s)", filename, strerror(errno));
     } else {
