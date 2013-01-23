@@ -19,10 +19,12 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <sys/epoll.h>
+#include <linux/mdm_ctrl.h>
 #include "client.h"
 #include "client_events.h"
 #include "errors.h"
 #include "logs.h"
+#include "modem_events.h"
 #include "modem_specific.h"
 #include "socket.h"
 #include "timer_events.h"
@@ -63,11 +65,11 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
             (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) &&
             !(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
             LOG_DEBUG("wake up modem");
-            if ((ret = modem_up(&mmgr->info)) == E_ERR_SUCCESS) {
-                mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
-                reset_escalation_counter(&mmgr->reset);
-            }
-
+            mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
+            set_mcd_poll_states(mmgr);
+            mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
+            reset_escalation_counter(&mmgr->reset);
+            ret = modem_up(&mmgr->info);
         }
     }
 
@@ -95,9 +97,10 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
         (!mmgr->events.modem_shutdown)) {
         if (check_resource_released(&mmgr->clients, true) == E_ERR_SUCCESS) {
             mmgr->events.modem_shutdown = true;
-            LOG_INFO("modem will be shutdown in %ds if no clients request"
-                     " the ressource", mmgr->config.delay_before_modem_shtdwn);
-            start_timer(&mmgr->timer, E_TIMER_NO_RESOURCE_RELEASE_ACK);
+            LOG_INFO("modem will be shutdown");
+            mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
+            inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN);
+            start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
         }
     }
 out:

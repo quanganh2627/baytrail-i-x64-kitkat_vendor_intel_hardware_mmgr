@@ -47,8 +47,6 @@ typedef struct mmgr_configuration {
     int delay_before_reset;
     int delay_before_reboot;
     int max_retry_time;
-    /* power saving params */
-    int delay_before_modem_shtdwn;
     /* interface */
     int max_clients;
     int time_banned;

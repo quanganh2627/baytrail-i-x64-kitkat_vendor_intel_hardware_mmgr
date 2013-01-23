@@ -94,13 +94,9 @@ e_mmgr_errors_t stop_timer(mmgr_timer_t *timer, e_timer_type_t type)
             (min > timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK]))
             min = timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK];
 
-        if ((timer->type & (0x01 << E_TIMER_NO_RESOURCE_RELEASE_ACK)) &&
-            (min > timer->timeout[E_TIMER_NO_RESOURCE_RELEASE_ACK]))
-            min = timer->timeout[E_TIMER_NO_RESOURCE_RELEASE_ACK];
-
         if ((timer->type & (0x01 << E_TIMER_WAIT_FOR_IPC_READY)) &&
-            (min > timer->timeout[E_TIMER_NO_RESOURCE_RELEASE_ACK]))
-            min = timer->timeout[E_TIMER_NO_RESOURCE_RELEASE_ACK];
+            (min > timer->timeout[E_TIMER_WAIT_FOR_IPC_READY]))
+            min = timer->timeout[E_TIMER_WAIT_FOR_IPC_READY];
 
         timer->cur_timeout = min;
         LOG_DEBUG("update timeout: %dms", timer->cur_timeout);
@@ -144,16 +140,6 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
     }
 
-    if ((mmgr->timer.type & (0x01 << E_TIMER_NO_RESOURCE_RELEASE_ACK)) &&
-        ((current.tv_sec -
-          mmgr->timer.start[E_TIMER_NO_RESOURCE_RELEASE_ACK].tv_sec) >
-         mmgr->config.delay_before_modem_shtdwn)) {
-        mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN);
-        stop_timer(&mmgr->timer, E_TIMER_NO_RESOURCE_RELEASE_ACK);
-        start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-    }
-
     if ((mmgr->timer.type & (0x01 << E_TIMER_WAIT_FOR_IPC_READY)) &&
         ((current.tv_sec - mmgr->timer.start[E_TIMER_WAIT_FOR_IPC_READY].tv_sec)
          > mmgr->config.modem_reset_delay)) {
@@ -187,8 +173,6 @@ e_mmgr_errors_t timer_init(mmgr_timer_t *timer, mmgr_configuration_t *config)
     timer->cur_timeout = TIMEOUT_EPOLL_INFINITE;
     timer->timeout[E_TIMER_COLD_RESET_ACK] = TIMEOUT_EPOLL_ACK;
     timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK] = TIMEOUT_EPOLL_ACK;
-    timer->timeout[E_TIMER_NO_RESOURCE_RELEASE_ACK] =
-        (config->delay_before_modem_shtdwn * 1000) / STEPS;
     timer->timeout[E_TIMER_WAIT_FOR_IPC_READY] =
         (config->modem_reset_delay * 1000) / STEPS;
 out:

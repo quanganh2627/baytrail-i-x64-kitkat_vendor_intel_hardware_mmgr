@@ -67,10 +67,9 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     CHECK_PARAM(info, ret, out);
 
-    info->ev = E_EV_WAIT_FOR_IPC_READY;
+    info->ev = E_EV_NONE;
     info->restore_timeout = config->max_retry_time;
-    info->polled_states =
-        MDM_CTRL_STATE_COREDUMP | MDM_CTRL_STATE_OFF | MDM_CTRL_STATE_IPC_READY;
+    info->polled_states = MDM_CTRL_STATE_COREDUMP | MDM_CTRL_STATE_OFF;
 
     ret = core_dump_init(config, &info->mcdr);
     if (ret != E_ERR_SUCCESS)
@@ -83,7 +82,6 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
         ret = E_ERR_FAILED;
         goto out;
     }
-    ret = modem_up(info);
 out:
     return ret;
 }

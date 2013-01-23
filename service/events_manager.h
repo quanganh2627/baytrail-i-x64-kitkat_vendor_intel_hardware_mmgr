@@ -36,7 +36,6 @@
 #define TIMER \
     X(COLD_RESET_ACK), \
     X(MODEM_SHUTDOWN_ACK), \
-    X(NO_RESOURCE_RELEASE_ACK), \
     X(WAIT_FOR_IPC_READY), \
     X(NUM)
 

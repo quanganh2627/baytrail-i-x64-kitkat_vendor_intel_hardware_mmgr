@@ -453,8 +453,7 @@ int resource_check(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN,
-                         test->config.delay_before_modem_shtdwn + 5);
+    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN, 5);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
