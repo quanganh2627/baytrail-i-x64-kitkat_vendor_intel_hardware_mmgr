@@ -255,6 +255,7 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     }
     if ((mmgr->reset.state != E_OPERATION_SKIP) &&
         (mmgr->reset.state != E_OPERATION_WAIT)) {
+        close_tty(&mmgr->fd_tty);
 
         modem_escalation_recovery(&mmgr->reset);
 
@@ -332,10 +333,6 @@ e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr)
         LOG_DEBUG("Modem is OFF and should not be: powering on modem");
         if ((ret = modem_up(&mmgr->info)) != E_ERR_SUCCESS)
             goto out;
-    }
-    if (mmgr->info.ev != E_EV_NONE) {
-        if (mmgr->fd_tty != CLOSED_FD)
-            close_tty(&mmgr->fd_tty);
     }
 
     if (state & E_EV_CORE_DUMP) {

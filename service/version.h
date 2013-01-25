@@ -69,10 +69,9 @@
  ** 3.2.7  - 2013-01-11 - BZ 78991 - fix off by one error in send_at() function
  ** 3.2.7  - 2013-01-18 - BZ 78911 - change modem shutdown port
  ** 3.2.8  - 2013-01-18 - BZ 40361 - implement Modem Control Driver
- ** 3.2.9  - 2013-01-18 - BZ 79757 - close tty before core dump management
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "3.2.9"
+#define MODULE_VERSION "3.2.8"
