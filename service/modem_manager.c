@@ -71,7 +71,7 @@ static void sig_handler(int sig)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if failed
  */
-static e_mmgr_errors_t set_signal_handler(void)
+static int set_signal_handler(void)
 {
     struct sigaction sigact;
     int err = E_ERR_FAILED;
@@ -113,7 +113,7 @@ end_set_signal_handler:
 int main(int argc, char *argv[])
 {
     int err;
-    e_mmgr_errors_t ret = EXIT_SUCCESS;
+    int ret = EXIT_SUCCESS;
     char *conf_file = DEFAULT_MMGR_CONFIG_FILE;
     mmgr_data_t mmgr;
 
@@ -187,6 +187,11 @@ int main(int argc, char *argv[])
         ret = EXIT_FAILURE;
         goto out;
     }
+
+    /* @TODO REMOVE ME:
+       workaround for 7060 to give more time to modem at boot */
+    if (mmgr.info.hsi_type == E_HSI_DLP)
+        sleep(5);
 
     events_manager(&mmgr);
 out:

@@ -164,7 +164,7 @@ out:
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if successful
  */
-int modem_state_set(test_data_t *test_data, int state)
+int set_modem_state(test_data_t *test_data, int state)
 {
     int ret = E_ERR_SUCCESS;
 
@@ -187,7 +187,7 @@ out:
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int modem_state_get(test_data_t *test_data, int *state)
+int get_modem_state(test_data_t *test_data, int *state)
 {
     int ret = E_ERR_SUCCESS;
 
@@ -236,7 +236,7 @@ out:
  * This function is used by scandir to find crashlog folders
  * where core dump files are stored.
  */
-static int filter_folder(const struct dirent *d)
+int filter_folder(const struct dirent *d)
 {
     const char *pattern = "crashlog";
     char *found = strstr(d->d_name, pattern);
@@ -246,7 +246,7 @@ static int filter_folder(const struct dirent *d)
 /**
  * This function is used by scandir to find core dump archives
  */
-static int filter_archive(const struct dirent *d)
+int filter_archive(const struct dirent *d)
 {
     const char *pattern = ".tar.gz";
     char *found = strstr(d->d_name, pattern);
@@ -257,7 +257,7 @@ static int filter_archive(const struct dirent *d)
 /**
  * This function is used scandir to compare two elements (files or directory)
  */
-static int compare_function(const struct dirent **a, const struct dirent **b)
+int compare_function(const struct dirent **a, const struct dirent **b)
 {
     return strncmp((*a)->d_name, (*b)->d_name, sizeof((*b)->d_name) - 1);
 }
@@ -419,7 +419,7 @@ int wait_for_state(test_data_t *test_data, int state, int timeout)
                                    &ts);
         pthread_mutex_unlock(&test_data->cond_mutex);
 
-        modem_state_get(test_data, &current_state);
+        get_modem_state(test_data, &current_state);
 
         /* ack new modem state by releasing the new_state_read mutex */
         pthread_mutex_trylock(&test_data->new_state_read);
@@ -674,8 +674,7 @@ out:
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int update_cd_state(aplog_thread_t *test_data,
-                           core_dump_retrieval_t state)
+int update_cd_state(aplog_thread_t *test_data, core_dump_retrieval_t state)
 {
     int ret = E_ERR_SUCCESS;
 
@@ -691,7 +690,7 @@ out:
 /**
  * Clear aplogs
  */
-static void clear_logs(void)
+void clear_logs(void)
 {
     char *execv_args[] = { "logcat", "-c", NULL };
     int pid;
@@ -720,7 +719,7 @@ static void clear_logs(void)
  * @return E_ERR_BAD_PARAMETER if data is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int extract_core_dump_name(aplog_thread_t *test_data, int fd)
+int extract_core_dump_name(aplog_thread_t *test_data, int fd)
 {
     int epollfd;
     bool running = true;

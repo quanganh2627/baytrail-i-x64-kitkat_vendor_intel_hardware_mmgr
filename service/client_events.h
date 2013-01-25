@@ -21,8 +21,8 @@
 
 #include "events_manager.h"
 
-e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr);
-e_mmgr_errors_t new_client(mmgr_data_t *mmgr);
-e_mmgr_errors_t known_client(mmgr_data_t *mmgr);
+int client_events_init(mmgr_data_t *mmgr);
+int new_client(mmgr_data_t *mmgr);
+int known_client(mmgr_data_t *mmgr);
 
 #endif                          /* __MMGR_CLIENT_EVENTS_HEADER__ */

@@ -19,10 +19,10 @@
 #ifndef __MMGR_SOCKET_HEADER__
 #define __MMGR_SOCKET_HEADER__
 
-e_mmgr_errors_t open_socket(int *fd);
-e_mmgr_errors_t close_socket(int *fd);
-e_mmgr_errors_t accept_socket(int fd);
-e_mmgr_errors_t read_socket(int fd, void *data, size_t *len);
-e_mmgr_errors_t write_socket(int fd, void *data, size_t *len);
+int open_socket(int *fd);
+int close_socket(int *fd);
+int accept_socket(int fd);
+int read_socket(int fd, void *data, size_t *len);
+int write_socket(int fd, void *data, size_t *len);
 
 #endif                          /* __MMGR_SOCKET_HEADER__ */

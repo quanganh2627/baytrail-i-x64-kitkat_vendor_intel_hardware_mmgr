@@ -17,11 +17,7 @@
  */
 
 #include <errno.h>
-#include <linux/mdm_ctrl.h>
 #include <sys/epoll.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include "crash_logger.h"
 #include "errors.h"
 #include "file.h"
@@ -29,7 +25,6 @@
 #include "logs.h"
 #include "modem_events.h"
 #include "mux.h"
-#include "timer_events.h"
 #include "tty.h"
 
 /* wakelocks declaration */
@@ -37,33 +32,6 @@
 #define WAKE_UNLOCK_SYSFS "/sys/power/wake_unlock"
 
 #define READ_SIZE 1024
-
-/**
- * update mcd poll
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-inline e_mmgr_errors_t set_mcd_poll_states(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    LOG_DEBUG("update mcd states filter: 0x%.2X", mmgr->info.polled_states);
-    if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_POLLED_STATES,
-              &mmgr->info.polled_states) == -1) {
-        LOG_DEBUG("failed to set Modem Control Driver polled states: %s",
-                  strerror(errno));
-        ret = E_ERR_FAILED;
-    }
-
-out:
-    return ret;
-}
 
 /**
  * add new tty file descriptor to epoll
@@ -74,10 +42,10 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-static e_mmgr_errors_t update_modem_tty(mmgr_data_t *mmgr)
+static int update_modem_tty(mmgr_data_t *mmgr)
 {
     struct epoll_event ev;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -89,10 +57,6 @@ static e_mmgr_errors_t update_modem_tty(mmgr_data_t *mmgr)
         ret = E_ERR_FAILED;
         goto out;
     }
-
-    mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP | MDM_CTRL_STATE_OFF;
-
-    ret = set_mcd_poll_states(mmgr);
 
 out:
     return ret;
@@ -107,9 +71,9 @@ out:
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t state_modem_warm_reset(mmgr_data_t *mmgr)
+static int state_modem_warm_reset(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -130,23 +94,24 @@ out:
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t state_modem_cold_reset(mmgr_data_t *mmgr)
+static int state_modem_cold_reset(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
+    int timeout = TIMEOUT_EPOLL_ACK;
 
     CHECK_PARAM(mmgr, ret, out);
 
     if (mmgr->reset.state == E_OPERATION_WAIT) {
-        mmgr->client_notification = E_MMGR_NOTIFY_MODEM_COLD_RESET;
-        inform_all_clients(&mmgr->clients, mmgr->client_notification);
+        mmgr->modem_state = E_MMGR_NOTIFY_MODEM_COLD_RESET;
+        inform_all_clients(&mmgr->clients, mmgr->modem_state);
         LOG_DEBUG("need to ack all clients");
         mmgr->events.inform_down = false;
-        start_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
+        START_TIMER(mmgr->timer, timeout);
         ret = E_ERR_FAILED;
     } else {
         broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
         reset_cold_ack(&mmgr->clients);
-        stop_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
+        STOP_TIMER(mmgr->timer);
     }
 out:
     return ret;
@@ -161,16 +126,16 @@ out:
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t state_platform_reboot(mmgr_data_t *mmgr)
+static int state_platform_reboot(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    int ret = E_ERR_FAILED;
 
     CHECK_PARAM(mmgr, ret, out);
 
     create_empty_file(CL_REBOOT_FILE, CL_FILE_PERMISSIONS);
     /* inform crashloger that the platform will be rebooted */
-    mmgr->client_notification = E_MMGR_NOTIFY_PLATFORM_REBOOT;
-    inform_all_clients(&mmgr->clients, mmgr->client_notification);
+    mmgr->modem_state = E_MMGR_NOTIFY_PLATFORM_REBOOT;
+    inform_all_clients(&mmgr->clients, mmgr->modem_state);
     broadcast_msg(E_MSG_INTENT_PLATFORM_REBOOT);
     sleep(mmgr->config.delay_before_reboot);
 out:
@@ -186,17 +151,15 @@ out:
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t state_modem_out_of_service(mmgr_data_t *mmgr)
+static int state_modem_out_of_service(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    int ret = E_ERR_FAILED;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
-    inform_all_clients(&mmgr->clients, mmgr->client_notification);
+    mmgr->modem_state = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
+    inform_all_clients(&mmgr->clients, mmgr->modem_state);
     broadcast_msg(E_MSG_INTENT_MODEM_OUT_OF_SERVICE);
-    mmgr->info.polled_states = 0;
-    ret = set_mcd_poll_states(mmgr);
 out:
     return ret;
 }
@@ -210,14 +173,14 @@ out:
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t state_modem_shutdown(mmgr_data_t *mmgr)
+static int state_modem_shutdown(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    int ret = E_ERR_FAILED;
 
     CHECK_PARAM(mmgr, ret, out);
 
     reset_shutdown_ack(&mmgr->clients);
-    stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+    STOP_TIMER(mmgr->timer);
 out:
     return ret;
 }
@@ -231,9 +194,9 @@ out:
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
+static int reset_modem(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -247,7 +210,7 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 
     if (mmgr->events.inform_down) {
         if (mmgr->reset.level.id != E_EL_MODEM_OUT_OF_SERVICE) {
-            mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
+            mmgr->modem_state = E_MMGR_EVENT_MODEM_DOWN;
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
         }
         if (mmgr->info.ev & E_EV_AP_RESET)
@@ -256,20 +219,8 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     if ((mmgr->reset.state != E_OPERATION_SKIP) &&
         (mmgr->reset.state != E_OPERATION_WAIT)) {
         close_tty(&mmgr->fd_tty);
-
         modem_escalation_recovery(&mmgr->reset);
-
-        if ((mmgr->reset.level.id != E_EL_MODEM_OUT_OF_SERVICE) &&
-            (mmgr->reset.level.id != E_EL_MODEM_SHUTDOWN)) {
-
-            mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-            ret = set_mcd_poll_states(mmgr);
-
-            mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
-            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-        }
     }
-
 out:
     return ret;
 }
@@ -278,13 +229,14 @@ out:
  * open TTY and configure MUX
  *
  * @param [in,out] mmgr mmgr context
+ * @param [in] timeout switch to mux timeout
  *
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
+static int configure_modem(mmgr_data_t *mmgr, int timeout)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
     ret = open_tty(mmgr->config.modem_port, &mmgr->fd_tty);
@@ -293,11 +245,10 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
         mmgr->info.ev |= E_EV_OPEN_FAILED;
         goto out;
     }
-    ret = switch_to_mux(&mmgr->fd_tty, &mmgr->config, &mmgr->info,
-                        mmgr->info.restore_timeout);
+    ret = switch_to_mux(&mmgr->fd_tty, &mmgr->config, &mmgr->info, timeout);
     if (ret == E_ERR_SUCCESS) {
-        LOG_VERBOSE("Switch to MUX succeed");
-        mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
+        LOG_VERBOSE("switched to MUX Success");
+        mmgr->modem_state = E_MMGR_EVENT_MODEM_UP;
     } else {
         LOG_ERROR("MUX INIT FAILED. reason=%d", ret);
     }
@@ -316,52 +267,55 @@ out:
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr)
+int restore_modem(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    e_modem_events_type_t state;
+    int ret = E_ERR_SUCCESS;
+    int timeout = mmgr->config.max_retry_time;
 
     write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
 
-    ret = get_modem_state(mmgr->info.fd_mcd, &state);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
+    /* @TODO remove close tty once hsi issue solved:
+       if a get_hangup_reason is done before closing the tty,
+       the driver hangs */
+    if (!mmgr->reset.modem_shutdown)
+        close_tty(&mmgr->fd_tty);
 
-    mmgr->info.ev |= state;
-    if (state & E_EV_MODEM_OFF && !mmgr->reset.modem_shutdown) {
-        LOG_DEBUG("Modem is OFF and should not be: powering on modem");
-        if ((ret = modem_up(&mmgr->info)) != E_ERR_SUCCESS)
-            goto out;
-    }
-
-    if (state & E_EV_CORE_DUMP) {
-        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP);
-        broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
-
-        mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-        inform_all_clients(&mmgr->clients, mmgr->client_notification);
-
-        mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-        ret = set_mcd_poll_states(mmgr);
-
-        manage_core_dump(&mmgr->config, &mmgr->info);
-        broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
-    }
-
-    if (mmgr->info.ev != E_EV_NONE) {
-        if (mmgr->info.ev & E_EV_CORE_DUMP_SUCCEED) {
-            LOG_DEBUG("specific timeout after core dump detection");
-            mmgr->info.restore_timeout = TIMEOUT_HANDSHAKE_AFTER_CD;
-        } else {
-            mmgr->info.restore_timeout = mmgr->config.max_retry_time;
-        }
-        ret = reset_modem(mmgr);
+    do {
+        ret = check_modem_state(&mmgr->config, &mmgr->info);
         if (ret != E_ERR_SUCCESS)
             goto out;
-    }
+
+        if (mmgr->info.ev & E_EV_CORE_DUMP) {
+            inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP);
+            broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
+
+            mmgr->modem_state = E_MMGR_EVENT_MODEM_DOWN;
+            inform_all_clients(&mmgr->clients, mmgr->modem_state);
+            manage_core_dump(&mmgr->config, &mmgr->info);
+            broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
+        }
+
+        if (mmgr->info.ev != E_EV_NONE) {
+            if (mmgr->info.ev & E_EV_CORE_DUMP_SUCCEED) {
+                LOG_DEBUG("specific timeout after core dump detection");
+                timeout = TIMEOUT_HANDSHAKE_AFTER_CD;
+            } else {
+                timeout = mmgr->config.max_retry_time;
+            }
+            ret = reset_modem(mmgr);
+            if (ret != E_ERR_SUCCESS)
+                goto out;
+        }
+        ret = configure_modem(mmgr, timeout);
+        crash_logger(&mmgr->info);
+    } while (ret != E_ERR_SUCCESS);
 
 out:
+    if ((ret == E_ERR_SUCCESS) && (mmgr->reset.level.id != E_EL_MODEM_SHUTDOWN)) {
+        update_modem_tty(mmgr);
+        inform_all_clients(&mmgr->clients, mmgr->modem_state);
+    }
     write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
     return ret;
@@ -376,9 +330,9 @@ out:
  * @return E_ERR_TTY_BAD_FD failed to open tty. perform a modem reset
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_event(mmgr_data_t *mmgr)
+int modem_event(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
     size_t data_size = READ_SIZE;
     char data[READ_SIZE];
     ssize_t read_size;
@@ -393,62 +347,7 @@ e_mmgr_errors_t modem_event(mmgr_data_t *mmgr)
     if (epoll_ctl(mmgr->epollfd, EPOLL_CTL_DEL, mmgr->fd_tty, NULL) == -1)
         LOG_DEBUG("epoll remove (%s)", strerror(errno));
 
-    mmgr->events.do_restore_modem = true;
-out:
-    return ret;
-}
-
-/**
- * handle modem control event
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if config or events is/are NULL
- * @return E_ERR_TTY_BAD_FD failed to open tty. perform a modem reset
- * @return E_ERR_SUCCESS if successful
- */
-e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    e_modem_events_type_t state;
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    get_modem_state(mmgr->info.fd_mcd, &state);
-    mmgr->info.ev |= state;
-
-    /* if the IPC is not ready, consider a reset of the modem
-       modem_event does that just fine.
-       if IPC is ready, start HSIC and remove wait on IPC_READY */
-    if (state & E_EV_IPC_READY) {
-
-        stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-
-        ret = configure_modem(mmgr);
-        crash_logger(&mmgr->info);
-        if (ret == E_ERR_SUCCESS) {
-            mmgr->info.ev = E_EV_NONE;
-            if (mmgr->reset.level.id != E_EL_MODEM_SHUTDOWN) {
-                update_modem_tty(mmgr);
-                inform_all_clients(&mmgr->clients, mmgr->client_notification);
-            }
-        } else {
-            LOG_DEBUG("Failed to configure modem. Reset on-going");
-            mmgr->info.ev = E_EV_FORCE_RESET;
-            mmgr->events.do_restore_modem = true;
-        }
-    } else if ((state & E_EV_MODEM_OFF) && mmgr->reset.modem_shutdown) {
-        /* modem electrical shutdown requested, do nothing but wait on
-           IPC_READY */
-        LOG_DEBUG("Modem is OFF and modem_shutdown has been requested, "
-                  "just wait for IPC_READY");
-        mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
-        ret = set_mcd_poll_states(mmgr);
-    } else {
-        /* Signal a Modem Event */
-        ret = modem_event(mmgr);
-    }
-
+    mmgr->events.restore_modem = true;
 out:
     return ret;
 }
@@ -461,9 +360,9 @@ out:
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_events_init(mmgr_data_t *mmgr)
+int modem_events_init(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 

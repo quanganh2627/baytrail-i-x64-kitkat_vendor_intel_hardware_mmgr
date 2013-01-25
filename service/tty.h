@@ -21,13 +21,12 @@
 
 #define DELAY_BETWEEN_SUCCESSIVE_READ 20000     /* in milliseconds */
 
-e_mmgr_errors_t open_tty(const char *tty_name, int *fd);
-e_mmgr_errors_t close_tty(int *fd);
-e_mmgr_errors_t set_termio(int fd);
-e_mmgr_errors_t write_to_tty(int fd, const char *data, int data_size);
-e_mmgr_errors_t initialize_epoll(int *epollfd, int fd, int events);
-e_mmgr_errors_t wait_for_tty_event(int fd, int timeout);
-e_mmgr_errors_t read_from_tty(int fd, char *data, int *data_size,
-                              int max_retries);
+int open_tty(const char *tty_name, int *fd);
+int close_tty(int *fd);
+int set_termio(int fd);
+int write_to_tty(int fd, const char *data, int data_size);
+int initialize_epoll(int *epollfd, int fd, int events);
+int wait_for_tty_event(int fd, int timeout);
+int read_from_tty(int fd, char *data, int *data_size, int max_retries);
 
 #endif                          /* __MMGR_TTY_HEADER__ */

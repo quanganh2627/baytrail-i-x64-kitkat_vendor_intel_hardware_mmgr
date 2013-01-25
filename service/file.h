@@ -22,8 +22,7 @@
 #include <sys/stat.h>
 #define SYSFS_OPEN_MODE S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP
 
-e_mmgr_errors_t write_to_file(char *path, unsigned long mode, char *value,
-                              size_t size);
-e_mmgr_errors_t create_empty_file(char *filename, unsigned long rights);
+int write_to_file(char *path, unsigned long mode, char *value, size_t size);
+int create_empty_file(char *filename, unsigned long rights);
 
 #endif                          /* __MMGR_FILE_HEADER__ */

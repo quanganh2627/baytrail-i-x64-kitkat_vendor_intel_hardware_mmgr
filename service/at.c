@@ -46,9 +46,9 @@
  * @return E_ERR_TTY_BAD_FD if a bad file descriptor is provided
  * @return E_ERR_BAD_PARAMETER if data is NULL
  */
-static e_mmgr_errors_t send_at(int fd, const char *command, int command_size)
+static int send_at(int fd, const char *command, int command_size)
 {
-    e_mmgr_errors_t ret;
+    int ret;
     int data_size = AT_SIZE;
     char data[AT_SIZE + 1];
 
@@ -122,8 +122,8 @@ failure:
  * @return E_ERR_TTY_BAD_FD bad file descriptor
  * @return E_ERR_BAD_PARAMETER if at_cmd is NULL
  */
-e_mmgr_errors_t send_at_timeout(int fd_tty, const char *at_cmd, int at_cmd_size,
-                                int timeout)
+int send_at_timeout(int fd_tty, const char *at_cmd, int at_cmd_size,
+                    int timeout)
 {
     struct timespec start;
     struct timespec current;

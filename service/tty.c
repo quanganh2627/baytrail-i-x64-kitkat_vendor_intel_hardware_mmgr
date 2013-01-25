@@ -38,10 +38,10 @@
  * @return E_ERR_FAILED initialization fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t initialize_epoll(int *epollfd, int fd, int events)
+int initialize_epoll(int *epollfd, int fd, int events)
 {
     struct epoll_event ev;
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    int ret = E_ERR_FAILED;
 
     CHECK_PARAM(epollfd, ret, out);
 
@@ -74,12 +74,12 @@ out:
  * @return E_ERR_TTY_POLLHUP if a pollhup occurs
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t wait_for_tty_event(int fd, int timeout)
+int wait_for_tty_event(int fd, int timeout)
 {
     struct epoll_event ev;
     int epollfd;
     int err;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
 
     ret = initialize_epoll(&epollfd, fd, EPOLLIN | EPOLLHUP);
     if (ret != E_ERR_SUCCESS)
@@ -120,13 +120,12 @@ out:
  * @return E_ERR_BAD_PARAMETER if data or data_size is/are NULL
  * @return E_ERR_TTY_ERROR otherwise
  */
-e_mmgr_errors_t read_from_tty(int fd, char *data, int *data_size,
-                              int max_retries)
+int read_from_tty(int fd, char *data, int *data_size, int max_retries)
 {
     int i;
     int err;
     int read_size = 0;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(data, ret, failure);
     CHECK_PARAM(data_size, ret, failure);
@@ -168,28 +167,28 @@ failure:
  * @return E_ERR_TTY_ERROR if nothing has been written
  * @return E_ERR_TTY_BAD_FD if write fails
  */
-e_mmgr_errors_t write_to_tty(int fd, const char *data, int data_size)
+int write_to_tty(int fd, const char *data, int data_size)
 {
-    int err = 0;
+    int ret = 0;
     int cur = 0;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int err = E_ERR_SUCCESS;
 
     do {
-        err = write(fd, data + cur, data_size - cur);
+        ret = write(fd, data + cur, data_size - cur);
         cur += ret;
 
-        if (err == 0) {
+        if (ret == 0) {
             LOG_ERROR("write nothing (%s) fd=%d", strerror(errno), fd);
-            ret = E_ERR_TTY_ERROR;
+            err = E_ERR_TTY_ERROR;
             break;
-        } else if (err < 0) {
+        } else if (ret < 0) {
             LOG_ERROR("write error (%s) fd=%d", strerror(errno), fd);
-            ret = E_ERR_TTY_BAD_FD;
+            err = E_ERR_TTY_BAD_FD;
             break;
         }
     } while (cur < data_size);
 
-    return ret;
+    return err;
 }
 
 /**
@@ -200,10 +199,10 @@ e_mmgr_errors_t write_to_tty(int fd, const char *data, int data_size)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_TTY_ERROR if nothing has been written
  */
-e_mmgr_errors_t set_termio(int fd)
+int set_termio(int fd)
 {
     struct termios newtio;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
 
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
         LOG_ERROR("fcntl failed (%s)", strerror(errno));
@@ -247,9 +246,9 @@ out:
  * @return E_ERR_TTY_BAD_FD if open fails
  * @return E_ERR_BAD_PARAMETER tty_name or fd is/are NULL
  */
-e_mmgr_errors_t open_tty(const char *tty_name, int *fd)
+int open_tty(const char *tty_name, int *fd)
 {
-    e_mmgr_errors_t ret = E_ERR_TTY_BAD_FD;
+    int ret = E_ERR_TTY_BAD_FD;
     int count;
 
     CHECK_PARAM(tty_name, ret, out);
@@ -276,7 +275,6 @@ e_mmgr_errors_t open_tty(const char *tty_name, int *fd)
             *fd = CLOSED_FD;
         } else {
             ret = E_ERR_SUCCESS;
-            LOG_DEBUG("done");
         }
     }
 out:
@@ -292,9 +290,9 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_TTY_ERROR if nothing has been written
  */
-e_mmgr_errors_t close_tty(int *fd)
+int close_tty(int *fd)
 {
-    e_mmgr_errors_t ret = E_ERR_TTY_ERROR;
+    int ret = E_ERR_TTY_ERROR;
 
     CHECK_PARAM(fd, ret, out);
 
