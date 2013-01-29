@@ -613,15 +613,14 @@ int check_modem_state(mmgr_configuration_t *config, modem_info_t *info)
                       "Skip escalation recovery");
         }
     }
-    if (reason & HU_RESET) {
+    if (reason & HU_COREDUMP) {
+        LOG_INFO("%s STATE: MODEM CORE DUMP AVAILABLE", MODULE_NAME);
+        info->ev |= E_EV_CORE_DUMP;
+    } else if (reason & HU_RESET) {
         LOG_INFO("%s STATE: MODEM SELF RESET", MODULE_NAME);
         info->ev |= E_EV_MODEM_SELF_RESET;
         /* give some time to modem to self reset */
         usleep(SELF_RESET_SLEEP);
-    }
-    if (reason & HU_COREDUMP) {
-        LOG_INFO("%s STATE: MODEM CORE DUMP AVAILABLE", MODULE_NAME);
-        info->ev |= E_EV_CORE_DUMP;
     }
 out:
     return ret;

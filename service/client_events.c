@@ -372,7 +372,7 @@ int known_client(mmgr_data_t *mmgr)
                 memcpy(&mmgr->request.received.ts,
                        data + sizeof(e_mmgr_requests_t), sizeof(uint32_t));
 
-                tmp = (e_mmgr_requests_t) ntohl(tmp);
+                tmp = (e_mmgr_requests_t)ntohl(tmp);
                 memcpy(&mmgr->request.received, &tmp,
                        sizeof(e_mmgr_requests_t));
                 mmgr->request.received.ts = ntohl(mmgr->request.received.ts);
