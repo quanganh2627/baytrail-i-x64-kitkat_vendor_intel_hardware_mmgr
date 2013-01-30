@@ -254,9 +254,13 @@ e_mmgr_errors_t open_tty(const char *tty_name, int *fd)
         if (*fd > 0) {
             break;
         } else {
-            if (errno != EAGAIN)
+            if ((errno == EAGAIN) || (errno == EACCES)) {
+                sleep(1);
+                LOG_DEBUG("retry to open %s due to (%s) failure",
+                          tty_name, strerror(errno));
+            } else {
                 break;
-            sleep(1);
+            }
         }
     }
 
