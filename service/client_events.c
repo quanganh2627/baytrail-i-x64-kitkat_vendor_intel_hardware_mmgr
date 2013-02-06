@@ -176,7 +176,7 @@ static e_mmgr_errors_t request_ack_cold_reset(mmgr_data_t *mmgr)
         mmgr->request.client->cold_reset = true;
         if (check_cold_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
             LOG_DEBUG("All clients agreed cold reset");
-            mmgr->info.ev |= E_EV_AP_RESET;
+            mmgr->info.ev |= E_EV_FORCE_RESET;
             mmgr->events.do_restore_modem = true;
         }
     }

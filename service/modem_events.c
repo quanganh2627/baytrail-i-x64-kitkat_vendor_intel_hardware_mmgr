@@ -428,6 +428,9 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
 
         ret = configure_modem(mmgr);
+        /* do not report a modem self-reset in case of a core dump */
+        if (mmgr->info.ev & E_EV_CORE_DUMP)
+            mmgr->info.ev &= ~E_EV_MODEM_SELF_RESET;
         crash_logger(&mmgr->info);
         if (ret == E_ERR_SUCCESS) {
             mmgr->info.ev = E_EV_NONE;

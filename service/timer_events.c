@@ -131,7 +131,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         ((current.tv_sec - mmgr->timer.start[E_TIMER_COLD_RESET_ACK].tv_sec)
          > TIMEOUT_ACK)) {
         check_cold_ack(&mmgr->clients, true);
-        mmgr->info.ev |= E_EV_AP_RESET;
+        mmgr->info.ev |= E_EV_FORCE_RESET;
         mmgr->events.do_restore_modem = true;
         stop_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
     }
