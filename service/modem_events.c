@@ -65,6 +65,27 @@ out:
     return ret;
 }
 
+static void read_core_dump(mmgr_data_t *mmgr)
+{
+    /* CRITICAL section: */
+    write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
+                  strlen(MODULE_NAME));
+
+    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP);
+    broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
+
+    manage_core_dump(&mmgr->config, &mmgr->info);
+    broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
+
+    mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
+    start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+
+    mmgr->events.do_restore_modem = true;
+    write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
+                  strlen(MODULE_NAME));
+}
+
+
 /**
  * add new tty file descriptor to epoll
  *
@@ -307,8 +328,8 @@ out:
 }
 
 /**
- * restore the modem. This function retrieves the core dump if available,
- * reset the modem if needed and configure it
+ * restore the modem. This function resets the modem if needed and
+ * configures it
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -320,37 +341,9 @@ out:
 e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    e_modem_events_type_t state;
 
     write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
-
-    ret = get_modem_state(mmgr->info.fd_mcd, &state);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
-
-    mmgr->info.ev |= state;
-    if (state & E_EV_MODEM_OFF && !mmgr->reset.modem_shutdown) {
-        LOG_DEBUG("Modem is OFF and should not be: powering on modem");
-        if ((ret = modem_up(&mmgr->info)) != E_ERR_SUCCESS)
-            goto out;
-    }
-    if (state & E_EV_CORE_DUMP) {
-        if (mmgr->fd_tty != CLOSED_FD) {
-            mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
-
-            close_tty(&mmgr->fd_tty);
-        }
-        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP);
-        broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
-
-        mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-        ret = set_mcd_poll_states(mmgr);
-
-        manage_core_dump(&mmgr->config, &mmgr->info);
-        broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
-    }
 
     if (mmgr->info.ev != E_EV_NONE) {
         if (mmgr->info.ev & E_EV_CORE_DUMP_SUCCEED) {
@@ -443,12 +436,32 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
             mmgr->info.ev = E_EV_FORCE_RESET;
             mmgr->events.do_restore_modem = true;
         }
+    } else if (state & E_EV_CORE_DUMP) {
+        LOG_DEBUG("current state: E_EV_CORE_DUMP");
+
+        if (mmgr->fd_tty != CLOSED_FD) {
+            mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
+            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
+
+            close_tty(&mmgr->fd_tty);
+        }
+
+        mmgr->info.polled_states &= ~MDM_CTRL_STATE_COREDUMP;
+        set_mcd_poll_states(mmgr);
+
+        read_core_dump(mmgr);
     } else if ((state & E_EV_MODEM_OFF) && mmgr->reset.modem_shutdown) {
         /* modem electrical shutdown requested, do nothing but wait on
            IPC_READY */
         LOG_DEBUG("Modem is OFF and modem_shutdown has been requested, "
                   "just wait for IPC_READY");
         mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
+        ret = set_mcd_poll_states(mmgr);
+    } else if (state & E_EV_MODEM_OFF && !mmgr->reset.modem_shutdown) {
+        LOG_DEBUG("Modem is OFF and should not be: powering on modem");
+        if ((ret = modem_up(&mmgr->info)) != E_ERR_SUCCESS)
+            goto out;
+        mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
         ret = set_mcd_poll_states(mmgr);
     } else {
         /* Signal a Modem Event */
