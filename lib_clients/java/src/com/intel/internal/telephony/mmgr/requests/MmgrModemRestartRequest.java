@@ -16,26 +16,23 @@
  *
  */
 
-package com.intel.internal.telephony.mmgr;
+package com.intel.internal.telephony.mmgr.requests;
 
-import java.nio.ByteBuffer;
+import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
-import com.intel.internal.telephony.ModemRequestArgs;
+public class MmgrModemRestartRequest extends MmgrBaseRequest {
 
-public class MmgrModemLockRequest extends ModemRequestArgs {
-
-    @Override
-    public byte[] getFrame() {
-        ByteBuffer ret = ByteBuffer.allocate(8);
-
-        ret.putInt(MedfieldMmgrClient.RESOURCE_ACQUIRE);
-        ret.putInt(super.getTimestamp());
-
-        return ret.array();
+    public MmgrModemRestartRequest() {
+        super(MedfieldMmgrClient.REQUEST_MODEM_RESTART);
     }
 
     @Override
     public String getName() {
-        return "ModemLockRequest";
+        return "ModemRestartRequest";
+    }
+
+    @Override
+    protected byte[] getPayload() {
+        return new byte[0];
     }
 }

@@ -16,26 +16,30 @@
  *
  */
 
-package com.intel.internal.telephony.mmgr;
+package com.intel.internal.telephony.mmgr.responses;
 
-import java.nio.ByteBuffer;
+public class MmgrAckResponse extends MmgrBaseResponse {
 
-import com.intel.internal.telephony.ModemRequestArgs;
+    private boolean ack = false;
 
-public class MmgrModemRestartRequest extends ModemRequestArgs {
-
-    @Override
-    public byte[] getFrame() {
-        ByteBuffer ret = ByteBuffer.allocate(8);
-
-        ret.putInt(MedfieldMmgrClient.REQUEST_MODEM_RESTART);
-        ret.putInt(super.getTimestamp());
-
-        return ret.array();
+    public MmgrAckResponse() {
+        super();
     }
 
-    @Override
-    public String getName() {
-        return "ModemRestartRequest";
+    public MmgrAckResponse(int responseId, int timestamp) {
+        super(responseId, timestamp);
+    }
+
+    public MmgrAckResponse(int responseId, int timestamp, boolean ack) {
+        super(responseId, timestamp);
+        this.setAck(ack);
+    }
+
+    public void setAck(boolean ack) {
+        this.ack = ack;
+    }
+
+    public boolean getAck() {
+        return this.ack;
     }
 }

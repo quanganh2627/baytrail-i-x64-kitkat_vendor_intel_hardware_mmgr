@@ -16,22 +16,24 @@
  *
  */
 
-package com.intel.internal.telephony.mmgr;
+package com.intel.internal.telephony.mmgr.requests;
 
-import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
 import android.util.Log;
 
-import com.intel.internal.telephony.ModemRequestArgs;
+import com.intel.internal.telephony.Constants;
+import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
-public class MmgrRegisterRequest extends ModemRequestArgs {
+import java.io.UnsupportedEncodingException;
+
+import java.nio.ByteBuffer;
+
+public class MmgrRegisterNameRequest extends MmgrBaseRequest {
 
     private String clientName = "";
-    private int subscribedEvents = 0;
 
-    public MmgrRegisterRequest(String clientName, int subscribedEvents) {
+    public MmgrRegisterNameRequest(String clientName) {
+        super(MedfieldMmgrClient.SET_NAME);
         this.setClientName(clientName);
-        this.setSubscribedEvents(subscribedEvents);
     }
 
     public String getClientName() {
@@ -43,37 +45,25 @@ public class MmgrRegisterRequest extends ModemRequestArgs {
                 Math.min(63, clientName.length()));
     }
 
-    public int getSubscribedEvents() {
-        return this.subscribedEvents;
-    }
-
-    public void setSubscribedEvents(int subscribedEvents) {
-        this.subscribedEvents = subscribedEvents;
+    @Override
+    public String getName() {
+        return "RegisterNameRequest";
     }
 
     @Override
-    public byte[] getFrame() {
-        ByteBuffer ret = ByteBuffer.allocate(64 + 4);
+    protected byte[] getPayload() {
+        ByteBuffer ret = ByteBuffer.allocate(64);
 
         byte[] clientNameBytes = null;
 
         try {
             clientNameBytes = this.clientName.getBytes("US-ASCII");
         } catch (UnsupportedEncodingException e) {
-            // TODO tag
-            Log.e("TODO", "Ascii encoding not supported");
+            Log.e(Constants.LOG_TAG, "Ascii encoding not supported");
         }
         if (clientNameBytes != null) {
             ret.put(clientNameBytes, 0, clientNameBytes.length);
         }
-        int reversedEvent = Integer.reverseBytes(this.subscribedEvents);
-        ret.putInt(64, reversedEvent);
-
         return ret.array();
-    }
-
-    @Override
-    public String getName() {
-        return "RegisterRequest";
     }
 }
