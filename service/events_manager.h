@@ -66,7 +66,6 @@ typedef struct mmgr_events {
     e_events_type_t state;
     bool do_restore_modem;
     bool modem_shutdown;
-    bool inform_down;
 } mmgr_events_t;
 
 typedef struct client_request {

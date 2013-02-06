@@ -140,7 +140,6 @@ static e_mmgr_errors_t state_modem_cold_reset(mmgr_data_t *mmgr)
         mmgr->client_notification = E_MMGR_NOTIFY_MODEM_COLD_RESET;
         inform_all_clients(&mmgr->clients, mmgr->client_notification);
         LOG_DEBUG("need to ack all clients");
-        mmgr->events.inform_down = false;
         start_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
         ret = E_ERR_FAILED;
     } else {
@@ -237,22 +236,25 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    mmgr->events.inform_down = true;
     ret = pre_modem_escalation_recovery(&mmgr->reset);
     if (ret != E_ERR_SUCCESS)
         LOG_ERROR("reset escalation fails");
 
+    if (mmgr->reset.state != E_OPERATION_SKIP) {
+        if (mmgr->fd_tty != CLOSED_FD) {
+            mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
+            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
+
+            close_tty(&mmgr->fd_tty);
+        }
+    }
+
     if (mmgr->hdler_modem[mmgr->reset.level.id] != NULL)
         ret = mmgr->hdler_modem[mmgr->reset.level.id] (mmgr);
 
-    if (mmgr->events.inform_down) {
-        if (mmgr->reset.level.id != E_EL_MODEM_OUT_OF_SERVICE) {
-            mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
-        }
-        if (mmgr->info.ev & E_EV_AP_RESET)
-            usleep(mmgr->config.delay_before_reset * 1000);
-    }
+    if (mmgr->info.ev & E_EV_AP_RESET)
+        usleep(mmgr->config.delay_before_reset * 1000);
+
     if ((mmgr->reset.state != E_OPERATION_SKIP) &&
         (mmgr->reset.state != E_OPERATION_WAIT)) {
 
@@ -333,17 +335,15 @@ e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr)
         if ((ret = modem_up(&mmgr->info)) != E_ERR_SUCCESS)
             goto out;
     }
-    if (mmgr->info.ev != E_EV_NONE) {
-        if (mmgr->fd_tty != CLOSED_FD)
-            close_tty(&mmgr->fd_tty);
-    }
-
     if (state & E_EV_CORE_DUMP) {
+        if (mmgr->fd_tty != CLOSED_FD) {
+            mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
+            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
+
+            close_tty(&mmgr->fd_tty);
+        }
         inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP);
         broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
-
-        mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-        inform_all_clients(&mmgr->clients, mmgr->client_notification);
 
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
         ret = set_mcd_poll_states(mmgr);

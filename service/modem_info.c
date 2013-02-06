@@ -413,6 +413,6 @@ e_mmgr_errors_t manage_core_dump(mmgr_configuration_t *config,
         }
     }
 out:
-    return E_ERR_SUCCESS;
+    return ret;
 }
 
