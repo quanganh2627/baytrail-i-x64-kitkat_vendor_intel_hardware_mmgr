@@ -75,10 +75,11 @@
  ** 3.2.13 - 2013-02-06 - BZ 85469 - do not report MRESET after core dump
  ** 3.2.14 - 2013-02-06 - BZ 85207 - fix core dump retrieval
  ** 3.2.15 - 2013-02-06 - BZ 82064 - remove NO_RESOURCE_RELEASE timer
+ ** 3.2.16 - 2013-02-07 - BZ 82892 - set MCD state to OFF before modem shutdown
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
 
-#define MODULE_VERSION "3.2.15"
+#define MODULE_VERSION "3.2.16"

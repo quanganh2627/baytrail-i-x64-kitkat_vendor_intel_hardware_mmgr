@@ -236,6 +236,11 @@ static e_mmgr_errors_t state_modem_shutdown(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
+    if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, MDM_CTRL_STATE_OFF) == -1) {
+        LOG_DEBUG("couldn't set MCD state: %s", strerror(errno));
+        ret = E_ERR_FAILED;
+    }
+
     reset_shutdown_ack(&mmgr->clients);
     stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
 out:
