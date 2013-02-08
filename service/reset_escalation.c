@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <linux/mdm_ctrl.h>
 #include "at.h"
 #include "errors.h"
 #include "file.h"
@@ -172,59 +173,6 @@ out:
 }
 
 /**
- * perform a sysfs write operation
- *
- * @param [in] modem_info modem info structure
- * @param [in] hsi_type hsi driver type
- * @param [in] msg message to display
- *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static int write_to_sysfs(modem_info_t *modem_info, e_hsi_path_t hsi_type,
-                          char *msg)
-{
-    int ret;
-    char *path = NULL;
-
-    CHECK_PARAM(modem_info, ret, out);
-    CHECK_PARAM(msg, ret, out);
-
-    LOG_INFO("%s STATE: %s", MODULE_NAME, msg);
-    ret = get_sysfs_path(modem_info, hsi_type, &path);
-    if ((ret == E_ERR_SUCCESS) && (path != NULL))
-        ret = write_to_file(path, SYSFS_OPEN_MODE, "1", 1);
-out:
-    return ret;
-}
-
-/**
- * Perform a modem warm reset
- *
- * @param [in] modem_info modem info structure
- *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static int modem_warm_reset(modem_info_t *modem_info)
-{
-    return write_to_sysfs(modem_info, E_HSI_PATH_WARM, "MODEM WARM RESET");
-}
-
-/**
- * Perform a modem cold reset (modem cold boot)
- *
- * @param [in] modem_info modem info structure
- *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static int modem_cold_reset(modem_info_t *modem_info)
-{
-    return write_to_sysfs(modem_info, E_HSI_PATH_COLD, "MODEM COLD RESET");
-}
-
-/**
  * Perform a platform reboot
  *
  * @param [in] unused
@@ -232,9 +180,9 @@ static int modem_cold_reset(modem_info_t *modem_info)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-static int platform_reboot(modem_info_t *unused)
+static e_mmgr_errors_t platform_reboot(modem_info_t *unused)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     (void)unused;
     LOG_INFO("%s STATE: PLATFORM REBOOT\n"
@@ -254,25 +202,11 @@ static int platform_reboot(modem_info_t *unused)
  *
  * @return E_ERR_SUCCESS ALWAYS
  */
-static int out_of_service(modem_info_t *unused)
+static e_mmgr_errors_t out_of_service(modem_info_t *unused)
 {
     (void)unused;
     /* Nothing to do */
     return E_ERR_SUCCESS;
-}
-
-/**
- * shutdown electricaly the modem
- *
- * @param [in] modem_info modem info structure
- *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static int modem_shutdown(modem_info_t *modem_info)
-{
-    return write_to_sysfs(modem_info, E_HSI_PATH_POWER_OFF,
-                          "MODEM ELECTRICALY SHUTDOWN");
 }
 
 /**
@@ -284,10 +218,10 @@ static int modem_shutdown(modem_info_t *modem_info)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if bad parameter
  */
-static int set_next_level(reset_management_t *p_reset,
-                          reset_operation_t **p_process)
+static e_mmgr_errors_t set_next_level(reset_management_t *p_reset,
+                                      reset_operation_t **p_process)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(p_reset, ret, out);
     CHECK_PARAM(p_process, ret, out);
@@ -313,9 +247,9 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if bad parameter
  */
-static int reset_escalation_counter(reset_management_t *p_reset)
+e_mmgr_errors_t reset_escalation_counter(reset_management_t *p_reset)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(p_reset, ret, out);
 
@@ -336,14 +270,15 @@ out:
  * @return E_ERR_FAILED operation has failed
  * @return E_ERR_SUCCESS if successful
  */
-int pre_modem_escalation_recovery(reset_management_t *p_reset)
+e_mmgr_errors_t pre_modem_escalation_recovery(reset_management_t *p_reset)
 {
     int reboot_counter;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     reset_operation_t *p_process = NULL;
     struct timeval current_time;
 
     CHECK_PARAM(p_reset, ret, out);
+
     if (p_reset->level.id >= E_EL_NUMBER_OF)
         goto out;
 
@@ -355,12 +290,13 @@ int pre_modem_escalation_recovery(reset_management_t *p_reset)
         p_reset->level.id = E_EL_MODEM_COLD_RESET;
         p_reset->level.counter = 0;
     } else if (p_reset->modem_shutdown) {
-        p_reset->modem_shutdown = false;
         p_reset->level.id = E_EL_MODEM_SHUTDOWN;
         p_reset->level.counter = 0;
     }
 
     p_process = &p_reset->process[p_reset->level.id];
+
+    gettimeofday(&current_time, NULL);
 
     /* If there is more than xx seconds since the last reset, consider that
        we were in a stable state before the issue. So, reset the escalation
@@ -368,8 +304,6 @@ int pre_modem_escalation_recovery(reset_management_t *p_reset)
     if ((p_reset->level.id != E_EL_MODEM_OUT_OF_SERVICE) &&
         (p_reset->level.id != E_EL_MODEM_SHUTDOWN) &&
         (p_reset->modem_restart != E_FORCE_RESET_ON_GOING)) {
-
-        gettimeofday(&current_time, NULL);
 
         if (current_time.tv_sec - p_reset->last_reset_time.tv_sec
             > p_reset->config->min_time_issue) {
@@ -381,7 +315,7 @@ int pre_modem_escalation_recovery(reset_management_t *p_reset)
             p_process = &p_reset->process[p_reset->level.id];
             reboot_counter = 0;
             ret = set_property(PLATFORM_REBOOT_KEY, reboot_counter);
-            if (ret == E_OPERATION_BAD_PARAMETER)
+            if (ret == E_ERR_BAD_PARAMETER)
                 goto out;
         }
     }
@@ -445,9 +379,9 @@ out:
  * @return E_ERR_FAILED if failed
  * @return E_ERR_BAD_PARAMETER if bad parameter
  */
-int modem_escalation_recovery(reset_management_t *p_reset)
+e_mmgr_errors_t modem_escalation_recovery(reset_management_t *p_reset)
 {
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     reset_operation_t *p_process = NULL;
 
     CHECK_PARAM(p_reset, ret, out);
@@ -462,12 +396,6 @@ int modem_escalation_recovery(reset_management_t *p_reset)
         LOG_ERROR("operation is NULL");
         ret = E_ERR_BAD_PARAMETER;
     }
-
-    /* Give modem some time to boot before talking to it.
-       Otherwise we may exceed our POLLHUP retry count, which will cause
-       another modem reset to occur too soon. This could cause a rapid
-       cycle of resetting the modem. */
-    sleep(p_reset->config->modem_reset_delay);
 
     if (p_reset->modem_restart == E_FORCE_RESET_ON_GOING) {
         p_reset->modem_restart = E_FORCE_RESET_DISABLED;
@@ -488,11 +416,12 @@ out:
  * @return E_ERR_BAD_PARAMETER if one parameter is NULL
  * @return E_ERR_SUCCESS if successful
  */
-int escalation_recovery_init(const mmgr_configuration_t *config,
-                             reset_management_t *p_reset, modem_info_t *info)
+e_mmgr_errors_t escalation_recovery_init(const mmgr_configuration_t *config,
+                                         reset_management_t *p_reset,
+                                         modem_info_t *info)
 {
     int i = 0;
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     reset_operation_t *p_process = NULL;
     char *states[] = { "DISABLED", "ENABLED" };
 

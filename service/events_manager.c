@@ -29,6 +29,7 @@
 #include "modem_events.h"
 #include "mmgr.h"
 #include "socket.h"
+#include "timer_events.h"
 #include "tty.h"
 
 #define FIRST_EVENT -1
@@ -41,9 +42,9 @@
  * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_SUCCESS
  */
-int events_cleanup(mmgr_data_t *mmgr)
+e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -53,49 +54,8 @@ int events_cleanup(mmgr_data_t *mmgr)
         close_tty(&mmgr->fd_tty);
     if (mmgr->fd_socket != CLOSED_FD)
         close_socket(&mmgr->fd_socket);
-out:
-    return ret;
-}
-
-/**
- * handle timeout cases
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static int timeout_event(mmgr_data_t *mmgr)
-{
-    struct timespec current;
-    int ret = E_ERR_SUCCESS;
-    int timeout = TIMEOUT_EPOLL_ACK;
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    clock_gettime(CLOCK_MONOTONIC, &current);
-    if (mmgr->modem_state == E_MMGR_NOTIFY_MODEM_COLD_RESET) {
-        if ((current.tv_sec - mmgr->timer.start.tv_sec) > TIMEOUT_ACK) {
-            check_cold_ack(&mmgr->clients, true);
-            mmgr->info.ev |= E_EV_AP_RESET;
-            mmgr->events.restore_modem = true;
-        }
-    } else if (mmgr->modem_state == E_MMGR_NOTIFY_MODEM_SHUTDOWN) {
-        if ((current.tv_sec - mmgr->timer.start.tv_sec) > TIMEOUT_ACK) {
-            check_shutdown_ack(&mmgr->clients, true);
-            FORCE_MODEM_SHUTDOWN(mmgr);
-        }
-    } else if (mmgr->events.modem_shutdown) {
-        if ((current.tv_sec - mmgr->timer.start.tv_sec) >
-            mmgr->config.delay_before_modem_shtdwn) {
-            mmgr->modem_state = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-            START_TIMER(mmgr->timer, timeout);
-            inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN);
-        }
-    } else {
-        LOG_ERROR("timeout during state: %d", mmgr->modem_state);
-        STOP_TIMER(mmgr->timer);
-    }
+    if (mmgr->info.fd_mcd != CLOSED_FD)
+        close_tty(&mmgr->info.fd_mcd);
 out:
     return ret;
 }
@@ -109,24 +69,22 @@ out:
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-int events_init(mmgr_data_t *mmgr)
+e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->fd_tty = CLOSED_FD;
     mmgr->fd_socket = CLOSED_FD;
-    mmgr->modem_state = E_MMGR_EVENT_MODEM_DOWN;
+    mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
 
     mmgr->events.nfds = 0;
     mmgr->events.ev = malloc(sizeof(struct epoll_event) *
                              (mmgr->config.max_clients + 1));
     mmgr->events.cur_ev = FIRST_EVENT;
-    mmgr->events.restore_modem = true;  /* force reset modem at start-up */
+    mmgr->events.do_restore_modem = false;
     mmgr->events.modem_shutdown = false;
-
-    mmgr->timer.timeout = TIMEOUT_EPOLL_INFINITE;
 
     if (mmgr->events.ev == NULL) {
         LOG_ERROR("Unable to initialize event structure");
@@ -134,15 +92,20 @@ int events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    if ((ret = modem_info_init(&mmgr->config, &mmgr->info))
-        != E_ERR_SUCCESS) {
-        LOG_ERROR("Modem info initialization failed");
+    if (timer_init(&mmgr->timer, &mmgr->config) != E_ERR_SUCCESS) {
+        LOG_ERROR("Failed to configure timer");
         goto out;
     }
 
     if ((ret = initialize_list(&mmgr->clients,
                                mmgr->config.max_clients)) != E_ERR_SUCCESS) {
         LOG_ERROR("Client list initialisation failed");
+        goto out;
+    }
+
+    if ((ret = modem_info_init(&mmgr->config, &mmgr->info))
+        != E_ERR_SUCCESS) {
+        LOG_ERROR("Modem info initialization failed");
         goto out;
     }
 
@@ -156,11 +119,23 @@ int events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
+    struct epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.fd = mmgr->info.fd_mcd;
+    if (epoll_ctl(mmgr->epollfd, EPOLL_CTL_ADD, mmgr->info.fd_mcd, &ev) == -1) {
+        LOG_ERROR("failed to add modem control driver interface to epoll");
+        goto out;
+    }
+    LOG_DEBUG("MCD driver added to poll list");
+
+    ret = set_mcd_poll_states(mmgr);
+
     /* configure events handlers */
     mmgr->hdler_events[E_EVENT_MODEM] = modem_event;
+    mmgr->hdler_events[E_EVENT_MCD] = modem_control_event;
     mmgr->hdler_events[E_EVENT_NEW_CLIENT] = new_client;
     mmgr->hdler_events[E_EVENT_CLIENT] = known_client;
-    mmgr->hdler_events[E_EVENT_TIMEOUT] = timeout_event;
+    mmgr->hdler_events[E_EVENT_TIMEOUT] = timer_event;
 
     if ((ret = client_events_init(mmgr)) != E_ERR_SUCCESS) {
         LOG_ERROR("unable to configure client events handlers");
@@ -184,9 +159,9 @@ out:
  * @return E_ERR_FAILED if epoll_wait fails
  * E_ERR_SUCCESS: if successful
  */
-static int wait_for_event(mmgr_data_t *mmgr)
+static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int fd;
     CHECK_PARAM(mmgr, ret, out);
 
@@ -196,7 +171,7 @@ static int wait_for_event(mmgr_data_t *mmgr)
             LOG_INFO("%s STATE: waiting for a new event", MODULE_NAME);
             mmgr->events.nfds = epoll_wait(mmgr->epollfd, mmgr->events.ev,
                                            mmgr->config.max_clients + 1,
-                                           mmgr->timer.timeout);
+                                           mmgr->timer.cur_timeout);
             if (mmgr->events.nfds == -1) {
                 LOG_ERROR("epoll_wait failed (%s)", strerror(errno));
                 if ((errno == EBADF) || (errno == EINVAL)) {
@@ -217,6 +192,8 @@ static int wait_for_event(mmgr_data_t *mmgr)
             mmgr->events.state = E_EVENT_NEW_CLIENT;
         } else if (fd == mmgr->fd_tty) {
             mmgr->events.state = E_EVENT_MODEM;
+        } else if (fd == mmgr->info.fd_mcd) {
+            mmgr->events.state = E_EVENT_MCD;
         } else {
             mmgr->events.state = E_EVENT_CLIENT;
         }
@@ -236,9 +213,9 @@ out:
  * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_SUCCESS
  */
-int events_manager(mmgr_data_t *mmgr)
+e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
 {
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     char *events_str[] = {
 #undef X
 #define X(a) #a
@@ -248,8 +225,8 @@ int events_manager(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     for (;;) {
-        if (mmgr->events.restore_modem) {
-            mmgr->events.restore_modem = false;
+        if (mmgr->events.do_restore_modem) {
+            mmgr->events.do_restore_modem = false;
             restore_modem(mmgr);
         }
         if ((ret = wait_for_event(mmgr)) != E_ERR_SUCCESS)

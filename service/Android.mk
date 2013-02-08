@@ -9,8 +9,9 @@ LOCAL_CFLAGS += -Wall -Wvla
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
-        hardware/intel/glib/ \
-        hardware/intel/glib/android
+    ../inc \
+    hardware/intel/glib/ \
+    hardware/intel/glib/android
 
 LOCAL_SRC_FILES:= \
     at.c \
@@ -25,9 +26,11 @@ LOCAL_SRC_FILES:= \
     modem_events.c \
     modem_info.c \
     modem_manager.c  \
+    modem_specific.c \
     mux.c \
     property.c \
     tty.c \
+    timer_events.c \
     reset_escalation.c \
     socket.c
 LOCAL_MODULE_TAGS := optional

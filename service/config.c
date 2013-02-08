@@ -90,8 +90,8 @@
  * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int get_boolean(GKeyFile *fd, const char *group, const char *key,
-                       bool *dest)
+static e_mmgr_errors_t get_boolean(GKeyFile *fd, const char *group,
+                                   const char *key, bool *dest)
 {
     int err;
     GET_VALUE(fd, group, key, dest, g_key_file_get_boolean, SET_INTEGER_PARAM,
@@ -110,8 +110,8 @@ static int get_boolean(GKeyFile *fd, const char *group, const char *key,
  * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int get_integer(GKeyFile *fd, const char *group, const char *key,
-                       int *dest)
+static e_mmgr_errors_t get_integer(GKeyFile *fd, const char *group,
+                                   const char *key, int *dest)
 {
     int err;
     GET_VALUE(fd, group, key, dest, g_key_file_get_integer, SET_INTEGER_PARAM,
@@ -130,8 +130,8 @@ static int get_integer(GKeyFile *fd, const char *group, const char *key,
  * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int get_string(GKeyFile *fd, const char *group, const char *key,
-                      char *dest)
+static e_mmgr_errors_t get_string(GKeyFile *fd, const char *group,
+                                  const char *key, char *dest)
 {
     int err;
     GET_VALUE(fd, group, key, dest, g_key_file_get_string, SET_STRING_PARAM,
@@ -149,8 +149,8 @@ static int get_string(GKeyFile *fd, const char *group, const char *key,
  * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
  * @return E_ERR_MISSING_FILE if config_file is missing
  */
-static int read_config_file(const char *config_file,
-                            mmgr_configuration_t *param)
+static e_mmgr_errors_t read_config_file(const char *config_file,
+                                        mmgr_configuration_t *param)
 {
     int err = E_ERR_SUCCESS;
     const char *state[] = { "DISABLED", "ENABLED" };
@@ -292,9 +292,9 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if parameters is NULL
  */
-static int set_default_values(mmgr_configuration_t *parameters)
+static e_mmgr_errors_t set_default_values(mmgr_configuration_t *parameters)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int max_frame_size = (MODEM_MAX_FRAME_SIZE < GPP_MAX_FRAME_SIZE) ?
         MODEM_MAX_FRAME_SIZE : GPP_MAX_FRAME_SIZE;
 
@@ -343,7 +343,8 @@ out:
  * @return E_ERR_MISSING_FILE if config_file is missing
  *                            (default values are used)
  */
-int mmgr_configure(mmgr_configuration_t *parameters, const char *config_file)
+e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *parameters,
+                               const char *config_file)
 {
     int ret;
 

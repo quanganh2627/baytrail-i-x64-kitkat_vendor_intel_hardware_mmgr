@@ -25,33 +25,26 @@
 #include "modem_info.h"
 #include "reset_escalation.h"
 
-#define TIMEOUT_ACK 1           /* in second */
-#define TIMEOUT_EPOLL_ACK 200   /* in milliseconds */
-#define TIMEOUT_EPOLL_INFINITE -1       /* wait indefinitely */
-#define STEPS 10
-
-#define FORCE_MODEM_SHUTDOWN(mmgr) do { \
-    mmgr->info.ev |= E_EV_AP_RESET; \
-    mmgr->events.restore_modem = true; \
-    mmgr->reset.modem_shutdown = true; \
-} while (0)
-
-#define START_TIMER(timer, timeout) do { \
-    timer.timeout = timeout; \
-    clock_gettime(CLOCK_MONOTONIC, &timer.start); \
-} while (0)
-
-#define STOP_TIMER(timer) do { \
-    LOG_DEBUG("timer stopped"); \
-    timer.timeout = TIMEOUT_EPOLL_INFINITE; \
-} while (0)
-
 #define EVENTS \
     X(MODEM), \
     X(NEW_CLIENT), \
     X(CLIENT), \
     X(TIMEOUT), \
+    X(MCD), \
     X(NUM)
+
+#define TIMER \
+    X(COLD_RESET_ACK), \
+    X(MODEM_SHUTDOWN_ACK), \
+    X(NO_RESOURCE_RELEASE_ACK), \
+    X(WAIT_FOR_IPC_READY), \
+    X(NUM)
+
+typedef enum e_timer_type {
+#undef X
+#define X(a) E_TIMER_##a
+    TIMER
+} e_timer_type_t;
 
 typedef enum e_events_type {
 #undef X
@@ -59,24 +52,26 @@ typedef enum e_events_type {
     EVENTS
 } e_events_type_t;
 
+typedef struct mmgr_timer {
+    uint8_t type;
+    int cur_timeout;
+    int timeout[E_TIMER_NUM];
+    struct timespec start[E_TIMER_NUM];
+} mmgr_timer_t;
+
 typedef struct mmgr_events {
     int nfds;
     struct epoll_event *ev;
     int cur_ev;
     e_events_type_t state;
-    bool restore_modem;
+    bool do_restore_modem;
     bool modem_shutdown;
     bool inform_down;
 } mmgr_events_t;
 
-typedef struct mmgr_timer {
-    int timeout;
-    struct timespec start;
-} mmgr_timer_t;
-
 typedef struct client_request {
     e_mmgr_requests_t id;
-    uint32_t ts;
+    int32_t ts;
 } client_request_t;
 
 typedef struct current_request {
@@ -87,13 +82,13 @@ typedef struct current_request {
 } current_request_t;
 
 struct mmgr_data;
-typedef int (*event_hdler_t) (struct mmgr_data * mmgr);
+typedef e_mmgr_errors_t (*event_hdler_t) (struct mmgr_data * mmgr);
 
 typedef struct mmgr_data {
     int epollfd;
     int fd_tty;
     int fd_socket;
-    e_mmgr_events_t modem_state;
+    e_mmgr_events_t client_notification;
     mmgr_configuration_t config;
     reset_management_t reset;
     client_list_t clients;
@@ -107,8 +102,8 @@ typedef struct mmgr_data {
     event_hdler_t hdler_modem[E_EL_NUMBER_OF];
 } mmgr_data_t;
 
-int events_manager(mmgr_data_t *mmgr);
-int events_cleanup(mmgr_data_t *mmgr);
-int events_init(mmgr_data_t *mmgr);
+e_mmgr_errors_t events_manager(mmgr_data_t *mmgr);
+e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr);
+e_mmgr_errors_t events_init(mmgr_data_t *mmgr);
 
 #endif                          /* __MMGR_EVENTS_MANAGER_HEADER__ */

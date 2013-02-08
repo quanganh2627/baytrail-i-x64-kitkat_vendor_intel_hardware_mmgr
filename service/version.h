@@ -67,9 +67,15 @@
  ** 3.2.5  - 2012-11-30 - BZ 71835 - fix modem_reset_delay configuration
  ** 3.2.6  - 2013-01-14 - BZ 80134 - fix create_empty_file argument flags
  ** 3.2.7  - 2013-01-11 - BZ 78991 - fix off by one error in send_at() function
+ ** 3.2.8  - 2013-01-18 - BZ 40361 - implement Modem Control Driver
+ ** 3.2.9  - 2013-01-18 - BZ 79757 - close tty before core dump management
+ ** 3.2.10 - 2013-01-18 - BZ 71590 - do not open tty in blocking mode
+ ** 3.2.XX - 2013-01-30 - BZ 81140 - retry to open tty when access is denied
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "3.2.7"
+
+#define MODULE_VERSION "3.2.XX"
+

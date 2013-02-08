@@ -34,9 +34,9 @@
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-int open_socket(int *fd)
+e_mmgr_errors_t open_socket(int *fd)
 {
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
 
     CHECK_PARAM(fd, ret, out);
 
@@ -59,7 +59,7 @@ out:
  *
  * @return file descriptor
  */
-int accept_socket(int fd)
+e_mmgr_errors_t accept_socket(int fd)
 {
     return accept(fd, NULL, NULL);
 }
@@ -75,9 +75,9 @@ int accept_socket(int fd)
  * @return E_ERR_FAILED read fails
  * @return E_ERR_SUCCESS if successful
  */
-int read_socket(int fd, void *data, size_t *len)
+e_mmgr_errors_t read_socket(int fd, void *data, size_t *len)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int err;
 
     CHECK_PARAM(data, ret, out);
@@ -106,9 +106,9 @@ out:
  * @return E_ERR_FAILED send fails
  * @return E_ERR_SUCCESS if successful
  */
-int write_socket(int fd, void *data, size_t *len)
+e_mmgr_errors_t write_socket(int fd, void *data, size_t *len)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int err;
 
     CHECK_PARAM(data, ret, out);
@@ -132,9 +132,9 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-int close_socket(int *fd)
+e_mmgr_errors_t close_socket(int *fd)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(fd, ret, out);
 

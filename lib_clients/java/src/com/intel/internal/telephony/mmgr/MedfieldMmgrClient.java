@@ -471,7 +471,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.sendRequest(request);
 
         if (!this.waitForAck(this.connectTimeoutMs)) {
-            throw new MmgrClientException("useModem failed.");
+            throw new MmgrClientException("AcquireModem request failed.");
         }
     }
 
@@ -482,7 +482,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.sendRequest(request);
 
         if (!this.waitForAck(this.connectTimeoutMs)) {
-            throw new MmgrClientException("releaseModem failed.");
+            throw new MmgrClientException("ReleaseModem request failed.");
         }
     }
 
@@ -493,7 +493,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.sendRequest(request);
 
         if (!this.waitForAck(this.connectTimeoutMs)) {
-            throw new MmgrClientException("restartModem failed.");
+            throw new MmgrClientException("RestartModem request failed.");
         }
     }
 
@@ -504,7 +504,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.sendRequest(request);
 
         if (!this.waitForAck(this.connectTimeoutMs)) {
-            throw new MmgrClientException("recoverModem failed.");
+            throw new MmgrClientException("RecoverModem request failed.");
         }
     }
 
@@ -515,7 +515,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.sendRequest(request);
 
         if (!this.waitForAck(this.connectTimeoutMs)) {
-            throw new MmgrClientException("shutdownModem failed.");
+            throw new MmgrClientException("ShutdownModem request failed.");
         }
     }
 }

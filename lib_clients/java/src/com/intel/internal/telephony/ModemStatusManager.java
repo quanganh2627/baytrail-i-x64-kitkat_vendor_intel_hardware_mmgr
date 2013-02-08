@@ -23,6 +23,7 @@ import java.io.File;
 import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 import com.intel.internal.telephony.stmd.MedfieldStmdClient;
 
+import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Handler.Callback;
 import android.os.Message;
@@ -105,6 +106,16 @@ public class ModemStatusManager implements Callback {
     }
 
     /**
+     * Requests a modem restart asynchronously (call is not blocking).
+     *
+     * @param listener The listener to get notified upon operation result.
+     */
+    public void restartModemAsync(final AsyncOperationResultListener listener) {
+        new AsyncOperationTask(AsyncOperationTask.OPERATION_RESTART_MODEM,
+                listener).execute();
+    }
+
+    /**
      * Requests a modem recover to the Modem Status Monitor service.
      *
      * @throws MmgrClientException
@@ -115,6 +126,16 @@ public class ModemStatusManager implements Callback {
         if (this.modemStatusMonitor != null) {
             this.modemStatusMonitor.recoverModem();
         }
+    }
+
+    /**
+     * Requests a modem recover asynchronously (call is not blocking).
+     *
+     * @param listener The listener to get notified upon operation result.
+     */
+    public void recoverModemAsync(final AsyncOperationResultListener listener) {
+        new AsyncOperationTask(AsyncOperationTask.OPERATION_RECOVER_MODEM,
+                listener).execute();
     }
 
     /**
@@ -131,6 +152,16 @@ public class ModemStatusManager implements Callback {
     }
 
     /**
+     * Requests a modem shutdown asynchronously (call is not blocking).
+     *
+     * @param listener The listener to get notified upon operation result.
+     */
+    public void shutdownModemAsync(final AsyncOperationResultListener listener) {
+        new AsyncOperationTask(AsyncOperationTask.OPERATION_SHUTDOWN_MODEM,
+                listener).execute();
+    }
+
+    /**
      * Requests a modem lock to the Modem Status Monitor service.
      *
      * @throws MmgrClientException
@@ -141,6 +172,16 @@ public class ModemStatusManager implements Callback {
         if (this.modemStatusMonitor != null) {
             this.modemStatusMonitor.useModem();
         }
+    }
+
+    /**
+     * Requests a modem acquisition asynchronously (call is not blocking).
+     *
+     * @param listener The listener to get notified upon operation result.
+     */
+    public void acquireModemAsync(final AsyncOperationResultListener listener) {
+        new AsyncOperationTask(AsyncOperationTask.OPERATION_ACQUIRE_MODEM,
+                listener).execute();
     }
 
     /**
@@ -157,6 +198,16 @@ public class ModemStatusManager implements Callback {
     }
 
     /**
+     * Requests a modem release asynchronously (call is not blocking).
+     *
+     * @param listener The listener to get notified upon operation result.
+     */
+    public void releaseModemAsync(final AsyncOperationResultListener listener) {
+        new AsyncOperationTask(AsyncOperationTask.OPERATION_RELEASE_MODEM,
+                listener).execute();
+    }
+
+    /**
      * Connects to the Modem Status Monitor service. You must call this method
      * to get your implementation of ModemEventListener called.
      *
@@ -169,6 +220,17 @@ public class ModemStatusManager implements Callback {
         if (this.modemStatusMonitor != null) {
             this.modemStatusMonitor.start(clientName);
         }
+    }
+
+    /**
+     * Requests a connection asynchronously (call is not blocking).
+     *
+     * @param listener The listener to get notified upon operation result.
+     */
+    public void connectAsync(String clientName,
+            final AsyncOperationResultListener listener) {
+        new AsyncOperationTask(AsyncOperationTask.OPERATION_CONNECT,
+                listener).execute(clientName);
     }
 
     /**
@@ -197,6 +259,16 @@ public class ModemStatusManager implements Callback {
         } finally {
             this.eventListener = null;
         }
+    }
+
+    /**
+     * Requests a disconnection asynchronously (call is not blocking).
+     *
+     * @param listener The listener to get notified upon operation result.
+     */
+    public void disconnectAsync(final AsyncOperationResultListener listener) {
+        new AsyncOperationTask(AsyncOperationTask.OPERATION_DISCONNECT,
+                listener).execute();
     }
 
     /**
@@ -316,5 +388,74 @@ public class ModemStatusManager implements Callback {
             }
         }
         return args;
+    }
+
+    private class AsyncOperationTask extends AsyncTask<Object, Void, Exception> {
+
+        private AsyncOperationResultListener listener = null;
+        private int requiredOperation = 0;
+
+        public static final int OPERATION_ACQUIRE_MODEM = 1;
+        public static final int OPERATION_RELEASE_MODEM = 2;
+        public static final int OPERATION_RESTART_MODEM = 3;
+        public static final int OPERATION_RECOVER_MODEM = 4;
+        public static final int OPERATION_CONNECT = 5;
+        public static final int OPERATION_DISCONNECT = 6;
+        public static final int OPERATION_SHUTDOWN_MODEM = 7;
+
+        public AsyncOperationTask(int requiredOperation,
+                AsyncOperationResultListener listener) {
+            this.listener = listener;
+            this.requiredOperation = requiredOperation;
+        }
+
+        @Override
+        protected Exception doInBackground(Object... params) {
+            Exception ret = null;
+
+            try {
+                switch(this.requiredOperation) {
+                    case AsyncOperationTask.OPERATION_ACQUIRE_MODEM:
+                        ModemStatusManager.this.acquireModem();
+                        break;
+                    case AsyncOperationTask.OPERATION_RELEASE_MODEM:
+                        ModemStatusManager.this.releaseModem();
+                        break;
+                    case AsyncOperationTask.OPERATION_RESTART_MODEM:
+                        ModemStatusManager.this.restartModem();
+                        break;
+                    case AsyncOperationTask.OPERATION_RECOVER_MODEM:
+                        ModemStatusManager.this.recoverModem();
+                        break;
+                    case AsyncOperationTask.OPERATION_CONNECT:
+                        if (params != null && params.length > 0) {
+                            ModemStatusManager.this.connect((String)(params[0]));
+                        }
+                        break;
+                    case AsyncOperationTask.OPERATION_DISCONNECT:
+                        ModemStatusManager.this.disconnect();
+                        break;
+                    case AsyncOperationTask.OPERATION_SHUTDOWN_MODEM:
+                        ModemStatusManager.this.shutdowModem();
+                        break;
+                }
+            } catch(Exception ex) {
+                ret = ex;
+            }
+            return ret;
+        }
+
+        @Override
+        protected void onPostExecute(Exception result) {
+            super.onPostExecute(result);
+            if (listener != null) {
+                if (result != null) {
+                    listener.onOperationError(result);
+                }
+                else {
+                    listener.onOperationComplete();
+                }
+            }
+        }
     }
 }
