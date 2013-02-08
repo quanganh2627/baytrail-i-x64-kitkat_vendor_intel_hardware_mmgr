@@ -59,7 +59,7 @@ typedef struct aplog_thread {
     bool running;
 } aplog_thread_t;
 
-int modem_state_set(test_data_t *test_data, int state);
+int set_modem_state(test_data_t *test_data, int state);
 int remove_file(char *filename);
 int is_file_exists(const char *path, unsigned long rights);
 int compare_file_content(const char *path, const char *data, int len);

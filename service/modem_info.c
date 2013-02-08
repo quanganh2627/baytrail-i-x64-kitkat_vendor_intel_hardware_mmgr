@@ -23,7 +23,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <linux/hsi_ffl_tty.h>
-#include <linux/mdm_ctrl.h>
 #include "at.h"
 #include "errors.h"
 #include "logs.h"
@@ -38,10 +37,26 @@
 #define AT_XLOG_TIMEOUT 25000
 #define AT_ANSWER_SIZE 254
 
+/* give some time to modem to self reset */
+#define SELF_RESET_SLEEP 100    /* in ms */
+
 /* switch to MUX timings */
 #define STAT_DELAY 250          /* in milliseconds */
 #define MAX_TIME_DELAY 4000     /* in milliseconds */
 #define MAX_STAT_RETRIES (MAX_TIME_DELAY / STAT_DELAY)
+
+/* @TODO: remove me when Modem Boot Driver will be used */
+/* sysfs file to get hangup reason */
+#define HANGUP_REASON_SYSFS "parameters/hangup_reasons"
+/* sysfs file to launch modem warm reset */
+#define RESET_MODEM_SYSFS "parameters/reset_modem"
+/* sysfs file to launch modem cold reset */
+#define COLD_RESET_MODEM_SYSFS "parameters/cold_reset_modem"
+/* sysfs file to power off modem */
+#define POWER_OFF_MODEM_SYSFS "parameters/power_off_modem"
+/* handle hsi driver type */
+#define HSI_DLP_FOLDER_SYSFS "/sys/module/hsi_dlp"
+#define HSI_FFL_FOLDER_SYSFS "/sys/module/hsi_ffl_tty"
 
 typedef enum e_switch_to_mux_states {
     E_MUX_HANDSHAKE,
@@ -50,6 +65,97 @@ typedef enum e_switch_to_mux_states {
     E_MUX_AT_CMD,
     E_MUX_DRIVER,
 } e_switch_to_mux_states_t;
+
+/* @TODO: remove me when modem boot driver will be used */
+/**
+ * detech which type of HSI driver is used
+ *
+ * @param [in,out] hsi_type type of HSI driver
+ *
+ * @return E_ERR_BAD_PARAMETER if hsi is NULL
+ * @return E_ERR_FAILED if HSI driver not detected
+ * @return E_ERR_SUCCESS if successful
+ */
+static int detect_hsi_driver(e_hsi_type_t *hsi_type)
+{
+    struct stat st;
+    int err;
+    int ret = E_ERR_FAILED;
+
+    CHECK_PARAM(hsi_type, ret, out);
+
+    err = stat(HSI_DLP_FOLDER_SYSFS, &st);
+    if ((err == 0) && (S_ISDIR(st.st_mode))) {
+        LOG_DEBUG("HSI DLP detected");
+        *hsi_type = E_HSI_DLP;
+        ret = E_ERR_SUCCESS;
+        goto out;
+    }
+
+    err = stat(HSI_FFL_FOLDER_SYSFS, &st);
+    if ((err == 0) && (S_ISDIR(st.st_mode))) {
+        LOG_DEBUG("HSI FFL detected");
+        *hsi_type = E_HSI_FFL;
+        ret = E_ERR_SUCCESS;
+        goto out;
+    }
+
+    LOG_ERROR("HSI driver not found");
+out:
+    return ret;
+}
+
+/* @TODO: remove me when modem boot driver will be used */
+/**
+ * build sysfs path regarding the hsi_type
+ *
+ * @param [in,out] path sysfs path to build
+ * @param [in] len size of path
+ * @param [in] filename name of the syfs file
+ * @param [in] hsi_type type of hsi driver
+ *
+ * @return E_ERR_BAD_PARAMETER if path or/and filename is/are NULL
+ * @return E_ERR_FAILED if HSI driver not detected
+ * @return E_ERR_SUCCESS if successful
+ */
+static int set_sysfs_path(char *path, size_t len, char *filename,
+                          e_hsi_type_t hsi_type)
+{
+    int err;
+    int ret = E_ERR_FAILED;
+
+    CHECK_PARAM(path, ret, out);
+    CHECK_PARAM(filename, ret, out);
+
+    if (hsi_type == E_HSI_DLP) {
+        err = snprintf(path, len, "%s/%s", HSI_DLP_FOLDER_SYSFS, filename);
+    } else {
+        err = snprintf(path, len, "%s/%s", HSI_FFL_FOLDER_SYSFS, filename);
+    }
+
+    if ((err > 0) && ((size_t)err <= len))
+        ret = E_ERR_SUCCESS;
+
+out:
+    return ret;
+}
+
+int get_sysfs_path(modem_info_t *info, e_hsi_path_t hsi_path, char **path)
+{
+    int ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+    CHECK_PARAM(path, ret, out);
+
+    if (hsi_path >= E_HSI_PATH_NUM) {
+        *path = NULL;
+        ret = E_ERR_FAILED;
+    } else
+        *path = info->hsi_path[hsi_path];
+
+out:
+    return ret;
+}
 
 /**
  * initialize modem info structure and mcdr
@@ -61,29 +167,85 @@ typedef enum e_switch_to_mux_states {
  * @return E_ERR_FAILED if mcdr init fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
-                                modem_info_t *info)
+int modem_info_init(const mmgr_configuration_t *config, modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(info, ret, out);
 
-    info->ev = E_EV_WAIT_FOR_IPC_READY;
-    info->restore_timeout = config->max_retry_time;
-    info->polled_states =
-        MDM_CTRL_STATE_COREDUMP | MDM_CTRL_STATE_OFF | MDM_CTRL_STATE_IPC_READY;
-
+    info->ev = E_EV_NONE;
     ret = core_dump_init(config, &info->mcdr);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    info->fd_mcd = open(MBD_DEV, O_RDWR);
-    if (info->fd_mcd == -1) {
-        LOG_DEBUG("failed to open Modem Control Driver interface: %s",
-                  strerror(errno));
-        ret = E_ERR_FAILED;
+    if ((ret = detect_hsi_driver(&info->hsi_type)) != E_ERR_SUCCESS)
         goto out;
+    ret = set_sysfs_path(info->hsi_path[E_HSI_PATH_WARM], PATH_MAX,
+                         RESET_MODEM_SYSFS, info->hsi_type);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    ret = set_sysfs_path(info->hsi_path[E_HSI_PATH_COLD], PATH_MAX,
+                         COLD_RESET_MODEM_SYSFS, info->hsi_type);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    ret = set_sysfs_path(info->hsi_path[E_HSI_PATH_HANGUP], PATH_MAX,
+                         HANGUP_REASON_SYSFS, info->hsi_type);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    ret = set_sysfs_path(info->hsi_path[E_HSI_PATH_POWER_OFF], PATH_MAX,
+                         POWER_OFF_MODEM_SYSFS, info->hsi_type);
+out:
+    return ret;
+}
+
+/**
+ * get_hangup_reason
+ *
+ * @param [in] info modem info
+ * @param [out] reason hang-up reason
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED if a non decimal value is read
+ * @return E_ERR_BAD_PARAMETER if reason is NULL
+ */
+static int get_hangup_reason(modem_info_t *info, int *reason)
+{
+    char read_value;
+    int fd = 0;
+    int ret = E_ERR_FAILED;
+    char *path;
+
+    CHECK_PARAM(info, ret, out);
+    CHECK_PARAM(reason, ret, out);
+
+    ret = get_sysfs_path(info, E_HSI_PATH_HANGUP, &path);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    fd = open(path, O_RDWR);
+    if (fd == CLOSED_FD) {
+        LOG_ERROR("open of %s failed (%s)", path, strerror(errno));
+    } else {
+        /* the HANGUP_REASON_SYSFS should contain a decimal value */
+        if (read(fd, &read_value, 1) != 1) {
+            LOG_ERROR("unable to catch the reason (%s)", strerror(errno));
+        } else {
+            char *p = NULL;
+            *reason = strtol(&read_value, &p, 10);
+            if (&read_value != p) {
+                /* with the sysfs filestystem, writing the read value
+                   performs a reset */
+                write(fd, &read_value, 1);
+                ret = E_ERR_SUCCESS;
+            } else {
+                LOG_ERROR("invalid read value");
+            }
+        }
+        close(fd);
     }
-    ret = modem_up(info);
 out:
     return ret;
 }
@@ -98,7 +260,7 @@ out:
  * @return E_ERR_BAD_PARAMETER if xlog or/and info is/are NULL
  * @return E_ERR_FAILED otherwise
  */
-static e_mmgr_errors_t get_panic_id(char *xlog, modem_info_t *info)
+static int get_panic_id(char *xlog, modem_info_t *info)
 {
     const char class_pattern[] = "Trap Class:";
     const char id_pattern[] = "Identification:";
@@ -106,7 +268,7 @@ static e_mmgr_errors_t get_panic_id(char *xlog, modem_info_t *info)
     int panic_id;
     char *end_ptr = NULL;
     char *p_str = NULL;
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    int ret = E_ERR_FAILED;
 
     CHECK_PARAM(xlog, ret, out);
     CHECK_PARAM(info, ret, out);
@@ -160,10 +322,10 @@ out:
  * @return E_ERR_AT_CMD_RESEND generic failure
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t run_at_xlog(int fd_tty, mmgr_configuration_t *config,
-                                   modem_info_t *info)
+static int run_at_xlog(int fd_tty, mmgr_configuration_t *config,
+                       modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
     char data[AT_ANSWER_SIZE + 1];
     int read_size = 0;
     char *p = NULL;
@@ -221,9 +383,9 @@ out_xlog:
  * @return E_ERR_FAILED if protocol not found
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t detect_mcdr_protocol(int fd, modem_info_t *info)
+static int detect_mcdr_protocol(int fd, modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    int ret = E_ERR_FAILED;
     const char key[] = "ymodemProtocolEnabled=";
     const char disabled[] = "false";
     char data[AT_ANSWER_SIZE + 1];
@@ -287,16 +449,17 @@ out:
  * @return E_ERR_TTY_TIMEOUT no response from modem
  * @return E_ERR_SUCCESS
  */
-e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
-                              modem_info_t *info, int timeout)
+int switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
+                  modem_info_t *info, int timeout)
 {
     struct stat st;
     int retry;
-    e_mmgr_errors_t ret = E_ERR_BAD_PARAMETER;
+    int ret = E_ERR_BAD_PARAMETER;
     e_switch_to_mux_states_t state;
     struct timespec current, start;
     int remaining_time;
     int mask = 0;
+    int reason;
 
     CHECK_PARAM(fd_tty, ret, out);
     CHECK_PARAM(config, ret, out);
@@ -339,7 +502,7 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         }
 
         if (ret == E_ERR_SUCCESS) {
-            /* states are ordered. go to next one */
+            /* state are ordered. go to next one */
             state++;
             clock_gettime(CLOCK_MONOTONIC, &start);
             timeout = config->max_retry_time;
@@ -376,6 +539,9 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
     } else {
         /* It's necessary to reset the terminal configuration after MUX init */
         ret = set_termio(*fd_tty);
+
+        /* Reset the HSI HANGUP reason by reading it. */
+        get_hangup_reason(info, &reason);
     }
 
 out:
@@ -391,10 +557,9 @@ out:
  * @return E_ERR_BAD_PARAMETER if config or/and info is/are NULL
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t manage_core_dump(mmgr_configuration_t *config,
-                                 modem_info_t *info)
+int manage_core_dump(mmgr_configuration_t *config, modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(config, ret, out);
     CHECK_PARAM(info, ret, out);
@@ -414,4 +579,50 @@ e_mmgr_errors_t manage_core_dump(mmgr_configuration_t *config,
     }
 out:
     return E_ERR_SUCCESS;
+}
+
+/**
+ * this function find out if modem must be reset or not according to HSI
+ * information and mmgr events
+ *
+ * @param [in] config mmgr config
+ * @param [in,out] info modem info
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if config or/and info is/are NULL
+ */
+int check_modem_state(mmgr_configuration_t *config, modem_info_t *info)
+{
+    int ret = E_ERR_SUCCESS;
+    int reason = 0;
+
+    CHECK_PARAM(config, ret, out);
+    CHECK_PARAM(info, ret, out);
+
+    if (get_hangup_reason(info, &reason) != E_ERR_SUCCESS) {
+        LOG_ERROR("CAN'T DETERMINE POLLHUP REASON");
+        goto out;
+    }
+
+    LOG_VERBOSE("hangup reason: 0x%.2X", reason);
+    if (reason & HU_TIMEOUT) {
+        LOG_ERROR("%s STATE: HU_TIMEOUT ERROR", MODULE_NAME);
+        if ((info->ev & E_EV_MODEM_HANDSHAKE_FAILED) ||
+            (info->ev & E_EV_MODEM_MUX_INIT_FAILED)) {
+            LOG_DEBUG("Timeout during MUX configuration. "
+                      "Skip escalation recovery");
+        }
+    }
+    if (reason & HU_RESET) {
+        LOG_INFO("%s STATE: MODEM SELF RESET", MODULE_NAME);
+        info->ev |= E_EV_MODEM_SELF_RESET;
+        /* give some time to modem to self reset */
+        usleep(SELF_RESET_SLEEP);
+    }
+    if (reason & HU_COREDUMP) {
+        LOG_INFO("%s STATE: MODEM CORE DUMP AVAILABLE", MODULE_NAME);
+        info->ev |= E_EV_CORE_DUMP;
+    }
+out:
+    return ret;
 }

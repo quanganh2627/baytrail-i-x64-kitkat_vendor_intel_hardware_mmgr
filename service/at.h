@@ -21,9 +21,7 @@
 
 #define AT_READ_MAX_RETRIES 4
 
-#include "errors.h"
-
-e_mmgr_errors_t send_at_timeout(int fd_tty, const char *at_cmd, int at_cmd_size,
-                                int timeout);
+int send_at_timeout(int fd_tty, const char *at_cmd, int at_cmd_size,
+                    int timeout);
 
 #endif                          /* __MMGR_AT_HEADER__ */

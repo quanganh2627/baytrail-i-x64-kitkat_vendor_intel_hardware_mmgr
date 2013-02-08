@@ -19,7 +19,7 @@
 #ifndef __MMGR_ERRORS_HEADER__
 #define __MMGR_ERRORS_HEADER__
 
-typedef enum e_mmgr_errors {
+enum e_mmgr_errors {
     /* TTY errors */
     E_ERR_TTY_BAD_FD,
     E_ERR_TTY_ERROR,
@@ -35,7 +35,7 @@ typedef enum e_mmgr_errors {
     E_ERR_BAD_PARAMETER,
     E_ERR_FAILED,
     E_ERR_SUCCESS
-} e_mmgr_errors_t;
+};
 
 #define CLOSED_FD -1
 
