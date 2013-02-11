@@ -272,15 +272,25 @@ e_mmgr_errors_t modem_up(modem_info_t *info, bool is_flashless, bool is_hsic)
     /* @TODO: rework this to remove the is_flashless and is_hsic
        boolean to hide modem_specific parameters from the calling module */
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int state;
 
     CHECK_PARAM(info, ret, out);
+
+    ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
 
     /*@TODO: broken start_hsic does nothing */
     if (is_hsic)
         start_hsic(info);
 
     if (is_flashless) {
-        ret = modem_cold_reset(info);
+        if (state & MDM_CTRL_STATE_OFF) {
+            if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {
+                LOG_DEBUG("failed to power on the modem: %s", strerror(errno));
+                ret = E_ERR_FAILED;
+            }
+        } else {
+            ret = modem_cold_reset(info);
+        }
     } else if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {
         LOG_DEBUG("failed to power on the modem: %s", strerror(errno));
         ret = E_ERR_FAILED;
