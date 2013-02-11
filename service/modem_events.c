@@ -281,7 +281,6 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
             mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
 
-            close_tty(&mmgr->fd_tty);
         }
 
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
@@ -301,6 +300,7 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     if ((mmgr->reset.state != E_OPERATION_SKIP) &&
         (mmgr->reset.state != E_OPERATION_WAIT)) {
 
+        close_tty(&mmgr->fd_tty);
         /* re-generates the fls through nvm injection lib if the modem
            is_flashless */
         if (mmgr->config.is_flashless) {
@@ -588,7 +588,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         mmgr->events.modem_state |= E_MDM_STATE_FLASH_READY;
         mmgr->events.modem_state &= ~E_MDM_STATE_BB_READY;
 
-        if (mmgr->events.modem_state & E_MDM_STATE_FW_DL_READY) {
+        if (1) {                //@TODO: REVERT ME mmgr->events.modem_state & E_MDM_STATE_FW_DL_READY) {
             ret = do_flash(mmgr);
         }
     } else if (get_bus_state(&mmgr->events.bus_events) & MDM_CD_READY) {
