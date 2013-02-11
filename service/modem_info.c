@@ -295,7 +295,6 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
     e_switch_to_mux_states_t state;
     struct timespec current, start;
     int remaining_time;
-    int mask = 0;
 
     CHECK_PARAM(fd_tty, ret, out);
     CHECK_PARAM(config, ret, out);
@@ -307,18 +306,15 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         remaining_time = timeout - (current.tv_sec - start.tv_sec);
         if (remaining_time <= 0) {
             LOG_DEBUG("timeout");
-            info->ev |= mask;
             ret = E_ERR_TTY_TIMEOUT;
             goto out;
         }
 
         switch (state) {
         case E_MUX_HANDSHAKE:
-            mask = E_EV_MODEM_HANDSHAKE_FAILED;
             ret = modem_handshake(*fd_tty, config, remaining_time);
             break;
         case E_MUX_XLOG:
-            mask = 0;
             ret = run_at_xlog(*fd_tty, config, info);
             break;
         case E_MUX_CD_PROTOCOL:
@@ -326,7 +322,6 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
                 detect_mcdr_protocol(*fd_tty, info);
             break;
         case E_MUX_AT_CMD:
-            mask = E_EV_MODEM_MUX_INIT_FAILED;
             ret = send_at_cmux(*fd_tty, config, remaining_time);
             break;
         case E_MUX_DRIVER:
@@ -349,8 +344,6 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
             if ((ret = open_tty(config->modem_port, fd_tty)) != E_ERR_SUCCESS)
                 goto out;
         } else {
-            LOG_ERROR("event: 0x%.2X", mask);
-            info->ev |= mask;
             ret = E_ERR_FAILED;
             goto out;
         }
@@ -358,7 +351,6 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
 
     ret = configure_cmux_driver(*fd_tty, config->max_frame_size);
     if (ret != E_ERR_SUCCESS) {
-        info->ev |= E_EV_LINE_DISCIPLINE_FAILED;
         goto out;
     }
 

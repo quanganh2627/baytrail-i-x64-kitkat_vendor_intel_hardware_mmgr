@@ -49,7 +49,7 @@ static e_reset_operation_state_t pre_modem_warm_reset(reset_management_t
     CHECK_PARAM(p_reset, ret, out);
 
     LOG_DEBUG("events 0x%.2X", p_reset->modem_info->ev);
-    if (!(p_reset->modem_info->ev & E_EV_FORCE_RESET) &&
+    if (!(p_reset->modem_info->ev & E_EV_CONF_FAILED) &&
         ((p_reset->modem_info->ev & E_EV_MODEM_SELF_RESET) ||
          (p_reset->modem_info->ev & E_EV_CORE_DUMP_SUCCEED))) {
         LOG_DEBUG("WARM RESET: skipped");

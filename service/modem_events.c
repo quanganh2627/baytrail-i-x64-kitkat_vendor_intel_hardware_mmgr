@@ -313,6 +313,9 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
             stop_hsic(&mmgr->info);
 
         modem_escalation_recovery(&mmgr->reset);
+    }
+
+    if (mmgr->reset.state != E_OPERATION_WAIT) {
 
         if ((mmgr->reset.level.id != E_EL_MODEM_OUT_OF_SERVICE) &&
             (mmgr->reset.level.id != E_EL_MODEM_SHUTDOWN)) {
@@ -358,7 +361,7 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     ret = open_tty(mmgr->config.modem_port, &mmgr->fd_tty);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("open fails");
-        mmgr->info.ev |= E_EV_OPEN_FAILED;
+        mmgr->info.ev |= E_EV_CONF_FAILED;
         goto out;
     }
     ret = switch_to_mux(&mmgr->fd_tty, &mmgr->config, &mmgr->info,
@@ -368,6 +371,7 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
         mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
     } else {
         LOG_ERROR("MUX INIT FAILED. reason=%d", ret);
+        mmgr->info.ev |= E_EV_CONF_FAILED;
         goto out;
     }
 
@@ -451,7 +455,7 @@ e_mmgr_errors_t modem_event(mmgr_data_t *mmgr)
         close_tty(&mmgr->fd_tty);
     }
 
-    mmgr->info.ev = E_EV_FORCE_RESET;
+    mmgr->info.ev |= E_EV_FORCE_RESET;
 out:
     return ret;
 }

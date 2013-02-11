@@ -28,20 +28,17 @@
 
 typedef enum e_modem_events_type {
     E_EV_NONE = 0x00,
-    E_EV_MODEM_HANDSHAKE_FAILED = 0x01,
-    E_EV_LINE_DISCIPLINE_FAILED = 0x01 << 1,
-    E_EV_MODEM_MUX_INIT_FAILED = 0x01 << 2,
-    E_EV_MODEM_SELF_RESET = 0x01 << 3,
-    E_EV_AP_RESET = 0x01 << 4,
-    E_EV_CORE_DUMP = 0x01 << 5,
-    E_EV_CORE_DUMP_SUCCEED = 0x01 << 6,
-    E_EV_CORE_DUMP_FAILED = 0x01 << 7,
-    E_EV_FORCE_RESET = 0x01 << 8,
-    E_EV_OPEN_FAILED = 0x01 << 9,
-    E_EV_MODEM_OFF = 0x01 << 10,
-    E_EV_WAIT_FOR_IPC_READY = 0x01 << 11,
-    E_EV_IPC_READY = 0x01 << 12,
-    E_EV_FW_DOWNLOAD_READY = 0x01 << 13,
+    E_EV_CONF_FAILED = 0x01 << 1,
+    E_EV_MODEM_SELF_RESET = 0x01 << 2,
+    E_EV_AP_RESET = 0x01 << 3,
+    E_EV_CORE_DUMP = 0x01 << 4,
+    E_EV_CORE_DUMP_SUCCEED = 0x01 << 5,
+    E_EV_CORE_DUMP_FAILED = 0x01 << 6,
+    E_EV_FORCE_RESET = 0x01 << 7,
+    E_EV_MODEM_OFF = 0x01 << 8,
+    E_EV_WAIT_FOR_IPC_READY = 0x01 << 9,
+    E_EV_IPC_READY = 0x01 << 10,
+    E_EV_FW_DOWNLOAD_READY = 0x01 << 11,
 } e_modem_events_type_t;
 
 typedef struct modem_info {

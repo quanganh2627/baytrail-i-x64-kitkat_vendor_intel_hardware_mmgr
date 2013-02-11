@@ -88,10 +88,10 @@
  ** 3.2.25 - 2013-02-26 - BZ 87509 - REVERT: client API: flight mode enhancement
  ** 3.2.26 - 2013-02-18 - BZ 87509 - REVERT: remove MODEM OFF from escalation recovery
  ** 4.1.1  - 2013-02-07 - BZ 76423 - modem flashless and HSIC introduction
+ ** 4.1.2  - 2013-02-08 - BZ 86071 - fix escalation recovery
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-
-#define MODULE_VERSION "4.1.1"
+#define MODULE_VERSION "4.1.2"
