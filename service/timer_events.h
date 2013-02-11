@@ -23,7 +23,6 @@
 
 #define FORCE_MODEM_SHUTDOWN(mmgr) do { \
     mmgr->info.ev |= E_EV_FORCE_RESET; \
-    mmgr->events.do_restore_modem = true; \
     mmgr->reset.modem_shutdown = true; \
 } while (0)
 

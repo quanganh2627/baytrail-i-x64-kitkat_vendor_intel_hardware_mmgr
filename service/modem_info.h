@@ -24,6 +24,7 @@
 #define UNKNOWN_PANIC_ID -1
 #define TIMEOUT_HANDSHAKE_AFTER_CD 30   /* in seconds */
 #define MBD_DEV "/dev/mdm_ctrl"
+#define FLASHLESS_CFG "/etc/telephony/flashless.conf"
 
 typedef enum e_modem_events_type {
     E_EV_NONE = 0x00,
@@ -40,6 +41,7 @@ typedef enum e_modem_events_type {
     E_EV_MODEM_OFF = 0x01 << 10,
     E_EV_WAIT_FOR_IPC_READY = 0x01 << 11,
     E_EV_IPC_READY = 0x01 << 12,
+    E_EV_FW_DOWNLOAD_READY = 0x01 << 13,
 } e_modem_events_type_t;
 
 typedef struct modem_info {
@@ -49,6 +51,10 @@ typedef struct modem_info {
     int fd_mcd;
     int polled_states;
     int restore_timeout;
+    char fls_in[MAX_SIZE_CONF_VAL];
+    char fls_out[MAX_SIZE_CONF_VAL];
+    char nvm_files_path[MAX_SIZE_CONF_VAL];
+    char cal_path[MAX_SIZE_CONF_VAL];
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,

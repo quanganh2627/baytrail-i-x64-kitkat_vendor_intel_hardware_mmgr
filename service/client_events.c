@@ -19,17 +19,14 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <sys/epoll.h>
-#include <linux/mdm_ctrl.h>
 #include "client.h"
 #include "client_events.h"
 #include "errors.h"
 #include "logs.h"
 #include "modem_events.h"
 #include "modem_specific.h"
-#include "socket.h"
 #include "timer_events.h"
-
-#define READ_SIZE 1024
+#include "msg_to_data.h"
 
 const char *g_mmgr_requests[] = {
 #undef X
@@ -37,8 +34,379 @@ const char *g_mmgr_requests[] = {
     MMGR_REQUESTS
 };
 
+#define RND_CERTIFICATE_FILE  "/logs/modem_rnd_certif.bin"
+
+/**
+ * handle REQUEST_MODEM_NVM_GET_ID request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_modem_nvm_get(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
+        mmgr->request.answer = E_MMGR_NACK;
+    } else {
+        /* @TODO read nvm id */
+    }
+    ret = E_ERR_SUCCESS;
+
+out:
+    return ret;
+}
+
+/**
+ * handle REQUEST_MODEM_FW_UPDATE request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_modem_fw_update(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mmgr_cli_fw_update_t fw = {.fls_path = NULL };
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
+        mmgr->request.answer = E_MMGR_NACK;
+    } else {
+        if (extract_data_fw_update(&mmgr->request.msg, &fw) != E_ERR_SUCCESS) {
+            LOG_ERROR("failed to extract data");
+            goto out;
+        }
+        //TODO: save file and restart modem
+    }
+    ret = E_ERR_SUCCESS;
+
+out:
+    if (fw.fls_path != NULL)
+        free(fw.fls_path);
+    return ret;
+}
+
+/**
+ * handle REQUEST_MODEM_NVM_UPDATE request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_modem_nvm_update(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mmgr_cli_nvm_update_t nvm;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
+        mmgr->request.answer = E_MMGR_NACK;
+    } else {
+        if (extract_data_nvm_update(&mmgr->request.msg, &nvm) != E_ERR_SUCCESS) {
+            LOG_ERROR("failed to extract data");
+            goto out;
+        }
+
+        /* @TODO: manage nvm update request */
+    }
+    ret = E_ERR_SUCCESS;
+out:
+    return ret;
+}
+
+/**
+ * handle REQUEST_MODEM_RND_ERASE request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_modem_rnd_erase(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    /* @TODO: launch erase RND */
+    ret = E_ERR_SUCCESS;
+out:
+    return ret;
+}
+
+/**
+ * handle REQUEST_MODEM_RND_GET request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_modem_rnd_get(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
+        mmgr->request.answer = E_MMGR_NACK;
+    } else {
+        /* @ŦODO: launch get rnd process */
+    }
+    ret = E_ERR_SUCCESS;
+out:
+    return ret;
+}
+
+/**
+ * handle REQUEST_MODEM_FUSE_INFO request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_modem_fuse_info(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
+        mmgr->request.answer = E_MMGR_NACK;
+    } else {
+        /* @TODO: launch get fuse info */
+    }
+    ret = E_ERR_SUCCESS;
+out:
+    return ret;
+}
+
+/**
+ * handle REQUEST_MODEM_GET_HW_ID request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_modem_get_hw_id(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
+        mmgr->request.answer = E_MMGR_NACK;
+    } else {
+        /* @TODO: launch get hw id */
+    }
+    ret = E_ERR_SUCCESS;
+out:
+    return ret;
+}
+
+/**
+ * handle REQUEST_MODEM_NVM_PROGRESS request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_modem_nvm_progress(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mmgr_cli_nvm_update_progress_t progress;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    /* @TODO: get flashing rate */
+    progress.rate = 100;
+
+    /* @TODO: when is it relevant to answer */
+    ret = inform_flash_client(mmgr->request.client,
+                              E_MMGR_RESPONSE_MODEM_NVM_PROGRESS, &progress,
+                              false);
+out:
+    return ret;
+}
+
+/**
+ * handle REQUEST_GET_BACKUP_FILE_PATH request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_backup_file_path(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mmgr_cli_backup_path_t bkup = {.path = NULL };
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    /* @TODO: get bkup path */
+
+    /* @TODO: when is it relevant to answer */
+    ret =
+        inform_flash_client(mmgr->request.client,
+                            E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH, &bkup, false);
+
+out:
+    return ret;
+}
+
+/**
+ * handle REQUEST_MODEM_FW_PROGRESS request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_modem_fw_progress(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mmgr_cli_fw_update_progress_t progress;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    /* @TODO: get flashing rate */
+    progress.rate = 100;
+
+    /* @TODO: when is it relevant to answer */
+    ret =
+        inform_flash_client(mmgr->request.client,
+                            E_MMGR_RESPONSE_MODEM_FW_PROGRESS, &progress,
+                            false);
+out:
+    return ret;
+}
+
+/**
+ * handle E_MMGR_SET_NAME request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_set_name(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    ret = set_client_name(mmgr->request.client, mmgr->request.msg.data,
+                          mmgr->request.msg.hdr.len);
+
+    if (ret != E_ERR_SUCCESS)
+        ret = E_ERR_DISCONNECTED;
+    /* inform client that connection has succeed */
+    inform_client(mmgr->request.client, E_MMGR_ACK, true);
+out:
+    return ret;
+}
+
+/**
+ * handle REQUEST_MODEM_BACKUP_PRODUCTION request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_bkup_prod(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    /* @TODO: launch get hw id */
+out:
+    return ret;
+}
+
+/**
+ * handle E_MMGR_SET_EVENTS request
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    uint32_t filter;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    if (mmgr->request.msg.hdr.len == sizeof(uint32_t)) {
+        memcpy(&filter, mmgr->request.msg.data, sizeof(uint32_t));
+        filter = ntohl(filter);
+        ret = set_client_filter(mmgr->request.client, filter);
+
+        /* inform client that connection has succeed */
+        inform_client(mmgr->request.client, E_MMGR_ACK, true);
+        /* client is registered and accepted. So, MMGR should provide
+           the current modem status if client has subsribed to it */
+        ret = inform_client(mmgr->request.client, mmgr->client_notification,
+                            false);
+    } else {
+        LOG_ERROR("bad filter size");
+    }
+out:
+    return ret;
+}
+
 /**
  * handle E_MMGR_RESOURCE_ACQUIRE request
+ *
+ * @private
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -54,7 +422,7 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
     if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
-        mmgr->request.client->resource_release = false;
+        mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
         /* At least one client has acquired the resource. So, cancel
            modem shutdown if it's on going */
         mmgr->events.modem_shutdown = false;
@@ -65,11 +433,31 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
             (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) &&
             !(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
             LOG_DEBUG("wake up modem");
-            mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-            set_mcd_poll_states(mmgr);
-            mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
-            reset_escalation_counter(&mmgr->reset);
-            ret = modem_up(&mmgr->info);
+
+            //@TODO: workaround since start_hsic in modem_up does nothing
+            // and stop_hsic makes a restart of hsic.
+            if (!strcmp("hsic", mmgr->config.link_layer)) {
+                stop_hsic(&mmgr->info);
+            }
+
+            if (mmgr->config.is_flashless)
+                mmgr->info.polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
+            else
+                mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
+            ret = set_mcd_poll_states(&mmgr->info);
+
+            if ((ret = modem_up(&mmgr->info, mmgr->config.is_flashless,
+                                !strcmp("hsic", mmgr->config.link_layer))) ==
+                E_ERR_SUCCESS) {
+                mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
+                reset_escalation_counter(&mmgr->reset);
+                start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+                //if the modem is hsic, add wait_for_bus_ready
+                //@TODO: push that into modem_specific
+                if (strcmp(mmgr->config.link_layer, "hsic") == 0)
+                    start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+            }
+
         }
     }
 
@@ -79,6 +467,8 @@ out:
 
 /**
  * handle E_MMGR_RESOURCE_RELEASE request
+ *
+ * @private
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -91,7 +481,7 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    mmgr->request.client->resource_release = true;
+    mmgr->request.client->cnx |= E_CNX_RESOURCE_RELEASED;
 
     if ((mmgr->client_notification != E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) &&
         (!mmgr->events.modem_shutdown)) {
@@ -110,6 +500,8 @@ out:
 /**
  * handle E_MMGR_REQUEST_MODEM_RECOVERY request
  *
+ * @private
+ *
  * @param [in,out] mmgr mmgr context
  *
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
@@ -118,15 +510,18 @@ out:
 static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int32_t sec;
 
     CHECK_PARAM(mmgr, ret, out);
 
+    memcpy(&sec, &mmgr->request.msg.hdr.ts, sizeof(uint32_t));
     if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
-        if (mmgr->request.received.ts > mmgr->reset.last_reset_time.tv_sec) {
-            mmgr->info.ev |= E_EV_AP_RESET;
-            mmgr->events.do_restore_modem = true;
+        if (sec > mmgr->reset.last_reset_time.tv_sec) {
+            if (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) {
+                mmgr->info.ev |= E_EV_AP_RESET | E_EV_FORCE_RESET;
+            }
         } else {
             LOG_DEBUG("skipped. Request older than last recovery operation");
         }
@@ -137,6 +532,8 @@ out:
 
 /**
  * handle E_MMGR_REQUEST_MODEM_RESTART request
+ *
+ * @private
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -152,9 +549,10 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
     if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
-        mmgr->info.ev |= E_EV_AP_RESET;
-        mmgr->events.do_restore_modem = true;
-        mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
+        if (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) {
+            mmgr->info.ev |= E_EV_AP_RESET | E_EV_FORCE_RESET;
+            mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
+        }
     }
 out:
     return ret;
@@ -162,6 +560,8 @@ out:
 
 /**
  * handle request
+ *
+ * @private
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -176,11 +576,10 @@ static e_mmgr_errors_t request_ack_cold_reset(mmgr_data_t *mmgr)
 
     mmgr->request.answer = E_MMGR_NUM_EVENTS;
     if (mmgr->client_notification == E_MMGR_NOTIFY_MODEM_COLD_RESET) {
-        mmgr->request.client->cold_reset = true;
+        mmgr->request.client->cnx |= E_CNX_COLD_RESET;
         if (check_cold_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
             LOG_DEBUG("All clients agreed cold reset");
             mmgr->info.ev |= E_EV_FORCE_RESET;
-            mmgr->events.do_restore_modem = true;
         }
     }
 out:
@@ -189,6 +588,8 @@ out:
 
 /**
  * handle request
+ *
+ * @private
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -203,7 +604,7 @@ static e_mmgr_errors_t request_ack_modem_shutdown(mmgr_data_t *mmgr)
 
     mmgr->request.answer = E_MMGR_NUM_EVENTS;
     if (mmgr->client_notification == E_MMGR_NOTIFY_MODEM_SHUTDOWN) {
-        mmgr->request.client->modem_shutdown = true;
+        mmgr->request.client->cnx |= E_CNX_MODEM_SHUTDOWN;
         if (check_shutdown_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
             LOG_DEBUG("All clients agreed modem shutdown");
             FORCE_MODEM_SHUTDOWN(mmgr);
@@ -215,6 +616,8 @@ out:
 
 /**
  * handle E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN request
+ *
+ * @private
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -237,6 +640,8 @@ out:
 /**
  * handle client request
  *
+ * @private
+ *
  * @param [in,out] mmgr mmgr context
  *
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
@@ -246,69 +651,51 @@ out:
 static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
+    size_t size;
 
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->request.answer = E_MMGR_ACK;
     mmgr->request.additional_info = E_MMGR_NUM_EVENTS;
+    mmgr->request.msg.data = NULL;
 
-    if (mmgr->request.received.id < E_MMGR_NUM_REQUESTS) {
-        LOG_INFO("Request (%s) received from client (name=%s)",
-                 g_mmgr_requests[mmgr->request.received.id],
-                 mmgr->request.client->name);
+    size = mmgr->request.msg.hdr.len;
 
-        if (mmgr->hdler_client[mmgr->request.received.id] != NULL)
-            ret = mmgr->hdler_client[mmgr->request.received.id] (mmgr);
+    /* Not accepting client requests for now, NACK ! */
+    if (!mmgr->request.accept_request) {
+        mmgr->request.answer = E_MMGR_NACK;
+        inform_client(mmgr->request.client, mmgr->request.answer, false);
+    }
+
+    if (size > 0) {
+        mmgr->request.msg.data = calloc(size, sizeof(char));
+        if (mmgr->request.msg.data == NULL)
+            goto out;
+        ret = read_cnx(mmgr->request.client->fd, mmgr->request.msg.data, &size);
+        if ((ret != E_ERR_SUCCESS) || (size != mmgr->request.msg.hdr.len)) {
+            LOG_ERROR("Client (fd=%d name=%s) Failed to read data",
+                      mmgr->request.client->fd, mmgr->request.client->name);
+            goto out_free;
+        }
+    }
+
+    if (mmgr->request.msg.hdr.id < E_MMGR_NUM_REQUESTS) {
+        LOG_INFO("Request (%s) received from client (fd=%d name=%s)",
+                 g_mmgr_requests[mmgr->request.msg.hdr.id],
+                 mmgr->request.client->fd, mmgr->request.client->name);
+
+        if (mmgr->hdler_client[mmgr->request.msg.hdr.id] != NULL)
+            ret = mmgr->hdler_client[mmgr->request.msg.hdr.id] (mmgr);
 
         if (mmgr->request.answer < E_MMGR_NUM_EVENTS)
             inform_client(mmgr->request.client, mmgr->request.answer, false);
         if (mmgr->request.additional_info < E_MMGR_NUM_EVENTS)
             inform_all_clients(&mmgr->clients, mmgr->request.additional_info);
     }
-out:
-    return ret;
-}
 
-/**
- * Check if client has sent too much data, if so, the client will be banned
- *
- * @param [in,out] mmgr mmgr context
- * @param [in,out] client current client
- * @param [in,out] read_size size of last request
- *
- * @return E_ERR_BAD_PARAMETER if mmgr or client is/are NULL
- * @return E_ERR_SUCCESS client not banned
- * @return E_ERR_FAILED client banned or bad client
- */
-static e_mmgr_errors_t is_client_banned(mmgr_data_t *mmgr, client_t *client,
-                                        size_t read_size)
-{
-    struct timespec current;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
-    CHECK_PARAM(client, ret, out);
-
-    clock_gettime(CLOCK_MONOTONIC, &current);
-    if ((current.tv_sec - client->time.tv_sec) > mmgr->config.time_banned)
-        client->received = 0;
-
-    client->received += read_size;
-    if (client->received >= (int)
-        (mmgr->config.max_requests_banned * REQUEST_SIZE)) {
-        LOG_INFO("Too much data received (%d). Client (name=%s) banned",
-                 client->received, client->name);
-        remove_client(&mmgr->clients, client);
-        ret = E_ERR_FAILED;
-        goto out;
-    }
-
-    client->time = current;
-    if (read_size > REQUEST_SIZE) {
-        LOG_INFO("request size higher than expected (%d)", read_size);
-        ret = E_ERR_FAILED;
-        goto out;
-    }
+out_free:
+    if (mmgr->request.msg.data != NULL)
+        free(mmgr->request.msg.data);
 out:
     return ret;
 }
@@ -320,84 +707,47 @@ out:
  *
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED if client not found or socket disconnection fails or
+ * @return E_ERR_FAILED if client not found or cnx disconnection fails or
  *                       client banned
  */
 e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
 {
-    size_t read_size = READ_SIZE;
-    char data[READ_SIZE];
     client_t *client = NULL;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    uint32_t tmp;
-    int fd;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    fd = mmgr->events.ev[mmgr->events.cur_ev].data.fd;
-    if ((ret = read_socket(fd, data, &read_size)) != E_ERR_SUCCESS)
-        goto out;
-
-    ret = find_client(&mmgr->clients, fd, &client);
+    ret = find_client(&mmgr->clients,
+                      mmgr->events.ev[mmgr->events.cur_ev].data.fd, &client);
     if (ret != E_ERR_SUCCESS) {
-        LOG_ERROR("failed to find client (fd=%d)", fd);
+        LOG_ERROR("failed to find client (fd=%d)", client->fd);
         goto out;
     }
-    LOG_DEBUG("Client (fd=%d name=%s) read_size=%d",
-              client->fd, client->name, read_size);
 
-    if (read_size == 0) {
+    ret = get_header(mmgr->events.ev[mmgr->events.cur_ev].data.fd,
+                     &mmgr->request.msg.hdr);
+    if (ret == E_ERR_SUCCESS) {
+        mmgr->request.client = client;
+        ret = client_request(mmgr);
+    } else if (ret == E_ERR_DISCONNECTED) {
         /* client disconnection */
         LOG_DEBUG("Client (fd=%d name=%s) is disconnected", client->fd,
                   client->name);
         ret = remove_client(&mmgr->clients, client);
-    } else {
-        if (client->received == FIRST_CLIENT_REQUEST) {
-            if (read_size != (CLIENT_NAME_LEN + sizeof(uint32_t))) {
-                LOG_DEBUG("bad name size=%d. Client rejected", read_size);
-                ret = remove_client(&mmgr->clients, client);
-                /* inform client that connection has failed */
-                inform_client(client, E_MMGR_NACK, true);
-            } else {
-                set_client_name(client, data);
-                memcpy(&tmp, data + CLIENT_NAME_LEN, sizeof(uint32_t));
-                set_client_filter(client, tmp);
-                /* inform client that connection has succeed */
-                inform_client(client, E_MMGR_ACK, true);
-                /* client is registered and accepted. So, MMGR should provide
-                   the current modem status if client has subsribed to it */
-                ret = inform_client(client, mmgr->client_notification, false);
-            }
-        } else {
-            ret = is_client_banned(mmgr, client, read_size);
-            if (ret != E_ERR_SUCCESS)
-                goto out;
-            if (read_size == REQUEST_SIZE) {
-                memcpy(&tmp, data, sizeof(e_mmgr_requests_t));
-                memcpy(&mmgr->request.received.ts,
-                       data + sizeof(e_mmgr_requests_t), sizeof(uint32_t));
-
-                tmp = (e_mmgr_requests_t)ntohl(tmp);
-                memcpy(&mmgr->request.received, &tmp,
-                       sizeof(e_mmgr_requests_t));
-                mmgr->request.received.ts = ntohl(mmgr->request.received.ts);
-
-                mmgr->request.client = client;
-                ret = client_request(mmgr);
-            }
-        }
-    }
+    } else
+        LOG_ERROR("Client (fd=%d name=%s) bad message", client->fd,
+                  client->name);
 out:
     return ret;
 }
 
 /**
- * handle new socket connection and add client in client list
+ * handle new cnx connection and add client in client list
  *
  * @param [in,out] mmgr mmgr context
  *
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_FAILED if socket connection fails or client rejected
+ * @return E_ERR_FAILED if cnx connection fails or client rejected
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
@@ -413,8 +763,8 @@ e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
     fd = mmgr->events.ev[mmgr->events.cur_ev].data.fd;
 
     if (mmgr->clients.connected <= mmgr->config.max_clients) {
-        LOG_DEBUG("try to subscribe new client");
-        conn_sock = accept_socket(fd);
+        LOG_DEBUG("try to subscribe new client fd=%d", fd);
+        conn_sock = accept_cnx(fd);
         if (conn_sock < 0) {
             LOG_ERROR("Error during accept (%s)", strerror(errno));
         } else {
@@ -455,6 +805,8 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
     for (i = 0; i < E_MMGR_NUM_REQUESTS; i++)
         mmgr->hdler_client[i] = NULL;
 
+    mmgr->hdler_client[E_MMGR_SET_NAME] = request_set_name;
+    mmgr->hdler_client[E_MMGR_SET_EVENTS] = request_set_events;
     mmgr->hdler_client[E_MMGR_RESOURCE_ACQUIRE] = request_resource_acquire;
     mmgr->hdler_client[E_MMGR_RESOURCE_RELEASE] = request_resource_release;
     mmgr->hdler_client[E_MMGR_REQUEST_MODEM_RECOVERY] = request_modem_recovery;
@@ -463,6 +815,29 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
         request_force_modem_shutdown;
     mmgr->hdler_client[E_MMGR_ACK_MODEM_COLD_RESET] = request_ack_cold_reset;
     mmgr->hdler_client[E_MMGR_ACK_MODEM_SHUTDOWN] = request_ack_modem_shutdown;
+    /* flashing API: */
+    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_FW_UPDATE] =
+        request_modem_fw_update;
+    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_RND_ERASE] =
+        request_modem_rnd_erase;
+    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_RND_GET] = request_modem_rnd_get;
+    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_FUSE_INFO] =
+        request_modem_fuse_info;
+    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_GET_HW_ID] =
+        request_modem_get_hw_id;
+    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_NVM_UPDATE] =
+        request_modem_nvm_update;
+    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_NVM_GET_ID] = request_modem_nvm_get;
+    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_BACKUP_PRODUCTION] =
+        request_bkup_prod;
+
+    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_NVM_PROGRESS] =
+        request_modem_nvm_progress;
+    mmgr->hdler_client[E_MMGR_REQUEST_GET_BACKUP_FILE_PATH] =
+        request_backup_file_path;
+    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_FW_PROGRESS] =
+        request_modem_fw_progress;
+
 out:
     return ret;
 }

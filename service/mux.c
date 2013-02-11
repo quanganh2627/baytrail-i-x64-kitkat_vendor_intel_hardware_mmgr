@@ -30,7 +30,6 @@
 
 /* AT commands */
 #define AT_PING_CMD "ATE0\r"
-#define AT_POWER_OFF_MODEM "AT+CFUN=0\r"
 /* Maximum size for configuration string key */
 #define MAX_SIZE_CONF_KEY 100
 

@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include "crash_logger.h"
 #include "errors.h"
+#include "file.h"
 #include "mmgr.h"
 #include "property.h"
 #include "test_cases.h"
@@ -208,7 +209,7 @@ int full_recovery(test_data_t *test)
         if (ret != E_ERR_SUCCESS)
             goto out;
     }
-    if (test->config.modem_cold_reset_enable) {
+    if (test->config.nb_cold_reset > 0) {
 
         for (i = 1; i <= test->config.nb_cold_reset; i++) {
             printf("\nCheck #%d COLD reset\n", i);
@@ -221,7 +222,7 @@ int full_recovery(test_data_t *test)
         }
     }
 
-    if (test->config.platform_reboot_enable) {
+    if (test->config.nb_platform_reboot > 0) {
         printf("\nCheck Reboot mechanism\n");
         get_property(PLATFORM_REBOOT_KEY, &reboot);
         if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
@@ -243,6 +244,52 @@ int full_recovery(test_data_t *test)
         }
     }
 
+out:
+    return ret;
+}
+
+/**
+ * Resource acquire test
+ *
+ * @param [in] test test data
+ *
+ * @return E_ERR_BAD_PARAMETER if test is NULL
+ * @return E_ERR_FAILED test fails
+ * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
+ * @return E_ERR_SUCCESS if successful
+ */
+int resource_acquire(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
+        ret = E_ERR_SUCCESS;
+out:
+    return ret;
+}
+
+/**
+ * Resource release test
+ *
+ * @param [in] test test data
+ *
+ * @return E_ERR_BAD_PARAMETER if test is NULL
+ * @return E_ERR_FAILED test fails
+ * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
+ * @return E_ERR_SUCCESS if successful
+ */
+int resource_release(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_RELEASE };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
+        ret = E_ERR_SUCCESS;
 out:
     return ret;
 }
@@ -349,66 +396,6 @@ int turn_on_modem(test_data_t *test)
         ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                              TIMEOUT_MODEM_UP_AFTER_RESET);
     }
-
-out:
-    return ret;
-}
-
-/**
- * Test socket banned client mechanism
- *
- * @param [in] test test data
- *
- * @return E_ERR_BAD_PARAMETER if test is NULL
- * @return E_ERR_FAILED test fails
- * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
- * @return E_ERR_SUCCESS if successful
- */
-int client_banned(test_data_t *test)
-{
-    int ret = E_ERR_FAILED;
-    int i;
-    int err = E_ERR_SUCCESS;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
-
-    CHECK_PARAM(test, ret, out);
-
-    if (mmgr_cli_disconnect(test->lib) != E_ERR_CLI_SUCCEED)
-        goto out;
-
-    if (mmgr_cli_subscribe_event(test->lib, event_without_ack,
-                                 E_MMGR_ACK) != E_ERR_CLI_SUCCEED)
-        goto out;
-
-    if (mmgr_cli_subscribe_event(test->lib, event_without_ack,
-                                 E_MMGR_NACK) != E_ERR_CLI_SUCCEED)
-        goto out;
-
-    if (mmgr_cli_connect(test->lib) != E_ERR_CLI_SUCCEED)
-        goto out;
-
-    /* Wait modem up */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
-
-    ret = E_ERR_FAILED;
-    for (i = 0;
-         i < (test->config.max_requests_banned + 1) && err != E_ERR_FAILED;
-         i++) {
-        printf("\nsending message #%d\n", i + 1);
-        if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED)
-            err = E_ERR_FAILED;
-        if (wait_for_state(test, E_MMGR_ACK, 5) != E_ERR_SUCCESS)
-            err = E_ERR_FAILED;
-        /* force modem state to be sure that ACK is received next time */
-        modem_state_set(test, E_MMGR_NACK);
-    }
-    LOG_DEBUG("i=%d err=%d", i, err);
-    if ((i == test->config.max_requests_banned) && (err == E_ERR_FAILED)
-        && (mmgr_cli_connect(test->lib) == E_ERR_CLI_SUCCEED))
-        ret = E_ERR_SUCCESS;
 
 out:
     return ret;

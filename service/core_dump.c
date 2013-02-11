@@ -27,7 +27,6 @@ typedef struct core_dump_thread {
     pthread_t thread_id;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-    mcdr_status_t status;
     mcdr_lib_t *mcdr;
 } core_dump_thread_t;
 
@@ -52,19 +51,23 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
                                mcdr_lib_t *mcdr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    const char *state[] = { "DISABLED", "ENABLED" };
     char *p = NULL;
 
     CHECK_PARAM(mcdr, ret, out);
 
     if (!config->modem_core_dump_enable) {
         mcdr->enabled = false;
+        LOG_VERBOSE("MCDR library not found");
     } else {
         mcdr->lib = dlopen(MCDR_LIBRARY_NAME, RTLD_LAZY);
         if (mcdr->lib == NULL) {
             mcdr->enabled = false;
         } else {
             mcdr->enabled = true;
+            mcdr->data.baudrate = config->mcdr_baudrate;
+            strncpy(mcdr->data.path, config->mcdr_path, MAX_SIZE_CONF_VAL - 1);
+            strncpy(mcdr->data.port, config->mcdr_device,
+                    MAX_SIZE_CONF_VAL - 1);
             /** see dlsym manpage to understand why this strange cast is used */
             *(void **)&mcdr->read = dlsym(mcdr->lib, "mcdr_get_core_dump");
             *(void **)&mcdr->cleanup = dlsym(mcdr->lib, "mcdr_cleanup");
@@ -77,8 +80,6 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
             }
         }
     }
-    /* to improve display, don't use LOG_DEBUG here */
-    LOGD(PRINT_STRING, "MCDR", state[mcdr->enabled]);
 out:
     return ret;
 }
@@ -91,8 +92,7 @@ out:
  */
 static void thread_core_dump(core_dump_thread_t *cd_reader)
 {
-    cd_reader->status = cd_reader->mcdr->read(MCDR_CONFIG_FILE,
-                                              cd_reader->mcdr->protocol);
+    cd_reader->mcdr->read(&cd_reader->mcdr->data);
     /* the thread is finished. send the conditional signal waited by
        pthread_cond_timedwait */
     pthread_mutex_lock(&cd_reader->mutex);
@@ -171,12 +171,13 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
         if (err != 0) {
             LOG_DEBUG("ERROR during thread_join");
         } else {
-            if (cd_reader.status == MCDR_SUCCEED) {
+            if (mcdr->data.state == MCDR_SUCCEED) {
                 gettimeofday(&tp_end, NULL);
-                LOG_VERBOSE("Succeed (in %lus.)", tp_end.tv_sec - tp.tv_sec);
+                LOG_VERBOSE("Succeed (in %lus.) name:%s", tp_end.tv_sec -
+                            tp.tv_sec, mcdr->data.coredump_file);
                 ret = E_ERR_SUCCESS;
             } else {
-                LOG_ERROR("Failed with error %d", cd_reader.status);
+                LOG_ERROR("Failed with error %d", mcdr->data.state);
             }
         }
     }

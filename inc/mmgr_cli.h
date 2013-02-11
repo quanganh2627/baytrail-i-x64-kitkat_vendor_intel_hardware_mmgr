@@ -35,9 +35,9 @@ extern "C" {
 
     typedef struct mmgr_cli_event {
         e_mmgr_events_t id;
-        void *context;
         size_t len;
         void *data;
+        void *context;
     } mmgr_cli_event_t;
 
     typedef struct mmgr_cli_request {

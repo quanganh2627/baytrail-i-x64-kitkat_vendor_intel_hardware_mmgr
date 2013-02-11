@@ -25,10 +25,10 @@
 typedef struct mcdr_lib {
     bool enabled;
     void *lib;
-    mcdr_protocols_t protocol;
-     mcdr_status_t(*read) (const char *filename, mcdr_protocols_t protocol);
+    mcdr_data_t data;
+    void (*read) (mcdr_data_t * data);
     void (*cleanup) (void);
-     mcdr_status_t(*state) (void);
+    mcdr_status_t (*state) (void);
 } mcdr_lib_t;
 
 e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,

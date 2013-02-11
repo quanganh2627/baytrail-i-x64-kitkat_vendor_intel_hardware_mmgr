@@ -64,14 +64,20 @@ Socket name and constant request values are subject to change. Please include
 the header file in your project instead of redefine the values.
 
 Once connected to MMGR socket, client should declare its name before any
-request. The name size is CLIENT_NAME_LEN characters maximum. The client should
-send padding data to fill the request size. If the name size is incorrect or if
-the name is not provided during the first request, the client is rejected and
-its socket is closed.
+request. The name size is CLIENT_NAME_LEN characters maximum.
 
 Clients should also provide their events subscription mask. This mask is 32
-bits long and should be sent at the same time than the client name.
-To subscribe to an event, the bit matching the event id must be set to 1.
+bits long. To subscribe to an event, the bit matching the event id must be
+set to 1.
+
+A client is considered connected only if it had send its name and its
+subscription mask.
+
+A MMGR message _ALWAYS_ follow this frame:
+  * request id (unsigned int)
+  * timestamp (unsigned int)
+  * data length (unsigned int)
+  * data (only if data length > 0)
 
 
   2.1) Resource allocation
@@ -99,7 +105,8 @@ To subscribe to an event, the bit matching the event id must be set to 1.
   ------------------------------
   Modem events are broadcasted by MMGR to its clients using the socket. They are
   used to provide the modem status. Once client has provided its name after its
-  connection, MMGR will systematically send the current modem status to it.
+  connection, MMGR will systematically send the current modem status to it (if
+  the client is registered to this event).
   After, MMGR will send the modem status only when there is change on it.
 
   The following status can be sent:
@@ -126,7 +133,7 @@ To subscribe to an event, the bit matching the event id must be set to 1.
 
   2.3) Modem notifications
   ------------------------------
-  Modem Notifications are broadcasted by MMGR to its clients before a modem
+  Modem Notifications are broadcasted by MMGR to its clients after a modem
   status update. It provides information about which operation will be
   performed.
   Some notifications must be answered by an acknowledge message
@@ -172,6 +179,10 @@ To subscribe to an event, the bit matching the event id must be set to 1.
   a timestamp.
 
   In MOS, the following requests are available:
+
+  - E_MMGR_REQUEST_SET_NAME: used to provide client's name
+
+  - E_MMGR_REQUEST_SET_EVENTS: used to provide client's subscription mask
 
   - E_MMGR_REQUEST_MODEM_RECOVERY: this request is used to request a modem
     recovery when the client detects a modem fatal failure (a timeout for

@@ -22,7 +22,7 @@
 #include "errors.h"
 #include "logs.h"
 #include "config.h"
-#include "crash_logger.h"
+#include "file.h"
 #include "events_manager.h"
 #include "version.h"
 
@@ -187,7 +187,6 @@ int main(int argc, char *argv[])
         ret = EXIT_FAILURE;
         goto out;
     }
-
     events_manager(&mmgr);
 out:
     /* @TODO: REMOVE EXIT.

@@ -65,6 +65,7 @@
  ** 3.2.3  - 2012-10-25 - BZ 64484 - reset modem after open failure
  ** 3.2.4  - 2012-10-26 - BZ 58703 - Disable burst mode
  ** 3.2.5  - 2012-11-30 - BZ 71835 - fix modem_reset_delay configuration
+ ** 3.2.6  - 2012-11-12 - BZ 40361 - Implements Modem Control Driver
  ** 3.2.6  - 2013-01-14 - BZ 80134 - fix create_empty_file argument flags
  ** 3.2.7  - 2013-01-11 - BZ 78991 - fix off by one error in send_at() function
  ** 3.2.8  - 2013-01-18 - BZ 40361 - implement Modem Control Driver
@@ -86,10 +87,11 @@
  ** 3.2.24 - 2013-02-26 - BZ 87509 - REVERT: fix MODEM DOWN event
  ** 3.2.25 - 2013-02-26 - BZ 87509 - REVERT: client API: flight mode enhancement
  ** 3.2.26 - 2013-02-18 - BZ 87509 - REVERT: remove MODEM OFF from escalation recovery
+ ** 4.1.1  - 2013-02-07 - BZ 76423 - modem flashless and HSIC introduction
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
 
-#define MODULE_VERSION "3.2.26"
+#define MODULE_VERSION "4.1.1"

@@ -69,7 +69,7 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
 
     info->ev = E_EV_NONE;
     info->restore_timeout = config->max_retry_time;
-    info->polled_states = MDM_CTRL_STATE_COREDUMP | MDM_CTRL_STATE_OFF;
+    info->polled_states = MDM_CTRL_STATE_COREDUMP;
 
     ret = core_dump_init(config, &info->mcdr);
     if (ret != E_ERR_SUCCESS)
@@ -82,6 +82,7 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
         ret = E_ERR_FAILED;
         goto out;
     }
+
 out:
     return ret;
 }
@@ -246,10 +247,10 @@ static e_mmgr_errors_t detect_mcdr_protocol(int fd, modem_info_t *info)
             if (p != NULL) {
                 if (strncmp(p + strlen(key), disabled, strlen(disabled)) == 0) {
                     LOG_DEBUG("LCDP protocol detected");
-                    info->mcdr.protocol = LCDP;
+                    info->mcdr.data.protocol = LCDP;
                 } else {
                     LOG_DEBUG("YMODEM protocol detected");
-                    info->mcdr.protocol = YMODEM;
+                    info->mcdr.data.protocol = YMODEM;
                 }
                 ret = E_ERR_SUCCESS;
                 break;
@@ -307,6 +308,7 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         if (remaining_time <= 0) {
             LOG_DEBUG("timeout");
             info->ev |= mask;
+            ret = E_ERR_TTY_TIMEOUT;
             goto out;
         }
 
@@ -344,10 +346,12 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         } else if ((ret == E_ERR_TTY_BAD_FD) || (ret == E_ERR_AT_CMD_RESEND)) {
             LOG_DEBUG("reopen tty device: %s", config->modem_port);
             close_tty(fd_tty);
-            open_tty(config->modem_port, fd_tty);
+            if ((ret = open_tty(config->modem_port, fd_tty)) != E_ERR_SUCCESS)
+                goto out;
         } else {
             LOG_ERROR("event: 0x%.2X", mask);
             info->ev |= mask;
+            ret = E_ERR_FAILED;
             goto out;
         }
     }
@@ -413,4 +417,3 @@ e_mmgr_errors_t manage_core_dump(mmgr_configuration_t *config,
 out:
     return ret;
 }
-

@@ -21,11 +21,22 @@
 
 #include "errors.h"
 #include "modem_info.h"
+#include <linux/mdm_ctrl.h>
 
+#define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0/hsic_enable"
+
+e_mmgr_errors_t modem_specific_init(void);
 e_mmgr_errors_t modem_warm_reset(modem_info_t *info);
 e_mmgr_errors_t modem_cold_reset(modem_info_t *info);
 e_mmgr_errors_t modem_shutdown(modem_info_t *info);
-e_mmgr_errors_t modem_up(modem_info_t *info);
+e_mmgr_errors_t modem_up(modem_info_t *info, bool is_flashless, bool is_hsic);
 e_mmgr_errors_t get_modem_state(int fd_mcd, e_modem_events_type_t *state);
+e_mmgr_errors_t start_hsic(modem_info_t *info);
+e_mmgr_errors_t stop_hsic(modem_info_t *info);
+e_mmgr_errors_t regen_fls(modem_info_t *info);
+e_mmgr_errors_t flash_modem(modem_info_t *info);
+e_mmgr_errors_t set_mcd_poll_states(modem_info_t *info);
+
+void mup_log(const char *msg, size_t msg_len);
 
 #endif                          /* __MMGR_MODEM_SPECIFIC_HEADER__ */

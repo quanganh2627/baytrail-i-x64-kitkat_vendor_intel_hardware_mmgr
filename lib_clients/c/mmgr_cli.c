@@ -17,26 +17,34 @@
  */
 
 #include <limits.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <inttypes.h>
-#include <stdbool.h>
 #include <pthread.h>
 #include <signal.h>
-#include <arpa/inet.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <cutils/sockets.h>
-#include "errors.h"
-#include "mmgr_cli.h"
+#include <sys/types.h>
+
 #include "logs.h"
-#include "tty.h"
+
+#undef LOG_TAG
+#define LOG_TAG "MMGR_CLI"
+
+#include "client_cnx.h"
+#include "errors.h"
+#include "msg_to_data.h"
+#include "data_to_msg.h"
+#include "mmgr_cli.h"
+
+typedef e_mmgr_errors_t (*msg_handler) (msg_t *, mmgr_cli_event_t *);
+typedef e_mmgr_errors_t (*free_handler) (mmgr_cli_event_t *);
 
 /**
  * internal structure for mmgr_cli
  *
  * @private
  */
-typedef struct {
+typedef struct mmgr_lib_context {
     uint32_t events;
     pthread_t thr_id;
     pthread_mutex_t mtx;
@@ -47,15 +55,15 @@ typedef struct {
     event_handler func[E_MMGR_NUM_EVENTS];
     char cli_name[CLIENT_NAME_LEN];
     bool lock;
+    msg_handler set_msg[E_MMGR_NUM_REQUESTS];
+    msg_handler set_data[E_MMGR_NUM_EVENTS];
+    free_handler free_data[E_MMGR_NUM_EVENTS];
 #ifdef DEBUG_MMGR_CLI
     /* the purpose of this variable is to check that this structure
        has correctly been initialized */
     uint32_t init;
 #endif
 } mmgr_lib_context_t;
-
-#undef LOG_TAG
-#define LOG_TAG "MMGR_CLI"
 
 #define INIT_CHECK 0xCE5A12BB
 #define CLOSED_FD -1
@@ -116,6 +124,8 @@ out:
 /**
  * check current library state
  *
+ * @private
+ *
  * @param [in] handle library handle
  * @param [out] p_lib library handle with correct cast
  * @param [in] connected check if client is connected or not
@@ -156,85 +166,34 @@ out:
 }
 
 /**
- * send registration sequence to MMGR
+ * send an mmgr request
  *
  * @private
  *
- * @param [in] p_lib private structure
- *
- * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
- * @return E_ERR_CLI_FAILED
- * @return E_ERR_CLI_SUCCEED
- */
-static inline e_err_mmgr_cli_t register_client(mmgr_lib_context_t *p_lib)
-{
-    e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
-    ssize_t size;
-    char data[CLIENT_NAME_LEN + sizeof(uint32_t)];
-    uint32_t answer;
-
-    CHECK_CLI_PARAM(p_lib, ret, out);
-
-    memset(data, 0, sizeof(data));
-    strncpy(data, p_lib->cli_name, CLIENT_NAME_LEN);
-    LOG_DEBUG("filter: 0x%.8X", p_lib->events);
-    memcpy(data + CLIENT_NAME_LEN, &p_lib->events, sizeof(uint32_t));
-
-    size = send(p_lib->fd_socket, data, sizeof(data), 0);
-    if (size != sizeof(data)) {
-        LOG_ERROR("(fd=%d client=%s) failed to send registration request",
-                  p_lib->fd_socket, p_lib->cli_name);
-    } else {
-        size = recv(p_lib->fd_socket, &answer, sizeof(answer), 0);
-        if (size != sizeof(answer)) {
-            LOG_ERROR("(fd=%d client=%s) no response from server. Client not "
-                      "connected", p_lib->fd_socket, p_lib->cli_name);
-        } else {
-            if (answer == E_MMGR_ACK) {
-                LOG_DEBUG("(fd=%d client=%s) connected successfully",
-                          p_lib->fd_socket, p_lib->cli_name);
-                ret = E_ERR_CLI_SUCCEED;
-
-                pthread_mutex_lock(&p_lib->mtx);
-                p_lib->connected = true;
-                pthread_mutex_unlock(&p_lib->mtx);
-            } else {
-                LOG_ERROR("(fd=%d client=%s) failed to connect",
-                          p_lib->fd_socket, p_lib->cli_name);
-            }
-        }
-    }
-out:
-    return ret;
-}
-
-/**
- * send an mmgr request
- *
  * @param [in] handle library handle
  * @param [in] request request to send to the mmgr
+ * @param [in] cnx_state send data if cnx_state is equal to
  *
  * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
  * @return E_ERR_CLI_FAILED if not connected or invalid request id
  * @return E_ERR_CLI_SUCCEED
  */
-e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
-                                   const mmgr_cli_requests_t *request)
+static e_err_mmgr_cli_t send_msg(mmgr_cli_handle_t *handle,
+                                 const mmgr_cli_requests_t *request,
+                                 bool cnx_state)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     mmgr_lib_context_t *p_lib = NULL;
-    struct timeval ts;
-    uint32_t sec;
-    uint32_t long_id;
-    char data[REQUEST_SIZE];
     bool connected;
+    msg_t msg = {.data = NULL };
+    size_t size;
     const char *mmgr_requests[] = {
 #undef X
 #define X(a) #a
         MMGR_REQUESTS
     };
 
-    ret = check_state(handle, &p_lib, true);
+    ret = check_state(handle, &p_lib, cnx_state);
     if (ret != E_ERR_CLI_SUCCEED) {
         LOG_ERROR("request not sent");
         goto out;
@@ -252,25 +211,165 @@ e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
         goto out;
     }
 
-    gettimeofday(&ts, NULL);
-    memcpy(&long_id, &request->id, sizeof(uint32_t));
-
-    sec = htonl(ts.tv_sec);
-    long_id = htonl(long_id);
-
-    memcpy(data, &long_id, sizeof(uint32_t));
-    memcpy(data + sizeof(uint32_t), &sec, sizeof(uint32_t));
+    p_lib->set_msg[request->id] (&msg, (void *)request);
 
     is_connected(p_lib, &connected);
-    if (connected) {
-        if (send(p_lib->fd_socket, &data, sizeof(data), 0) == REQUEST_SIZE) {
-            LOG_DEBUG("(fd=%d client=%s) request (%s) sent successfully",
-                      p_lib->fd_socket, p_lib->cli_name,
-                      mmgr_requests[request->id]);
-            ret = E_ERR_CLI_SUCCEED;
+    if (connected == cnx_state) {
+        size = SIZE_HEADER + msg.hdr.len;
+        if (write_cnx(p_lib->fd_socket, msg.data, &size) == E_ERR_SUCCESS) {
+            if (size == (SIZE_HEADER + msg.hdr.len)) {
+                LOG_DEBUG("(fd=%d client=%s) request (%s) sent successfully",
+                          p_lib->fd_socket, p_lib->cli_name,
+                          mmgr_requests[request->id]);
+                ret = E_ERR_CLI_SUCCEED;
+            }
         }
     }
 out:
+    delete_msg(&msg);
+    return ret;
+}
+
+/**
+ * send registration sequence to MMGR
+ *
+ * @private
+ *
+ * @param [in] handle private structure
+ *
+ * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
+ * @return E_ERR_CLI_FAILED
+ * @return E_ERR_CLI_SUCCEED
+ */
+static inline e_err_mmgr_cli_t register_client(mmgr_cli_handle_t *handle)
+{
+    e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
+    e_mmgr_errors_t err;
+    msg_hdr_t answer;
+    int i;
+    mmgr_cli_requests_t request[2];
+    mmgr_lib_context_t *p_lib = NULL;
+
+    CHECK_CLI_PARAM(handle, ret, out);
+
+    ret = check_state(handle, &p_lib, false);
+    if (ret != E_ERR_CLI_SUCCEED) {
+        LOG_ERROR("TODO");
+        goto out;
+    }
+
+    request[0].id = E_MMGR_SET_NAME;
+    request[0].len = strnlen(p_lib->cli_name, CLIENT_NAME_LEN);
+    request[0].data = &p_lib->cli_name;
+
+    request[1].id = E_MMGR_SET_EVENTS;
+    request[1].len = sizeof(uint32_t);
+    request[1].data = &p_lib->events;
+
+    for (i = 0; i < 2; i++) {
+        if ((ret = send_msg(handle, &request[i], false)) != E_ERR_CLI_SUCCEED)
+            break;
+
+        err = get_header(p_lib->fd_socket, &answer);
+        if ((err != E_ERR_SUCCESS) || (answer.id != E_MMGR_ACK))
+            break;
+    }
+
+    if (answer.id == E_MMGR_ACK) {
+        LOG_DEBUG("(fd=%d client=%s) connected successfully",
+                  p_lib->fd_socket, p_lib->cli_name);
+        ret = E_ERR_CLI_SUCCEED;
+
+        pthread_mutex_lock(&p_lib->mtx);
+        p_lib->connected = true;
+        pthread_mutex_unlock(&p_lib->mtx);
+    } else {
+        LOG_ERROR("(fd=%d client=%s) failed to connect",
+                  p_lib->fd_socket, p_lib->cli_name);
+    }
+out:
+    return ret;
+}
+
+/**
+ * function to send an mmgr request
+ *
+ * @param [in] handle library handle
+ * @param [in] request request to send to the mmgr
+ *
+ * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
+ * @return E_ERR_CLI_FAILED if not connected or invalid request id
+ * @return E_ERR_CLI_SUCCEED
+ */
+e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
+                                   const mmgr_cli_requests_t *request)
+{
+    return send_msg(handle, request, true);
+}
+
+/**
+ * function to handle cnx event
+ *
+ * @private
+ *
+ * @param [in] p_lib library handle
+ *
+ * @return E_ERR_CLI_BAD_HANDLE if p_lib is invalid
+ * @return E_ERR_CLI_FAILED if not connected or invalid request id
+ * @return E_ERR_CLI_SUCCEED
+ */
+static inline e_err_mmgr_cli_t handle_cnx_event(mmgr_lib_context_t *p_lib)
+{
+    e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
+    e_mmgr_errors_t err;
+    msg_t msg = {.data = NULL };
+    e_mmgr_events_t id;
+    mmgr_cli_event_t event = {.context = p_lib->cli_ctx };
+    size_t size;
+
+    CHECK_CLI_PARAM(p_lib, ret, out);
+
+    /* read msg data */
+    err = get_header(p_lib->fd_socket, &msg.hdr);
+    if (err == E_ERR_DISCONNECTED) {
+        LOG_DEBUG("(fd=%d client=%s) connection closed by MMGR",
+                  p_lib->fd_socket, p_lib->cli_name);
+        goto out;
+    }
+    memcpy(&id, &msg.hdr.id, sizeof(e_mmgr_events_t));
+    memcpy(&size, &msg.hdr.len, sizeof(size_t));
+    if (size != 0) {
+        msg.data = calloc(size, sizeof(char));
+        if (msg.data == NULL) {
+            LOG_ERROR("memory allocation fails");
+            goto out;
+        }
+        if (read_cnx(p_lib->fd_socket, msg.data, &size) != E_ERR_SUCCESS) {
+            LOG_ERROR("read fails");
+            goto out;
+        }
+    }
+
+    if (id < E_MMGR_NUM_EVENTS) {
+        if (p_lib->func[id] != NULL) {
+            LOG_DEBUG("(fd=%d client=%s) event (%s) received",
+                      p_lib->fd_socket, p_lib->cli_name, g_mmgr_events[id]);
+            event.id = id;
+            p_lib->set_data[id] (&msg, &event);
+            p_lib->func[id] (&event);
+            p_lib->free_data[id] (&event);
+            ret = E_ERR_CLI_SUCCEED;
+        } else {
+            LOG_ERROR("(fd=%d client=%s) func is NULL",
+                      p_lib->fd_socket, p_lib->cli_name);
+        }
+    } else {
+        LOG_DEBUG("(fd=%d client=%s) unkwnown event received (0x%.2X)",
+                  p_lib->fd_socket, p_lib->cli_name, msg.hdr.id);
+    }
+out:
+    if (msg.data == NULL)
+        free(msg.data);
     return ret;
 }
 
@@ -289,50 +388,21 @@ static inline e_err_mmgr_cli_t handle_events(mmgr_lib_context_t *p_lib,
                                              fd_set *rfds)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
-    int read_size;
-    char msg[PIPE_BUF];
-    uint32_t data;
-    e_mmgr_events_t id;
-    mmgr_cli_event_t event = {.context = p_lib->cli_ctx };
+    char buffer[PIPE_BUF];
+
+    CHECK_CLI_PARAM(p_lib, ret, out);
+    CHECK_CLI_PARAM(rfds, ret, out);
 
     if (FD_ISSET(p_lib->fd_pipe[READ], rfds)) {
-        read_size = read(p_lib->fd_pipe[READ], msg, PIPE_BUF);
+        read(p_lib->fd_pipe[READ], buffer, PIPE_BUF);
         LOG_DEBUG("(fd=%d client=%s) stopping thread",
                   p_lib->fd_socket, p_lib->cli_name);
     } else if (FD_ISSET(p_lib->fd_socket, rfds)) {
-        read_size = recv(p_lib->fd_socket, &data, sizeof(data), 0);
-        if (read_size != sizeof(data)) {
-            if (read_size == 0) {
-                LOG_DEBUG("(fd=%d client=%s) connection closed by MMGR",
-                          p_lib->fd_socket, p_lib->cli_name);
-            } else if (read_size < 0) {
-                LOG_DEBUG("(fd=%d client=%s) read failed (%s)",
-                          p_lib->fd_socket, p_lib->cli_name, strerror(errno));
-            } else {
-                LOG_DEBUG("wrong size %d", read_size);
-            }
-        } else {
-            memcpy(&id, &data, sizeof(e_mmgr_events_t));
-            if (id < E_MMGR_NUM_EVENTS) {
-                if (p_lib->func[id] != NULL) {
-                    LOG_DEBUG("(fd=%d client=%s) event (%s) received",
-                              p_lib->fd_socket, p_lib->cli_name,
-                              g_mmgr_events[id]);
-                    event.id = id;
-                    p_lib->func[id] (&event);
-                    ret = E_ERR_CLI_SUCCEED;
-                } else {
-                    LOG_ERROR("(fd=%d client=%s) func is NULL",
-                              p_lib->fd_socket, p_lib->cli_name);
-                }
-            } else {
-                LOG_DEBUG("(fd=%d client=%s) unkwnown event received (0x%.2X)",
-                          p_lib->fd_socket, p_lib->cli_name, data);
-            }
-        }
+        ret = handle_cnx_event(p_lib);
     } else {
         LOG_DEBUG("event not handled");
     }
+out:
     return ret;
 }
 
@@ -443,8 +513,52 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->init = INIT_CHECK;
 #endif
 
+    for (i = 0; i < E_MMGR_NUM_REQUESTS; i++)
+        p_lib->set_msg[i] = set_msg_empty;
+
+    for (i = 0; i < E_MMGR_NUM_EVENTS; i++) {
+        p_lib->set_data[i] = set_data_empty;
+        p_lib->free_data[i] = free_data_empty;
+    }
+
     for (i = 0; i < E_MMGR_NUM_EVENTS; i++)
         p_lib->func[i] = NULL;
+
+    p_lib->set_msg[E_MMGR_SET_NAME] = set_msg_name;
+    p_lib->set_msg[E_MMGR_SET_EVENTS] = set_msg_filter;
+    p_lib->set_msg[E_MMGR_REQUEST_MODEM_FW_UPDATE] = set_msg_fw_update;
+    p_lib->set_msg[E_MMGR_REQUEST_MODEM_NVM_UPDATE] = set_msg_nvm_update;
+
+    p_lib->set_data[E_MMGR_RESPONSE_MODEM_RND] = set_data_rnd_id;
+    p_lib->free_data[E_MMGR_RESPONSE_MODEM_RND] = free_data_rnd_id;
+
+    p_lib->set_data[E_MMGR_RESPONSE_MODEM_HW_ID] = set_data_hw_id;
+    p_lib->free_data[E_MMGR_RESPONSE_MODEM_HW_ID] = free_data_hw_id;
+
+    p_lib->set_data[E_MMGR_RESPONSE_MODEM_NVM_ID] = set_data_nvm_id;
+    p_lib->free_data[E_MMGR_RESPONSE_MODEM_NVM_ID] = free_data_nvm_id;
+
+    p_lib->set_data[E_MMGR_RESPONSE_MODEM_FW_PROGRESS] = set_data_fw_progress;
+    p_lib->free_data[E_MMGR_RESPONSE_MODEM_FW_PROGRESS] =
+        free_one_element_struct;
+
+    p_lib->set_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] = set_data_fw_result;
+    p_lib->free_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] = free_one_element_struct;
+
+    p_lib->set_data[E_MMGR_RESPONSE_MODEM_NVM_RESULT] = set_data_nvm_result;
+    p_lib->free_data[E_MMGR_RESPONSE_MODEM_NVM_RESULT] =
+        free_one_element_struct;
+
+    p_lib->set_data[E_MMGR_RESPONSE_MODEM_NVM_PROGRESS] = set_data_nvm_progress;
+    p_lib->free_data[E_MMGR_RESPONSE_MODEM_NVM_PROGRESS] =
+        free_one_element_struct;
+
+    p_lib->set_data[E_MMGR_RESPONSE_FUSE_INFO] = set_data_fuse_info;
+    p_lib->free_data[E_MMGR_RESPONSE_FUSE_INFO] = free_one_element_struct;
+
+    p_lib->set_data[E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH] = set_data_bckup_file;
+    p_lib->free_data[E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH] =
+        free_data_bckup_file;
 
     *handle = (mmgr_cli_handle_t *)p_lib;
     LOG_DEBUG("handle created successfully");
@@ -502,8 +616,9 @@ e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
 
     ret = check_state(handle, &p_lib, false);
     if (ret != E_ERR_CLI_SUCCEED) {
-        LOG_ERROR("To subscribe to an event, you should provide a valid handle"
-                  " and be disconnected");
+        LOG_ERROR
+            ("To subscribe to an event, you should provide a valid handle"
+             " and be disconnected");
         goto out;
     }
 
@@ -614,12 +729,13 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
     p_lib->lock = false;
     pthread_mutex_unlock(&p_lib->mtx);
 
-    if (register_client(p_lib) != E_ERR_CLI_SUCCEED)
+    if (register_client(handle) != E_ERR_CLI_SUCCEED)
         goto out;
 
     if (pthread_create(&p_lib->thr_id, NULL, (void *)read_events, p_lib) != 0) {
-        LOG_ERROR("(fd=%d client=%s) failed to launch read_events. Disconnect "
-                  "the client", fd, p_lib->cli_name);
+        LOG_ERROR
+            ("(fd=%d client=%s) failed to launch read_events. Disconnect "
+             "the client", fd, p_lib->cli_name);
         mmgr_cli_disconnect(handle);
         ret = E_ERR_CLI_FAILED;
     } else {
@@ -679,8 +795,8 @@ int mmgr_cli_disconnect(mmgr_cli_handle_t *handle)
                   p_lib->cli_name);
         ret = E_ERR_CLI_SUCCEED;
     } else {
-        LOG_ERROR("(fd=%d client=%s) failed to disconnect", p_lib->fd_socket,
-                  p_lib->cli_name);
+        LOG_ERROR("(fd=%d client=%s) failed to disconnect",
+                  p_lib->fd_socket, p_lib->cli_name);
     }
 out:
     return ret;

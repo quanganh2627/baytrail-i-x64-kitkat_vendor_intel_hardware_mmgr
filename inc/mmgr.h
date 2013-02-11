@@ -21,37 +21,64 @@
 
 #define MMGR_SOCKET_NAME "mmgr"
 #define CLIENT_NAME_LEN 64
+#define FUSE_LEN 9
 
 /* Please read README file to have useful information about
    MMGR requests */
 
 #define MMGR_REQUESTS \
+    X(SET_NAME),\
+    X(SET_EVENTS),\
     /* Resource allocation: Clients -> MMGR */ \
-    X(RESOURCE_ACQUIRE), \
-    X(RESOURCE_RELEASE), \
+    X(RESOURCE_ACQUIRE),\
+    X(RESOURCE_RELEASE),\
     /* Requests: Clients -> MMGR */ \
-    X(REQUEST_MODEM_RECOVERY), \
-    X(REQUEST_MODEM_RESTART), \
-    X(REQUEST_FORCE_MODEM_SHUTDOWN), \
+    X(REQUEST_MODEM_RECOVERY),\
+    X(REQUEST_MODEM_RESTART),\
+    X(REQUEST_FORCE_MODEM_SHUTDOWN),\
     /* ACK: Clients -> MMGR */ \
-    X(ACK_MODEM_COLD_RESET), \
-    X(ACK_MODEM_SHUTDOWN), \
+    X(ACK_MODEM_COLD_RESET),\
+    X(ACK_MODEM_SHUTDOWN),\
+    /* flashing request */ \
+    X(REQUEST_MODEM_FW_UPDATE),\
+    X(REQUEST_MODEM_FW_PROGRESS),\
+    X(REQUEST_MODEM_RND_UPDATE),\
+    X(REQUEST_MODEM_RND_ERASE),\
+    X(REQUEST_MODEM_RND_GET),\
+    X(REQUEST_MODEM_FUSE_INFO),\
+    X(REQUEST_MODEM_GET_HW_ID),\
+    X(REQUEST_MODEM_NVM_UPDATE),\
+    X(REQUEST_MODEM_NVM_PROGRESS),\
+    X(REQUEST_MODEM_NVM_GET_ID),\
+    X(REQUEST_GET_BACKUP_FILE_PATH),\
+    X(REQUEST_MODEM_BACKUP_PRODUCTION),\
     X(NUM_REQUESTS)
 
 #define MMGR_EVENTS \
     /* Events notification: MMGR -> Clients */ \
-    X(EVENT_MODEM_DOWN), \
-    X(EVENT_MODEM_UP), \
-    X(EVENT_MODEM_OUT_OF_SERVICE), \
+    X(EVENT_MODEM_DOWN),\
+    X(EVENT_MODEM_UP),\
+    X(EVENT_MODEM_OUT_OF_SERVICE),\
     /* Notifications: MMGR -> Clients */ \
-    X(NOTIFY_MODEM_WARM_RESET), \
-    X(NOTIFY_MODEM_COLD_RESET), \
-    X(NOTIFY_MODEM_SHUTDOWN), \
-    X(NOTIFY_PLATFORM_REBOOT), \
-    X(NOTIFY_CORE_DUMP), \
+    X(NOTIFY_MODEM_WARM_RESET),\
+    X(NOTIFY_MODEM_COLD_RESET),\
+    X(NOTIFY_MODEM_SHUTDOWN),\
+    X(NOTIFY_PLATFORM_REBOOT),\
+    X(NOTIFY_CORE_DUMP),\
     /* ACK: MMGR -> Clients */ \
-    X(ACK), \
-    X(NACK), \
+    X(ACK),\
+    X(NACK),\
+    /* flashing notifications */ \
+    X(RESPONSE_MODEM_RND),\
+    X(RESPONSE_MODEM_HW_ID),\
+    X(RESPONSE_MODEM_NVM_ID),\
+    X(RESPONSE_MODEM_FW_PROGRESS),\
+    X(RESPONSE_MODEM_FW_RESULT),\
+    X(RESPONSE_MODEM_NVM_PROGRESS),\
+    X(RESPONSE_MODEM_NVM_RESULT),\
+    X(RESPONSE_FUSE_INFO),\
+    X(RESPONSE_GET_BACKUP_FILE_PATH),\
+    X(RESPONSE_BACKUP_PRODUCTION_RESULT),\
     X(NUM_EVENTS)
 
 typedef enum e_mmgr_requests {
@@ -66,9 +93,99 @@ typedef enum e_mmgr_events {
     MMGR_EVENTS
 } e_mmgr_events_t;
 
-extern const char *g_mmgr_requests[];
-extern const char *g_mmgr_events[];
+#ifdef MMGR_FW_OPERATIONS
+#include <stdbool.h>
+#include <sys/types.h>
 
-#define REQUEST_SIZE (sizeof(uint32_t) + sizeof(uint32_t))
+#define FW_ERROR \
+    X(SUCCEED),\
+    X(TOO_OLD),\
+    X(READY_TIMEOUT),\
+    X(SECURITY_CORRUPTED),\
+    X(SW_CORRUPTED),\
+    X(BAD_FAMILY),\
+    X(ERROR_UNSPECIFIED),\
+    X(NUM)
+
+#define NVM_ERROR \
+    X(SUCCEED),\
+    X(INTERNAL_AP_ERROR),\
+    X(MODEM_OPEN),\
+    X(MODEM_WRITE),\
+    X(MODEM_READ),\
+    X(DELTA_FILE_NOT_FOUND),\
+    X(SET_SCRIPT_ERROR),\
+    X(RUN_SCRIPT_ERROR),\
+    X(READ_ID_ERROR),\
+    X(NUM)
+
+typedef enum e_modem_fw_error {
+#undef X
+#define X(a) E_MODEM_FW_##a
+    FW_ERROR
+} e_modem_fw_error_t;
+
+typedef enum e_modem_nvm_error {
+#undef X
+#define X(a) E_MODEM_NVM_##a
+    NVM_ERROR
+} e_modem_nvm_error_t;
+
+typedef struct mmgr_cli_fw_update {
+    bool precheck;
+    bool no_modem_reset;
+    bool erase_all;
+    size_t fls_path_len;
+    char *fls_path;
+} mmgr_cli_fw_update_t;
+
+typedef struct mmgr_cli_nvm_update {
+    bool precheck;
+    size_t nvm_path_len;
+    char *nvm_path;
+} mmgr_cli_nvm_update_t;
+
+typedef struct mmgr_cli_fw_update_progress {
+    int rate;
+} mmgr_cli_fw_update_progress_t;
+
+typedef struct mmgr_cli_fw_update_result {
+    e_modem_fw_error_t id;
+} mmgr_cli_fw_update_result_t;
+
+typedef struct mmgr_cli_nvm_update_progress {
+    int rate;
+} mmgr_cli_nvm_update_progress_t;
+
+typedef struct mmgr_cli_nvm_update_result {
+    e_modem_nvm_error_t id;
+} mmgr_cli_nvm_update_result_t;
+
+typedef struct mmgr_cli_nvm_read_id {
+    bool result;
+    size_t len;
+    char *path;
+} mmgr_cli_nvm_read_id_t;
+
+typedef struct mmgr_cli_backup_path {
+    size_t len;
+    char *path;
+} mmgr_cli_backup_path_t;
+
+typedef struct mmgr_cli_rnd_path {
+    size_t len;
+    char *path;
+} mmgr_cli_rnd_path_t;
+
+typedef struct mmgr_cli_fuse_info {
+    char id[FUSE_LEN];
+} mmgr_cli_fuse_info_t;
+
+typedef struct mmgr_cli_hw_id {
+    size_t len;
+    char *id;
+} mmgr_cli_hw_id_t;
+
+#endif                          /* MMGR_FW_OPERATIONS */
 
 #endif                          /* __MMGR_EXTERNAL_HEADER_FILE__ */

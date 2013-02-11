@@ -5,42 +5,50 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := mmgr
-LOCAL_CFLAGS += -Wall -Wvla
-LOCAL_C_INCLUDES := \
+LOCAL_CFLAGS += -Wall -Wvla -DLIBUSBHOST
+LOCAL_C_INCLUDES += \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
     ../inc \
-    hardware/intel/glib/ \
-    hardware/intel/glib/android
+    hardware/intel/glib  \
+    hardware/intel/glib/android \
+    hardware/intel/glib/glib \
+    external/libusb/libusb
 
 LOCAL_SRC_FILES:= \
     at.c \
     client.c \
     client_events.c \
+    client_cnx.c \
     config.c \
     core_dump.c \
     crash_logger.c \
+    data_to_msg.c \
     events_manager.c \
     file.c \
     java_intent.c \
+    msg_to_data.c \
     modem_events.c \
     modem_info.c \
     modem_manager.c  \
     modem_specific.c \
+    bus_events.c \
     mux.c \
     property.c \
     tty.c \
     timer_events.c \
-    reset_escalation.c \
-    socket.c
+    reset_escalation.c
+
 LOCAL_MODULE_TAGS := optional
-LOCAL_STATIC_LIBRARIES := libcutils libc
-LOCAL_SHARED_LIBRARIES := libglib-2.0 liblog libcutils libdl
+LOCAL_STATIC_LIBRARIES := libcutils libc libmodemupdate
+LOCAL_SHARED_LIBRARIES := libglib-2.0 liblog libcutils libdl libusbhost
 LOCAL_LDLIBS += -lpthread
 #############################################
 # module depedency rules
 #############################################
 LOCAL_REQUIRED_MODULES := \
+    injection_tool \
+    nvm_server \
     libmmgrcli \
     com.intel.internal.telephony.MmgrClient.xml \
     com.intel.internal.telephony.MmgrClient
@@ -48,7 +56,8 @@ ifneq (, $(findstring "$(TARGET_BUILD_VARIANT)", "eng" "userdebug"))
 LOCAL_REQUIRED_MODULES += \
     libmcdr \
     mmgr-test \
-    MMGR_test
+    MMGR_test \
+    nvm_client
 endif
 #uncomment this to enable gcov
 #LOCAL_CFLAGS += -fprofile-arcs -ftest-coverage -DGOCV_MMGR

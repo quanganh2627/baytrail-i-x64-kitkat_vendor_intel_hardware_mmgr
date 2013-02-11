@@ -11,13 +11,15 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
         hardware/intel/glib/ \
-        hardware/intel/glib/android
+        hardware/intel/glib/android/ \
+        hardware/intel/glib/glib/ \
+        ../inc
 
 LOCAL_SRC_FILES:= \
     ../../service/at.c \
     ../../service/config.c \
+    ../../service/file.c \
     ../../service/property.c \
-    ../../service/socket.c \
     ../../service/tty.c \
     mmgr_test.c \
     test_cases.c \

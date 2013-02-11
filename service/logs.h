@@ -29,32 +29,25 @@
 
 /* define debug LOG functions */
 #define LOG_ERROR(format, args...) \
-    { LOGE("%s - " format, __FUNCTION__, ## args); }
+    do { LOGE("%s - " format, __FUNCTION__, ## args); } while(0)
 #define LOG_DEBUG(format, args...) \
-    { LOGD("%s - " format, __FUNCTION__, ## args); }
+    do { LOGD("%s - " format, __FUNCTION__, ## args); } while(0)
 #define LOG_VERBOSE(format, args...) \
-    { LOGV("%s - " format, __FUNCTION__, ## args); }
+    do { LOGV("%s - " format, __FUNCTION__, ## args); } while(0)
 #define LOG_INFO(format, args...) \
-    { LOGI("%s - " format, __FUNCTION__, ## args); }
+    do { LOGI("%s - " format, __FUNCTION__, ## args); } while(0)
 
 #else                           /* STDIO_LOGS */
 
 #include <stdio.h>
-#define LOG_ERROR(format, args...) fprintf(stderr, "ERROR: %s - "   \
-            format"\n", __FUNCTION__, ## args)
-#define LOG_DEBUG(format, args...) fprintf(stdout, "DEBUG: %s - "   \
-            format"\n", __FUNCTION__, ## args)
-#define LOG_VERBOSE(format, args...) fprintf(stdout, "VERBOSE: %s - " \
-            format"\n", __FUNCTION__, ## args)
+#define LOG_ERROR(format, args...) do { fprintf(stderr, "ERROR: %s - "\
+        format"\n", __FUNCTION__, ## args); } while(0)
+#define LOG_DEBUG(format, args...) do { fprintf(stdout, "DEBUG: %s - "\
+            format"\n", __FUNCTION__, ## args); } while(0)
+#define LOG_VERBOSE(format, args...) do { fprintf(stdout, "VERBOSE: %s - "\
+            format"\n", __FUNCTION__, ## args); } while(0)
 
 #endif                          /* STDIO_LOGS */
-
-/* Enable this to debug Modem Manager configuration */
-#ifdef DEBUG_CONFIG
-#define LOG_CONFIG(format, arg...) LOG_DEBUG(format, ## arg)
-#else
-#define LOG_CONFIG(format, arg...)
-#endif
 
 /* display macros */
 #define PRINT_KEY     "%-25s: "

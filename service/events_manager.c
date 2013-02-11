@@ -23,19 +23,19 @@
 #include <sys/types.h>
 #include "at.h"
 #include "client_events.h"
+#include "client_cnx.h"
 #include "errors.h"
 #include "events_manager.h"
 #include "logs.h"
 #include "modem_events.h"
 #include "mmgr.h"
-#include "socket.h"
 #include "timer_events.h"
 #include "tty.h"
 
 #define FIRST_EVENT -1
 
 /**
- * close modem tty and sockets
+ * close modem tty and cnxs
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -52,8 +52,8 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
     close_all_clients(&mmgr->clients);
     if (mmgr->fd_tty != CLOSED_FD)
         close_tty(&mmgr->fd_tty);
-    if (mmgr->fd_socket != CLOSED_FD)
-        close_socket(&mmgr->fd_socket);
+    if (mmgr->fd_cnx != CLOSED_FD)
+        close_cnx(&mmgr->fd_cnx);
     if (mmgr->info.fd_mcd != CLOSED_FD)
         close_tty(&mmgr->info.fd_mcd);
 out:
@@ -72,19 +72,21 @@ out:
 e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    struct epoll_event ev;
+    struct epoll_event ev_mcd;
 
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->fd_tty = CLOSED_FD;
-    mmgr->fd_socket = CLOSED_FD;
+    mmgr->fd_cnx = CLOSED_FD;
     mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
 
     mmgr->events.nfds = 0;
     mmgr->events.ev = malloc(sizeof(struct epoll_event) *
                              (mmgr->config.max_clients + 1));
     mmgr->events.cur_ev = FIRST_EVENT;
-    mmgr->events.do_restore_modem = false;
     mmgr->events.modem_shutdown = false;
+    mmgr->events.modem_state = E_MDM_STATE_NONE;
 
     if (mmgr->events.ev == NULL) {
         LOG_ERROR("Unable to initialize event structure");
@@ -109,30 +111,37 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    ret = open_socket(&mmgr->fd_socket);
+    if (mmgr->config.is_flashless) {
+        if ((ret = modem_specific_init() != E_ERR_SUCCESS))
+            goto out;
+        if ((ret = regen_fls(&mmgr->info) != E_ERR_SUCCESS))
+            goto out;
+    }
+
+    ret = open_cnx(&mmgr->fd_cnx);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = initialize_epoll(&mmgr->epollfd, mmgr->fd_socket, EPOLLIN);
+    ret = initialize_epoll(&mmgr->epollfd, mmgr->fd_cnx, EPOLLIN);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("epoll configuration failed");
         goto out;
     }
 
-    struct epoll_event ev;
-    ev.events = EPOLLIN;
-    ev.data.fd = mmgr->info.fd_mcd;
-    if (epoll_ctl(mmgr->epollfd, EPOLL_CTL_ADD, mmgr->info.fd_mcd, &ev) == -1) {
+    ev_mcd.events = EPOLLIN;
+    ev_mcd.data.fd = mmgr->info.fd_mcd;
+    if (epoll_ctl(mmgr->epollfd, EPOLL_CTL_ADD, mmgr->info.fd_mcd, &ev_mcd) ==
+        -1) {
         LOG_ERROR("failed to add modem control driver interface to epoll");
         goto out;
     }
+    ret = set_mcd_poll_states(&mmgr->info);
     LOG_DEBUG("MCD driver added to poll list");
-
-    ret = set_mcd_poll_states(mmgr);
 
     /* configure events handlers */
     mmgr->hdler_events[E_EVENT_MODEM] = modem_event;
     mmgr->hdler_events[E_EVENT_MCD] = modem_control_event;
+    mmgr->hdler_events[E_EVENT_BUS] = bus_events;
     mmgr->hdler_events[E_EVENT_NEW_CLIENT] = new_client;
     mmgr->hdler_events[E_EVENT_CLIENT] = known_client;
     mmgr->hdler_events[E_EVENT_TIMEOUT] = timer_event;
@@ -142,8 +151,46 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    if ((ret = modem_events_init(mmgr)) != E_ERR_SUCCESS)
+    if ((ret = modem_events_init(mmgr)) != E_ERR_SUCCESS) {
         LOG_ERROR("unable to configure modem events handler");
+        goto out;
+    }
+
+    if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
+        if ((ret =
+             bus_events_init(&mmgr->events.bus_events, mmgr->config.bb_pid,
+                             mmgr->config.bb_vid, mmgr->config.flash_pid,
+                             mmgr->config.flash_vid, mmgr->config.mcdr_pid,
+                             mmgr->config.mcdr_vid)) != E_ERR_SUCCESS) {
+            LOG_ERROR("unable to configure bus events handler");
+            goto out;
+        }
+
+        int wd_fd = bus_ev_get_fd(&mmgr->events.bus_events);
+        ev.events = EPOLLIN;
+        ev.data.fd = wd_fd;
+        if (epoll_ctl(mmgr->epollfd, EPOLL_CTL_ADD, wd_fd, &ev) == -1) {
+            LOG_ERROR("Error during epoll_ctl. fd=%d (%s)",
+                      wd_fd, strerror(errno));
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+        LOG_DEBUG("bus event fd added to poll list");
+
+        // handle the first events after discovery
+        if (get_bus_state(&mmgr->events.bus_events) & MDM_BB_READY) {
+            // ready to configure modem
+            mmgr->events.modem_state &= ~E_MDM_STATE_FLASH_READY;
+            mmgr->events.modem_state |= E_MDM_STATE_BB_READY;
+        } else if (get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) {
+            // ready to flash modem
+            mmgr->events.modem_state |= E_MDM_STATE_FLASH_READY;
+            mmgr->events.modem_state &= ~E_MDM_STATE_BB_READY;
+        } else if (!mmgr->config.is_flashless)
+            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+    } else {
+        mmgr->events.modem_state |= E_MDM_STATE_BB_READY;
+    }
 
 out:
     return ret;
@@ -188,12 +235,14 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
         mmgr->events.state = E_EVENT_TIMEOUT;
     } else {
         fd = mmgr->events.ev[mmgr->events.cur_ev].data.fd;
-        if (fd == mmgr->fd_socket) {
+        if (fd == mmgr->fd_cnx) {
             mmgr->events.state = E_EVENT_NEW_CLIENT;
         } else if (fd == mmgr->fd_tty) {
             mmgr->events.state = E_EVENT_MODEM;
         } else if (fd == mmgr->info.fd_mcd) {
             mmgr->events.state = E_EVENT_MCD;
+        } else if (fd == mmgr->events.bus_events.wd_fd) {
+            mmgr->events.state = E_EVENT_BUS;
         } else {
             mmgr->events.state = E_EVENT_CLIENT;
         }
@@ -203,7 +252,7 @@ out:
 }
 
 /**
- * events manager: manage modem and socket events
+ * events manager: manage modem and cnx events
  * Instead of a state machine, an event dispatcher is used here.
  * A state machine is not usefull here as the protocol
  * is stateless.
@@ -225,9 +274,10 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     for (;;) {
-        if (mmgr->events.do_restore_modem) {
-            mmgr->events.do_restore_modem = false;
+        if (mmgr->info.ev & E_EV_FORCE_RESET) {
+            LOG_DEBUG("restoring modem");
             restore_modem(mmgr);
+            mmgr->info.ev &= ~E_EV_FORCE_RESET;
         }
         if ((ret = wait_for_event(mmgr)) != E_ERR_SUCCESS)
             goto out;
