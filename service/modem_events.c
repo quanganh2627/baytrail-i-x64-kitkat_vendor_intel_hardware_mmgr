@@ -21,6 +21,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include "at.h"
 #include "crash_logger.h"
 #include "errors.h"
 #include "file.h"
@@ -34,6 +35,9 @@
 /* wakelocks declaration */
 #define WAKE_LOCK_SYSFS "/sys/power/wake_lock"
 #define WAKE_UNLOCK_SYSFS "/sys/power/wake_unlock"
+
+/* AT command to shutdown modem */
+#define POWER_OFF_MODEM "AT+CFUN=0\r"
 
 #define READ_SIZE 64
 
@@ -232,7 +236,7 @@ out:
 }
 
 /**
- * handle E_EL_MODEM_SHUTDOWN pre reset escalation state
+ * shutdown the modem
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -240,19 +244,38 @@ out:
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t state_modem_shutdown(mmgr_data_t *mmgr)
+e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
+    const char shutdown_port[] = "/dev/gsmtty22";
+    int err;
+    int fd;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, MDM_CTRL_STATE_OFF) == -1) {
+    mmgr->info.polled_states = 0;
+    ret = set_mcd_poll_states(&mmgr->info);
+
+    mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
+    inform_client(mmgr->request.client, mmgr->client_notification, false);
+
+    if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, MDM_CTRL_STATE_OFF) == -1)
         LOG_DEBUG("couldn't set MCD state: %s", strerror(errno));
-        ret = E_ERR_FAILED;
+
+    err = open_tty(shutdown_port, &fd);
+    if (fd < 0) {
+        LOG_ERROR("operation FAILED");
+    } else {
+        err = send_at_timeout(fd, POWER_OFF_MODEM, strlen(POWER_OFF_MODEM),
+                              mmgr->config.max_retry_time);
+        if (err != E_ERR_SUCCESS) {
+            LOG_ERROR("Unable to send (%s)", POWER_OFF_MODEM);
+        }
+        close_tty(&fd);
     }
 
-    reset_shutdown_ack(&mmgr->clients);
-    stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+    close_tty(&mmgr->fd_tty);
+    ret = modem_down(&mmgr->info);
 out:
     return ret;
 }
@@ -315,29 +338,23 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
         modem_escalation_recovery(&mmgr->reset);
     }
 
-    if (mmgr->reset.state != E_OPERATION_WAIT) {
+    if ((mmgr->reset.state != E_OPERATION_WAIT) &&
+        (mmgr->reset.level.id != E_EL_MODEM_OUT_OF_SERVICE) &&
+        (mmgr->reset.level.id != E_EL_PLATFORM_REBOOT)) {
 
-        if ((mmgr->reset.level.id != E_EL_MODEM_OUT_OF_SERVICE) &&
-            (mmgr->reset.level.id != E_EL_MODEM_SHUTDOWN)) {
+        if (mmgr->config.is_flashless)
+            mmgr->info.polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
+        else
+            mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
+        ret = set_mcd_poll_states(&mmgr->info);
 
-            if (mmgr->config.is_flashless)
-                mmgr->info.polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
-            else
-                mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
-            ret = set_mcd_poll_states(&mmgr->info);
+        if (!mmgr->config.is_flashless) {
+            mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
+            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         }
-
-        if ((mmgr->reset.level.id != E_EL_MODEM_OUT_OF_SERVICE) &&
-            (mmgr->reset.level.id != E_EL_MODEM_SHUTDOWN)) {
-
-            if (!mmgr->config.is_flashless) {
-                mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
-                start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-            }
-            if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
-                start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-                mmgr->events.modem_state = E_MDM_STATE_NONE;
-            }
+        if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
+            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+            mmgr->events.modem_state = E_MDM_STATE_NONE;
         }
     }
 
@@ -377,10 +394,8 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
 
     crash_logger(&mmgr->info);
     mmgr->info.ev = E_EV_NONE;
-    if (mmgr->reset.level.id != E_EL_MODEM_SHUTDOWN) {
-        update_modem_tty(mmgr);
-        inform_all_clients(&mmgr->clients, mmgr->client_notification);
-    }
+    update_modem_tty(mmgr);
+    inform_all_clients(&mmgr->clients, mmgr->client_notification);
 
     return ret;
 out:
@@ -528,7 +543,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         } else {
             read_core_dump(mmgr);
         }
-    } else if ((state & E_EV_MODEM_OFF) && mmgr->reset.modem_shutdown) {
+    } else if ((state & E_EV_MODEM_OFF) && (state & E_EV_FORCE_MODEM_OFF)) {
         /* modem electrical shutdown requested, do nothing but wait on
            IPC_READY */
         LOG_DEBUG("Modem is OFF and modem_shutdown has been requested, "
@@ -541,7 +556,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
     } else if ((state & E_EV_MODEM_OFF) && (state & E_EV_MODEM_SELF_RESET)) {
         /* modem is booting up, do nothing */
         LOG_DEBUG("Modem is booting up");
-    } else if (state & E_EV_MODEM_OFF && !mmgr->reset.modem_shutdown) {
+    } else if (state & E_EV_MODEM_OFF && !((state & E_EV_FORCE_MODEM_OFF))) {
         LOG_DEBUG("Modem is OFF and should not be: powering on modem");
 
         //@TODO: workaround since start_hsic in modem_up does nothing
@@ -628,7 +643,6 @@ e_mmgr_errors_t modem_events_init(mmgr_data_t *mmgr)
     mmgr->hdler_modem[E_EL_MODEM_COLD_RESET] = state_modem_cold_reset;
     mmgr->hdler_modem[E_EL_PLATFORM_REBOOT] = state_platform_reboot;
     mmgr->hdler_modem[E_EL_MODEM_OUT_OF_SERVICE] = state_modem_out_of_service;
-    mmgr->hdler_modem[E_EL_MODEM_SHUTDOWN] = state_modem_shutdown;
 
 out:
     return ret;

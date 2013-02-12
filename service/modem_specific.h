@@ -28,7 +28,7 @@
 e_mmgr_errors_t modem_specific_init(void);
 e_mmgr_errors_t modem_warm_reset(modem_info_t *info);
 e_mmgr_errors_t modem_cold_reset(modem_info_t *info);
-e_mmgr_errors_t modem_shutdown(modem_info_t *info);
+e_mmgr_errors_t modem_down(modem_info_t *info);
 e_mmgr_errors_t modem_up(modem_info_t *info, bool is_flashless, bool is_hsic);
 e_mmgr_errors_t get_modem_state(int fd_mcd, e_modem_events_type_t *state);
 e_mmgr_errors_t start_hsic(modem_info_t *info);

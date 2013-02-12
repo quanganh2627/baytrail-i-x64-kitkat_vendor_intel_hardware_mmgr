@@ -144,8 +144,9 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         ((current.tv_sec - mmgr->timer.start[E_TIMER_MODEM_SHUTDOWN_ACK].tv_sec)
          > TIMEOUT_ACK)) {
         check_shutdown_ack(&mmgr->clients, true);
-        FORCE_MODEM_SHUTDOWN(mmgr);
+        mmgr->info.ev |= E_EV_FORCE_MODEM_OFF;
         stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+        reset_shutdown_ack(&mmgr->clients);
     }
 
     if ((mmgr->timer.type & (0x01 << E_TIMER_WAIT_FOR_IPC_READY)) &&

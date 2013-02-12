@@ -85,7 +85,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     mmgr->events.ev = malloc(sizeof(struct epoll_event) *
                              (mmgr->config.max_clients + 1));
     mmgr->events.cur_ev = FIRST_EVENT;
-    mmgr->events.modem_shutdown = false;
     mmgr->events.modem_state = E_MDM_STATE_NONE;
 
     if (mmgr->events.ev == NULL) {
@@ -274,7 +273,10 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     for (;;) {
-        if (mmgr->info.ev & E_EV_FORCE_RESET) {
+        if (mmgr->info.ev & E_EV_FORCE_MODEM_OFF) {
+            mmgr->info.ev = E_EV_MODEM_OFF;
+            modem_shutdown(mmgr);
+        } else if (mmgr->info.ev & E_EV_FORCE_RESET) {
             LOG_DEBUG("restoring modem");
             restore_modem(mmgr);
             mmgr->info.ev &= ~E_EV_FORCE_RESET;

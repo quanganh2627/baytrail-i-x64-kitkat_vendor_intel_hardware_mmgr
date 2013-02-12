@@ -21,11 +21,6 @@
 
 #include "events_manager.h"
 
-#define FORCE_MODEM_SHUTDOWN(mmgr) do { \
-    mmgr->info.ev |= E_EV_FORCE_RESET; \
-    mmgr->reset.modem_shutdown = true; \
-} while (0)
-
 e_mmgr_errors_t timer_init(mmgr_timer_t *timer, mmgr_configuration_t *config);
 e_mmgr_errors_t start_timer(mmgr_timer_t *timer, e_timer_type_t type);
 e_mmgr_errors_t stop_timer(mmgr_timer_t *timer, e_timer_type_t type);

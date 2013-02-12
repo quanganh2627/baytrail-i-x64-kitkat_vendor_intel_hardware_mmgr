@@ -80,7 +80,6 @@ typedef struct mmgr_events {
     int cur_ev;
     e_events_type_t state;
     bus_ev_t bus_events;
-    bool modem_shutdown;
     e_modem_state_t modem_state;
 } mmgr_events_t;
 

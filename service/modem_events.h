@@ -27,5 +27,6 @@ e_mmgr_errors_t modem_event(mmgr_data_t *mmgr);
 e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr);
 e_mmgr_errors_t bus_events(mmgr_data_t *mmgr);
 e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr);
+e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr);
 
 #endif                          /* __MMGR_MODEM_EVENTS_HEADER__ */

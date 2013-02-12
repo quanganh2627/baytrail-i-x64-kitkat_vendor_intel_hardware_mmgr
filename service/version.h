@@ -91,9 +91,10 @@
  ** 4.1.2  - 2013-02-08 - BZ 86071 - fix escalation recovery
  ** 4.1.3  - 2013-02-11 - BZ 86208 - MCD early boot removal
  ** 4.1.4  - 2013-02-18 - BZ 87518 - read flashless.conf file at boot-up
+ ** 4.1.5  - 2013-02-19 - BZ 87729 - remove MODEM OFF from escalation recovery
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "4.1.4"
+#define MODULE_VERSION "4.1.5"

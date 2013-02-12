@@ -29,9 +29,6 @@
 #include "reset_escalation.h"
 #include "tty.h"
 
-/* AT command to shutdown modem */
-#define POWER_OFF_MODEM "AT+CFUN=0\r"
-
 /**
  * Perform a pre modem warm reset
  *
@@ -135,38 +132,6 @@ static e_reset_operation_state_t pre_out_of_service(reset_management_t *none)
     (void)none;
     LOG_INFO("%s STATE: MODEM OUT OF SERVICE", MODULE_NAME);
     return E_OPERATION_CONTINUE;
-}
-
-/**
- * Shutting down modem
- *
- * @param [in,out] p_reset reset management structure
- *
- * @return E_OPERATION_BAD_PARAMETER if p_reset is NULL
- * @return E_OPERATION_CONTINUE
- */
-static e_reset_operation_state_t pre_modem_shutdown(reset_management_t *p_reset)
-{
-    const char shutdown_port[] = "/dev/gsmtty22";
-    e_reset_operation_state_t ret = E_OPERATION_CONTINUE;
-    int err;
-    int fd;
-
-    CHECK_PARAM(p_reset, ret, out);
-
-    err = open_tty(shutdown_port, &fd);
-    if (fd < 0) {
-        LOG_ERROR("operation FAILED");
-    } else {
-        err = send_at_timeout(fd, POWER_OFF_MODEM, strlen(POWER_OFF_MODEM),
-                              p_reset->config->max_retry_time);
-        if (err != E_ERR_SUCCESS) {
-            LOG_ERROR("Unable to send (%s)", POWER_OFF_MODEM);
-        }
-        close_tty(&fd);
-    }
-out:
-    return ret;
 }
 
 /**
@@ -286,9 +251,6 @@ e_mmgr_errors_t pre_modem_escalation_recovery(reset_management_t *p_reset)
         p_reset->modem_restart = E_FORCE_RESET_ON_GOING;
         p_reset->level.id = E_EL_MODEM_COLD_RESET;
         p_reset->level.counter = 0;
-    } else if (p_reset->modem_shutdown) {
-        p_reset->level.id = E_EL_MODEM_SHUTDOWN;
-        p_reset->level.counter = 0;
     }
 
     p_process = &p_reset->process[p_reset->level.id];
@@ -299,7 +261,6 @@ e_mmgr_errors_t pre_modem_escalation_recovery(reset_management_t *p_reset)
        we were in a stable state before the issue. So, reset the escalation
        recovery variable to default. */
     if ((p_reset->level.id != E_EL_MODEM_OUT_OF_SERVICE) &&
-        (p_reset->level.id != E_EL_MODEM_SHUTDOWN) &&
         (p_reset->modem_restart != E_FORCE_RESET_ON_GOING)) {
 
         if (current_time.tv_sec - p_reset->last_reset_time.tv_sec
@@ -444,8 +405,6 @@ e_mmgr_errors_t escalation_recovery_init(const mmgr_configuration_t *config,
     p_reset->process[E_EL_MODEM_COLD_RESET].operation = modem_cold_reset;
     p_reset->process[E_EL_PLATFORM_REBOOT].pre_operation = pre_platform_reboot;
     p_reset->process[E_EL_PLATFORM_REBOOT].operation = platform_reboot;
-    p_reset->process[E_EL_MODEM_SHUTDOWN].pre_operation = pre_modem_shutdown;
-    p_reset->process[E_EL_MODEM_SHUTDOWN].operation = modem_shutdown;
     p_reset->process[E_EL_MODEM_OUT_OF_SERVICE].pre_operation =
         pre_out_of_service;
     p_reset->process[E_EL_MODEM_OUT_OF_SERVICE].operation = out_of_service;
@@ -456,7 +415,6 @@ e_mmgr_errors_t escalation_recovery_init(const mmgr_configuration_t *config,
         p_reset->level.counter = 0;
         p_reset->wait_operation = true;
         p_reset->modem_restart = E_FORCE_RESET_DISABLED;
-        p_reset->modem_shutdown = true; //modem is down at MMGR boot up
         p_reset->state = E_OPERATION_CONTINUE;
         gettimeofday(&p_reset->last_reset_time, NULL);
 
@@ -482,10 +440,6 @@ e_mmgr_errors_t escalation_recovery_init(const mmgr_configuration_t *config,
     p_process = &p_reset->process[E_EL_MODEM_OUT_OF_SERVICE];
     p_process->retry_allowed = -1;
     p_process->next_level = E_EL_MODEM_OUT_OF_SERVICE;
-    /* after a modem shutdown, a WARM reset will be performed when the modem
-       will be powered on */
-    p_reset->process[E_EL_MODEM_SHUTDOWN].next_level = E_EL_MODEM_WARM_RESET;
-    p_reset->process[E_EL_MODEM_SHUTDOWN].retry_allowed = 1;
 
 out:
     return ret;
