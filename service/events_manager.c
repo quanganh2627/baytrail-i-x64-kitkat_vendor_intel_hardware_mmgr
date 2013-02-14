@@ -84,7 +84,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
                              (mmgr->config.max_clients + 1));
     mmgr->events.cur_ev = FIRST_EVENT;
     mmgr->events.do_restore_modem = false;
-    mmgr->events.modem_shutdown = false;
 
     if (mmgr->events.ev == NULL) {
         LOG_ERROR("Unable to initialize event structure");
@@ -225,7 +224,10 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     for (;;) {
-        if (mmgr->events.do_restore_modem) {
+        if (mmgr->info.ev & E_EV_FORCE_MODEM_OFF) {
+            mmgr->info.ev = E_EV_MODEM_OFF;
+            modem_shutdown(mmgr);
+        } else if (mmgr->events.do_restore_modem) {
             mmgr->events.do_restore_modem = false;
             restore_modem(mmgr);
         }

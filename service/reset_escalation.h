@@ -35,7 +35,6 @@ typedef enum e_escalation_level {
     E_EL_MODEM_COLD_RESET,
     E_EL_PLATFORM_REBOOT,
     E_EL_MODEM_OUT_OF_SERVICE,
-    E_EL_MODEM_SHUTDOWN,
     E_EL_NUMBER_OF
 } e_escalation_level_t;
 
@@ -77,7 +76,6 @@ typedef struct reset_management {
     modem_info_t *modem_info;
     bool wait_operation;        /* used by pre_cold_reset */
     e_force_reset_operation_t modem_restart;
-    bool modem_shutdown;
 } reset_management_t;
 
 e_mmgr_errors_t escalation_recovery_init(const mmgr_configuration_t *params,
