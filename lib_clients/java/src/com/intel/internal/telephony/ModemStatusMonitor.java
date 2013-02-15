@@ -58,7 +58,7 @@ public interface ModemStatusMonitor extends Callback {
 
     public void setModemStatusHandler(Handler handler);
 
-    public void replyToNotification(ModemNotificationArgs args);
+    public void replyToNotification(ModemNotificationArgs args) throws MmgrClientException;
 
     @Override
     public boolean handleMessage(Message msg);

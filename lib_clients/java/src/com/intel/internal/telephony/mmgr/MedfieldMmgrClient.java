@@ -261,8 +261,10 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                 Log.d(Constants.LOG_TAG, String.format(
                         "Received %d bytes from service.", readCount));
 
-                if(readCount > 0) {
+                if (readCount > 0) {
                     this.handleResponse(recvBuffer, readCount);
+                } else {
+                    return;
                 }
             } catch (IOException ex) {
                 Log.e(Constants.LOG_TAG, ex.toString());
@@ -370,8 +372,13 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             switch (msg.what) {
             case ModemStatusMonitor.MSG_NOTIFICATION_FEEDBACK:
                 ModemNotificationArgs feedback = (ModemNotificationArgs) msg.obj;
-                this.replyToNotification(feedback);
-
+                if (feedback != null && feedback.isAcknowledge()) {
+                    try {
+                        this.replyToNotification(feedback);
+                    } catch (MmgrClientException ex) {
+                        Log.e(Constants.LOG_TAG, ex.toString(), ex);
+                    }
+                }
                 break;
             case ModemStatusMonitor.MSG_REQUEST:
 
@@ -440,16 +447,18 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
         if (args != null) {
 
-            Log.d(Constants.LOG_TAG,
-                    String.format("Sending %s to service...", args.getName()));
-
             byte[] data = args.getFrame();
 
-            try {
-                this.clientSocket.getOutputStream().write(data);
-            } catch (IOException ex) {
-                throw new MmgrClientException(
-                        "Could not write to MMGR socket.", ex);
+            if (data != null) {
+
+                try {
+                    this.clientSocket.getOutputStream().write(data);
+                } catch (IOException ex) {
+                    throw new MmgrClientException(
+                            "Could not write to MMGR socket.", ex);
+                }
+                Log.d(Constants.LOG_TAG,
+                        String.format("%s sent successfully", args.getName()));
             }
         }
     }
@@ -460,8 +469,23 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     }
 
     @Override
-    public void replyToNotification(ModemNotificationArgs args) {
-        // Not implemented yet
+    public void replyToNotification(ModemNotificationArgs args)
+            throws MmgrClientException {
+        switch (args.getNotification()) {
+        case COLD_RESET:
+            Log.d(Constants.LOG_TAG,
+                    String.format("Replying ACK to cold reset"));
+            this.sendRequest(new MmgrModemColdResetAckRequest());
+            break;
+        case SHUTDOWN:
+            Log.d(Constants.LOG_TAG, String.format("Replying ACK to shutdown"));
+            this.sendRequest(new MmgrModemShutdownAckRequest());
+            break;
+        default:
+            Log.d(Constants.LOG_TAG,
+                    String.format("No possible reply to notification %d",
+                            args.getNotification()));
+        }
     }
 
     @Override

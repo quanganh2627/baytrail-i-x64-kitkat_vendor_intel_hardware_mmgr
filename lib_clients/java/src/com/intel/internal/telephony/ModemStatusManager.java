@@ -247,6 +247,16 @@ public class ModemStatusManager implements Callback {
     }
 
     /**
+     * @param args The request to send
+     * @throws MmgrClientException On any error
+     */
+    public void sendRequest(ModemRequestArgs args) throws MmgrClientException {
+        if (this.modemStatusMonitor != null) {
+            this.modemStatusMonitor.sendRequest(args);
+        }
+    }
+
+    /**
      * Disconnects from the Modem Status Monitor service. After calling this
      * method, the implementation of ModemEventListener will not be notified
      * anymore.
