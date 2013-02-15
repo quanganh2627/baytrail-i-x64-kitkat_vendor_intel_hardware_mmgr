@@ -387,7 +387,6 @@ out:
 int wait_for_state(test_data_t *test_data, int state, int timeout)
 {
     int ret = E_ERR_FAILED;
-    int err = 0;
     int current_state = 0;
     struct timespec ts;
     struct timeval start;
@@ -414,9 +413,7 @@ int wait_for_state(test_data_t *test_data, int state, int timeout)
             ts.tv_sec += 1;
 
         pthread_mutex_lock(&test_data->cond_mutex);
-        err =
-            pthread_cond_timedwait(&test_data->cond, &test_data->cond_mutex,
-                                   &ts);
+        pthread_cond_timedwait(&test_data->cond, &test_data->cond_mutex, &ts);
         pthread_mutex_unlock(&test_data->cond_mutex);
 
         modem_state_get(test_data, &current_state);
@@ -886,18 +883,17 @@ int reset_by_client_request(test_data_t *data_test, bool check_file,
         goto out;
     }
 
-    if (notification != E_MMGR_NUM_EVENTS) {
-        ret =
-            wait_for_state(data_test, notification,
-                           TIMEOUT_MODEM_DOWN_AFTER_CMD);
-        if (ret != E_ERR_SUCCESS)
-            goto out;
-    }
-
     ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_DOWN,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
+
+    if (notification != E_MMGR_NUM_EVENTS) {
+        ret = wait_for_state(data_test, notification,
+                             TIMEOUT_MODEM_DOWN_AFTER_CMD);
+        if (ret != E_ERR_SUCCESS)
+            goto out;
+    }
 
     /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds
        to end the test */
@@ -949,16 +945,16 @@ int reset_by_at_cmd(test_data_t *test, char *at_cmd, size_t at_len,
         goto out;
     }
 
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
     if (notification != E_MMGR_NUM_EVENTS) {
         ret = wait_for_state(test, notification, TIMEOUT_MODEM_DOWN_AFTER_CMD);
         if (ret != E_ERR_SUCCESS)
             goto out;
     }
-
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
 
     /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds
        to end the test */

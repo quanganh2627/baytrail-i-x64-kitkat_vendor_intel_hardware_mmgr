@@ -461,7 +461,7 @@ e_mmgr_errors_t escalation_recovery_init(const mmgr_configuration_t *config,
         p_reset->level.counter = 0;
         p_reset->wait_operation = true;
         p_reset->modem_restart = E_FORCE_RESET_DISABLED;
-        p_reset->modem_shutdown = false;
+        p_reset->modem_shutdown = true; //modem is down at MMGR boot up
         p_reset->state = E_OPERATION_CONTINUE;
         gettimeofday(&p_reset->last_reset_time, NULL);
 

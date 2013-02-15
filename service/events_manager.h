@@ -36,7 +36,6 @@
 #define TIMER \
     X(COLD_RESET_ACK), \
     X(MODEM_SHUTDOWN_ACK), \
-    X(NO_RESOURCE_RELEASE_ACK), \
     X(WAIT_FOR_IPC_READY), \
     X(NUM)
 
@@ -66,7 +65,6 @@ typedef struct mmgr_events {
     e_events_type_t state;
     bool do_restore_modem;
     bool modem_shutdown;
-    bool inform_down;
 } mmgr_events_t;
 
 typedef struct client_request {

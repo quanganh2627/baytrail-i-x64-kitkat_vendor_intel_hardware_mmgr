@@ -70,12 +70,16 @@
  ** 3.2.8  - 2013-01-18 - BZ 40361 - implement Modem Control Driver
  ** 3.2.9  - 2013-01-18 - BZ 79757 - close tty before core dump management
  ** 3.2.10 - 2013-01-18 - BZ 71590 - do not open tty in blocking mode
- ** 3.2.XX - 2013-01-30 - BZ 81140 - retry to open tty when access is denied
+ ** 3.2.11 - 2013-01-30 - BZ 81140 - retry to open tty when access is denied
+ ** 3.2.12 - 2013-02-06 - BZ 85009 - send MODEM_DOWN before notification
+ ** 3.2.13 - 2013-02-06 - BZ 85469 - do not report MRESET after core dump
+ ** 3.2.14 - 2013-02-06 - BZ 85207 - fix core dump retrieval
+ ** 3.2.15 - 2013-02-06 - BZ 82064 - remove NO_RESOURCE_RELEASE timer
+ ** 3.2.16 - 2013-02-07 - BZ 82892 - set MCD state to OFF before modem shutdown
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
 
-#define MODULE_VERSION "3.2.XX"
-
+#define MODULE_VERSION "3.2.16"

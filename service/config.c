@@ -43,8 +43,6 @@
 #define DEF_DELAY_BEFORE_RESET       300        /* in milliseconds */
 #define DEF_DELAY_BEFORE_REBOOT      3  /* in seconds */
 #define DEF_MAX_RETRY_TIME           60
-/* power saving */
-#define DEF_DELAY_BEFORE_MODEM_SHUTDOWN 600     /* in seconds */
 /* mmgr interface */
 #define DEF_NB_ALLOWED_CLIENT        12
 #define DEF_TIME_BANNED              600
@@ -175,9 +173,6 @@ static e_mmgr_errors_t read_config_file(const char *config_file,
     const char delay_reboot_key[] = "DelayBeforeReboot";
     const char max_retry_time_key[] = "MaximumRetryTime";
 
-    const char power_grp[] = "POWER";
-    const char delay_before_mshutdown_key[] = "DelayBeforeModemShutdown";
-
     const char interface_grp[] = "MMGR_INTERFACE";
     const char max_clients_key[] = "NumberOfAllowedClient";
     const char time_banned_key[] = "TimeBeforeBeingBanned";
@@ -223,9 +218,6 @@ static e_mmgr_errors_t read_config_file(const char *config_file,
     get_integer(fd, recov_grp, delay_reboot_key, &param->delay_before_reboot);
     get_integer(fd, recov_grp, max_retry_time_key, &param->max_retry_time);
 
-    get_integer(fd, power_grp, delay_before_mshutdown_key,
-                &param->delay_before_modem_shtdwn);
-
     get_integer(fd, interface_grp, max_clients_key, &param->max_clients);
     get_integer(fd, interface_grp, time_banned_key, &param->time_banned);
     get_integer(fd, interface_grp, request_banned_key,
@@ -252,8 +244,6 @@ out:
               PRINT_INTEGER
               PRINT_INTEGER
               PRINT_INTEGER
-              PRINT_GROUP
-              PRINT_INTEGER
               PRINT_GROUP PRINT_INTEGER PRINT_INTEGER PRINT_INTEGER,
               /* feed it: */
               MODULE_NAME,
@@ -275,8 +265,6 @@ out:
               delay_reset_key, param->delay_before_reset,
               delay_reboot_key, param->delay_before_reboot,
               max_retry_time_key, param->max_retry_time,
-              power_grp,
-              delay_before_mshutdown_key, param->delay_before_modem_shtdwn,
               interface_grp,
               max_clients_key, param->max_clients,
               time_banned_key, param->time_banned,
@@ -318,10 +306,7 @@ static e_mmgr_errors_t set_default_values(mmgr_configuration_t *parameters)
     parameters->min_time_issue = DEF_MIN_TIME_ISSUE;
     parameters->delay_before_reset = DEF_DELAY_BEFORE_RESET;
     parameters->delay_before_reboot = DEF_DELAY_BEFORE_REBOOT;
-    parameters->delay_before_modem_shtdwn = DEF_DELAY_BEFORE_MODEM_SHUTDOWN;
     parameters->max_retry_time = DEF_MAX_RETRY_TIME;
-    /* power saving */
-    parameters->delay_before_modem_shtdwn = DEF_DELAY_BEFORE_MODEM_SHUTDOWN;
     /* interface */
     parameters->max_clients = DEF_NB_ALLOWED_CLIENT;
     parameters->time_banned = DEF_TIME_BANNED;
