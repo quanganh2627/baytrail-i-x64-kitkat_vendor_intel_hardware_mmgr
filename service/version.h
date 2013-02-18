@@ -90,9 +90,10 @@
  ** 4.1.1  - 2013-02-07 - BZ 76423 - modem flashless and HSIC introduction
  ** 4.1.2  - 2013-02-08 - BZ 86071 - fix escalation recovery
  ** 4.1.3  - 2013-02-11 - BZ 86208 - MCD early boot removal
+ ** 4.1.4  - 2013-02-18 - BZ 87518 - read flashless.conf file at boot-up
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "4.1.3"
+#define MODULE_VERSION "4.1.4"
