@@ -54,23 +54,18 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
     if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
-        /* At least one client has acquired the resource. So, cancel
-           modem shutdown if it's on going */
-        stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
         mmgr->info.ev &= ~E_EV_FORCE_MODEM_OFF;
         mmgr->request.client->resource_release = false;
-        if (!(mmgr->info.ev & E_EV_MODEM_OFF)) {
-            mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
-            inform_all_clients(&mmgr->clients, mmgr->client_notification);
-        } else {
-            if (!(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
-                LOG_DEBUG("wake up modem");
-                mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-                set_mcd_poll_states(mmgr);
-                mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
-                reset_escalation_counter(&mmgr->reset);
-                ret = modem_up(&mmgr->info);
-            }
+        /* At least one client has acquired the resource. So, cancel
+           modem shutdown if it's on going */
+        if ((mmgr->info.ev & E_EV_MODEM_OFF) &&
+            !(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
+            LOG_DEBUG("wake up modem");
+            mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
+            set_mcd_poll_states(mmgr);
+            mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
+            reset_escalation_counter(&mmgr->reset);
+            ret = modem_up(&mmgr->info);
         }
     }
 
@@ -121,8 +116,7 @@ static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-        (mmgr->info.ev & E_EV_MODEM_OFF)) {
+    if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
         if (mmgr->request.received.ts > mmgr->reset.last_reset_time.tv_sec) {
@@ -150,8 +144,7 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-        (mmgr->info.ev & E_EV_MODEM_OFF)) {
+    if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
         mmgr->info.ev |= E_EV_AP_RESET;
@@ -230,13 +223,9 @@ static e_mmgr_errors_t request_force_modem_shutdown(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->info.ev & E_EV_MODEM_OFF) {
-        mmgr->request.answer = E_MMGR_NACK;
-    } else {
-        mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-        mmgr->request.additional_info = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-        start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-    }
+    mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
+    mmgr->request.additional_info = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
+    start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
 out:
     return ret;
 }

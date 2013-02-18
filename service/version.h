@@ -84,10 +84,11 @@
  ** 3.2.22 - 2013-02-26 - BZ 87509 - REVERT: fix setting MCD modem state to OFF
  ** 3.2.23 - 2013-02-26 - BZ 87509 - REVERT: fix client notification
  ** 3.2.24 - 2013-02-26 - BZ 87509 - REVERT: fix MODEM DOWN event
+ ** 3.2.25 - 2013-02-26 - BZ 87509 - REVERT: client API: flight mode enhancement
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
 
-#define MODULE_VERSION "3.2.24"
+#define MODULE_VERSION "3.2.25"
