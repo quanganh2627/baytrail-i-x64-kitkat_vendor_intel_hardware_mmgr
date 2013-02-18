@@ -69,25 +69,24 @@ out:
 }
 
 /**
- * Shutting down modem
+ * shutdown electricaly the modem
  *
- * @param [in,out] info reset management structure
+ * @param [in] info modem info structure
  *
- * @return E_OPERATION_BAD_PARAMETER if info is NULL
- * @return E_OPERATION_CONTINUE
+ * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t modem_down(modem_info_t *info)
+e_mmgr_errors_t modem_shutdown(modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(info, ret, out);
 
+    LOG_INFO("MODEM ELECTRICAL SHUTDOWN");
     if (ioctl(info->fd_mcd, MDM_CTRL_POWER_OFF) == -1) {
         ret = E_ERR_FAILED;
         LOG_DEBUG("couldn't shutdown modem: %s", strerror(errno));
-    } else {
-        LOG_INFO("MODEM ELECTRICALLY SHUTDOWN");
-        ret = E_ERR_SUCCESS;
     }
 out:
     return ret;

@@ -64,6 +64,7 @@ typedef struct mmgr_events {
     int cur_ev;
     e_events_type_t state;
     bool do_restore_modem;
+    bool modem_shutdown;
 } mmgr_events_t;
 
 typedef struct client_request {

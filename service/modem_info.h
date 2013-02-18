@@ -40,7 +40,6 @@ typedef enum e_modem_events_type {
     E_EV_MODEM_OFF = 0x01 << 10,
     E_EV_WAIT_FOR_IPC_READY = 0x01 << 11,
     E_EV_IPC_READY = 0x01 << 12,
-    E_EV_FORCE_MODEM_OFF = 0x01 << 13,
 } e_modem_events_type_t;
 
 typedef struct modem_info {

@@ -54,11 +54,15 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
     if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
-        mmgr->info.ev &= ~E_EV_FORCE_MODEM_OFF;
         mmgr->request.client->resource_release = false;
         /* At least one client has acquired the resource. So, cancel
            modem shutdown if it's on going */
-        if ((mmgr->info.ev & E_EV_MODEM_OFF) &&
+        mmgr->events.modem_shutdown = false;
+        mmgr->reset.modem_shutdown = false;
+        if ((mmgr->client_notification != E_MMGR_EVENT_MODEM_UP) &&
+            (mmgr->client_notification != E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) &&
+            (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_SHUTDOWN) &&
+            (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) &&
             !(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
             LOG_DEBUG("wake up modem");
             mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
@@ -90,9 +94,10 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
     mmgr->request.client->resource_release = true;
 
     if ((mmgr->client_notification != E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) &&
-        !(mmgr->info.ev & E_EV_MODEM_OFF)) {
+        (!mmgr->events.modem_shutdown)) {
         if (check_resource_released(&mmgr->clients, true) == E_ERR_SUCCESS) {
-            LOG_INFO("notify clients that modem will be shutdown");
+            mmgr->events.modem_shutdown = true;
+            LOG_INFO("modem will be shutdown");
             mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
             inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN);
             start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
@@ -201,8 +206,7 @@ static e_mmgr_errors_t request_ack_modem_shutdown(mmgr_data_t *mmgr)
         mmgr->request.client->modem_shutdown = true;
         if (check_shutdown_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
             LOG_DEBUG("All clients agreed modem shutdown");
-            mmgr->info.ev |= E_EV_FORCE_MODEM_OFF;
-            stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+            FORCE_MODEM_SHUTDOWN(mmgr);
         }
     }
 out:
