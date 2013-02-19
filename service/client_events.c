@@ -422,38 +422,42 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
     if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
-        mmgr->info.ev &= ~E_EV_FORCE_MODEM_OFF;
-        mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
         /* At least one client has acquired the resource. So, cancel
            modem shutdown if it's on going */
-        if ((mmgr->info.ev & E_EV_MODEM_OFF) &&
-            !(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
-            LOG_DEBUG("wake up modem");
+        stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+        mmgr->info.ev &= ~E_EV_FORCE_MODEM_OFF;
+        mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
+        if (!(mmgr->info.ev & E_EV_MODEM_OFF) &&
+            !(mmgr->info.ev & E_EV_FORCE_RESET)) {
+            mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
+            inform_all_clients(&mmgr->clients, mmgr->client_notification);
+        } else {
+            if (!(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
+                LOG_DEBUG("wake up modem");
+                //@TODO: workaround since start_hsic in modem_up does nothing
+                // and stop_hsic makes a restart of hsic.
+                if (!strcmp("hsic", mmgr->config.link_layer)) {
+                    stop_hsic(&mmgr->info);
+                }
 
-            //@TODO: workaround since start_hsic in modem_up does nothing
-            // and stop_hsic makes a restart of hsic.
-            if (!strcmp("hsic", mmgr->config.link_layer)) {
-                stop_hsic(&mmgr->info);
+                if (mmgr->config.is_flashless)
+                    mmgr->info.polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
+                else
+                    mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
+                set_mcd_poll_states(&mmgr->info);
+
+                ret = modem_up(&mmgr->info, mmgr->config.is_flashless,
+                               !strcmp("hsic", mmgr->config.link_layer));
+                if (ret == E_ERR_SUCCESS) {
+                    mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
+                    reset_escalation_counter(&mmgr->reset);
+                    start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+                    //if the modem is hsic, add wait_for_bus_ready
+                    //@TODO: push that into modem_specific
+                    if (strcmp(mmgr->config.link_layer, "hsic") == 0)
+                        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+                }
             }
-
-            if (mmgr->config.is_flashless)
-                mmgr->info.polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
-            else
-                mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
-            ret = set_mcd_poll_states(&mmgr->info);
-
-            if ((ret = modem_up(&mmgr->info, mmgr->config.is_flashless,
-                                !strcmp("hsic", mmgr->config.link_layer))) ==
-                E_ERR_SUCCESS) {
-                mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
-                reset_escalation_counter(&mmgr->reset);
-                start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-                //if the modem is hsic, add wait_for_bus_ready
-                //@TODO: push that into modem_specific
-                if (strcmp(mmgr->config.link_layer, "hsic") == 0)
-                    start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-            }
-
         }
     }
 
@@ -509,10 +513,11 @@ static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    memcpy(&sec, &mmgr->request.msg.hdr.ts, sizeof(uint32_t));
-    if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
+    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+        (mmgr->info.ev & E_EV_MODEM_OFF)) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
+        memcpy(&sec, &mmgr->request.msg.hdr.ts, sizeof(uint32_t));
         if (sec > mmgr->reset.last_reset_time.tv_sec) {
             if (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) {
                 mmgr->info.ev |= E_EV_AP_RESET | E_EV_FORCE_RESET;
@@ -541,7 +546,8 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
+    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+        (mmgr->info.ev & E_EV_MODEM_OFF)) {
         mmgr->request.answer = E_MMGR_NACK;
     } else {
         if (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) {
@@ -626,9 +632,13 @@ static e_mmgr_errors_t request_force_modem_shutdown(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-    mmgr->request.additional_info = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-    start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+    if (mmgr->info.ev & E_EV_MODEM_OFF) {
+        mmgr->request.answer = E_MMGR_NACK;
+    } else {
+        mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
+        mmgr->request.additional_info = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
+        start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+    }
 out:
     return ret;
 }
