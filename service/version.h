@@ -93,9 +93,10 @@
  ** 4.1.4  - 2013-02-18 - BZ 87518 - read flashless.conf file at boot-up
  ** 4.1.5  - 2013-02-19 - BZ 87729 - remove MODEM OFF from escalation recovery
  ** 4.1.6  - 2013-02-19 - BZ 87729 - client API: flight mode enhancement
+ ** 4.1.7  - 2013-02-26 - BZ 87729 - fix MODEM DOWN event handling
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "4.1.6"
+#define MODULE_VERSION "4.1.7"

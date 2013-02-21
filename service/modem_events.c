@@ -543,34 +543,27 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         } else {
             read_core_dump(mmgr);
         }
-    } else if ((state & E_EV_MODEM_OFF) && (state & E_EV_FORCE_MODEM_OFF)) {
-        /* modem electrical shutdown requested, do nothing but wait on
-           IPC_READY */
-        LOG_DEBUG("Modem is OFF and modem_shutdown has been requested, "
-                  "just wait for IPC_READY");
-        mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
-        mmgr->events.modem_state &= ~E_MDM_STATE_IPC_READY;
-        set_mcd_poll_states(&mmgr->info);
-        if (strcmp(mmgr->config.link_layer, "hsic") == 0)
-            stop_hsic(&mmgr->info);
-    } else if ((state & E_EV_MODEM_OFF) && (state & E_EV_MODEM_SELF_RESET)) {
-        /* modem is booting up, do nothing */
-        LOG_DEBUG("Modem is booting up");
-    } else if (state & E_EV_MODEM_OFF && !((state & E_EV_FORCE_MODEM_OFF))) {
-        LOG_DEBUG("Modem is OFF and should not be: powering on modem");
+    } else if (state & E_EV_MODEM_OFF) {
+        if (state & E_EV_MODEM_SELF_RESET) {
+            LOG_DEBUG("Modem is booting up. Do nothing");
+        } else if ((state & E_EV_FORCE_MODEM_OFF)
+                   && (mmgr->info.ev & E_EV_MODEM_OFF)) {
+            LOG_DEBUG("Modem is OFF and should be. Do nothing");
+        } else {
+            LOG_DEBUG("Modem is OFF and should not be: powering on modem");
 
-        //@TODO: workaround since start_hsic in modem_up does nothing
-        // and stop_hsic makes a restart of hsic.
-        if (!strcmp("hsic", mmgr->config.link_layer)) {
-            stop_hsic(&mmgr->info);
+            //@TODO: workaround since start_hsic in modem_up does nothing
+            // and stop_hsic makes a restart of hsic.
+            if (!strcmp("hsic", mmgr->config.link_layer)) {
+                stop_hsic(&mmgr->info);
+            }
+
+            if ((ret = modem_up(&mmgr->info, mmgr->config.is_flashless,
+                                !strcmp("hsic", mmgr->config.link_layer))))
+                goto out;
+            mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
+            ret = set_mcd_poll_states(&mmgr->info);
         }
-
-        if ((ret = modem_up(&mmgr->info, mmgr->config.is_flashless,
-                            !strcmp("hsic", mmgr->config.link_layer)))
-            != E_ERR_SUCCESS)
-            goto out;
-        mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
-        ret = set_mcd_poll_states(&mmgr->info);
     } else {
 
         /* Signal a Modem Event */
@@ -584,10 +577,8 @@ out:
 e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
     CHECK_PARAM(mmgr, ret, out);
     LOG_DEBUG("Modem event triggered");
-
     bus_read_events(&mmgr->events.bus_events);
     bus_handle_events(&mmgr->events.bus_events);
     if (get_bus_state(&mmgr->events.bus_events) & MDM_BB_READY) {
@@ -602,7 +593,6 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.modem_state |= E_MDM_STATE_FLASH_READY;
         mmgr->events.modem_state &= ~E_MDM_STATE_BB_READY;
-
         if (1) {                //@TODO: REVERT ME mmgr->events.modem_state & E_MDM_STATE_FW_DL_READY) {
             ret = do_flash(mmgr);
         }
@@ -611,7 +601,6 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         if (mmgr->fd_tty != CLOSED_FD) {
             mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
-
             close_tty(&mmgr->fd_tty);
         }
 
@@ -620,7 +609,6 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
             read_core_dump(mmgr);
     } else
         LOG_DEBUG("Unhandled usb event");
-
 out:
     return ret;
 }
@@ -636,14 +624,11 @@ out:
 e_mmgr_errors_t modem_events_init(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
     CHECK_PARAM(mmgr, ret, out);
-
     mmgr->hdler_modem[E_EL_MODEM_WARM_RESET] = state_modem_warm_reset;
     mmgr->hdler_modem[E_EL_MODEM_COLD_RESET] = state_modem_cold_reset;
     mmgr->hdler_modem[E_EL_PLATFORM_REBOOT] = state_platform_reboot;
     mmgr->hdler_modem[E_EL_MODEM_OUT_OF_SERVICE] = state_modem_out_of_service;
-
 out:
     return ret;
 }
