@@ -69,7 +69,7 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
 
     info->ev = E_EV_MODEM_OFF;  /* modem is OFF at boot-up */
     info->restore_timeout = config->max_retry_time;
-    info->polled_states = MDM_CTRL_STATE_COREDUMP | MDM_CTRL_STATE_OFF;
+    info->polled_states = MDM_CTRL_STATE_COREDUMP;
 
     ret = core_dump_init(config, &info->mcdr);
     if (ret != E_ERR_SUCCESS)
