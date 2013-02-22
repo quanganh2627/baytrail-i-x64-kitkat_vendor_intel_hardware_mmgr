@@ -76,10 +76,12 @@
  ** 3.2.14 - 2013-02-06 - BZ 85207 - fix core dump retrieval
  ** 3.2.15 - 2013-02-06 - BZ 82064 - remove NO_RESOURCE_RELEASE timer
  ** 3.2.16 - 2013-02-07 - BZ 82892 - set MCD state to OFF before modem shutdown
+ ** 3.2.17 - 2013-02-14 - BZ 86071 - remove MODEM OFF from escalation recovery
+ ** 3.2.18 - 2013-02-14 - BZ 86674 - client API: flight mode enhancement
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
 
-#define MODULE_VERSION "3.2.16"
+#define MODULE_VERSION "3.2.18"

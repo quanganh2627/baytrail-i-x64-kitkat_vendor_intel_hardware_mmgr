@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include "at.h"
 #include "crash_logger.h"
 #include "errors.h"
 #include "file.h"
@@ -38,6 +39,9 @@
 
 #define READ_SIZE 1024
 
+/* AT command to shutdown modem */
+#define POWER_OFF_MODEM "AT+CFUN=0\r"
+
 /**
  * update mcd poll
  *
@@ -47,7 +51,7 @@
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-inline e_mmgr_errors_t set_mcd_poll_states(mmgr_data_t *mmgr)
+e_mmgr_errors_t set_mcd_poll_states(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -84,7 +88,6 @@ static void read_core_dump(mmgr_data_t *mmgr)
     write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
 }
-
 
 /**
  * add new tty file descriptor to epoll
@@ -222,7 +225,7 @@ out:
 }
 
 /**
- * handle E_EL_MODEM_SHUTDOWN pre reset escalation state
+ * shutdown the modem
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -230,19 +233,38 @@ out:
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t state_modem_shutdown(mmgr_data_t *mmgr)
+e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
+    const char shutdown_port[] = "/dev/gsmtty22";
+    int err;
+    int fd;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, MDM_CTRL_STATE_OFF) == -1) {
+    mmgr->info.polled_states = 0x0;
+    ret = set_mcd_poll_states(mmgr);
+
+    mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
+    inform_client(mmgr->request.client, mmgr->client_notification, false);
+
+    if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, MDM_CTRL_STATE_OFF) == -1)
         LOG_DEBUG("couldn't set MCD state: %s", strerror(errno));
-        ret = E_ERR_FAILED;
+
+    err = open_tty(shutdown_port, &fd);
+    if (fd < 0) {
+        LOG_ERROR("operation FAILED");
+    } else {
+        err = send_at_timeout(fd, POWER_OFF_MODEM, strlen(POWER_OFF_MODEM),
+                              mmgr->config.max_retry_time);
+        if (err != E_ERR_SUCCESS) {
+            LOG_ERROR("Unable to send (%s)", POWER_OFF_MODEM);
+        }
+        close_tty(&fd);
     }
 
-    reset_shutdown_ack(&mmgr->clients);
-    stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+    close_tty(&mmgr->fd_tty);
+    ret = modem_down(&mmgr->info);
 out:
     return ret;
 }
@@ -287,7 +309,7 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
         modem_escalation_recovery(&mmgr->reset);
 
         if ((mmgr->reset.level.id != E_EL_MODEM_OUT_OF_SERVICE) &&
-            (mmgr->reset.level.id != E_EL_MODEM_SHUTDOWN)) {
+            (mmgr->reset.level.id != E_EL_PLATFORM_REBOOT)) {
 
             mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
             ret = set_mcd_poll_states(mmgr);
@@ -432,10 +454,8 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         crash_logger(&mmgr->info);
         if (ret == E_ERR_SUCCESS) {
             mmgr->info.ev = E_EV_NONE;
-            if (mmgr->reset.level.id != E_EL_MODEM_SHUTDOWN) {
-                update_modem_tty(mmgr);
-                inform_all_clients(&mmgr->clients, mmgr->client_notification);
-            }
+            update_modem_tty(mmgr);
+            inform_all_clients(&mmgr->clients, mmgr->client_notification);
         } else {
             LOG_DEBUG("Failed to configure modem. Reset on-going");
             mmgr->info.ev = E_EV_FORCE_RESET;
@@ -455,14 +475,14 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         set_mcd_poll_states(mmgr);
 
         read_core_dump(mmgr);
-    } else if ((state & E_EV_MODEM_OFF) && mmgr->reset.modem_shutdown) {
+    } else if ((state & E_EV_MODEM_OFF) && (state & E_EV_FORCE_MODEM_OFF)) {
         /* modem electrical shutdown requested, do nothing but wait on
            IPC_READY */
         LOG_DEBUG("Modem is OFF and modem_shutdown has been requested, "
                   "just wait for IPC_READY");
         mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
         ret = set_mcd_poll_states(mmgr);
-    } else if (state & E_EV_MODEM_OFF && !mmgr->reset.modem_shutdown) {
+    } else if (state & E_EV_MODEM_OFF && !((state & E_EV_FORCE_MODEM_OFF))) {
         LOG_DEBUG("Modem is OFF and should not be: powering on modem");
         if ((ret = modem_up(&mmgr->info)) != E_ERR_SUCCESS)
             goto out;
@@ -495,7 +515,6 @@ e_mmgr_errors_t modem_events_init(mmgr_data_t *mmgr)
     mmgr->hdler_modem[E_EL_MODEM_COLD_RESET] = state_modem_cold_reset;
     mmgr->hdler_modem[E_EL_PLATFORM_REBOOT] = state_platform_reboot;
     mmgr->hdler_modem[E_EL_MODEM_OUT_OF_SERVICE] = state_modem_out_of_service;
-    mmgr->hdler_modem[E_EL_MODEM_SHUTDOWN] = state_modem_shutdown;
 
 out:
     return ret;
