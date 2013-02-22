@@ -239,6 +239,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     const char shutdown_port[] = "/dev/gsmtty22";
     int err;
     int fd;
+    int mdm_state;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -248,7 +249,8 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
     inform_all_clients(&mmgr->clients, mmgr->client_notification);
 
-    if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, MDM_CTRL_STATE_OFF) == -1)
+    mdm_state = MDM_CTRL_STATE_OFF;
+    if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, &mdm_state) == -1)
         LOG_DEBUG("couldn't set MCD state: %s", strerror(errno));
 
     err = open_tty(shutdown_port, &fd);

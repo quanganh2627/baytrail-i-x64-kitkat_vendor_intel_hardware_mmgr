@@ -80,10 +80,11 @@
  ** 3.2.18 - 2013-02-14 - BZ 86674 - client API: flight mode enhancement
  ** 3.2.19 - 2013-02-21 - BZ 88488 - fix MODEM DOWN event
  ** 3.2.20 - 2013-02-22 - BZ 88670 - fix client notification
+ ** 3.2.21 - 2013-02-22 - BZ 88604 - fix setting MCD modem state to OFF
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
 
-#define MODULE_VERSION "3.2.20"
+#define MODULE_VERSION "3.2.21"
