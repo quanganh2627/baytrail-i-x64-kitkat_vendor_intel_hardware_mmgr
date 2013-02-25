@@ -95,9 +95,10 @@
  ** 4.1.6  - 2013-02-19 - BZ 87729 - client API: flight mode enhancement
  ** 4.1.7  - 2013-02-26 - BZ 87729 - fix MODEM DOWN event handling
  ** 4.1.8  - 2013-02-26 - BZ 87729 - fix client notifications
+ ** 4.1.9  - 2013-02-26 - BZ 87729 - fix setting MCD modem state to OFF
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "4.1.8"
+#define MODULE_VERSION "4.1.9"
