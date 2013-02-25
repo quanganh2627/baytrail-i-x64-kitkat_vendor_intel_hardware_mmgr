@@ -22,6 +22,36 @@
 #include "logs.h"
 
 /**
+ * serialize uint32_t data to buffer
+ *
+ * @param [out] buffer output buffer
+ * @param [in] value size_t value to serialize
+ *
+ * @return none
+ */
+static inline void serialize_uint32(char **buffer, uint32_t value)
+{
+    value = htonl(value);
+    memcpy(*buffer, &value, sizeof(uint32_t));
+    *buffer += sizeof(uint32_t);
+}
+
+/**
+ * serialize int data to buffer
+ *
+ * @param [out] buffer output buffer
+ * @param [in] value size_t value to serialize
+ *
+ * @return none
+ */
+static inline void serialize_int(char **buffer, int value)
+{
+    uint32_t tmp;
+    memcpy(&tmp, &value, sizeof(int));
+    serialize_uint32(buffer, tmp);
+}
+
+/**
  * serialize size_t data to buffer
  *
  * @param [out] buffer output buffer
@@ -33,9 +63,7 @@ static inline void serialize_size_t(char **buffer, size_t value)
 {
     uint32_t tmp;
     memcpy(&tmp, &value, sizeof(size_t));
-    tmp = htonl(tmp);
-    memcpy(*buffer, &tmp, sizeof(uint32_t));
-    *buffer += sizeof(uint32_t);
+    serialize_uint32(buffer, tmp);
 }
 
 /**
@@ -50,9 +78,38 @@ static inline void serialize_bool(char **buffer, bool value)
 {
     uint32_t tmp;
     memcpy(&tmp, &value, sizeof(bool));
-    tmp = htonl(tmp);
-    memcpy(*buffer, &tmp, sizeof(uint32_t));
-    *buffer += sizeof(uint32_t);
+    serialize_uint32(buffer, tmp);
+}
+
+/**
+ * set header
+ *
+ * @param [in,out] msg received message
+ *
+ * @return E_ERR_BAD_PARAMETER if msg is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t set_header(msg_t *msg)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    struct timeval ts;
+    uint32_t tmp;
+    char *msg_data = msg->data;
+
+    CHECK_PARAM(msg, ret, out);
+
+    /* setting id */
+    serialize_uint32(&msg_data, msg->hdr.id);
+
+    /* setting timestamp */
+    gettimeofday(&ts, NULL);
+    memcpy(&tmp, &ts.tv_sec, sizeof(ts.tv_sec));
+    serialize_uint32(&msg_data, tmp);
+
+    /* setting size */
+    serialize_uint32(&msg_data, msg->hdr.len);
+out:
+    return ret;
 }
 
 /**
@@ -128,15 +185,15 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t set_msg_backup_file_path(msg_t *msg, void *data)
+e_mmgr_errors_t set_msg_backup_file_path(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_backup_path_t *bckup = data;
+    mmgr_cli_backup_path_t *bckup = request->data;
     char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(data, ret, out);
+    CHECK_PARAM(request, ret, out);
 
     /* msg->hdr.len is used to provide string length */
     size = bckup->len;
@@ -165,15 +222,15 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t set_msg_rnd(msg_t *msg, void *data)
+e_mmgr_errors_t set_msg_rnd(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_rnd_path_t *rnd = data;
+    mmgr_cli_rnd_path_t *rnd = request->data;
     char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(data, ret, out);
+    CHECK_PARAM(request, ret, out);
 
     /* msg->hdr.len is used to provide string lengh */
     size = sizeof(char) * rnd->len;
@@ -199,22 +256,22 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t set_msg_modem_fw_progress(msg_t *msg, void *data)
+e_mmgr_errors_t set_msg_modem_fw_progress(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_fw_update_progress_t *progress = data;
+    mmgr_cli_fw_update_progress_t *progress = request->data;
     char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(data, ret, out);
+    CHECK_PARAM(request, ret, out);
 
     size = sizeof(uint32_t);
     ret = prepare_msg(msg, &msg_data, E_MMGR_RESPONSE_MODEM_FW_PROGRESS, &size);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    serialize_size_t(&msg_data, progress->rate);
+    serialize_int(&msg_data, progress->rate);
 
     ret = E_ERR_SUCCESS;
 out:
@@ -231,15 +288,16 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t set_msg_modem_nvm_progress(msg_t *msg, void *data)
+e_mmgr_errors_t set_msg_modem_nvm_progress(msg_t *msg,
+                                           mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_nvm_update_progress_t *progress = data;
+    mmgr_cli_nvm_update_progress_t *progress = request->data;
     char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(data, ret, out);
+    CHECK_PARAM(request, ret, out);
 
     size = sizeof(uint32_t);
     ret =
@@ -247,7 +305,7 @@ e_mmgr_errors_t set_msg_modem_nvm_progress(msg_t *msg, void *data)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    serialize_size_t(&msg_data, progress->rate);
+    serialize_int(&msg_data, progress->rate);
 
     ret = E_ERR_SUCCESS;
 out:
@@ -264,15 +322,15 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t set_msg_nvm_id(msg_t *msg, void *data)
+e_mmgr_errors_t set_msg_nvm_id(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_nvm_read_id_t *nvm = data;
+    mmgr_cli_nvm_read_id_t *nvm = request->data;
     char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(data, ret, out);
+    CHECK_PARAM(request, ret, out);
 
     size = 2 * sizeof(uint32_t) + sizeof(char) * nvm->len;
     ret = prepare_msg(msg, &msg_data, E_MMGR_RESPONSE_MODEM_NVM_ID, &size);
@@ -300,15 +358,15 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t set_msg_modem_hw_id(msg_t *msg, void *data)
+e_mmgr_errors_t set_msg_modem_hw_id(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_hw_id_t *hw = data;
+    mmgr_cli_hw_id_t *hw = request->data;
     char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(data, ret, out);
+    CHECK_PARAM(request, ret, out);
 
     /* msg->hdr.len is used to provide string lengh */
     size = sizeof(char) * hw->len;
@@ -333,15 +391,15 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t set_msg_fuse_info(msg_t *msg, void *data)
+e_mmgr_errors_t set_msg_fuse_info(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_fuse_info_t *fuse = data;
+    mmgr_cli_fuse_info_t *fuse = request->data;
     char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(data, ret, out);
+    CHECK_PARAM(request, ret, out);
 
     /* msg->hdr.len is used to provide string lengh */
     size = sizeof(char) * FUSE_LEN;
@@ -366,26 +424,24 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t set_msg_modem_fw_result(msg_t *msg, void *data)
+e_mmgr_errors_t set_msg_modem_fw_result(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     uint32_t tmp;
     size_t size;
-    mmgr_cli_fw_update_result_t *result = data;
+    mmgr_cli_fw_update_result_t *result = request->data;
     char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(data, ret, out);
+    CHECK_PARAM(request, ret, out);
 
     size = sizeof(uint32_t);
     ret = prepare_msg(msg, &msg_data, E_MMGR_RESPONSE_MODEM_FW_RESULT, &size);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    /* set result */
-    memcpy(&tmp, &result->id, sizeof(mmgr_cli_fw_update_result_t));
-    tmp = htonl(tmp);
-    memcpy(msg->data + SIZE_HEADER, &tmp, sizeof(tmp));
+    memcpy(&tmp, &result->id, sizeof(e_modem_fw_error_t));
+    serialize_uint32(&msg_data, tmp);
     ret = E_ERR_SUCCESS;
 
 out:
@@ -402,26 +458,24 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t set_msg_modem_nvm_result(msg_t *msg, void *data)
+e_mmgr_errors_t set_msg_modem_nvm_result(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     uint32_t tmp;
     size_t size;
-    mmgr_cli_nvm_update_result_t *result = data;
+    mmgr_cli_nvm_update_result_t *result = request->data;
     char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(data, ret, out);
+    CHECK_PARAM(request, ret, out);
 
     size = sizeof(uint32_t);
     ret = prepare_msg(msg, &msg_data, E_MMGR_RESPONSE_MODEM_NVM_RESULT, &size);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    /* set result */
-    memcpy(&tmp, &result->id, sizeof(mmgr_cli_fw_update_result_t));
-    tmp = htonl(tmp);
-    memcpy(msg->data + SIZE_HEADER, &tmp, sizeof(tmp));
+    memcpy(&tmp, &result->id, sizeof(e_modem_nvm_error_t));
+    serialize_uint32(&msg_data, tmp);
     ret = E_ERR_SUCCESS;
 
 out:
@@ -479,7 +533,7 @@ out:
 e_mmgr_errors_t set_msg_filter(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    uint32_t filter;
+    uint32_t tmp;
     size_t size;
     char *msg_data = NULL;
 
@@ -492,9 +546,8 @@ e_mmgr_errors_t set_msg_filter(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
 
     /* set filter */
-    memcpy(&filter, request->data, sizeof(request->data));
-    filter = htonl(filter);
-    memcpy(msg->data + SIZE_HEADER, &filter, sizeof(filter));
+    memcpy(&tmp, request->data, sizeof(int));
+    serialize_uint32(&msg_data, tmp);
     ret = E_ERR_SUCCESS;
 
 out:

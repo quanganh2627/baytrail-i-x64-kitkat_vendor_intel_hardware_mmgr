@@ -326,6 +326,7 @@ static inline e_err_mmgr_cli_t handle_cnx_event(mmgr_lib_context_t *p_lib)
     e_mmgr_events_t id;
     mmgr_cli_event_t event = {.context = p_lib->cli_ctx };
     size_t size;
+    size_t read_size;
 
     CHECK_CLI_PARAM(p_lib, ret, out);
 
@@ -338,16 +339,22 @@ static inline e_err_mmgr_cli_t handle_cnx_event(mmgr_lib_context_t *p_lib)
     }
     memcpy(&id, &msg.hdr.id, sizeof(e_mmgr_events_t));
     memcpy(&size, &msg.hdr.len, sizeof(size_t));
+    read_size = size;
     if (size != 0) {
         msg.data = calloc(size, sizeof(char));
         if (msg.data == NULL) {
             LOG_ERROR("memory allocation fails");
             goto out;
         }
-        if (read_cnx(p_lib->fd_socket, msg.data, &size) != E_ERR_SUCCESS) {
+        if (read_cnx(p_lib->fd_socket, msg.data, &read_size) != E_ERR_SUCCESS) {
             LOG_ERROR("read fails");
             goto out;
         }
+    }
+
+    if (read_size != size) {
+        LOG_ERROR("Read error. bad size (%d/%d)", read_size, size);
+        goto out;
     }
 
     if (id < E_MMGR_NUM_EVENTS) {

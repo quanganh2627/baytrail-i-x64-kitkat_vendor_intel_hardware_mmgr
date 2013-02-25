@@ -25,6 +25,8 @@
 #include "client_cnx.h"
 #include "errors.h"
 
+e_mmgr_errors_t get_header(int fd, msg_hdr_t *hdr);
+
 e_mmgr_errors_t set_data_bckup_file(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_fuse_info(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_nvm_progress(msg_t *msg, mmgr_cli_event_t *request);

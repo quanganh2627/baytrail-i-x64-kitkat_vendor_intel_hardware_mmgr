@@ -182,7 +182,7 @@ e_mmgr_errors_t initialize_list(client_list_t *clients, int list_size)
         ret = E_ERR_SUCCESS;
     }
     for (i = 0; i < E_MMGR_NUM_EVENTS; i++)
-        clients->set_data[i] = NULL;
+        clients->set_data[i] = set_msg_empty;
 
     clients->set_data[E_MMGR_RESPONSE_MODEM_RND] = set_msg_rnd;
     clients->set_data[E_MMGR_RESPONSE_MODEM_HW_ID] = set_msg_modem_hw_id;
@@ -365,36 +365,36 @@ out:
  * @return E_ERR_SUCCESS if not found
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t inform_flash_client(client_t *client, e_mmgr_events_t state,
-                                    void *data, bool force)
+e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
+                              void *data, bool force)
 {
-    size_t data_size = SIZE_HEADER;
+    size_t size;
+    size_t write_size;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    mmgr_cli_event_t event = {.id = state,.data = data };
     msg_t msg;
 
     CHECK_PARAM(client, ret, out);
+    /* do not check data because it can be NULL on purpose */
 
-    msg.data = calloc(SIZE_HEADER, sizeof(char));
-    if (msg.data == NULL) {
+    if (client->set_data[state] == NULL) {
+        LOG_ERROR("function is NULL");
         ret = E_ERR_FAILED;
-        LOG_ERROR("memory allocation fails");
         goto out;
     }
-    memcpy(&msg.hdr.id, &state, sizeof(state));
-    msg.hdr.len = 0;
-    if ((ret = set_header(&msg)) != E_ERR_SUCCESS)
-        goto out;
-    if ((client->set_data[state] != NULL) && (data != NULL))
-        client->set_data[state] (&msg, data);
 
+    client->set_data[state] (&msg, &event);
+
+    size = SIZE_HEADER + msg.hdr.len;
+    write_size = size;
     if (force || ((0x01 << state) & client->subscription)) {
-        if ((ret = write_cnx(client->fd, msg.data, &data_size)) !=
+        if ((ret = write_cnx(client->fd, msg.data, &write_size)) !=
             E_ERR_SUCCESS)
             goto out;
 
-        if (data_size != SIZE_HEADER) {
-            LOG_ERROR("send failed for client (fd=%d name=%s) size=%d (%s)",
-                      client->fd, client->name, data_size, strerror(errno));
+        if (size != write_size) {
+            LOG_ERROR("send failed for client (fd=%d name=%s) send=%d/%d",
+                      client->fd, client->name, write_size, size);
             ret = E_ERR_FAILED;
         } else {
             LOG_DEBUG("Client (fd=%d name=%s) informed of: %s", client->fd,
@@ -410,23 +410,6 @@ out:
 }
 
 /**
- * send state to client
- *
- * @param [in,out] client client info
- * @param [in] state current modem state
- * @param [in] force if true send request even if not subscribed
- *
- * @return E_ERR_BAD_PARAMETER if client is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
-                              bool force)
-{
-    return inform_flash_client(client, state, NULL, force);
-}
-
-/**
  * inform all clients of modem state
  *
  * @param [in,out] clients list of clients
@@ -437,16 +420,17 @@ e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
  * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t inform_all_clients(client_list_t *clients,
-                                   e_mmgr_events_t state)
+                                   e_mmgr_events_t state, void *data)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i;
 
     CHECK_PARAM(clients, ret, out);
+    /* do not check data because it can be NULL on purpose */
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD)
-            ret = inform_client(&clients->list[i], state, false);
+            ret = inform_client(&clients->list[i], state, data, false);
     }
 out:
     return ret;

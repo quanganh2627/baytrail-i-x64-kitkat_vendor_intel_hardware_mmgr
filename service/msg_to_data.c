@@ -23,6 +23,36 @@
 #include "logs.h"
 
 /**
+ * deserialize uint32 data from buffer
+ *
+ * @param [in,out] buffer data received. the address is shifted of read size
+ * @param [out] value data extracted
+ *
+ * @return none
+ */
+static inline void deserialize_uint32(char **buffer, uint32_t * value)
+{
+    memcpy(value, *buffer, sizeof(uint32_t));
+    *value = ntohl(*value);
+    *buffer += sizeof(uint32_t);
+}
+
+/**
+ * deserialize int data from buffer
+ *
+ * @param [in,out] buffer data received. the address is shifted of read size
+ * @param [out] value data extracted
+ *
+ * @return none
+ */
+static inline void deserialize_int(char **buffer, int *value)
+{
+    uint32_t tmp;
+    deserialize_uint32(buffer, &tmp);
+    memcpy(value, &tmp, sizeof(int));
+}
+
+/**
  * deserialize size_t data from buffer
  *
  * @param [in,out] buffer data received. the address is shifted of read size
@@ -33,10 +63,8 @@
 static inline void deserialize_size_t(char **buffer, size_t *value)
 {
     uint32_t tmp;
-    memcpy(&tmp, *buffer, sizeof(uint32_t));
-    tmp = ntohl(tmp);
+    deserialize_uint32(buffer, &tmp);
     memcpy(value, &tmp, sizeof(size_t));
-    *buffer += sizeof(uint32_t);
 }
 
 /**
@@ -50,10 +78,61 @@ static inline void deserialize_size_t(char **buffer, size_t *value)
 static inline void deserialize_bool(char **buffer, bool *value)
 {
     uint32_t tmp;
-    memcpy(&tmp, *buffer, sizeof(uint32_t));
-    tmp = ntohl(tmp);
+    deserialize_uint32(buffer, &tmp);
     memcpy(value, &tmp, sizeof(bool));
-    *buffer += sizeof(uint32_t);
+}
+
+/**
+ * read data from cnx and extract header
+ *
+ * @param [in] fd cnx file descriptor
+ * @param [out] hdr message header
+ *
+ * @return E_ERR_BAD_PARAMETER if hdr is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_DISCONNECTED if client is disconnected
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t get_header(int fd, msg_hdr_t *hdr)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    char buffer[SIZE_HEADER];
+    size_t len = SIZE_HEADER;
+    char *p = buffer;
+
+    CHECK_PARAM(hdr, ret, out);
+
+    if ((ret = read_cnx(fd, buffer, &len)) != E_ERR_SUCCESS)
+        goto out;
+
+    if (len == 0) {
+        ret = E_ERR_DISCONNECTED;
+        LOG_DEBUG("client disconnected");
+        goto out;
+    } else if (len < SIZE_HEADER) {
+        ret = E_ERR_FAILED;
+        LOG_ERROR("Invalid message. Header is missing");
+        goto out;
+    }
+
+    /* extract request id */
+    deserialize_uint32(&p, &hdr->id);
+
+    /* extract timestamp */
+    deserialize_uint32(&p, &hdr->ts);
+
+    /* extract data len */
+    deserialize_uint32(&p, &hdr->len);
+
+    if (hdr->len < (len - SIZE_HEADER)) {
+        LOG_ERROR("Invalid message. Bad buffer len");
+        goto out;
+    } else {
+        ret = E_ERR_SUCCESS;
+    }
+
+out:
+    return ret;
 }
 
 /**
@@ -166,6 +245,7 @@ e_mmgr_errors_t set_data_nvm_progress(msg_t *msg, mmgr_cli_event_t *request)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t len;
     mmgr_cli_nvm_update_progress_t *progress = NULL;
+    char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
@@ -177,7 +257,8 @@ e_mmgr_errors_t set_data_nvm_progress(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
     }
 
-    memcpy(&progress->rate, msg->data, len);
+    msg_data = msg->data;
+    deserialize_int(&msg_data, &progress->rate);
     request->data = progress;
 out:
     return ret;
@@ -198,6 +279,7 @@ e_mmgr_errors_t set_data_fw_progress(msg_t *msg, mmgr_cli_event_t *request)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t len;
     mmgr_cli_fw_update_progress_t *progress = NULL;
+    char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
@@ -209,7 +291,8 @@ e_mmgr_errors_t set_data_fw_progress(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
     }
 
-    memcpy(&progress->rate, msg->data, len);
+    msg_data = msg->data;
+    deserialize_int(&msg_data, &progress->rate);
     request->data = progress;
 out:
     return ret;
@@ -230,6 +313,8 @@ e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t len;
     mmgr_cli_fw_update_result_t *result = NULL;
+    uint32_t tmp;
+    char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
@@ -241,7 +326,14 @@ e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
     }
 
-    memcpy(&result->id, msg->data, len);
+    if (len != sizeof(e_modem_fw_error_t)) {
+        LOG_ERROR("bad message size");
+        goto out;
+    }
+
+    msg_data = msg->data;
+    deserialize_uint32(&msg_data, &tmp);
+    memcpy(&result->id, &tmp, sizeof(e_modem_fw_error_t));
     request->data = result;
 out:
     return ret;
@@ -262,6 +354,8 @@ e_mmgr_errors_t set_data_nvm_result(msg_t *msg, mmgr_cli_event_t *request)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t len;
     mmgr_cli_nvm_update_result_t *result = NULL;
+    uint32_t tmp = 0;
+    char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
@@ -273,7 +367,14 @@ e_mmgr_errors_t set_data_nvm_result(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
     }
 
-    memcpy(&result->id, msg->data, len);
+    if (len != sizeof(e_modem_nvm_error_t)) {
+        LOG_ERROR("bad message size");
+        goto out;
+    }
+
+    msg_data = msg->data;
+    deserialize_uint32(&msg_data, &tmp);
+    memcpy(&result->id, &tmp, sizeof(e_modem_nvm_error_t));
     request->data = result;
 out:
     return ret;

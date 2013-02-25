@@ -34,14 +34,16 @@ e_mmgr_errors_t set_msg_empty(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_fw_update(msg_t *msg, mmgr_cli_event_t *data);
 e_mmgr_errors_t set_msg_nvm_update(msg_t *msg, mmgr_cli_event_t *data);
 /* used by mmgr: */
-e_mmgr_errors_t set_msg_backup_file_path(msg_t *msg, void *bckup);
-e_mmgr_errors_t set_msg_rnd(msg_t *msg, void *rnd);
-e_mmgr_errors_t set_msg_modem_fw_progress(msg_t *msg, void *progress);
-e_mmgr_errors_t set_msg_modem_nvm_progress(msg_t *msg, void *progress);
-e_mmgr_errors_t set_msg_nvm_id(msg_t *msg, void *nvm);
-e_mmgr_errors_t set_msg_modem_hw_id(msg_t *msg, void *hw);
-e_mmgr_errors_t set_msg_fuse_info(msg_t *msg, void *fuse);
-e_mmgr_errors_t set_msg_modem_fw_result(msg_t *msg, void *data);
-e_mmgr_errors_t set_msg_modem_nvm_result(msg_t *msg, void *data);
+e_mmgr_errors_t set_msg_backup_file_path(msg_t *msg, mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_rnd(msg_t *msg, mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_modem_fw_progress(msg_t *msg,
+                                          mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_modem_nvm_progress(msg_t *msg,
+                                           mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_nvm_id(msg_t *msg, mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_modem_hw_id(msg_t *msg, mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_fuse_info(msg_t *msg, mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_modem_fw_result(msg_t *msg, mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_modem_nvm_result(msg_t *msg, mmgr_cli_event_t *request);
 
 #endif                          /* __MMGR_DATA_TO_MSG_HEADER__ */

@@ -256,9 +256,8 @@ static e_mmgr_errors_t request_modem_nvm_progress(mmgr_data_t *mmgr)
     progress.rate = 100;
 
     /* @TODO: when is it relevant to answer */
-    ret = inform_flash_client(mmgr->request.client,
-                              E_MMGR_RESPONSE_MODEM_NVM_PROGRESS, &progress,
-                              false);
+    ret = inform_client(mmgr->request.client,
+                        E_MMGR_RESPONSE_MODEM_NVM_PROGRESS, &progress, false);
 out:
     return ret;
 }
@@ -284,8 +283,8 @@ static e_mmgr_errors_t request_backup_file_path(mmgr_data_t *mmgr)
 
     /* @TODO: when is it relevant to answer */
     ret =
-        inform_flash_client(mmgr->request.client,
-                            E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH, &bkup, false);
+        inform_client(mmgr->request.client,
+                      E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH, &bkup, false);
 
 out:
     return ret;
@@ -312,10 +311,8 @@ static e_mmgr_errors_t request_modem_fw_progress(mmgr_data_t *mmgr)
     progress.rate = 100;
 
     /* @TODO: when is it relevant to answer */
-    ret =
-        inform_flash_client(mmgr->request.client,
-                            E_MMGR_RESPONSE_MODEM_FW_PROGRESS, &progress,
-                            false);
+    ret = inform_client(mmgr->request.client,
+                        E_MMGR_RESPONSE_MODEM_FW_PROGRESS, &progress, false);
 out:
     return ret;
 }
@@ -342,7 +339,7 @@ static e_mmgr_errors_t request_set_name(mmgr_data_t *mmgr)
     if (ret != E_ERR_SUCCESS)
         ret = E_ERR_DISCONNECTED;
     /* inform client that connection has succeed */
-    inform_client(mmgr->request.client, E_MMGR_ACK, true);
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL, true);
 out:
     return ret;
 }
@@ -391,11 +388,11 @@ static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
         ret = set_client_filter(mmgr->request.client, filter);
 
         /* inform client that connection has succeed */
-        inform_client(mmgr->request.client, E_MMGR_ACK, true);
+        inform_client(mmgr->request.client, E_MMGR_ACK, NULL, true);
         /* client is registered and accepted. So, MMGR should provide
            the current modem status if client has subsribed to it */
         ret = inform_client(mmgr->request.client, mmgr->client_notification,
-                            false);
+                            NULL, false);
     } else {
         LOG_ERROR("bad filter size");
     }
@@ -431,7 +428,7 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
         if (!(mmgr->info.ev & E_EV_MODEM_OFF) &&
             !(mmgr->info.ev & E_EV_FORCE_RESET)) {
             mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
-            inform_all_clients(&mmgr->clients, mmgr->client_notification);
+            inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
         } else {
             if (!(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
                 LOG_DEBUG("wake up modem");
@@ -489,7 +486,8 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
         if (check_resource_released(&mmgr->clients, true) == E_ERR_SUCCESS) {
             LOG_INFO("notify clients that modem will be shutdown");
             mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-            inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN);
+            inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN,
+                               NULL);
             start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
         }
     }
@@ -671,7 +669,7 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
     /* Not accepting client requests for now, NACK ! */
     if (!mmgr->request.accept_request) {
         mmgr->request.answer = E_MMGR_NACK;
-        inform_client(mmgr->request.client, mmgr->request.answer, false);
+        inform_client(mmgr->request.client, mmgr->request.answer, NULL, false);
     }
 
     if (size > 0) {
@@ -695,9 +693,11 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
             ret = mmgr->hdler_client[mmgr->request.msg.hdr.id] (mmgr);
 
         if (mmgr->request.answer < E_MMGR_NUM_EVENTS)
-            inform_client(mmgr->request.client, mmgr->request.answer, false);
+            inform_client(mmgr->request.client, mmgr->request.answer, NULL,
+                          false);
         if (mmgr->request.additional_info < E_MMGR_NUM_EVENTS)
-            inform_all_clients(&mmgr->clients, mmgr->request.additional_info);
+            inform_all_clients(&mmgr->clients, mmgr->request.additional_info,
+                               NULL);
     }
 
 out_free:

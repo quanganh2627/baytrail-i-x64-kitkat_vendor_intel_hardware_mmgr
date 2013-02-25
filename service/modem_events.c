@@ -71,7 +71,7 @@ static void read_core_dump(mmgr_data_t *mmgr)
     write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
 
-    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP);
+    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
     manage_core_dump(&mmgr->config, &mmgr->info);
@@ -144,7 +144,7 @@ static e_mmgr_errors_t state_modem_warm_reset(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_WARM_RESET);
+    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_WARM_RESET, NULL);
     broadcast_msg(E_MSG_INTENT_MODEM_WARM_RESET);
 
 out:
@@ -171,7 +171,7 @@ static e_mmgr_errors_t state_modem_cold_reset(mmgr_data_t *mmgr)
 
     if (mmgr->reset.state == E_OPERATION_WAIT) {
         mmgr->client_notification = E_MMGR_NOTIFY_MODEM_COLD_RESET;
-        inform_all_clients(&mmgr->clients, mmgr->client_notification);
+        inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
         LOG_DEBUG("need to ack all clients");
         start_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
     } else {
@@ -205,7 +205,7 @@ static e_mmgr_errors_t state_platform_reboot(mmgr_data_t *mmgr)
     create_empty_file(CL_REBOOT_FILE, CL_FILE_PERMISSIONS);
 
     mmgr->client_notification = E_MMGR_NOTIFY_PLATFORM_REBOOT;
-    inform_all_clients(&mmgr->clients, mmgr->client_notification);
+    inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
     broadcast_msg(E_MSG_INTENT_PLATFORM_REBOOT);
     sleep(mmgr->config.delay_before_reboot);
 out:
@@ -228,7 +228,7 @@ static e_mmgr_errors_t state_modem_out_of_service(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
-    inform_all_clients(&mmgr->clients, mmgr->client_notification);
+    inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
     broadcast_msg(E_MSG_INTENT_MODEM_OUT_OF_SERVICE);
 
 out:
@@ -258,7 +258,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     ret = set_mcd_poll_states(&mmgr->info);
 
     mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-    inform_all_clients(&mmgr->clients, mmgr->client_notification);
+    inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
 
     mdm_state = MDM_CTRL_STATE_OFF;
     if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, &mdm_state) == -1)
@@ -304,7 +304,7 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     if (mmgr->reset.state != E_OPERATION_SKIP) {
         if (mmgr->fd_tty != CLOSED_FD) {
             mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
+            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
         }
 
@@ -397,7 +397,7 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     crash_logger(&mmgr->info);
     mmgr->info.ev = E_EV_NONE;
     update_modem_tty(mmgr);
-    inform_all_clients(&mmgr->clients, mmgr->client_notification);
+    inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
 
     return ret;
 out:
@@ -468,7 +468,7 @@ e_mmgr_errors_t modem_event(mmgr_data_t *mmgr)
 
     if (mmgr->fd_tty != CLOSED_FD) {
         mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-        inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
+        inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
         close_tty(&mmgr->fd_tty);
     }
 
@@ -529,7 +529,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
 
         if (mmgr->fd_tty != CLOSED_FD) {
             mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
+            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
             close_tty(&mmgr->fd_tty);
         }
@@ -602,7 +602,8 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         //ready to read a core dump
         if (mmgr->fd_tty != CLOSED_FD) {
             mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN);
+            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+
             close_tty(&mmgr->fd_tty);
         }
 

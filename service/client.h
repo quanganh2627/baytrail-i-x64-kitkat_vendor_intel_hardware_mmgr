@@ -25,7 +25,7 @@
 #include <stdbool.h>
 #include <time.h>
 
-typedef e_mmgr_errors_t (*set_msg) (msg_t *, void *);
+typedef e_mmgr_errors_t (*set_msg) (msg_t *, mmgr_cli_event_t *);
 
 typedef enum e_cnx_requests {
     E_CNX_NONE = 0,
@@ -63,11 +63,9 @@ e_mmgr_errors_t set_client_filter(client_t *client, uint32_t subscription);
 e_mmgr_errors_t find_client(client_list_t *clients, int fd, client_t **client);
 
 e_mmgr_errors_t inform_all_clients(client_list_t *clients,
-                                   e_mmgr_events_t state);
-e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
-                              bool force);
-e_mmgr_errors_t inform_flash_client(client_t *client, e_mmgr_events_t state, void
-                                    *data, bool force);
+                                   e_mmgr_events_t state, void *data);
+e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state, void
+                              *data, bool force);
 e_mmgr_errors_t close_all_clients(client_list_t *clients);
 
 e_mmgr_errors_t check_cold_ack(client_list_t *clients, bool listing);
