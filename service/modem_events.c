@@ -246,7 +246,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     ret = set_mcd_poll_states(mmgr);
 
     mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-    inform_all_clients(&mmgr->clients, mmgr->client_notification);
+    inform_client(mmgr->request.client, mmgr->client_notification, false);
 
     if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, MDM_CTRL_STATE_OFF) == -1)
         LOG_DEBUG("couldn't set MCD state: %s", strerror(errno));
