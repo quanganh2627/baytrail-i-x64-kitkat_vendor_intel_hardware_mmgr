@@ -427,6 +427,7 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
         stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
         mmgr->info.ev &= ~E_EV_FORCE_MODEM_OFF;
         mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
+
         if (!(mmgr->info.ev & E_EV_MODEM_OFF) &&
             !(mmgr->info.ev & E_EV_FORCE_RESET)) {
             mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
