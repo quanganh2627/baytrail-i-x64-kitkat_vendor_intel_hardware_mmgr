@@ -83,10 +83,11 @@
  ** 3.2.21 - 2013-02-22 - BZ 88604 - fix setting MCD modem state to OFF
  ** 3.2.22 - 2013-02-26 - BZ 87509 - REVERT: fix setting MCD modem state to OFF
  ** 3.2.23 - 2013-02-26 - BZ 87509 - REVERT: fix client notification
+ ** 3.2.24 - 2013-02-26 - BZ 87509 - REVERT: fix MODEM DOWN event
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
 
-#define MODULE_VERSION "3.2.23"
+#define MODULE_VERSION "3.2.24"

@@ -475,16 +475,19 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         set_mcd_poll_states(mmgr);
 
         read_core_dump(mmgr);
-    } else if (state & E_EV_MODEM_OFF) {
-        if ((state & E_EV_FORCE_MODEM_OFF) || (mmgr->info.ev & E_EV_MODEM_OFF)) {
-            LOG_DEBUG("Modem is OFF and should be. Do nothing");
-        } else {
-            LOG_DEBUG("Modem is OFF and should not be: powering on modem");
-            if ((ret = modem_up(&mmgr->info)) != E_ERR_SUCCESS)
-                goto out;
-            mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
-            ret = set_mcd_poll_states(mmgr);
-        }
+    } else if ((state & E_EV_MODEM_OFF) && (state & E_EV_FORCE_MODEM_OFF)) {
+        /* modem electrical shutdown requested, do nothing but wait on
+           IPC_READY */
+        LOG_DEBUG("Modem is OFF and modem_shutdown has been requested, "
+                  "just wait for IPC_READY");
+        mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
+        ret = set_mcd_poll_states(mmgr);
+    } else if (state & E_EV_MODEM_OFF && !((state & E_EV_FORCE_MODEM_OFF))) {
+        LOG_DEBUG("Modem is OFF and should not be: powering on modem");
+        if ((ret = modem_up(&mmgr->info)) != E_ERR_SUCCESS)
+            goto out;
+        mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
+        ret = set_mcd_poll_states(mmgr);
     } else {
         /* Signal a Modem Event */
         ret = modem_event(mmgr);
