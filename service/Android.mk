@@ -22,7 +22,6 @@ LOCAL_SRC_FILES:= \
     client_cnx.c \
     config.c \
     core_dump.c \
-    crash_logger.c \
     data_to_msg.c \
     events_manager.c \
     file.c \

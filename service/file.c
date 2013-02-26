@@ -64,38 +64,6 @@ out:
 }
 
 /**
- * Create an empty file with rights
- *
- * @param [in] filename complete file name path
- * @param [in] rights file access permissions
- *
- * @return E_ERR_BAD_PARAMETER if filename is NULL
- * @return E_ERR_FAILED if failed
- * @return E_ERR_SUCCESS if sucessful
- */
-e_mmgr_errors_t create_empty_file(char *filename, unsigned long rights)
-{
-    int fd;
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(filename, ret, out);
-
-    fd = open(filename, O_RDWR | O_CREAT, rights);
-    if (fd < 0) {
-        LOG_ERROR("Failed to create file %s: (%s)", filename, strerror(errno));
-    } else {
-        if (close(fd) == -1) {
-            LOG_ERROR("close failed (%s)", strerror(errno));
-        } else {
-            LOG_DEBUG("(%s) created", filename);
-            ret = E_ERR_SUCCESS;
-        }
-    }
-out:
-    return ret;
-}
-
-/**
  * Look for file
  *
  * @param [in] path file path

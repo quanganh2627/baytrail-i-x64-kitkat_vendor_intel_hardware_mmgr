@@ -105,7 +105,6 @@ static e_mmgr_errors_t get_panic_id(char *xlog, modem_info_t *info)
     const char class_pattern[] = "Trap Class:";
     const char id_pattern[] = "Identification:";
     int class;
-    int panic_id;
     char *end_ptr = NULL;
     char *p_str = NULL;
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -135,13 +134,16 @@ static e_mmgr_errors_t get_panic_id(char *xlog, modem_info_t *info)
         if (p_str == NULL)
             goto out;
 
-        panic_id = strtol(p_str, &end_ptr, 10);
+        info->mcdr.panic_id = strtol(p_str, &end_ptr, 10);
         if (p_str == end_ptr)
             goto out;
 
-        info->panic_id = panic_id;
+        LOG_DEBUG("panic id: %d", info->mcdr.panic_id);
+        if (info->mcdr.state == E_CD_SUCCEED_WITHOUT_PANIC_ID)
+            info->mcdr.state = E_CD_SUCCEED;
+        else
+            info->mcdr.state = E_CD_FAILED_WITH_PANIC_ID;
         ret = E_ERR_SUCCESS;
-        LOG_DEBUG("panic id: %d", info->panic_id);
     }
 out:
     return ret;
@@ -180,11 +182,6 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, mmgr_configuration_t *config,
         goto out_xlog;
 
     memset(data, 0, AT_ANSWER_SIZE + 1);
-
-    if (info->ev & E_EV_CORE_DUMP) {
-        /* set default panic id value */
-        info->panic_id = UNKNOWN_PANIC_ID;
-    }
 
     do {
         read_size = AT_ANSWER_SIZE;
@@ -319,40 +316,6 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         ret = set_termio(*fd_tty);
     }
 
-out:
-    return ret;
-}
-
-/**
- * Launch retrieve core dump process
- *
- * @param [in] config mmgr config
- * @param [in,out] info modem info
- *
- * @return E_ERR_BAD_PARAMETER if config or/and info is/are NULL
- * @return E_ERR_SUCCESS if successful
- */
-e_mmgr_errors_t manage_core_dump(mmgr_configuration_t *config,
-                                 modem_info_t *info)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(config, ret, out);
-    CHECK_PARAM(info, ret, out);
-
-    if (!info->mcdr.enabled) {
-        info->ev |= E_EV_CORE_DUMP_FAILED;
-    } else {
-        if (retrieve_core_dump(&info->mcdr) == E_ERR_SUCCESS) {
-            LOG_INFO("%s STATE: MODEM SHOULD PERFORM SELF RESET - "
-                     "CORE DUMP", MODULE_NAME);
-            info->ev |= E_EV_CORE_DUMP_SUCCEED;
-        } else {
-            LOG_INFO("%s STATE: MODEM RESET INITIATED BY %s - "
-                     "CORE DUMP", MODULE_NAME, MODULE_NAME);
-            info->ev |= E_EV_CORE_DUMP_FAILED;
-        }
-    }
 out:
     return ret;
 }

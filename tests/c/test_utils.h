@@ -31,13 +31,6 @@
 #define TIMEOUT_MODEM_DOWN_AFTER_CMD 20
 #define TIMEOUT_MODEM_UP_AFTER_RESET 600
 
-typedef enum core_dump_retrieval {
-    E_CD_NO_PATTERN,
-    E_CD_TIMEOUT,
-    E_CD_ERROR,
-    E_CD_SUCCEED
-} core_dump_retrieval_t;
-
 typedef struct test_data {
     pthread_mutex_t new_state_read;
     pthread_mutex_t mutex;
@@ -47,20 +40,10 @@ typedef struct test_data {
     int modem_state;
     mmgr_configuration_t config;
     mmgr_cli_handle_t *lib;
+    bool test_succeed;
 } test_data_t;
 
-typedef struct aplog_thread {
-    pthread_t thread_id;
-    pthread_mutex_t mutex;
-    char filename[FILENAME_SIZE + 1];
-    int duration;
-    core_dump_retrieval_t state;
-    int sockets[2];
-    bool running;
-} aplog_thread_t;
-
 int modem_state_set(test_data_t *test_data, int state);
-int remove_file(char *filename);
 int compare_file_content(const char *path, const char *data, int len);
 int wait_for_state(test_data_t *thread_data, int state, int timeout);
 int send_at_cmd(char *command, int command_size);
@@ -68,15 +51,14 @@ int is_core_dump_found(char *filename, const char *core_dump_dir);
 int cleanup_modemcrash_dir(const char *path);
 int configure_client_library(test_data_t *data);
 int cleanup_client_library(test_data_t *data);
-void listen_aplogs(aplog_thread_t *data);
 int event_without_ack(mmgr_cli_event_t *ev);
 
-int reset_by_client_request(test_data_t *events_data, bool check_file,
+int reset_by_client_request(test_data_t *events_data,
                             e_mmgr_requests_t request,
                             e_mmgr_events_t notification,
                             e_mmgr_events_t final_state);
 
-int reset_by_at_cmd(test_data_t *events_data, char *at_cmd, size_t at_len,
-                    e_mmgr_events_t notification);
+int at_self_reset(test_data_t *events_data);
+int at_core_dump(test_data_t *events_data);
 
 #endif                          /* __MMGR_TEST_UTILS_FILE__ */

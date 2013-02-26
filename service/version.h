@@ -101,9 +101,10 @@
  ** 4.1.12 - 2013-02-28 - BZ 90123 - add additional product customization
  ** 4.1.13 - 2013-03-12 - BZ 92475 - fix KW critical issues
  ** 4.1.15 - 2013-03-14 - BZ 93106 - open libmodemupdate dynamically
+ ** 4.1.16 - 2013-02-27 - BZ 86789 - crashlogger new API
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "4.1.15"
+#define MODULE_VERSION "4.1.16"

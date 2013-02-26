@@ -495,6 +495,26 @@ out:
     return ret;
 }
 
+static e_mmgr_errors_t notify_ap_reset(mmgr_data_t *mmgr)
+{
+    mmgr_cli_ap_reset_t ap_rst;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    ap_rst.len = strnlen(mmgr->request.client->name, CLIENT_NAME_LEN);
+    ap_rst.name = malloc(sizeof(char) * ap_rst.len);
+    if (ap_rst.name == NULL) {
+        LOG_ERROR("memory allocation fails");
+        goto out;
+    }
+    strncpy(ap_rst.name, mmgr->request.client->name, ap_rst.len);
+    ret = inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_AP_RESET, &ap_rst);
+    free(ap_rst.name);
+out:
+    return ret;
+}
+
 /**
  * handle E_MMGR_REQUEST_MODEM_RECOVERY request
  *
@@ -520,6 +540,7 @@ static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
         if (sec > mmgr->reset.last_reset_time.tv_sec) {
             if (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) {
                 mmgr->info.ev |= E_EV_AP_RESET | E_EV_FORCE_RESET;
+                notify_ap_reset(mmgr);
             }
         } else {
             LOG_DEBUG("skipped. Request older than last recovery operation");
@@ -552,6 +573,7 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
         if (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) {
             mmgr->info.ev |= E_EV_AP_RESET | E_EV_FORCE_RESET;
             mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
+            notify_ap_reset(mmgr);
         }
     }
 out:

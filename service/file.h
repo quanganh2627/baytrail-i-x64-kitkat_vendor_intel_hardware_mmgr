@@ -25,7 +25,6 @@
 
 e_mmgr_errors_t write_to_file(char *path, unsigned long mode, char *value,
                               size_t size);
-e_mmgr_errors_t create_empty_file(char *filename, unsigned long rights);
 e_mmgr_errors_t is_file_exists(const char *path, unsigned long rights);
 
 #endif                          /* __MMGR_FILE_HEADER__ */

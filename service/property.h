@@ -19,6 +19,10 @@
 #ifndef __MMGR_PROPERTY_HEADER_FILE__
 #define __MMGR_PROPERTY_HEADER_FILE__
 
+/* persistent android property to count the platform reboot.
+   NB: The key length can't exceed PROPERTY_KEY_MAX */
+#define PLATFORM_REBOOT_KEY "persist.service.mmgr.reboot"
+
 e_mmgr_errors_t set_property(const char *key, int value);
 e_mmgr_errors_t get_property(const char *key, int *value);
 

@@ -22,7 +22,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "at.h"
-#include "crash_logger.h"
 #include "errors.h"
 #include "file.h"
 #include "java_intent.h"
@@ -79,6 +78,9 @@ out:
 
 static void read_core_dump(mmgr_data_t *mmgr)
 {
+    if (!mmgr->info.mcdr.enabled)
+        goto out;
+
     /* CRITICAL section: */
     write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
@@ -86,7 +88,7 @@ static void read_core_dump(mmgr_data_t *mmgr)
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
-    manage_core_dump(&mmgr->config, &mmgr->info);
+    retrieve_core_dump(&mmgr->info.mcdr);
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
 
     mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
@@ -101,9 +103,10 @@ static void read_core_dump(mmgr_data_t *mmgr)
         mmgr->events.modem_state = E_MDM_STATE_NONE;
     }
 
-    mmgr->info.ev |= E_EV_FORCE_RESET;
     write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
+out:
+    mmgr->info.ev |= E_EV_FORCE_RESET;
 }
 
 /**
@@ -212,9 +215,6 @@ static e_mmgr_errors_t state_platform_reboot(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
     CHECK_PARAM(mmgr, ret, out);
-
-    /* inform crashloger that the platform will be rebooted */
-    create_empty_file(CL_REBOOT_FILE, CL_FILE_PERMISSIONS);
 
     mmgr->client_notification = E_MMGR_NOTIFY_PLATFORM_REBOOT;
     inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
@@ -381,6 +381,33 @@ out:
     return ret;
 }
 
+static e_mmgr_errors_t notify_core_dump(mmgr_data_t *mmgr)
+{
+    mmgr_cli_core_dump_t cd;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    cd.state = mmgr->info.mcdr.state;
+    cd.panic_id = mmgr->info.mcdr.panic_id;
+    cd.len = strnlen(mmgr->info.mcdr.data.coredump_file, PATH_MAX) +
+        strnlen(mmgr->info.mcdr.data.path, PATH_MAX) + 2;
+
+    cd.path = malloc(sizeof(char) * cd.len);
+    if (cd.path == NULL) {
+        LOG_ERROR("memory allocation fails");
+        goto out;
+    }
+    snprintf(cd.path, cd.len, "%s/%s", mmgr->info.mcdr.data.path,
+             mmgr->info.mcdr.data.coredump_file);
+    LOG_DEBUG("path:%s len:%d", cd.path, cd.len);
+    ret = inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+                             &cd);
+    free(cd.path);
+out:
+    return ret;
+}
+
 /**
  * open TTY and configure MUX
  *
@@ -403,6 +430,10 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     ret = switch_to_mux(&mmgr->fd_tty, &mmgr->config, &mmgr->info,
                         mmgr->info.restore_timeout);
     if (ret == E_ERR_SUCCESS) {
+        if ((mmgr->info.mcdr.enabled) && (mmgr->info.ev & E_EV_CORE_DUMP)) {
+            notify_core_dump(mmgr);
+            mmgr->info.ev &= ~E_EV_CORE_DUMP;
+        }
         LOG_VERBOSE("Switch to MUX succeed");
         mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
     } else {
@@ -411,7 +442,6 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
         goto out;
     }
 
-    crash_logger(&mmgr->info);
     mmgr->info.ev = E_EV_NONE;
     update_modem_tty(mmgr);
     inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
@@ -443,7 +473,7 @@ e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr)
                   strlen(MODULE_NAME));
 
     if (mmgr->info.ev != E_EV_NONE) {
-        if (mmgr->info.ev & E_EV_CORE_DUMP_SUCCEED) {
+        if (mmgr->info.mcdr.state == E_CD_SUCCEED_WITHOUT_PANIC_ID) {
             LOG_DEBUG("specific timeout after core dump detection");
             mmgr->info.restore_timeout = TIMEOUT_HANDSHAKE_AFTER_CD;
         } else {
@@ -513,11 +543,6 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
     get_modem_state(mmgr->info.fd_mcd, &state);
     mmgr->info.ev |= state;
 
-    /* do not report a modem self-reset in case of
-       a core dump */
-    if (mmgr->info.ev & E_EV_CORE_DUMP)
-        mmgr->info.ev &= ~E_EV_MODEM_SELF_RESET;
-
     if (state & E_EV_FW_DOWNLOAD_READY) {
         /* manage fw update request */
         LOG_DEBUG("current state: E_EV_FW_DOWNLOAD_READY");
@@ -584,6 +609,8 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
             ret = set_mcd_poll_states(&mmgr->info);
         }
     } else {
+        if (state & E_EV_MODEM_SELF_RESET)
+            inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_SELF_RESET, NULL);
 
         /* Signal a Modem Event */
         ret = modem_event(mmgr);
