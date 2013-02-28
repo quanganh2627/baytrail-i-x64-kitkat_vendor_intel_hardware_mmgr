@@ -19,8 +19,9 @@
 #ifndef __MMGR_CONFIG_HEADER__
 #define __MMGR_CONFIG_HEADER__
 
-#include "errors.h"
 #include <stdbool.h>
+#include "errors.h"
+#include "dumpreader.h"
 
 /* Maximum size for configuration string value */
 #define MAX_SIZE_CONF_VAL 50
@@ -31,6 +32,7 @@
 typedef struct mmgr_configuration {
     /* general parameters */
     char modem_port[MAX_SIZE_CONF_VAL];
+    char shtdwn_dlc[MAX_SIZE_CONF_VAL];
     char latest_tty_name[MAX_SIZE_CONF_VAL];
     char link_layer[MAX_SIZE_CONF_VAL];
     int delay_before_at;
@@ -50,6 +52,8 @@ typedef struct mmgr_configuration {
     int delay_before_reset;
     int delay_before_reboot;
     int max_retry_time;
+    int timeout_ack_cold;
+    int timeout_ack_shtdwn;
     /* interface */
     int max_clients;
     /* mcdr config */
@@ -59,6 +63,7 @@ typedef struct mmgr_configuration {
     int mcdr_baudrate;
     char mcdr_pid[MAX_SIZE_CONF_VAL];
     char mcdr_vid[MAX_SIZE_CONF_VAL];
+    char mcdr_protocol[MAX_SIZE_CONF_VAL];
 } mmgr_configuration_t;
 
 e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *parameters,

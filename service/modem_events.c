@@ -247,7 +247,6 @@ out:
 e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    const char shutdown_port[] = "/dev/gsmtty22";
     int err;
     int fd;
     int mdm_state;
@@ -264,7 +263,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, &mdm_state) == -1)
         LOG_DEBUG("couldn't set MCD state: %s", strerror(errno));
 
-    err = open_tty(shutdown_port, &fd);
+    err = open_tty(mmgr->config.shtdwn_dlc, &fd);
     if (fd < 0) {
         LOG_ERROR("operation FAILED");
     } else {

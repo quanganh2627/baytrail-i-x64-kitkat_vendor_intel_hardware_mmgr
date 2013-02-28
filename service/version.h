@@ -98,9 +98,10 @@
  ** 4.1.9  - 2013-02-26 - BZ 87729 - fix setting MCD modem state to OFF
  ** 4.1.10 - 2013-02-26 - BZ 89391 - fix communication with clients
  ** 4.1.11 - 2013-03-01 - BZ 90373 - fix comments for patch #91071
+ ** 4.1.12 - 2013-02-28 - BZ 90123 - add additional product customization
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "4.1.11"
+#define MODULE_VERSION "4.1.12"

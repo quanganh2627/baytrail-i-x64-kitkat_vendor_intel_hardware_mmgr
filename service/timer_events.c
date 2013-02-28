@@ -27,8 +27,6 @@ static const char *g_type_str[] = {
 };
 
 #define STEPS 10
-#define TIMEOUT_ACK 10          /* in second */
-#define TIMEOUT_EPOLL_ACK (TIMEOUT_ACK * 1000 / STEPS)  /* in millisecond */
 #define TIMEOUT_ACCEPT_CLIENT 1000      /* in millisecond */
 #define TIMEOUT_EPOLL_INFINITE -1       /* wait indefinitely */
 
@@ -134,7 +132,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
 
     if ((mmgr->timer.type & (0x01 << E_TIMER_COLD_RESET_ACK)) &&
         ((current.tv_sec - mmgr->timer.start[E_TIMER_COLD_RESET_ACK].tv_sec)
-         > TIMEOUT_ACK)) {
+         > mmgr->config.timeout_ack_cold)) {
         check_cold_ack(&mmgr->clients, true);
         mmgr->info.ev |= E_EV_FORCE_RESET;
         stop_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
@@ -142,7 +140,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
 
     if ((mmgr->timer.type & (0x01 << E_TIMER_MODEM_SHUTDOWN_ACK)) &&
         ((current.tv_sec - mmgr->timer.start[E_TIMER_MODEM_SHUTDOWN_ACK].tv_sec)
-         > TIMEOUT_ACK)) {
+         > mmgr->config.timeout_ack_shtdwn)) {
         check_shutdown_ack(&mmgr->clients, true);
         mmgr->info.ev |= E_EV_FORCE_MODEM_OFF;
         stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
@@ -196,8 +194,10 @@ e_mmgr_errors_t timer_init(mmgr_timer_t *timer, mmgr_configuration_t *config)
 
     timer->type = 0;
     timer->cur_timeout = TIMEOUT_EPOLL_INFINITE;
-    timer->timeout[E_TIMER_COLD_RESET_ACK] = TIMEOUT_EPOLL_ACK;
-    timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK] = TIMEOUT_EPOLL_ACK;
+    timer->timeout[E_TIMER_COLD_RESET_ACK] =
+        (config->timeout_ack_cold * 1000) / STEPS;
+    timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK] =
+        (config->timeout_ack_shtdwn * 1000) / STEPS;
     timer->timeout[E_TIMER_ACCEPT_CLIENT_RQUEST] = TIMEOUT_ACCEPT_CLIENT;
     timer->timeout[E_TIMER_WAIT_FOR_IPC_READY] =
         (config->modem_reset_delay * 1000) / STEPS;

@@ -52,6 +52,7 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char *p = NULL;
+    const char *str_protocol[] = { "LCDP", "YMODEM" };
 
     CHECK_PARAM(mcdr, ret, out);
 
@@ -78,6 +79,13 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
                 LOG_ERROR("%s", p);
                 ret = E_ERR_FAILED;
             }
+
+            if (strncmp(config->mcdr_protocol, "LCDP", MAX_SIZE_CONF_VAL) == 0)
+                mcdr->data.protocol = LCDP;
+            else
+                mcdr->data.protocol = YMODEM;
+
+            LOG_DEBUG("MCDR protocol: %s", str_protocol[mcdr->data.protocol]);
         }
     }
 out:

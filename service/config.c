@@ -27,6 +27,7 @@
 
 /* MMGR default value for configuration */
 #define DEF_MODEM_PORT "/dev/ttyIFX0"
+#define DEF_SHTDWN_DLC "/dev/gsmtty22"
 #define DEF_LATEST_TTY_NAME  "/dev/gsmtty63"
 #define DEF_LINK_LAYER "hsi"
 #define DEF_DELAY_BEFORE_AT INTEGER(3456)
@@ -52,6 +53,8 @@
 #define DEF_DELAY_BEFORE_RESET INTEGER(300)     /* in milliseconds */
 #define DEF_DELAY_BEFORE_REBOOT INTEGER(3)      /* in seconds */
 #define DEF_MAX_RETRY_TIME INTEGER(60)
+#define DEF_MAX_TIMEOUT_ACK_COLD INTEGER(1)  /* in seconds */
+#define DEF_MAX_TIMEOUT_ACK_SHTDWN INTEGER(1)        /* in seconds */
 /* mmgr interface */
 #define DEF_NB_ALLOWED_CLIENT INTEGER(12)
 /*mcdr default values */
@@ -59,8 +62,9 @@
 #define DEF_MCDR_OUTPUT "/logs/modemcrash"
 #define DEF_MCDR_DEVICE "/dev/ttyMFD1"
 #define DEF_MCDR_BAUDRATE INTEGER(3000000)
-#define DEF_MCDR_PID "0xRFFFF"  /* @TODO */
-#define DEF_MCDR_VID "0xRFFFF"  /* @TODO */
+#define DEF_MCDR_PID "0x0020"
+#define DEF_MCDR_VID "0x1519"
+#define DEF_MCDR_PROTOCOL "YMODEM"
 
 /* flashless default params: */
 #define DEF_NVM_FILES_PATH "/config/telephony"
@@ -295,6 +299,8 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
     set_param_t gnl[] = {
         {.key = "ModemPort",.dest = &params->modem_port,.def =
          DEF_MODEM_PORT,.set = string},
+        {.key = "ShutdownDLC",.dest = &params->shtdwn_dlc,.def =
+         DEF_SHTDWN_DLC,.set = string},
         {.key = "LatestTTYName",.dest = &params->latest_tty_name,
          .def = DEF_LATEST_TTY_NAME,.set = string},
         {.key = "LinkLayer",.dest = &params->link_layer,
@@ -334,6 +340,10 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          DEF_DELAY_BEFORE_REBOOT,.set = integer},
         {.key = "MaximumRetryTime",.dest = &params->max_retry_time,.def =
          DEF_MAX_RETRY_TIME,.set = integer},
+        {.key = "MaxAckColdReset",.dest = &params->timeout_ack_cold,.def =
+         DEF_MAX_TIMEOUT_ACK_COLD,.set = integer},
+        {.key = "MaxAckShtdwn",.dest = &params->timeout_ack_shtdwn,.def =
+         DEF_MAX_TIMEOUT_ACK_SHTDWN,.set = integer},
     };
 
     set_param_t interface[] = {
@@ -355,6 +365,8 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          DEF_MCDR_PID,.set = string},
         {.key = "McdrVid",.dest = &params->mcdr_vid,.def =
          DEF_MCDR_VID,.set = string},
+        {.key = "McdrProtocol",.dest = &params->mcdr_protocol,.def =
+         DEF_MCDR_PROTOCOL,.set = string},
     };
 
     LOG_DEBUG("filename: %s", config_file);

@@ -46,7 +46,6 @@
 typedef enum e_switch_to_mux_states {
     E_MUX_HANDSHAKE,
     E_MUX_XLOG,
-    E_MUX_CD_PROTOCOL,
     E_MUX_AT_CMD,
     E_MUX_DRIVER,
 } e_switch_to_mux_states_t;
@@ -215,66 +214,14 @@ out_xlog:
 }
 
 /**
- * detect the modem core dump protocol
- *
- * @param [in] fd file descriptor
- * @param [in,out] info modem info
- *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_FAILED if protocol not found
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t detect_mcdr_protocol(int fd, modem_info_t *info)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    const char key[] = "ymodemProtocolEnabled=";
-    const char disabled[] = "false";
-    char data[AT_ANSWER_SIZE + 1];
-    int read_size = 0;
-    char *p = NULL;
-
-    CHECK_PARAM(info, ret, out);
-
-    ret = write_to_tty(fd, AT_MCDR_PROTOCOL, strlen(AT_MCDR_PROTOCOL));
-    if (ret != E_ERR_SUCCESS)
-        goto out;
-
-    do {
-        read_size = AT_ANSWER_SIZE;
-        ret = read_from_tty(fd, data, &read_size, AT_READ_MAX_RETRIES);
-        data[read_size] = '\0';
-        if (ret != E_ERR_SUCCESS)
-            goto out;
-
-        if (read_size > 0) {
-            p = strstr(data, key);
-            if (p != NULL) {
-                if (strncmp(p + strlen(key), disabled, strlen(disabled)) == 0) {
-                    LOG_DEBUG("LCDP protocol detected");
-                    info->mcdr.data.protocol = LCDP;
-                } else {
-                    LOG_DEBUG("YMODEM protocol detected");
-                    info->mcdr.data.protocol = YMODEM;
-                }
-                ret = E_ERR_SUCCESS;
-                break;
-            }
-        }
-    } while (read_size > 0);
-out:
-    return ret;
-}
-
-/**
  * Activate the MUX
  *
  * To activate the MUX this function will do the following step
  *      1. Ping modem port and wait good response
  *      2. Send AT+XLOG to print modem info and get panic id if available
- *      3. Detect core dump protocol
- *      4. Send AT+CMUX command
- *      5. Configure the MUX driver
- *      6. Wait creation of all MUX tty ports
+ *      3. Send AT+CMUX command
+ *      4. Configure the MUX driver
+ *      5. Wait creation of all MUX tty ports
  *
  * @param [in,out] fd_tty modem file descriptor
  * @param [in] config mmgr config
@@ -320,10 +267,6 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
             break;
         case E_MUX_XLOG:
             ret = run_at_xlog(*fd_tty, config, info);
-            break;
-        case E_MUX_CD_PROTOCOL:
-            if (info->mcdr.enabled)
-                detect_mcdr_protocol(*fd_tty, info);
             break;
         case E_MUX_AT_CMD:
             ret = send_at_cmux(*fd_tty, config, remaining_time);
