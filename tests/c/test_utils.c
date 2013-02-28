@@ -29,6 +29,7 @@
 #include <sys/wait.h>
 #include <cutils/sockets.h>
 #include "at.h"
+#include "client_events.h"
 #include "errors.h"
 #include "file.h"
 #include "test_utils.h"
@@ -360,6 +361,35 @@ out:
     return ret;
 }
 
+static int event_error(mmgr_cli_event_t *ev)
+{
+    int ret = E_ERR_FAILED;
+    test_data_t *data = NULL;
+    mmgr_cli_error_t *err = NULL;
+
+    CHECK_PARAM(ev, ret, out);
+    data = (test_data_t *)ev->context;
+    if (data == NULL)
+        goto out;
+
+    data->test_succeed = false;
+
+    err = (mmgr_cli_error_t *)ev->data;
+    if (err == NULL) {
+        LOG_ERROR("empty data");
+        goto out;
+    }
+    LOG_DEBUG("error {id:%d reason:\"%s\" len:%d}", err->id, err->reason,
+              err->len);
+    if ((err->len == strlen(FAKE_ERROR_REASON)) &&
+        (strncmp(FAKE_ERROR_REASON, err->reason, err->len) == 0))
+        data->test_succeed = true;
+
+    ret = set_and_notify(ev->id, (test_data_t *)ev->context);
+out:
+    return ret;
+}
+
 static int event_ap_reset(mmgr_cli_event_t *ev)
 {
     int ret = E_ERR_FAILED;
@@ -596,7 +626,7 @@ int configure_client_library(test_data_t *test_data)
                                  E_MMGR_NOTIFY_SELF_RESET) != E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test_data->lib, event_error,
                                  E_MMGR_NOTIFY_ERROR) != E_ERR_CLI_SUCCEED)
         goto out;
 

@@ -102,9 +102,10 @@
  ** 4.1.13 - 2013-03-12 - BZ 92475 - fix KW critical issues
  ** 4.1.15 - 2013-03-14 - BZ 93106 - open libmodemupdate dynamically
  ** 4.1.16 - 2013-02-27 - BZ 86789 - crashlogger new API
+ ** 4.1.17 - 2013-02-28 - BZ 87759 - add fake events requests
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "4.1.16"
+#define MODULE_VERSION "4.1.17"

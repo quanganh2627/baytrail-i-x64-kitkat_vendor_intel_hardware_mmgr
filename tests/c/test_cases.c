@@ -603,3 +603,209 @@ out:
         LOG_ERROR("test failed at line %d", line);
     return ret;
 }
+
+int fake_modem_down(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_FAKE_DOWN };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+out:
+    return ret;
+}
+
+int fake_modem_up(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_FAKE_UP };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+out:
+    return ret;
+}
+
+int fake_modem_shtdwn(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_FAKE_MODEM_SHUTDOWN };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+out:
+    return ret;
+}
+
+int fake_modem_hs(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id =
+            E_MMGR_REQUEST_FAKE_MODEM_OUT_OF_SERVICE
+    };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+out:
+    return ret;
+}
+
+int fake_cd(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_FAKE_CORE_DUMP };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+out:
+    return ret;
+}
+
+int fake_cd_complete(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request =
+        {.id = E_MMGR_REQUEST_FAKE_CORE_DUMP_COMPLETE };
+
+    CHECK_PARAM(test, ret, out);
+
+    test->test_succeed = false;
+
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+    if (!test->test_succeed)
+        ret = E_ERR_FAILED;
+out:
+    return ret;
+}
+
+int fake_error(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_FAKE_ERROR };
+
+    CHECK_PARAM(test, ret, out);
+
+    test->test_succeed = false;
+
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    ret = wait_for_state(test, E_MMGR_NOTIFY_ERROR,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+    if (!test->test_succeed)
+        ret = E_ERR_FAILED;
+out:
+    return ret;
+}
+
+int fake_ap_reset(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_FAKE_AP_RESET };
+
+    CHECK_PARAM(test, ret, out);
+
+    test->test_succeed = false;
+
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    ret = wait_for_state(test, E_MMGR_NOTIFY_AP_RESET,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+    if (!test->test_succeed)
+        ret = E_ERR_FAILED;
+out:
+    return ret;
+}
+
+int fake_self_reset(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_FAKE_SELF_RESET };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+out:
+    return ret;
+}
+
+int fake_reboot(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_FAKE_PLATFORM_REBOOT
+    };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+out:
+    return ret;
+}

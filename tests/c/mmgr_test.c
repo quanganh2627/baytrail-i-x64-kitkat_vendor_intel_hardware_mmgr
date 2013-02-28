@@ -234,6 +234,16 @@ int main(int argc, char *argv[])
         {.desc = "lib mmgr API check",.func = test_libmmgrcli_api},
         {.desc = "resource acquire",.func = resource_acquire},
         {.desc = "resource release",.func = resource_release},
+        {.desc = "FAKE REQUEST: modem up",.func = fake_modem_up},
+        {.desc = "FAKE REQUEST: modem down",.func = fake_modem_down},
+        {.desc = "FAKE REQUEST: core dump",.func = fake_cd},
+        {.desc = "FAKE REQUEST: core dump complete",.func = fake_cd_complete},
+        {.desc = "FAKE REQUEST: ap reset",.func = fake_ap_reset},
+        {.desc = "FAKE REQUEST: self-reset",.func = fake_self_reset},
+        {.desc = "FAKE REQUEST: modem shutdown",.func = fake_modem_shtdwn},
+        {.desc = "FAKE REQUEST: platform reboot",.func = fake_reboot},
+        {.desc = "FAKE REQUEST: modem out of service",.func = fake_modem_hs},
+        {.desc = "FAKE REQUEST: error",.func = fake_error},
     };
 
     while ((err = getopt(argc, argv, "vhft:")) != -1) {
