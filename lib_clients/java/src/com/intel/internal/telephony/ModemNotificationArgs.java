@@ -22,7 +22,7 @@ public class ModemNotificationArgs {
 
     private ModemStatusManager sender = null;
     private ModemNotification notification;
-    private boolean acknowledge = false;
+    private boolean acknowledge = true;
 
     public ModemStatusManager getSender() {
         return this.sender;
