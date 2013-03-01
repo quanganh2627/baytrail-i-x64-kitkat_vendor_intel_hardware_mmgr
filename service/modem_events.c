@@ -348,6 +348,12 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
             mmgr->info.polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
         else
             mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
+        /* do not subscribe to CORE DUMP event if a core dump already occurs
+           AND reset operation has been skipped. Otherwise, MMGR will receive
+           a fake core dump event as MCD is still in core dump state */
+        if (!(mmgr->info.ev & E_EV_CORE_DUMP) &&
+            !(mmgr->reset.state == E_OPERATION_SKIP))
+            mmgr->info.polled_states |= MDM_CTRL_STATE_COREDUMP;
         ret = set_mcd_poll_states(&mmgr->info);
 
         if (!mmgr->config.is_flashless) {
@@ -579,7 +585,9 @@ out:
 e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(mmgr, ret, out);
+
     LOG_DEBUG("Modem event triggered");
     bus_read_events(&mmgr->events.bus_events);
     bus_handle_events(&mmgr->events.bus_events);

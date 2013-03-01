@@ -29,7 +29,7 @@
  *
  * @return none
  */
-static inline void serialize_uint32(char **buffer, uint32_t value)
+static void serialize_uint32(char **buffer, uint32_t value)
 {
     value = htonl(value);
     memcpy(*buffer, &value, sizeof(uint32_t));
@@ -44,7 +44,7 @@ static inline void serialize_uint32(char **buffer, uint32_t value)
  *
  * @return none
  */
-static inline void serialize_int(char **buffer, int value)
+static void serialize_int(char **buffer, int value)
 {
     uint32_t tmp;
     memcpy(&tmp, &value, sizeof(int));
@@ -59,7 +59,7 @@ static inline void serialize_int(char **buffer, int value)
  *
  * @return none
  */
-static inline void serialize_size_t(char **buffer, size_t value)
+static void serialize_size_t(char **buffer, size_t value)
 {
     uint32_t tmp;
     memcpy(&tmp, &value, sizeof(size_t));
@@ -74,7 +74,7 @@ static inline void serialize_size_t(char **buffer, size_t value)
  *
  * @return none
  */
-static inline void serialize_bool(char **buffer, bool value)
+static void serialize_bool(char **buffer, bool value)
 {
     uint32_t tmp;
     memcpy(&tmp, &value, sizeof(bool));
@@ -150,8 +150,8 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-static inline e_mmgr_errors_t prepare_msg(msg_t *msg, char **msg_data,
-                                          e_mmgr_events_t id, size_t *size)
+static e_mmgr_errors_t prepare_msg(msg_t *msg, char **msg_data,
+                                   e_mmgr_events_t id, size_t *size)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t len;

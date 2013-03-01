@@ -30,7 +30,7 @@
  *
  * @return none
  */
-static inline void deserialize_uint32(char **buffer, uint32_t * value)
+static void deserialize_uint32(char **buffer, uint32_t * value)
 {
     memcpy(value, *buffer, sizeof(uint32_t));
     *value = ntohl(*value);
@@ -45,7 +45,7 @@ static inline void deserialize_uint32(char **buffer, uint32_t * value)
  *
  * @return none
  */
-static inline void deserialize_int(char **buffer, int *value)
+static void deserialize_int(char **buffer, int *value)
 {
     uint32_t tmp;
     deserialize_uint32(buffer, &tmp);
@@ -60,7 +60,7 @@ static inline void deserialize_int(char **buffer, int *value)
  *
  * @return none
  */
-static inline void deserialize_size_t(char **buffer, size_t *value)
+static void deserialize_size_t(char **buffer, size_t *value)
 {
     uint32_t tmp;
     deserialize_uint32(buffer, &tmp);
@@ -75,7 +75,7 @@ static inline void deserialize_size_t(char **buffer, size_t *value)
  *
  * @return none
  */
-static inline void deserialize_bool(char **buffer, bool *value)
+static void deserialize_bool(char **buffer, bool *value)
 {
     uint32_t tmp;
     deserialize_uint32(buffer, &tmp);
@@ -154,7 +154,6 @@ e_mmgr_errors_t set_data_empty(msg_t *msg, mmgr_cli_event_t *event)
 
     event->data = NULL;
     event->len = 0;
-    (void)msg;
 out:
     return ret;
 }

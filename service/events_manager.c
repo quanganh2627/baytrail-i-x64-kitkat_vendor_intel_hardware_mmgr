@@ -87,6 +87,8 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     mmgr->events.cur_ev = FIRST_EVENT;
     mmgr->events.modem_state = E_MDM_STATE_NONE;
 
+    mmgr->request.accept_request = true;
+
     if (mmgr->events.ev == NULL) {
         LOG_ERROR("Unable to initialize event structure");
         ret = E_ERR_BAD_PARAMETER;

@@ -153,7 +153,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         ((current.tv_sec - mmgr->timer.start[E_TIMER_WAIT_FOR_IPC_READY].tv_sec)
          > mmgr->config.modem_reset_delay)) {
         LOG_DEBUG("IPC READY not received. force modem reset");
-        mmgr->info.ev |= E_EV_FORCE_RESET;
+        mmgr->info.ev |= E_EV_FORCE_RESET | E_EV_CONF_FAILED;
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     }
 
@@ -161,7 +161,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         ((current.tv_sec - mmgr->timer.start[E_TIMER_WAIT_FOR_BUS_READY].tv_sec)
          > mmgr->config.modem_reset_delay)) {
         LOG_DEBUG("BUS READY not received. force modem reset");
-        mmgr->info.ev |= E_EV_FORCE_RESET;
+        mmgr->info.ev |= E_EV_FORCE_RESET | E_EV_CONF_FAILED;
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     }
 

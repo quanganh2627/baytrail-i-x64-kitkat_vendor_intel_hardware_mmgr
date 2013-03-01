@@ -6,9 +6,9 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_COPY_HEADERS := \
-    mmgr_cli.h\
-    mmgr_fw_cli.h\
-    mmgr.h\
+    mmgr_cli.h \
+    mmgr_fw_cli.h \
+    mmgr.h \
     modem_update.h
 
 LOCAL_COPY_HEADERS := mmgr_cli.h

@@ -375,7 +375,7 @@ static inline e_err_mmgr_cli_t handle_cnx_event(mmgr_lib_context_t *p_lib)
                   p_lib->fd_socket, p_lib->cli_name, msg.hdr.id);
     }
 out:
-    if (msg.data == NULL)
+    if (msg.data != NULL)
         free(msg.data);
     return ret;
 }

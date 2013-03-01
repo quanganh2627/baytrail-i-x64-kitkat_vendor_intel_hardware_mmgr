@@ -74,14 +74,7 @@ typedef void *(*read_param) (GKeyFile *, char *, char *, GError **);
 typedef void (*copy) (void *dest, void *src);
 typedef void (*display) (struct set_param * param);
 
-typedef enum param_type {
-    E_STRING = 's',
-    E_INT = 'd',
-    E_BOOL = 'b'
-} param_type_t;
-
 typedef struct type_setter {
-    param_type_t type;
     read_param read;
     size_t size;
     copy init;
@@ -111,7 +104,7 @@ static void init_integer(void *dest, void *src)
     /* copy the content of the unnamed tab */
     int *in = src;
     int *out = dest;
-    *out = (int)*in;
+    *out = *in;
 }
 
 /**
@@ -283,15 +276,15 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
     GError *gerror = NULL;
 
     type_setter_t string = {.read = (read_param) g_key_file_get_string,
-        .type = E_STRING,.size = MAX_SIZE_CONF_VAL,.init = copy_string,
+        .size = MAX_SIZE_CONF_VAL,.init = copy_string,
         .copy = copy_string,.display = display_string
     };
     type_setter_t integer = {.read = (read_param) g_key_file_get_integer,
-        .type = E_INT,.size = sizeof(int),.init = init_integer,
+        .size = sizeof(int),.init = init_integer,
         .copy = copy_integer,.display = display_integer
     };
     type_setter_t boolean = {.read = (read_param) g_key_file_get_boolean,
-        .type = E_BOOL,.size = sizeof(bool),.init = init_integer,
+        .size = sizeof(bool),.init = init_integer,
         .copy = copy_integer,.display = display_boolean
     };
 
@@ -416,7 +409,7 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file, char *fls_in,
     char tmp_cal[MAX_SIZE_CONF_VAL];
 
     type_setter_t string = {.read = (read_param) g_key_file_get_string,
-        .type = E_STRING,.size = MAX_SIZE_CONF_VAL,.init = copy_string,
+        .size = MAX_SIZE_CONF_VAL,.init = copy_string,
         .copy = copy_string,.display = display_string
     };
 

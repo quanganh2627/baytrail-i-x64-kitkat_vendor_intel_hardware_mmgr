@@ -340,6 +340,7 @@ static e_mmgr_errors_t request_set_name(mmgr_data_t *mmgr)
         ret = E_ERR_DISCONNECTED;
     /* inform client that connection has succeed */
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL, true);
+    mmgr->request.answer = E_MMGR_NUM_EVENTS;
 out:
     return ret;
 }
@@ -425,11 +426,10 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
         mmgr->info.ev &= ~E_EV_FORCE_MODEM_OFF;
         mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
 
-        if (!(mmgr->info.ev & E_EV_MODEM_OFF) &&
-            !(mmgr->info.ev & E_EV_FORCE_RESET)) {
+        if (mmgr->client_notification == E_MMGR_NOTIFY_MODEM_SHUTDOWN) {
             mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
             inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
-        } else {
+        } else if (mmgr->info.ev & E_EV_MODEM_OFF) {
             if (!(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
                 LOG_DEBUG("wake up modem");
                 //@TODO: workaround since start_hsic in modem_up does nothing

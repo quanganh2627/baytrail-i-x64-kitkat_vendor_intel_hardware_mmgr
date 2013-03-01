@@ -247,11 +247,11 @@ e_mmgr_errors_t bus_events_init(bus_ev_t *bus_events, char *bb_pid,
                   bb_pid, bb_vid, flash_pid, flash_vid, mcdr_pid, mcdr_vid);
         goto out;
     }
-    //TODO: handle errors
+    /* @TODO: handle errors */
     usb_host_load(bus_events->ctx, device_added_cb, device_rmed_cb, NULL,
                   &bus_events->cli_ctx);
-    // when calling usb_host_load, there's a call to find_existing_devices which triggers added_cb events
-    // so, there's been events ... maybe.
+    /* when calling usb_host_load, there's a call to find_existing_devices
+       which triggers added_cb events so, there's been events ... maybe. */
     bus_handle_events(bus_events);
 
 out:
