@@ -18,9 +18,9 @@ LOCAL_C_INCLUDES += \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
     ../inc \
-    hardware/intel/glib \
-    hardware/intel/glib/android \
-    hardware/intel/glib/glib \
+    vendor/intel/external/glib \
+    vendor/intel/external/glib/android \
+    vendor/intel/external/glib/glib \
     external/libusb/libusb
 
 LOCAL_SRC_FILES:= \
