@@ -53,8 +53,8 @@
 #define DEF_DELAY_BEFORE_RESET INTEGER(300)     /* in milliseconds */
 #define DEF_DELAY_BEFORE_REBOOT INTEGER(3)      /* in seconds */
 #define DEF_MAX_RETRY_TIME INTEGER(60)
-#define DEF_MAX_TIMEOUT_ACK_COLD INTEGER(1)  /* in seconds */
-#define DEF_MAX_TIMEOUT_ACK_SHTDWN INTEGER(1)        /* in seconds */
+#define DEF_MAX_TIMEOUT_ACK_COLD INTEGER(1)     /* in seconds */
+#define DEF_MAX_TIMEOUT_ACK_SHTDWN INTEGER(1)   /* in seconds */
 /* mmgr interface */
 #define DEF_NB_ALLOWED_CLIENT INTEGER(12)
 /*mcdr default values */

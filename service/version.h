@@ -99,9 +99,10 @@
  ** 4.1.10 - 2013-02-26 - BZ 89391 - fix communication with clients
  ** 4.1.11 - 2013-03-01 - BZ 90373 - fix comments for patch #91071
  ** 4.1.12 - 2013-02-28 - BZ 90123 - add additional product customization
+ ** 4.1.13 - 2013-03-12 - BZ 92475 - fix KW critical issues
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "4.1.12"
+#define MODULE_VERSION "4.1.13"

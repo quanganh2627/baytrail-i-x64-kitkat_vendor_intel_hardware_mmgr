@@ -102,7 +102,9 @@ public abstract class MmgrBaseResponse {
             ret.putInt(this.responseId);
             ret.putInt(this.getTimestamp());
             ret.putInt(payloadSize);
-            ret.put(payload);
+            if (payload != null) {
+                ret.put(payload);
+            }
             return ret.array();
         }
         return null;

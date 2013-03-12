@@ -50,7 +50,9 @@ public abstract class MmgrBaseRequest extends ModemRequestArgs {
             ret.putInt(this.requestId);
             ret.putInt(super.getTimestamp());
             ret.putInt(payloadSize);
-            ret.put(payload);
+            if (payload != null) {
+                ret.put(payload);
+            }
             return ret.array();
         }
         return null;

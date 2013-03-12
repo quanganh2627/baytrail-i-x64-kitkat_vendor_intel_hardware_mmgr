@@ -41,9 +41,20 @@
 
 #define READ_SIZE 64
 
+/**
+ * do flashing modem procedure
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
 static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(mmgr, ret, out);
 
     if (mmgr->config.is_flashless) {
 
@@ -62,6 +73,7 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     }
 
+out:
     return ret;
 }
 
