@@ -20,6 +20,7 @@
 #include <time.h>
 #include "config.h"
 #include "core_dump.h"
+#include "modem_update.h"
 
 #define UNKNOWN_PANIC_ID -1
 #define TIMEOUT_HANDSHAKE_AFTER_CD 30   /* in seconds */
@@ -42,7 +43,16 @@ typedef enum e_modem_events_type {
     E_EV_FORCE_MODEM_OFF = 0x01 << 12,
 } e_modem_events_type_t;
 
+typedef struct mup_op {
+    void *hdle;
+    e_mup_err_t (*initialize) (mup_interface_t **handle,
+                               mup_ap_log_callback_t ap_log_callback);
+    e_mup_err_t (*update_fw) (mup_fw_update_params_t *params);
+    e_mup_err_t (*dispose) (mup_interface_t *handle);
+} mup_op_t;
+
 typedef struct modem_info {
+    mup_op_t mup;
     int panic_id;
     e_modem_events_type_t ev;
     mcdr_lib_t mcdr;

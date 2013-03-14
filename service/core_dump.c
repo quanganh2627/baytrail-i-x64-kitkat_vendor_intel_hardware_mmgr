@@ -77,6 +77,8 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
             p = (char *)dlerror();
             if (p != NULL) {
                 LOG_ERROR("%s", p);
+                dlclose(mcdr->lib);
+                mcdr->lib = NULL;
                 ret = E_ERR_FAILED;
             }
 

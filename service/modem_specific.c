@@ -22,6 +22,7 @@
 #include "file.h"
 #include "modem_update.h"
 
+#include <dlfcn.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -29,6 +30,11 @@
 
 #define FLS_FILE_PERMISSION (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH)
 #define INJECTION_TOOL "/system/bin/injection_tool"
+/* @TODO: this should be configurable via mmgr.conf */
+#define MUP_LIB "libmodemupdate.so"
+#define MUP_FUNC_INIT "mup_initialize"
+#define MUP_FUNC_UP_FW "mup_update_fw"
+#define MUP_FUNC_DISPOSE "mup_dispose"
 
 /**
  * callback to handle aplog messages
@@ -46,12 +52,47 @@ void mup_log(const char *msg, size_t msg_len)
 /**
  * init module function
  *
+ * @param[in] info modem data
+ * @param[in] is_flashless
+ *
  * @return E_ERR_FAILED if INJECTION_TOOL is missing
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_specific_init(void)
+e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
 {
-    return is_file_exists(INJECTION_TOOL, 0);
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    char *p = NULL;
+
+    CHECK_PARAM(info, ret, out);
+
+    if (is_flashless) {
+        info->mup.hdle = dlopen(MUP_LIB, RTLD_LAZY);
+        if (info->mup.hdle == NULL) {
+            LOG_ERROR("failed to open mup lib");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        /** see dlsym manpage to understand why this strange cast is used */
+        *(void **)&info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
+        *(void **)&info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
+        *(void **)&info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
+
+        p = (char *)dlerror();
+        if (p != NULL) {
+            LOG_ERROR("%s", p);
+            ret = E_ERR_FAILED;
+            dlclose(info->mup.hdle);
+            info->mup.hdle = NULL;
+            goto out;
+        }
+
+        ret = is_file_exists(INJECTION_TOOL, 0);
+    } else {
+        info->mup.hdle = NULL;
+    }
+out:
+    return ret;
 }
 
 /**
@@ -70,7 +111,7 @@ e_mmgr_errors_t flash_modem(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    if (E_MUP_SUCCEED != mup_initialize(&handle, mup_log)) {
+    if (E_MUP_SUCCEED != info->mup.initialize(&handle, mup_log)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("modem updater initialization failed");
         goto out;
@@ -83,12 +124,12 @@ e_mmgr_errors_t flash_modem(modem_info_t *info)
         .erase_all = false      /* for flashless modem, this should be false */
     };
 
-    if (E_MUP_SUCCEED != mup_update_fw(&params)) {
+    if (E_MUP_SUCCEED != info->mup.update_fw(&params)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("modem firmware update failed");
     }
 
-    if (E_MUP_SUCCEED != mup_dispose(handle)) {
+    if (E_MUP_SUCCEED != info->mup.dispose(handle)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("modem updater disposal fails");
     }

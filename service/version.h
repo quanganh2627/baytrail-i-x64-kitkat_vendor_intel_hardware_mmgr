@@ -100,9 +100,10 @@
  ** 4.1.11 - 2013-03-01 - BZ 90373 - fix comments for patch #91071
  ** 4.1.12 - 2013-02-28 - BZ 90123 - add additional product customization
  ** 4.1.13 - 2013-03-12 - BZ 92475 - fix KW critical issues
+ ** 4.1.15 - 2013-03-14 - BZ 93106 - open libmodemupdate dynamically
  **
  ** ============================================================================
  */
 
 /* MODULE_VERSION: don't forget to update the header */
-#define MODULE_VERSION "4.1.13"
+#define MODULE_VERSION "4.1.15"
