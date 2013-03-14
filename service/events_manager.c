@@ -227,7 +227,6 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
                                            mmgr->config.max_clients + 1,
                                            mmgr->timer.cur_timeout);
             if (mmgr->events.nfds == -1) {
-                LOG_ERROR("epoll_wait failed (%s)", strerror(errno));
                 if ((errno == EBADF) || (errno == EINVAL)) {
                     LOG_ERROR("Bad configuration");
                     ret = E_ERR_FAILED;
