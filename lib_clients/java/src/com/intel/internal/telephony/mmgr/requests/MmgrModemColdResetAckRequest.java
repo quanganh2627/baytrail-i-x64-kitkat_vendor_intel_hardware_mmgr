@@ -16,26 +16,23 @@
  *
  */
 
-package com.intel.internal.telephony.mmgr;
+package com.intel.internal.telephony.mmgr.requests;
 
-import java.nio.ByteBuffer;
+import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
-import com.intel.internal.telephony.ModemRequestArgs;
+public class MmgrModemColdResetAckRequest extends MmgrBaseRequest {
 
-public class MmgrModemReleaseRequest extends ModemRequestArgs {
+    public MmgrModemColdResetAckRequest() {
+        super(MedfieldMmgrClient.ACK_MODEM_COLD_RESET);
+    }
 
     @Override
-    public byte[] getFrame() {
-        ByteBuffer ret = ByteBuffer.allocate(8);
-
-        ret.putInt(MedfieldMmgrClient.RESOURCE_RELEASE);
-        ret.putInt(super.getTimestamp());
-
-        return ret.array();
+    protected byte[] getPayload() {
+        return new byte[0];
     }
 
     @Override
     public String getName() {
-        return "ModemReleaseRequest";
+        return "ModemColdResetAckRequest";
     }
 }

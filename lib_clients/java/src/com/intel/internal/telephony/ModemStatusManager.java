@@ -239,7 +239,8 @@ public class ModemStatusManager implements Callback {
      * @return True if the status was received; otherwise False
      * @throws MmgrClientException On any error
      */
-    public boolean waitForModemStatus(ModemStatus status, long timeout) throws MmgrClientException {
+    public boolean waitForModemStatus(ModemStatus status, long timeout)
+            throws MmgrClientException {
         if (this.modemStatusMonitor != null) {
             return this.modemStatusMonitor.waitForStatus(status, timeout);
         }

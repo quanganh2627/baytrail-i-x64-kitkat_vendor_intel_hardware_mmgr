@@ -31,6 +31,8 @@ typedef enum e_mmgr_errors {
     E_ERR_MISSING_FILE,
     /* mmgr-test purpose */
     E_ERR_MODEM_OUT,
+    /* Client */
+    E_ERR_DISCONNECTED,
     /* General */
     E_ERR_BAD_PARAMETER,
     E_ERR_FAILED,

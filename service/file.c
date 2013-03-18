@@ -94,3 +94,41 @@ e_mmgr_errors_t create_empty_file(char *filename, unsigned long rights)
 out:
     return ret;
 }
+
+/**
+ * Look for file
+ *
+ * @param [in] path file path
+ * @param [in] rights file rights should be equal to rights. if rights is 0 the
+ * check is not performed
+ *
+ * @return E_ERR_BAD_PARAMETER if path is NULL
+ * @return E_ERR_FAILED file not found
+ * @return E_ERR_SUCCESS file found
+ */
+e_mmgr_errors_t is_file_exists(const char *path, unsigned long rights)
+{
+    struct stat statbuf;
+    int ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(path, ret, out);
+
+    if (stat(path, &statbuf) == -1) {
+        LOG_DEBUG("Failure with stat on %s (%s)", path, strerror(errno));
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    if (rights != 0) {
+        if (!S_ISREG(statbuf.st_mode)) {
+            LOG_DEBUG("not a file");
+            ret = E_ERR_FAILED;
+        } else if ((statbuf.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) !=
+                   (rights & ~MMGR_UMASK)) {
+            LOG_DEBUG("bad file permissions");
+            ret = E_ERR_FAILED;
+        }
+    }
+out:
+    return ret;
+}

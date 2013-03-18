@@ -19,43 +19,53 @@
 #ifndef __MMGR_CLIENT_HEADER__
 #define __MMGR_CLIENT_HEADER__
 
+#include "data_to_msg.h"
 #include "errors.h"
 #include "mmgr.h"
 #include <stdbool.h>
 #include <time.h>
 
-#define FIRST_CLIENT_REQUEST -1
+typedef e_mmgr_errors_t (*set_msg) (msg_t *, mmgr_cli_event_t *);
+
+typedef enum e_cnx_requests {
+    E_CNX_NONE = 0,
+    E_CNX_NAME = 0x01 << 0,
+    E_CNX_FILTER = 0x01 << 1,
+    E_CNX_COLD_RESET = 0x01 << 2,
+    E_CNX_MODEM_SHUTDOWN = 0x01 << 3,
+    E_CNX_RESOURCE_RELEASED = 0x01 << 4
+} e_cnx_requests_t;
 
 typedef struct client {
     char name[CLIENT_NAME_LEN + 1];
     int fd;
     struct timespec time;
-    int received;
     e_mmgr_requests_t request;
-    /* These flags are used to store client ACKs */
-    bool cold_reset;
-    bool modem_shutdown;
-    bool resource_release;
     uint32_t subscription;
+    /* These flags are used to store client ACKs */
+    e_cnx_requests_t cnx;
+    /* @TODO: remove this once MMGR will use getter/setter */
+    set_msg *set_data;
 } client_t;
 
 typedef struct client_list {
     int list_size;
     int connected;
     client_t *list;
+    set_msg set_data[E_MMGR_NUM_EVENTS];
 } client_list_t;
 
 e_mmgr_errors_t initialize_list(client_list_t *clients, int list_size);
 e_mmgr_errors_t add_client(client_list_t *clients, int fd, client_t **client);
 e_mmgr_errors_t remove_client(client_list_t *clients, client_t *client);
-e_mmgr_errors_t set_client_name(client_t *client, char *name);
+e_mmgr_errors_t set_client_name(client_t *client, char *name, size_t len);
 e_mmgr_errors_t set_client_filter(client_t *client, uint32_t subscription);
 e_mmgr_errors_t find_client(client_list_t *clients, int fd, client_t **client);
 
 e_mmgr_errors_t inform_all_clients(client_list_t *clients,
-                                   e_mmgr_events_t state);
-e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
-                              bool force);
+                                   e_mmgr_events_t state, void *data);
+e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state, void
+                              *data, bool force);
 e_mmgr_errors_t close_all_clients(client_list_t *clients);
 
 e_mmgr_errors_t check_cold_ack(client_list_t *clients, bool listing);

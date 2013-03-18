@@ -227,12 +227,13 @@ int main(int argc, char *argv[])
         {.desc = "Modem reset with core dump",.func = reset_with_cd},
         {.desc = "Force modem OFF and RIL",.func = turn_off_modem},
         {.desc = "Turn on modem and RIL",.func = turn_on_modem},
-        {.desc = "Client banned",.func = client_banned},
         {.desc = "Full reset escalation",.func = full_recovery},
         {.desc = "Reset escalation counter",.func = reset_counter},
         {.desc = "Resource management (works only if no client is connected)",
          .func = resource_check},
         {.desc = "lib mmgr API check",.func = test_libmmgrcli_api},
+        {.desc = "resource acquire",.func = resource_acquire},
+        {.desc = "resource release",.func = resource_release},
     };
 
     while ((err = getopt(argc, argv, "vhft:")) != -1) {

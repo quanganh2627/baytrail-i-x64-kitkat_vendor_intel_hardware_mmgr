@@ -19,10 +19,13 @@
 #ifndef __MMGR_EVENTS_MANAGER_HEADER__
 #define __MMGR_EVENTS_MANAGER_HEADER__
 
+#include "bus_events.h"
 #include "config.h"
 #include "client.h"
+#include "client_cnx.h"
 #include "mmgr.h"
 #include "modem_info.h"
+#include "bus_events.h"
 #include "reset_escalation.h"
 
 #define EVENTS \
@@ -31,12 +34,15 @@
     X(CLIENT), \
     X(TIMEOUT), \
     X(MCD), \
+    X(BUS), \
     X(NUM)
 
 #define TIMER \
     X(COLD_RESET_ACK), \
     X(MODEM_SHUTDOWN_ACK), \
     X(WAIT_FOR_IPC_READY), \
+    X(WAIT_FOR_BUS_READY), \
+    X(ACCEPT_CLIENT_RQUEST), \
     X(NUM)
 
 typedef enum e_timer_type {
@@ -51,6 +57,16 @@ typedef enum e_events_type {
     EVENTS
 } e_events_type_t;
 
+typedef enum e_modem_state {
+    E_MDM_STATE_NONE = 0x00,
+    E_MDM_STATE_BB_READY = 0x1,
+    E_MDM_STATE_FLASH_READY = 0x1 << 1,
+    E_MDM_STATE_IPC_READY = 0x1 << 2,
+    E_MDM_STATE_FW_DL_READY = 0x1 << 3,
+    E_MDM_STATE_CORE_DUMP_READY = 0x1 << 4,
+    E_MDM_STATE_CORE_DUMP_READ_READY = 0x1 << 5,
+} e_modem_state_t;
+
 typedef struct mmgr_timer {
     uint8_t type;
     int cur_timeout;
@@ -63,19 +79,16 @@ typedef struct mmgr_events {
     struct epoll_event *ev;
     int cur_ev;
     e_events_type_t state;
-    bool do_restore_modem;
+    bus_ev_t bus_events;
+    e_modem_state_t modem_state;
 } mmgr_events_t;
 
-typedef struct client_request {
-    e_mmgr_requests_t id;
-    int32_t ts;
-} client_request_t;
-
 typedef struct current_request {
-    client_request_t received;
+    msg_t msg;
     client_t *client;
     e_mmgr_events_t answer;
     e_mmgr_events_t additional_info;
+    bool accept_request;
 } current_request_t;
 
 struct mmgr_data;
@@ -84,7 +97,7 @@ typedef e_mmgr_errors_t (*event_hdler_t) (struct mmgr_data * mmgr);
 typedef struct mmgr_data {
     int epollfd;
     int fd_tty;
-    int fd_socket;
+    int fd_cnx;
     e_mmgr_events_t client_notification;
     mmgr_configuration_t config;
     reset_management_t reset;

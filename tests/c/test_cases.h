@@ -27,10 +27,11 @@ int modem_restart(test_data_t *events_data);
 int modem_recovery(test_data_t *events_data);
 int turn_off_modem(test_data_t *events_data);
 int turn_on_modem(test_data_t *events_data);
-int client_banned(test_data_t *events_data);
 int full_recovery(test_data_t *events_data);
 int reset_counter(test_data_t *events_data);
 int resource_check(test_data_t *events_data);
 int test_libmmgrcli_api(test_data_t *events_data);
+int resource_acquire(test_data_t *test);
+int resource_release(test_data_t *test);
 
 #endif                          /* __MMGR_TEST_CASES_FILE__ */

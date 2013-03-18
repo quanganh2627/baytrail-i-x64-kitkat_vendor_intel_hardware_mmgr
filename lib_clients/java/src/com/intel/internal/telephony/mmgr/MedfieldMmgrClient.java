@@ -18,16 +18,6 @@
 
 package com.intel.internal.telephony.mmgr;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.IntBuffer;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 import android.os.Handler;
@@ -41,39 +31,58 @@ import com.intel.internal.telephony.ModemRequestArgs;
 import com.intel.internal.telephony.ModemStatus;
 import com.intel.internal.telephony.ModemStatusMonitor;
 import com.intel.internal.telephony.ModemNotificationArgs;
+import com.intel.internal.telephony.mmgr.requests.MmgrModemColdResetAckRequest;
+import com.intel.internal.telephony.mmgr.requests.MmgrModemLockRequest;
+import com.intel.internal.telephony.mmgr.requests.MmgrModemRecoveryRequest;
+import com.intel.internal.telephony.mmgr.requests.MmgrModemReleaseRequest;
+import com.intel.internal.telephony.mmgr.requests.MmgrModemRestartRequest;
+import com.intel.internal.telephony.mmgr.requests.MmgrModemShutdownAckRequest;
+import com.intel.internal.telephony.mmgr.requests.MmgrModemShutdownRequest;
+import com.intel.internal.telephony.mmgr.requests.MmgrRegisterEventsRequest;
+import com.intel.internal.telephony.mmgr.requests.MmgrRegisterNameRequest;
+import com.intel.internal.telephony.mmgr.responses.MmgrBaseResponse;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
-    /* Resource allocation: Clients -> MMGR */
-    protected final static int RESOURCE_ACQUIRE = 0;
-    protected final static int RESOURCE_RELEASE = 1;
-    /* Requests: Clients -> MMGR */
-    protected final static int REQUEST_MODEM_RECOVERY = 2;
-    protected final static int REQUEST_MODEM_RESTART = 3;
-    protected final static int REQUEST_FORCE_MODEM_SHUTDOWN = 4;
-    /* ACK: Clients -> MMGR */
-    protected final static int ACK_MODEM_COLD_RESET = 5;
-    protected final static int ACK_MODEM_SHUTDOWN = 6;
+    /* Clients -> MMGR */
+    public final static int SET_NAME = 0;
+    public final static int SET_EVENTS = 1;
+    public final static int RESOURCE_ACQUIRE = 2;
+    public final static int RESOURCE_RELEASE = 3;
+    public final static int REQUEST_MODEM_RECOVERY = 4;
+    public final static int REQUEST_MODEM_RESTART = 5;
+    public final static int REQUEST_FORCE_MODEM_SHUTDOWN = 6;
 
-    /* Events notification: MMGR -> Clients */
-    protected final static int STATUS_MODEM_DOWN = 0;
-    protected final static int STATUS_MODEM_UP = 1;
-    protected final static int STATUS_MODEM_OUT_OF_SERVICE = 2;
-    /* Notifications: MMGR -> Clients */
-    protected final static int NOTIFY_MODEM_WARM_RESET = 3;
-    protected final static int NOTIFY_MODEM_COLD_RESET = 4;
-    protected final static int NOTIFY_MODEM_SHUTDOWN = 5;
-    protected final static int NOTIFY_PLATFORM_REBOOT = 6;
-    protected final static int NOTIFY_MODEM_CORE_DUMP = 7;
-    /* ACK: MMGR -> Clients */
-    protected final static int NOTIFY_ACK = 8;
-    protected final static int NOTIFY_NACK = 9;
+    public final static int ACK_MODEM_COLD_RESET = 7;
+    public final static int ACK_MODEM_SHUTDOWN = 8;
 
-    protected LocalSocket clientSocket = null;
-    protected Handler handler = null;
-    protected Thread thread = null;
-    protected volatile boolean stopRequested = false;
-    protected int connectTimeoutMs = 2000;
+    /* MMGR -> Clients */
+    public final static int STATUS_MODEM_DOWN = 0;
+    public final static int STATUS_MODEM_UP = 1;
+    public final static int STATUS_MODEM_OUT_OF_SERVICE = 2;
+
+    public final static int NOTIFY_MODEM_WARM_RESET = 3;
+    public final static int NOTIFY_MODEM_COLD_RESET = 4;
+    public final static int NOTIFY_MODEM_SHUTDOWN = 5;
+    public final static int NOTIFY_PLATFORM_REBOOT = 6;
+    public final static int NOTIFY_MODEM_CORE_DUMP = 7;
+
+    public final static int NOTIFY_ACK = 8;
+    public final static int NOTIFY_NACK = 9;
+
+    public LocalSocket clientSocket = null;
+    public Handler handler = null;
+    public Thread thread = null;
+    public volatile boolean stopRequested = false;
+    public int connectTimeoutMs = 2000;
     private int subscribedEvents = 0;
 
     final Lock ackLock = new ReentrantLock();
@@ -130,11 +139,16 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.thread.setName("MMGR Client for " + clientName);
         this.thread.start();
 
-        this.sendRequest(new MmgrRegisterRequest(clientName,
-                this.subscribedEvents));
+        this.sendRequest(new MmgrRegisterNameRequest(clientName));
 
         if (!this.waitForAck(this.connectTimeoutMs)) {
-            throw new MmgrClientException("MMGR event subscribtion failed.");
+            throw new MmgrClientException("MMGR name subscribtion failed.");
+        }
+
+        this.sendRequest(new MmgrRegisterEventsRequest(this.subscribedEvents));
+
+        if (!this.waitForAck(this.connectTimeoutMs)) {
+            throw new MmgrClientException("MMGR events subscribtion failed.");
         }
         Log.d(Constants.LOG_TAG, "Client ready.");
     }
@@ -178,7 +192,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         }
         return ret;
     }
-    
+
     @Override
     public boolean waitForStatus(ModemStatus status, long timeout) {
         boolean ret = false;
@@ -218,7 +232,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             this.ackLock.unlock();
         }
     }
-    
+
     private void signalStatus() {
         this.statusLock.lock();
         try {
@@ -262,7 +276,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                         "Received %d bytes from service.", readCount));
 
                 if (readCount > 0) {
-                    this.handleResponse(recvBuffer, readCount);
+                    this.handleResponse(recvBuffer, 0, readCount);
                 } else {
                     return;
                 }
@@ -277,21 +291,25 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         }
     }
 
-    private void handleResponse(byte[] buffer, int length) {
+    private void handleResponse(byte[] buffer, int offset, int length) {
 
         ModemNotification notification = ModemNotification.NONE;
         ModemStatus status = ModemStatus.NONE;
 
-        IntBuffer intBuf = ByteBuffer.wrap(buffer, 0, length)
-                .order(ByteOrder.LITTLE_ENDIAN).asIntBuffer();
+        /*
+         * Uncomment this for debugging purpose only
+         *
+         * StringBuilder sb = new StringBuilder(); for(int i = 0; i < length;
+         * i++) { sb.append(String.format("%02X ", buffer[i])); }
+         * Log.v(Constants.LOG_TAG, "Received " + sb.toString());
+         */
 
-        int[] events = new int[intBuf.remaining()];
+        List<MmgrBaseResponse> parsedResponses = MmgrBaseResponse
+                .parseResponses(buffer, offset, length);
 
-        intBuf.get(events);
+        for (int i = 0; i < parsedResponses.size(); i++) {
 
-        for (int i = 0; i < length / 4; ++i) {
-
-            switch (events[i]) {
+            switch (parsedResponses.get(i).getResponseId()) {
             case MedfieldMmgrClient.STATUS_MODEM_DOWN:
                 Log.i(Constants.LOG_TAG, "Modem status = MODEM_DOWN");
                 status = ModemStatus.DOWN;
@@ -347,22 +365,23 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                 break;
 
             default:
-                Log.w(Constants.LOG_TAG, "Unknown data :" + events[i]);
+                Log.w(Constants.LOG_TAG, "Unknown response ID :"
+                        + parsedResponses.get(i).getResponseId());
             }
-            
-            this.currentStatus = status;
-            
-            if(status == this.waitedStatus) {
-                this.signalStatus();
-            }
-            if (status != ModemStatus.NONE) {
-                this.handler.obtainMessage(ModemStatusMonitor.MSG_STATUS,
-                        status).sendToTarget();
-            }
-            if (notification != ModemNotification.NONE) {
-                this.handler.obtainMessage(ModemStatusMonitor.MSG_NOTIFICATION,
-                        notification).sendToTarget();
-            }
+        }
+
+        this.currentStatus = status;
+
+        if (status == this.waitedStatus) {
+            this.signalStatus();
+        }
+        if (status != ModemStatus.NONE) {
+            this.handler.obtainMessage(ModemStatusMonitor.MSG_STATUS, status)
+                    .sendToTarget();
+        }
+        if (notification != ModemNotification.NONE) {
+            this.handler.obtainMessage(ModemStatusMonitor.MSG_NOTIFICATION,
+                    notification).sendToTarget();
         }
     }
 
@@ -371,6 +390,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         if (msg != null) {
             switch (msg.what) {
             case ModemStatusMonitor.MSG_NOTIFICATION_FEEDBACK:
+
                 ModemNotificationArgs feedback = (ModemNotificationArgs) msg.obj;
                 if (feedback != null && feedback.isAcknowledge()) {
                     try {
@@ -484,7 +504,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         default:
             Log.d(Constants.LOG_TAG,
                     String.format("No possible reply to notification %d",
-                            args.getNotification()));
+                            args.getNotification().getValue()));
         }
     }
 

@@ -23,7 +23,8 @@ INDENT_RULES="-linux -nut -cdw -il0 -i4"
 
 # All typdefs declared in source files (instead of header) or indent unknown
 # typedefs must be declared here
-TYPEDEFS_SRC=(bool GKeyFile core_dump_thread_t size_t test_case_t mmgr_cli_handle_t fd_set)
+TYPEDEFS_SRC=(bool GKeyFile core_dump_thread_t size_t test_case_t)
+TYPEDEFS_SRC+=(mmgr_cli_handle_t fd_set mcdr_status_t)
 
 function indent_c_mmgr
 {

@@ -16,26 +16,23 @@
  *
  */
 
-package com.intel.internal.telephony.mmgr;
+package com.intel.internal.telephony.mmgr.requests;
 
-import java.nio.ByteBuffer;
+import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
-import com.intel.internal.telephony.ModemRequestArgs;
+public class MmgrModemShutdownRequest extends MmgrBaseRequest {
 
-public class MmgrModemRecoveryRequest extends ModemRequestArgs {
-
-    @Override
-    public byte[] getFrame() {
-        ByteBuffer ret = ByteBuffer.allocate(8);
-
-        ret.putInt(MedfieldMmgrClient.REQUEST_MODEM_RECOVERY);
-        ret.putInt(super.getTimestamp());
-
-        return ret.array();
+    public MmgrModemShutdownRequest() {
+        super(MedfieldMmgrClient.REQUEST_FORCE_MODEM_SHUTDOWN);
     }
 
     @Override
     public String getName() {
-        return "ModemRecoveryRequest";
+        return "ModemShutdownRequest";
+    }
+
+    @Override
+    protected byte[] getPayload() {
+        return new byte[0];
     }
 }

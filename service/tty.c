@@ -205,6 +205,12 @@ e_mmgr_errors_t set_termio(int fd)
     struct termios newtio;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
+        LOG_ERROR("fcntl failed (%s)", strerror(errno));
+        ret = E_ERR_TTY_ERROR;
+        goto out;
+    }
+
     memset(&newtio, 0, sizeof(newtio));
 
     /* disable postprocess output characters */
@@ -227,6 +233,7 @@ e_mmgr_errors_t set_termio(int fd)
 
     tcflush(fd, TCIFLUSH);
     tcsetattr(fd, TCSANOW, &newtio);
+out:
     return ret;
 }
 

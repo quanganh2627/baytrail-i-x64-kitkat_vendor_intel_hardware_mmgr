@@ -21,296 +21,236 @@
 #include "errors.h"
 #include "logs.h"
 #include "config.h"
+#include <utils/Log.h>
+
+#define INTEGER(a) (int[]) {a}
 
 /* MMGR default value for configuration */
-#define DEF_MODEM_PORT               "/dev/ttyIFX0"
-#define DEF_LATEST_TTY_NAME          "/dev/gsmtty63"
-#define DEF_DELAY_BEFORE_AT          10
+#define DEF_MODEM_PORT "/dev/ttyIFX0"
+#define DEF_SHTDWN_DLC "/dev/gsmtty22"
+#define DEF_LATEST_TTY_NAME  "/dev/gsmtty63"
+#define DEF_LINK_LAYER "hsi"
+#define DEF_DELAY_BEFORE_AT INTEGER(3456)
 /* 27.010 5.7.2 max frame size */
-#define GPP_MAX_FRAME_SIZE           32768
+#define GPP_MAX_FRAME_SIZE INTEGER(32768)
 /* modem max frame size */
-#define MODEM_MAX_FRAME_SIZE         1509
+#define MODEM_MAX_FRAME_SIZE INTEGER(1509)
+
+/* flashless data */
+#define DEF_IS_FLASHLESS INTEGER(false)
+#define DEF_BB_PID "0x0452"
+#define DEF_BB_VID "0x1519"
+#define DEF_FLASH_PID "0x0716"
+#define DEF_FLASH_VID "0x8087"
+
 /* Modem recovery */
-#define DEF_MODEM_RESET_ENABLE       true
-#define DEF_MODEM_CORE_DUMP          true
-#define DEF_NB_WARM_RESET            5
-#define DEF_MODEM_COLD_RESET_ENABLE  true
-#define DEF_NB_COLD_RESET            1
-#define DEF_PLATFORM_REBOOT_ENABLE   true
-#define DEF_NB_PLATFORM_REBOOT       1
-#define DEF_MODEM_RESET_DELAY        5  /* in seconds */
-#define DEF_MIN_TIME_ISSUE           600        /* in seconds */
-#define DEF_DELAY_BEFORE_RESET       300        /* in milliseconds */
-#define DEF_DELAY_BEFORE_REBOOT      3  /* in seconds */
-#define DEF_MAX_RETRY_TIME           60
+#define DEF_MODEM_RESET_ENABLE INTEGER(true)
+#define DEF_NB_WARM_RESET INTEGER(5)
+#define DEF_NB_COLD_RESET INTEGER(1)
+#define DEF_NB_PLATFORM_REBOOT INTEGER(1)
+#define DEF_MODEM_RESET_DELAY INTEGER(5)        /* in seconds */
+#define DEF_MIN_TIME_ISSUE INTEGER(600) /* in seconds */
+#define DEF_DELAY_BEFORE_RESET INTEGER(300)     /* in milliseconds */
+#define DEF_DELAY_BEFORE_REBOOT INTEGER(3)      /* in seconds */
+#define DEF_MAX_RETRY_TIME INTEGER(60)
+#define DEF_MAX_TIMEOUT_ACK_COLD INTEGER(1)  /* in seconds */
+#define DEF_MAX_TIMEOUT_ACK_SHTDWN INTEGER(1)        /* in seconds */
 /* mmgr interface */
-#define DEF_NB_ALLOWED_CLIENT        12
-#define DEF_TIME_BANNED              600
-#define DEF_REQUESTS_BANNED          128
+#define DEF_NB_ALLOWED_CLIENT INTEGER(12)
+/*mcdr default values */
+#define DEF_MODEM_CORE_DUMP INTEGER(true)
+#define DEF_MCDR_OUTPUT "/logs/modemcrash"
+#define DEF_MCDR_DEVICE "/dev/ttyMFD1"
+#define DEF_MCDR_BAUDRATE INTEGER(3000000)
+#define DEF_MCDR_PID "0x0020"
+#define DEF_MCDR_VID "0x1519"
+#define DEF_MCDR_PROTOCOL "YMODEM"
 
-#define SET_STRING_PARAM(dest, src) do { \
-    strncpy(dest, src, MAX_SIZE_CONF_VAL + 1); \
-    dest[MAX_SIZE_CONF_VAL] = '\0'; \
-} while (0);
-
-#define SET_INTEGER_PARAM(dest, src) do { \
-    *dest = src; \
-} while (0);
-
-#define GET_VALUE(fd, group, key, dest, func, copy, type, print, err)  do { \
-    GError *gerror = NULL; \
-    if ((fd == NULL) || (group == NULL) || (key == NULL) || (dest == NULL)) { \
-        LOG_ERROR("At least one NULL parameter"); \
-        err = E_ERR_BAD_PARAMETER; \
-    } else { \
-        type read = func(fd, group, key, &gerror); \
-        if (gerror != NULL) { \
-            g_error_free(gerror); \
-            LOG_ERROR("READ ERROR: (%s)", gerror->message); \
-        } else { \
-            copy(dest, read); \
-            LOG_CONFIG("{group= %s ; key= %s} = " print, group, key, dest); \
-        } \
-        err = E_ERR_SUCCESS; \
-    } \
-} while (0);
+/* flashless default params: */
+#define DEF_NVM_FILES_PATH "/config/telephony"
+#define DEF_FLS_IN "modembinary.fls"
+#define DEF_CALIBRATION_PATH "calib.nvm"
 
 #define PRINT_GROUP "------ Group: %s ------\n"
 
+struct set_param;
+typedef void *(*read_param) (GKeyFile *, char *, char *, GError **);
+typedef void (*copy) (void *dest, void *src);
+typedef void (*display) (struct set_param * param);
+
+typedef struct type_setter {
+    read_param read;
+    size_t size;
+    copy init;
+    copy copy;
+    display display;
+} type_setter_t;
+
+typedef struct set_param {
+    char *key;
+    void *dest;
+    void *def;
+    type_setter_t set;
+} set_param_t;
+
 /**
- * get boolean value from file
+ * copy an integer default data. This function should be used
+ * to initialize an integer or boolean data with a default value declared
+ * with define
  *
- * @param [in] fd file descriptor
- * @param [in] group configuration file group
- * @param [in] key value key
  * @param [out] dest destination
+ * @param [in] src source
  *
- * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
- * @return E_ERR_SUCCESS if successful
+ * @return none
  */
-static e_mmgr_errors_t get_boolean(GKeyFile *fd, const char *group,
-                                   const char *key, bool *dest)
+static void init_integer(void *dest, void *src)
 {
-    int err;
-    GET_VALUE(fd, group, key, dest, g_key_file_get_boolean, SET_INTEGER_PARAM,
-              bool, "%d", err);
-    return err;
+    /* copy the content of the unnamed tab */
+    int *in = src;
+    int *out = dest;
+    *out = *in;
 }
 
 /**
- * get integer value from file
+ * copy an string data provided by glib
  *
- * @param [in] fd file descriptor
- * @param [in] group configuration file group
- * @param [in] key value key
  * @param [out] dest destination
+ * @param [in] src source
  *
- * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
- * @return E_ERR_SUCCESS if successful
+ * @return none
  */
-static e_mmgr_errors_t get_integer(GKeyFile *fd, const char *group,
-                                   const char *key, int *dest)
+static void copy_string(void *dest, void *src)
 {
-    int err;
-    GET_VALUE(fd, group, key, dest, g_key_file_get_integer, SET_INTEGER_PARAM,
-              int, "%d", err);
-    return err;
+    sscanf((char *)src, "%s", (char *)dest);
 }
 
 /**
- * get string value from file
+ * copy an integer/boolean data provided by glib
  *
- * @param [in] fd file descriptor
- * @param [in] group configuration file group
- * @param [in] key value key
  * @param [out] dest destination
+ * @param [in] src source
  *
- * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
- * @return E_ERR_SUCCESS if successful
+ * @return none
  */
-static e_mmgr_errors_t get_string(GKeyFile *fd, const char *group,
-                                  const char *key, char *dest)
+static void copy_integer(void *dest, void *src)
 {
-    int err;
-    GET_VALUE(fd, group, key, dest, g_key_file_get_string, SET_STRING_PARAM,
-              char *, "%s", err);
-    return err;
+    int *in = src;
+    int *out = dest;
+    *out = (int)in;
 }
 
 /**
- * Read the Modem Manager configuration file and update the structure
+ * display a value with its key
  *
- * @param [in] config_file configuration file path
- * @param [in,out] param mmgr parameters
+ * @param [in] param parameter to display
  *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
- * @return E_ERR_MISSING_FILE if config_file is missing
+ * @return none
  */
-static e_mmgr_errors_t read_config_file(const char *config_file,
-                                        mmgr_configuration_t *param)
+static void display_integer(set_param_t *param)
 {
-    int err = E_ERR_SUCCESS;
+    int *tmp = param->dest;
+    LOGV(PRINT_INTEGER, param->key, *tmp);
+}
+
+/**
+ * display a value with its key
+ *
+ * @param [in] param parameter to display
+ *
+ * @return none
+ */
+static void display_boolean(set_param_t *param)
+{
+    bool *tmp = param->dest;
     const char *state[] = { "DISABLED", "ENABLED" };
-
-    const char gnl_grp[] = "GENERAL";
-    const char modem_port_key[] = "ModemPort";
-    const char latest_tty_name_key[] = "LatestTTYName";
-    const char delay_at_key[] = "DelayBeforeFirstAt";
-    const char max_frame_size_key[] = "MaxFrameSize";
-
-    const char recov_grp[] = "RECOVERY";
-    const char modem_reset_enable_key[] = "ModemResetEnable";
-    const char mcdr_enable_key[] = "ModemCoreDumpEnable";
-    const char nb_warm_reset_key[] = "MaxModemWarmReset";
-    const char cold_reset_enabled_key[] = "ModemColdResetEnable";
-    const char nb_cold_reset_key[] = "MaxModemColdReset";
-    const char reboot_enabled_key[] = "PlatformRebootEnable";
-    const char nb_reboot_key[] = "MaxPlatformReboot";
-    const char reset_delay_key[] = "ModemResetDelay";
-    const char min_time_issue_key[] = "MinTimeIssue";
-    const char delay_reset_key[] = "DelayBeforeReset";
-    const char delay_reboot_key[] = "DelayBeforeReboot";
-    const char max_retry_time_key[] = "MaximumRetryTime";
-
-    const char interface_grp[] = "MMGR_INTERFACE";
-    const char max_clients_key[] = "NumberOfAllowedClient";
-    const char time_banned_key[] = "TimeBeforeBeingBanned";
-    const char request_banned_key[] = "RequestsBeforeBeingBanned";
-
-    GKeyFile *fd = g_key_file_new();
-    GError *gerror = NULL;
-
-    CHECK_PARAM(config_file, err, out);
-    CHECK_PARAM(param, err, out);
-
-    LOG_DEBUG("filename: %s", config_file);
-    if (access(config_file, F_OK) != 0) {
-        LOG_ERROR("config file is missing. Keeping default values");
-        err = E_ERR_MISSING_FILE;
-        goto out;
-    }
-
-    g_key_file_load_from_file(fd, config_file, G_KEY_FILE_NONE, &gerror);
-    if (gerror != NULL) {
-        LOG_ERROR("%s", gerror->message);
-        g_error_free(gerror);
-    }
-
-    get_string(fd, gnl_grp, modem_port_key, param->modem_port);
-    get_string(fd, gnl_grp, latest_tty_name_key, param->latest_tty_name);
-    get_integer(fd, gnl_grp, delay_at_key, &param->delay_before_at);
-    get_integer(fd, gnl_grp, max_frame_size_key, &param->max_frame_size);
-
-    get_boolean(fd, recov_grp, modem_reset_enable_key,
-                &param->modem_reset_enable);
-    get_boolean(fd, recov_grp, mcdr_enable_key, &param->modem_core_dump_enable);
-    get_integer(fd, recov_grp, reset_delay_key, &param->modem_reset_delay);
-    get_integer(fd, recov_grp, nb_warm_reset_key, &param->nb_warm_reset);
-    get_boolean(fd, recov_grp, cold_reset_enabled_key,
-                &param->modem_cold_reset_enable);
-    get_integer(fd, recov_grp, nb_cold_reset_key, &param->nb_cold_reset);
-    get_boolean(fd, recov_grp, reboot_enabled_key,
-                &param->platform_reboot_enable);
-    get_integer(fd, recov_grp, nb_reboot_key, &param->nb_platform_reboot);
-    get_integer(fd, recov_grp, min_time_issue_key, &param->min_time_issue);
-    get_integer(fd, recov_grp, delay_reset_key, &param->delay_before_reset);
-    get_integer(fd, recov_grp, delay_reboot_key, &param->delay_before_reboot);
-    get_integer(fd, recov_grp, max_retry_time_key, &param->max_retry_time);
-
-    get_integer(fd, interface_grp, max_clients_key, &param->max_clients);
-    get_integer(fd, interface_grp, time_banned_key, &param->time_banned);
-    get_integer(fd, interface_grp, request_banned_key,
-                &param->max_requests_banned);
-
-    g_key_file_free(fd);
-out:
-    LOG_DEBUG("%s parameters:\n"
-              PRINT_GROUP
-              PRINT_STRING
-              PRINT_STRING
-              PRINT_INTEGER
-              PRINT_INTEGER
-              PRINT_GROUP
-              PRINT_BOOLEAN
-              PRINT_BOOLEAN
-              PRINT_INTEGER
-              PRINT_BOOLEAN
-              PRINT_INTEGER
-              PRINT_BOOLEAN
-              PRINT_INTEGER
-              PRINT_INTEGER
-              PRINT_INTEGER
-              PRINT_INTEGER
-              PRINT_INTEGER
-              PRINT_INTEGER
-              PRINT_GROUP PRINT_INTEGER PRINT_INTEGER PRINT_INTEGER,
-              /* feed it: */
-              MODULE_NAME,
-              gnl_grp,
-              modem_port_key, param->modem_port,
-              latest_tty_name_key, param->latest_tty_name,
-              delay_at_key, param->delay_before_at,
-              max_frame_size_key, param->max_frame_size,
-              recov_grp,
-              modem_reset_enable_key, state[param->modem_reset_enable],
-              mcdr_enable_key, state[param->modem_core_dump_enable],
-              nb_warm_reset_key, param->nb_warm_reset,
-              cold_reset_enabled_key, state[param->modem_cold_reset_enable],
-              nb_cold_reset_key, param->nb_cold_reset,
-              reboot_enabled_key, state[param->platform_reboot_enable],
-              nb_reboot_key, param->nb_platform_reboot,
-              reset_delay_key, param->modem_reset_delay,
-              min_time_issue_key, param->min_time_issue,
-              delay_reset_key, param->delay_before_reset,
-              delay_reboot_key, param->delay_before_reboot,
-              max_retry_time_key, param->max_retry_time,
-              interface_grp,
-              max_clients_key, param->max_clients,
-              time_banned_key, param->time_banned,
-              request_banned_key, param->max_requests_banned);
-    return err;
+    LOGV(PRINT_STRING, param->key, state[*tmp]);
 }
 
 /**
- * initialize the Modem Manager parameters with default values
+ * display a value with its key
  *
- * @param [in,out] parameters mmgr parameters
+ * @param [in] param parameter to display
+ *
+ * @return none
+ */
+static void display_string(set_param_t *param)
+{
+    LOGV(PRINT_STRING, param->key, (char *)param->dest);
+}
+
+/**
+ * This function initialize one parameter. The variable is
+ * configured from the configuration file. If the file doesn't exist or
+ * if the parameter key/group is not defined, the default value is used
+ *
+ * @param [in] fd configuration file
+ * @param [in] grp group configuration file group
+ * @param [in] param list of param to configure
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if parameters is NULL
+ * @return E_ERR_BAD_PARAMETER if parameters or config_file is NULL
  */
-static e_mmgr_errors_t set_default_values(mmgr_configuration_t *parameters)
+static e_mmgr_errors_t set_param(GKeyFile *fd, char *grp, set_param_t *param)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int max_frame_size = (MODEM_MAX_FRAME_SIZE < GPP_MAX_FRAME_SIZE) ?
-        MODEM_MAX_FRAME_SIZE : GPP_MAX_FRAME_SIZE;
+    GError *gerror = NULL;
 
-    CHECK_PARAM(parameters, ret, out);
+    void *src = NULL;
 
-    LOG_CONFIG("Setting default values");
-    /* general */
-    SET_STRING_PARAM(parameters->modem_port, DEF_MODEM_PORT);
-    SET_STRING_PARAM(parameters->latest_tty_name, DEF_LATEST_TTY_NAME);
-    parameters->delay_before_at = DEF_DELAY_BEFORE_AT;
-    parameters->max_frame_size = max_frame_size;
-    /* modem recovery parameters */
-    parameters->modem_reset_enable = DEF_MODEM_RESET_ENABLE;
-    parameters->modem_core_dump_enable = DEF_MODEM_CORE_DUMP;
-    parameters->nb_warm_reset = DEF_NB_WARM_RESET;
-    parameters->modem_cold_reset_enable = DEF_MODEM_COLD_RESET_ENABLE;
-    parameters->nb_cold_reset = DEF_NB_COLD_RESET;
-    parameters->platform_reboot_enable = DEF_PLATFORM_REBOOT_ENABLE;
-    parameters->nb_platform_reboot = DEF_NB_PLATFORM_REBOOT;
-    parameters->modem_reset_delay = DEF_MODEM_RESET_DELAY;
-    parameters->min_time_issue = DEF_MIN_TIME_ISSUE;
-    parameters->delay_before_reset = DEF_DELAY_BEFORE_RESET;
-    parameters->delay_before_reboot = DEF_DELAY_BEFORE_REBOOT;
-    parameters->max_retry_time = DEF_MAX_RETRY_TIME;
-    /* interface */
-    parameters->max_clients = DEF_NB_ALLOWED_CLIENT;
-    parameters->time_banned = DEF_TIME_BANNED;
-    parameters->max_requests_banned = DEF_REQUESTS_BANNED;
+    CHECK_PARAM(grp, ret, out);
+    CHECK_PARAM(param, ret, out);
+    CHECK_PARAM(param->set.init, ret, out);
+    CHECK_PARAM(param->set.read, ret, out);
+    CHECK_PARAM(param->set.copy, ret, out);
+    CHECK_PARAM(param->set.display, ret, out);
+
+    /* init value */
+    memset(param->dest, 0, param->set.size);
+    param->set.init(param->dest, param->def);
+
+    if (fd != NULL) {
+        src = param->set.read(fd, grp, param->key, &gerror);
+
+        if (gerror == NULL) {
+            param->set.copy(param->dest, src);
+            ret = E_ERR_SUCCESS;
+        } else {
+            LOG_ERROR("READ ERROR: (%s)", gerror->message);
+            g_error_free(gerror);
+        }
+    }
+    param->set.display(param);
+out:
+    return ret;
+}
+
+/**
+ * This function initialize a list of parameters. Variables are
+ * configured from the configuration file. If the file doesn't exist or
+ * if the parameter key/group is not defined, the default value is used
+ *
+ * @param [in] fd configuration file
+ * @param [in] grp group configuration file group
+ * @param [in] param list of param to configure
+ * @param [in] size size of list
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if parameters or config_file is NULL
+ */
+static e_mmgr_errors_t parse(GKeyFile *fd, char *grp, set_param_t *param,
+                             size_t size)
+{
+    size_t i;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    /* do not check fd here */
+    CHECK_PARAM(grp, ret, out);
+    CHECK_PARAM(param, ret, out);
+
+    LOGV(PRINT_GROUP, grp);
+    for (i = 0; i < size; i++) {
+        set_param(fd, grp, &param[i]);
+    }
 out:
     return ret;
 }
@@ -320,7 +260,7 @@ out:
  * configured from the configuration file. If the file doesn't exist or
  * if the paramater is not defined, the default value is used
  *
- * @param [in,out] parameters mmgr parameters
+ * @param [in,out] params mmgr parameters
  * @param [in] config_file configuration file path
  *
  * @return E_ERR_SUCCESS if successful
@@ -328,18 +268,195 @@ out:
  * @return E_ERR_MISSING_FILE if config_file is missing
  *                            (default values are used)
  */
-e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *parameters,
+e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
                                const char *config_file)
 {
-    int ret;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(parameters, ret, out_mmgr_init);
-    CHECK_PARAM(config_file, ret, out_mmgr_init);
+    CHECK_PARAM(config_file, ret, out);
+    CHECK_PARAM(params, ret, out);
 
-    ret = set_default_values(parameters);
-    if (ret != E_ERR_SUCCESS)
-        goto out_mmgr_init;
-    ret = read_config_file(config_file, parameters);
-out_mmgr_init:
+    GKeyFile *fd = NULL;
+    GError *gerror = NULL;
+
+    type_setter_t string = {.read = (read_param) g_key_file_get_string,
+        .size = MAX_SIZE_CONF_VAL,.init = copy_string,
+        .copy = copy_string,.display = display_string
+    };
+    type_setter_t integer = {.read = (read_param) g_key_file_get_integer,
+        .size = sizeof(int),.init = init_integer,
+        .copy = copy_integer,.display = display_integer
+    };
+    type_setter_t boolean = {.read = (read_param) g_key_file_get_boolean,
+        .size = sizeof(bool),.init = init_integer,
+        .copy = copy_integer,.display = display_boolean
+    };
+
+    /* special test case: */
+    int *max_frame_size = (MODEM_MAX_FRAME_SIZE < GPP_MAX_FRAME_SIZE) ?
+        MODEM_MAX_FRAME_SIZE : GPP_MAX_FRAME_SIZE;
+
+    set_param_t gnl[] = {
+        {.key = "ModemPort",.dest = &params->modem_port,.def =
+         DEF_MODEM_PORT,.set = string},
+        {.key = "ShutdownDLC",.dest = &params->shtdwn_dlc,.def =
+         DEF_SHTDWN_DLC,.set = string},
+        {.key = "LatestTTYName",.dest = &params->latest_tty_name,
+         .def = DEF_LATEST_TTY_NAME,.set = string},
+        {.key = "LinkLayer",.dest = &params->link_layer,
+         .def = DEF_LINK_LAYER,.set = string},
+        {.key = "DelayBeforeFirstAt",.dest = &params->delay_before_at,
+         .def = DEF_DELAY_BEFORE_AT,.set = integer},
+        {.key = "MaxFrameSize",.dest = &params->max_frame_size,
+         .def = max_frame_size,.set = integer},
+        {.key = "isFlashLess",.dest = &params->is_flashless,
+         .def = DEF_IS_FLASHLESS,.set = boolean},
+        {.key = "BaseBandPid",.dest = &params->bb_pid,.def = DEF_BB_PID,
+         .set = string},
+        {.key = "BaseBandVid",.dest = &params->bb_vid,.def = DEF_BB_VID,
+         .set = string},
+        {.key = "FlashPid",.dest = &params->flash_pid,
+         .def = DEF_FLASH_PID,.set = string},
+        {.key = "FlashVid",.dest = &params->flash_vid,
+         .def = DEF_FLASH_VID,.set = string},
+    };
+
+    set_param_t recov[] = {
+        {.key = "ModemResetEnable",.dest = &params->modem_reset_enable,.def =
+         DEF_MODEM_RESET_ENABLE,.set = boolean},
+        {.key = "MaxModemWarmReset",.dest = &params->nb_warm_reset,.def =
+         DEF_NB_WARM_RESET,.set = integer},
+        {.key = "MaxModemColdReset",.dest = &params->nb_cold_reset,.def =
+         DEF_NB_COLD_RESET,.set = integer},
+        {.key = "MaxPlatformReboot",.dest = &params->nb_platform_reboot,.def =
+         DEF_NB_PLATFORM_REBOOT,.set = integer},
+        {.key = "ModemResetDelay",.dest = &params->modem_reset_delay,.def =
+         DEF_MODEM_RESET_DELAY,.set = integer},
+        {.key = "MinTimeIssue",.dest = &params->min_time_issue,.def =
+         DEF_MIN_TIME_ISSUE,.set = integer},
+        {.key = "DelayBeforeReset",.dest = &params->delay_before_reset,.def =
+         DEF_DELAY_BEFORE_RESET,.set = integer},
+        {.key = "DelayBeforeReboot",.dest = &params->delay_before_reboot,.def =
+         DEF_DELAY_BEFORE_REBOOT,.set = integer},
+        {.key = "MaximumRetryTime",.dest = &params->max_retry_time,.def =
+         DEF_MAX_RETRY_TIME,.set = integer},
+        {.key = "MaxAckColdReset",.dest = &params->timeout_ack_cold,.def =
+         DEF_MAX_TIMEOUT_ACK_COLD,.set = integer},
+        {.key = "MaxAckShtdwn",.dest = &params->timeout_ack_shtdwn,.def =
+         DEF_MAX_TIMEOUT_ACK_SHTDWN,.set = integer},
+    };
+
+    set_param_t interface[] = {
+        {.key = "NumberOfAllowedClient",.dest = &params->max_clients,.def =
+         DEF_NB_ALLOWED_CLIENT,.set = integer},
+    };
+
+    set_param_t mcdr[] = {
+        {.key = "ModemCoreDumpEnable",.dest =
+         &params->modem_core_dump_enable,.def = DEF_MODEM_CORE_DUMP,.set =
+         boolean},
+        {.key = "OutpoutPath",.dest = &params->mcdr_path,.def =
+         DEF_MCDR_OUTPUT,.set = string},
+        {.key = "McdrPort",.dest = &params->mcdr_device,.def =
+         DEF_MCDR_DEVICE,.set = string},
+        {.key = "Baudrate",.dest = &params->mcdr_baudrate,.def =
+         DEF_MCDR_BAUDRATE,.set = integer},
+        {.key = "McdrPid",.dest = &params->mcdr_pid,.def =
+         DEF_MCDR_PID,.set = string},
+        {.key = "McdrVid",.dest = &params->mcdr_vid,.def =
+         DEF_MCDR_VID,.set = string},
+        {.key = "McdrProtocol",.dest = &params->mcdr_protocol,.def =
+         DEF_MCDR_PROTOCOL,.set = string},
+    };
+
+    LOG_DEBUG("filename: %s", config_file);
+    if (access(config_file, F_OK) != 0) {
+        LOG_ERROR("config file is missing. Keeping default values");
+        ret = E_ERR_MISSING_FILE;
+    } else {
+        fd = g_key_file_new();
+        g_key_file_load_from_file(fd, config_file, G_KEY_FILE_NONE, &gerror);
+        if (gerror != NULL) {
+            LOG_ERROR("%s", gerror->message);
+            g_error_free(gerror);
+        }
+    }
+    parse(fd, "GENERAL", gnl, sizeof(gnl) / sizeof(*gnl));
+    parse(fd, "RECOVERY", recov, sizeof(recov) / sizeof(*recov));
+    parse(fd, "MMGR_INTERFACE", interface,
+          sizeof(interface) / sizeof(*interface));
+    parse(fd, "MCDR", mcdr, sizeof(mcdr) / sizeof(*mcdr));
+
+out:
+    return ret;
+}
+
+/**
+ * Read the Modem Manager configuration file related to flashless modem
+ * and update the structure
+ *
+ * @param [in] config_file configuration file path
+ * @param [out] fls_in fls input file
+ * @param [out] fls_out fls output file
+ * @param [out] cal calibration NVM file
+ * @param [out] nvm_path nvm path folder
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
+ * @return E_ERR_MISSING_FILE if config_file is missing
+ */
+e_mmgr_errors_t modem_info_flashless_config(char *config_file, char *fls_in,
+                                            char *fls_out, char *cal,
+                                            char *nvm_path)
+{
+    int ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(config_file, ret, out);
+    CHECK_PARAM(fls_in, ret, out);
+    CHECK_PARAM(fls_out, ret, out);
+    CHECK_PARAM(cal, ret, out);
+    CHECK_PARAM(nvm_path, ret, out);
+
+    char tmp_fls[MAX_SIZE_CONF_VAL];
+    char tmp_cal[MAX_SIZE_CONF_VAL];
+
+    type_setter_t string = {.read = (read_param) g_key_file_get_string,
+        .size = MAX_SIZE_CONF_VAL,.init = copy_string,
+        .copy = copy_string,.display = display_string
+    };
+
+    GKeyFile *fd = NULL;
+    GError *gerror = NULL;
+
+    set_param_t list[] = {
+        {.key = "Binary",.dest = tmp_fls,.def = DEF_FLS_IN,.set = string},
+        {.key = "Calibration",.dest = tmp_cal,.def =
+         DEF_CALIBRATION_PATH,.set = string},
+        {.key = "Folder",.dest = nvm_path,.def =
+         DEF_NVM_FILES_PATH,.set = string},
+    };
+
+    LOG_DEBUG("filename: %s", config_file);
+    if (access(config_file, F_OK) != 0) {
+        LOG_ERROR("config file is missing. Keeping default values");
+        ret = E_ERR_MISSING_FILE;
+    } else {
+        fd = g_key_file_new();
+        g_key_file_load_from_file(fd, config_file, G_KEY_FILE_NONE, &gerror);
+        if (gerror != NULL) {
+            LOG_ERROR("%s", gerror->message);
+            g_error_free(gerror);
+        }
+    }
+    parse(fd, "RUNTIME", list, sizeof(list) / sizeof(*list));
+
+    /* set full path */
+    snprintf(fls_in, MAX_SIZE_CONF_VAL - 1, "%s/%s", nvm_path, tmp_fls);
+    snprintf(cal, MAX_SIZE_CONF_VAL - 1, "%s/%s", nvm_path, tmp_cal);
+
+    memset(fls_out, 0, MAX_SIZE_CONF_VAL);
+    snprintf(fls_out, MAX_SIZE_CONF_VAL - 1, "%s.out", fls_in);
+    LOGV(PRINT_STRING, "fls_out", fls_out);
+out:
     return ret;
 }

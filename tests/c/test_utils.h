@@ -61,7 +61,6 @@ typedef struct aplog_thread {
 
 int modem_state_set(test_data_t *test_data, int state);
 int remove_file(char *filename);
-int is_file_exists(const char *path, unsigned long rights);
 int compare_file_content(const char *path, const char *data, int len);
 int wait_for_state(test_data_t *thread_data, int state, int timeout);
 int send_at_cmd(char *command, int command_size);

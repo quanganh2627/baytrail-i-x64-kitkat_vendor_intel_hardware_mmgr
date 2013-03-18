@@ -29,9 +29,6 @@
 #include "reset_escalation.h"
 #include "tty.h"
 
-/* sysfs file to configure cold boot */
-#define FORCE_COLD_BOOT_SYSFS "/sys/module/intel_mid/parameters/force_cold_boot"
-
 /**
  * Perform a pre modem warm reset
  *
@@ -49,7 +46,7 @@ static e_reset_operation_state_t pre_modem_warm_reset(reset_management_t
     CHECK_PARAM(p_reset, ret, out);
 
     LOG_DEBUG("events 0x%.2X", p_reset->modem_info->ev);
-    if (!(p_reset->modem_info->ev & E_EV_FORCE_RESET) &&
+    if (!(p_reset->modem_info->ev & E_EV_CONF_FAILED) &&
         ((p_reset->modem_info->ev & E_EV_MODEM_SELF_RESET) ||
          (p_reset->modem_info->ev & E_EV_CORE_DUMP_SUCCEED))) {
         LOG_DEBUG("WARM RESET: skipped");
@@ -314,7 +311,6 @@ e_mmgr_errors_t pre_modem_escalation_recovery(reset_management_t *p_reset)
             p_reset->level.counter--;
             break;
         case E_OPERATION_SKIP:
-            LOG_DEBUG("operation skipped");
             break;
         case E_OPERATION_NEXT:
             LOG_DEBUG("next operation");
@@ -384,7 +380,6 @@ e_mmgr_errors_t escalation_recovery_init(const mmgr_configuration_t *config,
     int i = 0;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     reset_operation_t *p_process = NULL;
-    char *states[] = { "DISABLED", "ENABLED" };
 
     CHECK_PARAM(config, ret, out);
     CHECK_PARAM(p_reset, ret, out);
@@ -425,15 +420,16 @@ e_mmgr_errors_t escalation_recovery_init(const mmgr_configuration_t *config,
 
         /* structure initialization: */
         p_process = &p_reset->process[E_EL_MODEM_WARM_RESET];
-        p_process->retry_allowed = config->nb_warm_reset;
+        if (!config->is_flashless)
+            p_process->retry_allowed = config->nb_warm_reset;
 
-        if (config->modem_cold_reset_enable) {
+        if (config->nb_cold_reset > 0) {
             p_process->next_level = E_EL_MODEM_COLD_RESET;
             p_process = &p_reset->process[E_EL_MODEM_COLD_RESET];
             p_process->retry_allowed = config->nb_cold_reset;
         }
 
-        if (config->platform_reboot_enable) {
+        if (config->nb_platform_reboot > 0) {
             p_process->next_level = E_EL_PLATFORM_REBOOT;
             p_process = &p_reset->process[E_EL_PLATFORM_REBOOT];
             p_process->retry_allowed = config->nb_platform_reboot;
@@ -444,6 +440,7 @@ e_mmgr_errors_t escalation_recovery_init(const mmgr_configuration_t *config,
     p_process = &p_reset->process[E_EL_MODEM_OUT_OF_SERVICE];
     p_process->retry_allowed = -1;
     p_process->next_level = E_EL_MODEM_OUT_OF_SERVICE;
+
 out:
     return ret;
 }

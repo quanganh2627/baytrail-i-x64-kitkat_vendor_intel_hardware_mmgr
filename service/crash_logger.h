@@ -24,7 +24,6 @@
 
 /* File name for AP initiated modem reset */
 #define CL_FILE_PERMISSIONS (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH)
-#define MMGR_UMASK (S_IXUSR|S_IXGRP|S_IWOTH|S_IXOTH)
 #define LOGS_FOLDER "/logs"
 #define MODEM_LOGS_FOLDER LOGS_FOLDER"/modemcrash"
 #define CL_AP_RESET_FILE MODEM_LOGS_FOLDER"/apimr.txt"
