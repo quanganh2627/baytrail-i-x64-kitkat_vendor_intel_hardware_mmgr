@@ -484,7 +484,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         default:
             Log.d(Constants.LOG_TAG,
                     String.format("No possible reply to notification %d",
-                            args.getNotification().getValue()));
+                            args.getNotification()));
         }
     }
 
