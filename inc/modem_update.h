@@ -42,6 +42,7 @@ extern "C" {
 
     typedef struct mup_fw_update_params {
         mup_interface_t *handle;
+        char *mdm_com_port;
         char *fw_file_path;
         size_t fw_file_path_len;
         int erase_all;

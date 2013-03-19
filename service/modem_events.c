@@ -54,13 +54,19 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
+    char *flashing_interface = NULL;
 
     if (mmgr->config.is_flashless) {
 
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
 
-        ret = flash_modem(&mmgr->info);
+        if (strcmp(mmgr->config.link_layer, "hsi") == 0)
+            flashing_interface = "/dev/ttyIFX1";
+        else if (strcmp(mmgr->config.link_layer, "hsic") == 0)
+            flashing_interface = mmgr->events.bus_events.modem_flash_path;
+
+        ret = flash_modem(&mmgr->info, flashing_interface);
 
         //@TODO: fix that into flash_modem/modem_specific
         if (strcmp(mmgr->config.link_layer, "hsic") == 0) {

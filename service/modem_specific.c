@@ -99,12 +99,13 @@ out:
  * flash modem data
  *
  * @param[in] info modem data
+ * @param[in] comport modem communication port for flashing
  *
  * @return E_ERR_FAILED if operation fails
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info is empty
  */
-e_mmgr_errors_t flash_modem(modem_info_t *info)
+e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mup_interface_t *handle = NULL;
@@ -119,6 +120,7 @@ e_mmgr_errors_t flash_modem(modem_info_t *info)
 
     mup_fw_update_params_t params = {
         .handle = handle,
+        .mdm_com_port = comport,
         .fw_file_path = info->fls_out,
         .fw_file_path_len = strnlen(info->fls_in, MAX_SIZE_CONF_VAL),
         .erase_all = false      /* for flashless modem, this should be false */

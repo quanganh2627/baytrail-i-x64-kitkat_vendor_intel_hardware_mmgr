@@ -35,7 +35,7 @@ e_mmgr_errors_t get_modem_state(int fd_mcd, e_modem_events_type_t *state);
 e_mmgr_errors_t start_hsic(modem_info_t *info);
 e_mmgr_errors_t stop_hsic(modem_info_t *info);
 e_mmgr_errors_t regen_fls(modem_info_t *info);
-e_mmgr_errors_t flash_modem(modem_info_t *info);
+e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport);
 e_mmgr_errors_t set_mcd_poll_states(modem_info_t *info);
 
 void mup_log(const char *msg, size_t msg_len);
