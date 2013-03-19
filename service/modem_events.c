@@ -66,10 +66,10 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
             //@TODO: wait for ttyACM0 to appear after flash
             sleep(4);
+            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         }
 
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     }
 
 out:
@@ -552,9 +552,12 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
 
-        if (mmgr->events.modem_state & E_MDM_STATE_FLASH_READY) {
+        if (((strcmp(mmgr->config.link_layer, "hsic") == 0) &&
+                mmgr->events.modem_state & E_MDM_STATE_FLASH_READY) ||
+                (strcmp(mmgr->config.link_layer, "hsi") == 0)) {
             ret = do_flash(mmgr);
         }
+
     } else if (state & E_EV_IPC_READY) {
 
         LOG_DEBUG("current state: E_EV_IPC_READY");
@@ -641,7 +644,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.modem_state |= E_MDM_STATE_FLASH_READY;
         mmgr->events.modem_state &= ~E_MDM_STATE_BB_READY;
-        if (1) {                //@TODO: REVERT ME mmgr->events.modem_state & E_MDM_STATE_FW_DL_READY) {
+        if (mmgr->events.modem_state & E_MDM_STATE_FW_DL_READY) {
             ret = do_flash(mmgr);
         }
     } else if (get_bus_state(&mmgr->events.bus_events) & MDM_CD_READY) {
