@@ -94,6 +94,7 @@ extern "C" {
 
     e_mup_err_t mup_initialize(mup_interface_t **handle,
                                mup_ap_log_callback_t ap_log_callback);
+    e_mup_err_t mup_check_fw_version(char *path, char *version);
     e_mup_err_t mup_update_fw(mup_fw_update_params_t *params);
     e_mup_err_t mup_update_rnd(mup_rndcert_update_params_t *params);
     e_mup_err_t mup_read_rnd(mup_rndcert_read_params_t *params);

@@ -219,6 +219,9 @@ int resource_acquire(test_data_t *test)
 
     if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
         ret = E_ERR_SUCCESS;
+
+    if (test->config.is_flashless)
+        wait_for_state(test, E_MMGR_RESPONSE_MODEM_FW_RESULT, 20);
 out:
     return ret;
 }

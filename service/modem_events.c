@@ -52,9 +52,10 @@
 static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    char *flashing_interface = NULL;
+    mmgr_cli_fw_update_result_t result = {.id = E_MODEM_FW_ERROR_UNSPECIFIED };
 
     CHECK_PARAM(mmgr, ret, out);
-    char *flashing_interface = NULL;
 
     if (mmgr->config.is_flashless) {
 
@@ -66,15 +67,22 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         else if (strcmp(mmgr->config.link_layer, "hsic") == 0)
             flashing_interface = mmgr->events.bus_events.modem_flash_path;
 
-        ret = flash_modem(&mmgr->info, flashing_interface);
+        ret = flash_modem(&mmgr->info, flashing_interface, &result.id);
+        inform_all_clients(&mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
+                           &result);
+        if (result.id == E_MODEM_FW_BAD_FAMILY) {
+            modem_shutdown(mmgr);
+            mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
+            broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
+        } else if (result.id == E_MODEM_FW_SUCCEED) {
 
-        //@TODO: fix that into flash_modem/modem_specific
-        if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
-            //@TODO: wait for ttyACM0 to appear after flash
-            sleep(4);
-            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+            /* @TODO: fix that into flash_modem/modem_specific */
+            if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
+                /* @TODO: wait for ttyACM0 to appear after flash */
+                sleep(4);
+                start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+            }
         }
-
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     }
 

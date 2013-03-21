@@ -35,6 +35,7 @@
 #define MUP_FUNC_INIT "mup_initialize"
 #define MUP_FUNC_UP_FW "mup_update_fw"
 #define MUP_FUNC_DISPOSE "mup_dispose"
+#define MUP_FUNC_FW_VERSION "mup_check_fw_version"
 
 /**
  * callback to handle aplog messages
@@ -77,6 +78,8 @@ e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
         *(void **)&info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
         *(void **)&info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
         *(void **)&info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
+        *(void **)&info->mup.check_fw_version =
+            dlsym(info->mup.hdle, MUP_FUNC_FW_VERSION);
 
         p = (char *)dlerror();
         if (p != NULL) {
@@ -100,12 +103,14 @@ out:
  *
  * @param[in] info modem data
  * @param[in] comport modem communication port for flashing
+ * @param[out] verdict provides modem fw update status
  *
  * @return E_ERR_FAILED if operation fails
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info is empty
  */
-e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport)
+e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport,
+        e_modem_fw_error_t *verdict)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mup_interface_t *handle = NULL;
@@ -118,17 +123,29 @@ e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport)
         goto out;
     }
 
+    /* @TODO retrieve modem version via SFI table and remove this static value */
+    if (info->mup.check_fw_version(info->fl_conf.run_inj_fls, "XMM7160") !=
+        E_MUP_SUCCEED) {
+        LOG_ERROR("Bad modem family. Shutdown the modem");
+        ret = E_ERR_FAILED;
+        *verdict = E_MODEM_FW_BAD_FAMILY;
+        goto out;
+    }
+
     mup_fw_update_params_t params = {
         .handle = handle,
         .mdm_com_port = comport,
-        .fw_file_path = info->fls_out,
-        .fw_file_path_len = strnlen(info->fls_in, MAX_SIZE_CONF_VAL),
+        .fw_file_path = info->fl_conf.run_inj_fls,
+        .fw_file_path_len = strnlen(info->fl_conf.run_inj_fls,
+                                    MAX_SIZE_CONF_VAL),
         .erase_all = false      /* for flashless modem, this should be false */
     };
 
     if (E_MUP_SUCCEED != info->mup.update_fw(&params)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("modem firmware update failed");
+    } else {
+        *verdict = E_MODEM_FW_SUCCEED;
     }
 
     if (E_MUP_SUCCEED != info->mup.dispose(handle)) {
@@ -194,31 +211,32 @@ e_mmgr_errors_t regen_fls(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    // @TODO: clean this up to use InjectionTool as a lib
-    // Currently InjectionTool is in C++, which means we can't link to it from C
-    // without using g++
-    if ((ret = is_file_exists(info->fls_in, 0)) != E_ERR_SUCCESS) {
-        LOG_ERROR("fls file (%s) is missing", info->fls_in);
+    /* @TODO: replace InjectionTool by download lib */
+    if ((ret = is_file_exists(info->fl_conf.run_boot_fls, 0)) != E_ERR_SUCCESS) {
+        LOG_ERROR("fls file (%s) is missing", info->fl_conf.run_boot_fls);
         goto out;
     }
+
     ret = E_ERR_FAILED;
-    remove(info->fls_out);
+    remove(info->fl_conf.run_inj_fls);
     pid_t chld = fork();
     if (chld == 0) {
         LOG_DEBUG("trying to package fls file");
-        execl(INJECTION_TOOL, "injection_tool", "-i", info->fls_in,
-              "-o", info->fls_out, "-n", info->nvm_files_path, NULL);
+        execl(INJECTION_TOOL, "injection_tool", "-i",
+              info->fl_conf.run_boot_fls, "-o", info->fl_conf.run_inj_fls, "-n",
+              info->fl_conf.run_path, NULL);
         LOG_ERROR("execl has failed");
         exit(0);
     } else {
         waitpid(chld, &status, 0);
         if ((status == 0)
-            && (is_file_exists(info->fls_out, 0) == E_ERR_SUCCESS)) {
+            && (is_file_exists(info->fl_conf.run_inj_fls, 0) == E_ERR_SUCCESS)) {
             ret = E_ERR_SUCCESS;
         }
     }
     if (ret == E_ERR_SUCCESS) {
-        LOG_INFO("fls file created successfully (%s)", info->fls_out);
+        LOG_INFO("fls file created successfully (%s)",
+                 info->fl_conf.run_inj_fls);
     } else {
         LOG_ERROR("failed to create fls file");
     }

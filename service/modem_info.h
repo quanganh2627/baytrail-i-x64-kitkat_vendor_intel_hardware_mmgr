@@ -46,6 +46,7 @@ typedef struct mup_op {
                                mup_ap_log_callback_t ap_log_callback);
     e_mup_err_t (*update_fw) (mup_fw_update_params_t *params);
     e_mup_err_t (*dispose) (mup_interface_t *handle);
+    e_mup_err_t (*check_fw_version) (char *fw_path, char *version);
 } mup_op_t;
 
 typedef struct modem_info {
@@ -55,10 +56,7 @@ typedef struct modem_info {
     int fd_mcd;
     int polled_states;
     int restore_timeout;
-    char fls_in[MAX_SIZE_CONF_VAL];
-    char fls_out[MAX_SIZE_CONF_VAL];
-    char nvm_files_path[MAX_SIZE_CONF_VAL];
-    char cal_path[MAX_SIZE_CONF_VAL];
+    flashless_config_t fl_conf;
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,

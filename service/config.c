@@ -57,7 +57,7 @@
 #define DEF_MAX_TIMEOUT_ACK_SHTDWN INTEGER(1)   /* in seconds */
 /* mmgr interface */
 #define DEF_NB_ALLOWED_CLIENT INTEGER(12)
-/*mcdr default values */
+/* mcdr default values */
 #define DEF_MODEM_CORE_DUMP INTEGER(true)
 #define DEF_MCDR_OUTPUT "/logs/modemcrash"
 #define DEF_MCDR_DEVICE "/dev/ttyMFD1"
@@ -67,10 +67,16 @@
 #define DEF_MCDR_PROTOCOL "YMODEM"
 
 /* flashless default params: */
-#define DEF_NVM_FILES_PATH "/config/telephony"
-#define DEF_FLS_IN "modembinary.fls"
-#define DEF_CALIBRATION_PATH "calib.nvm"
+#define DEF_RUN_FILES_PATH "/config/telephony"
+#define DEF_FW_FILES_PATH "/system/etc/firmware/modem/toApply"
+#define DEF_BOOT_FLS "modem.fls"
+#define DEF_INJ_FLS "injectedModem.fls"
+#define DEF_CALIBRATION "calib.nvm"
+#define DEF_STATIC "static.nvm"
+#define DEF_DYNAMIC "dynamic.nvm"
+#define DEF_RND_CERT "RND_CERT"
 
+#define DEF_BKUP_PATH "/factory/telephony"
 #define PRINT_GROUP "------ Group: %s ------\n"
 
 struct set_param;
@@ -392,33 +398,50 @@ out:
 }
 
 /**
- * Read the Modem Manager configuration file related to flashless modem
- * and update the structure
+ * Add folder to filename
  *
- * @param [in] config_file configuration file path
- * @param [out] fls_in fls input file
- * @param [out] fls_out fls output file
- * @param [out] cal calibration NVM file
- * @param [out] nvm_path nvm path folder
+ * @param [in] path folder path
+ * @param [in,out] full_path contains the filename. the output will contain the
+ * full path
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
  * @return E_ERR_MISSING_FILE if config_file is missing
  */
-e_mmgr_errors_t modem_info_flashless_config(char *config_file, char *fls_in,
-                                            char *fls_out, char *cal,
-                                            char *nvm_path)
+static e_mmgr_errors_t set_full_path(char *path, char *full_path)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    char tmp[MAX_SIZE_CONF_VAL];
+
+    CHECK_PARAM(path, ret, out);
+    CHECK_PARAM(full_path, ret, out);
+
+    strncpy(tmp, full_path, MAX_SIZE_CONF_VAL);
+    snprintf(full_path, MAX_SIZE_CONF_VAL, "%s/%s", path, tmp);
+    memset(full_path, MAX_SIZE_CONF_VAL, '\0');
+
+out:
+    return ret;
+}
+
+/**
+ * Read the Modem Manager configuration file related to flashless modem
+ * and update the structure
+ *
+ * @param [in] config_file configuration file path
+ * @param [out] config flashless config struct
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if config_file or param is NULL
+ * @return E_ERR_MISSING_FILE if config_file is missing
+ */
+e_mmgr_errors_t modem_info_flashless_config(char *config_file,
+                                            flashless_config_t *config)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(config_file, ret, out);
-    CHECK_PARAM(fls_in, ret, out);
-    CHECK_PARAM(fls_out, ret, out);
-    CHECK_PARAM(cal, ret, out);
-    CHECK_PARAM(nvm_path, ret, out);
-
-    char tmp_fls[MAX_SIZE_CONF_VAL];
-    char tmp_cal[MAX_SIZE_CONF_VAL];
+    CHECK_PARAM(config, ret, out);
 
     type_setter_t string = {.read = (read_param) g_key_file_get_string,
         .size = MAX_SIZE_CONF_VAL,.init = copy_string,
@@ -428,12 +451,21 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file, char *fls_in,
     GKeyFile *fd = NULL;
     GError *gerror = NULL;
 
-    set_param_t list[] = {
-        {.key = "Binary",.dest = tmp_fls,.def = DEF_FLS_IN,.set = string},
-        {.key = "Calibration",.dest = tmp_cal,.def =
-         DEF_CALIBRATION_PATH,.set = string},
-        {.key = "Folder",.dest = nvm_path,.def =
-         DEF_NVM_FILES_PATH,.set = string},
+    set_param_t runtime[] = {
+        {"RunFolder", config->run_path, DEF_RUN_FILES_PATH, string},
+        {"FwFolder", config->run_fw_path, DEF_FW_FILES_PATH, string},
+        {"BootFls", config->run_boot_fls, DEF_BOOT_FLS, string},
+        {"InjFls", config->run_inj_fls, DEF_INJ_FLS, string},
+        {"Calibration", config->run_cal, DEF_CALIBRATION, string},
+        {"Static", config->run_stat, DEF_STATIC, string},
+        {"Dynamic", config->run_dyn, DEF_DYNAMIC, string},
+    };
+
+    set_param_t bckup[] = {
+        {"Folder", config->bkup_path, DEF_RUN_FILES_PATH, string},
+        {"Calibration", config->bkup_cal, DEF_CALIBRATION, string},
+        {"Static", config->bkup_stat, DEF_STATIC, string},
+        {"RndCert", config->bkup_rnd_cert, DEF_RND_CERT, string},
     };
 
     LOG_DEBUG("filename: %s", config_file);
@@ -448,15 +480,20 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file, char *fls_in,
             g_error_free(gerror);
         }
     }
-    parse(fd, "RUNTIME", list, sizeof(list) / sizeof(*list));
 
+    parse(fd, "RUNTIME", runtime, sizeof(runtime) / sizeof(*runtime));
+    parse(fd, "BACKUP", bckup, sizeof(bckup) / sizeof(*bckup));
     /* set full path */
-    snprintf(fls_in, MAX_SIZE_CONF_VAL - 1, "%s/%s", nvm_path, tmp_fls);
-    snprintf(cal, MAX_SIZE_CONF_VAL - 1, "%s/%s", nvm_path, tmp_cal);
+    set_full_path(config->run_fw_path, config->run_boot_fls);
+    set_full_path(config->run_path, config->run_inj_fls);
+    set_full_path(config->run_path, config->run_cal);
+    set_full_path(config->run_path, config->run_stat);
+    set_full_path(config->run_path, config->run_dyn);
 
-    memset(fls_out, 0, MAX_SIZE_CONF_VAL);
-    snprintf(fls_out, MAX_SIZE_CONF_VAL - 1, "%s.out", fls_in);
-    LOGV(PRINT_STRING, "fls_out", fls_out);
+    set_full_path(config->bkup_path, config->bkup_cal);
+    set_full_path(config->bkup_path, config->bkup_stat);
+    set_full_path(config->bkup_path, config->bkup_rnd_cert);
+
 out:
     return ret;
 }

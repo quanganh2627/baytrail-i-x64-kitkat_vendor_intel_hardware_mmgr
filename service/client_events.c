@@ -451,9 +451,10 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
                 if (ret == E_ERR_SUCCESS) {
                     mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
                     reset_escalation_counter(&mmgr->reset);
-                    start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-                    //if the modem is hsic, add wait_for_bus_ready
-                    //@TODO: push that into modem_specific
+                    if (!mmgr->config.is_flashless)
+                        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+                    /* if the modem is hsic, add wait_for_bus_ready */
+                    /* @TODO: push that into modem_specific */
                     if (strcmp(mmgr->config.link_layer, "hsic") == 0)
                         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
                 }
@@ -752,7 +753,7 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
                       mmgr->events.ev[mmgr->events.cur_ev].data.fd, &client);
     if ((ret != E_ERR_SUCCESS) || (client == NULL)) {
         LOG_ERROR("failed to find client (fd=%d)",
-                mmgr->events.ev[mmgr->events.cur_ev].data.fd);
+                  mmgr->events.ev[mmgr->events.cur_ev].data.fd);
         goto out;
     }
 

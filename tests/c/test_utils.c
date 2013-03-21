@@ -465,6 +465,37 @@ out:
 }
 
 /**
+ * handle the E_MMGR_RESPONSE_MODEM_FW_RESULT event
+ *
+ * @param [in] ev current info callback data
+ *
+ * @return E_ERR_BAD_PARAMETER if test_data is NULL
+ * @return E_ERR_FAILED if failed to send ACK
+ * @return E_ERR_SUCCESS
+ */
+static int fw_status(mmgr_cli_event_t *ev)
+{
+    int ret = E_ERR_FAILED;
+    test_data_t *data = NULL;
+    mmgr_cli_fw_update_result_t *fw = NULL;
+
+    CHECK_PARAM(ev, ret, out);
+    data = (test_data_t *)ev->context;
+    if (data == NULL)
+        goto out;
+
+    fw = (mmgr_cli_fw_update_result_t *)ev->data;
+    if (fw == NULL) {
+        LOG_ERROR("empty data");
+        goto out;
+    }
+    LOG_DEBUG("fw id:%d", fw->id);
+    ret = set_and_notify(ev->id, (test_data_t *)ev->context);
+out:
+    return ret;
+}
+
+/**
  * callback for cold reset modem event
  *
  * @param [in] ev current info callback data
@@ -628,6 +659,11 @@ int configure_client_library(test_data_t *test_data)
 
     if (mmgr_cli_subscribe_event(test_data->lib, event_error,
                                  E_MMGR_NOTIFY_ERROR) != E_ERR_CLI_SUCCEED)
+        goto out;
+
+    if (mmgr_cli_subscribe_event(test_data->lib, fw_status,
+                                 E_MMGR_RESPONSE_MODEM_FW_RESULT)
+        != E_ERR_CLI_SUCCEED)
         goto out;
 
     if (mmgr_cli_connect(test_data->lib) == E_ERR_CLI_SUCCEED) {
