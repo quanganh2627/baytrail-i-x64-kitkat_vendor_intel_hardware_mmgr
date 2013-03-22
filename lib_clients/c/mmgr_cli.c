@@ -245,7 +245,7 @@ static inline e_err_mmgr_cli_t register_client(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     e_mmgr_errors_t err;
-    msg_hdr_t answer;
+    msg_hdr_t answer = {.id = E_MMGR_NACK };
     int i;
     mmgr_cli_requests_t request[2];
     mmgr_lib_context_t *p_lib = NULL;

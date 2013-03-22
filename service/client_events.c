@@ -357,7 +357,7 @@ out:
  */
 static e_mmgr_errors_t request_bkup_prod(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -726,8 +726,9 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
 
     ret = find_client(&mmgr->clients,
                       mmgr->events.ev[mmgr->events.cur_ev].data.fd, &client);
-    if (ret != E_ERR_SUCCESS) {
-        LOG_ERROR("failed to find client (fd=%d)", client->fd);
+    if ((ret != E_ERR_SUCCESS) || (client == NULL)) {
+        LOG_ERROR("failed to find client (fd=%d)",
+                mmgr->events.ev[mmgr->events.cur_ev].data.fd);
         goto out;
     }
 
