@@ -6,6 +6,14 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE := mmgr
 LOCAL_CFLAGS += -Wall -Wvla -DLIBUSBHOST
+
+# Extract commit id
+COMMIT_ID := $(shell git --git-dir=$(LOCAL_PATH)/../.git \
+        --work-tree=$(LOCAL_PATH) log --oneline -n1 \
+        | sed 's:\s\{1,\}:\\ :g')
+
+LOCAL_CFLAGS += -DGIT_COMMIT_ID=\"$(COMMIT_ID)\"
+
 LOCAL_C_INCLUDES += \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
