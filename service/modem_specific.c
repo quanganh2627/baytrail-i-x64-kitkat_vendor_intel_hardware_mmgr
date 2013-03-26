@@ -34,6 +34,7 @@
 #define MUP_LIB "libmodemupdate.so"
 #define MUP_FUNC_INIT "mup_initialize"
 #define MUP_FUNC_OPEN "mup_open_device"
+#define MUP_FUNC_TOGGLE_HSI_FLASHING_MODE "mup_toggle_hsi_flashing_mode"
 #define MUP_FUNC_UP_FW "mup_update_fw"
 #define MUP_FUNC_DISPOSE "mup_dispose"
 #define MUP_FUNC_FW_VERSION "mup_check_fw_version"
@@ -79,6 +80,8 @@ e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
         /** see dlsym manpage to understand why this strange cast is used */
         *(void **)&info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
         *(void **)&info->mup.open_device = dlsym(info->mup.hdle, MUP_FUNC_OPEN);
+        *(void **)&info->mup.toggle_hsi_flashing_mode =
+            dlsym(info->mup.hdle, MUP_FUNC_TOGGLE_HSI_FLASHING_MODE);
         *(void **)&info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
         *(void **)&info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
         *(void **)&info->mup.config_secur_channel = dlsym(info->mup.hdle,
@@ -103,11 +106,21 @@ out:
     return ret;
 }
 
+e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, char *link_layer,
+                                     bool flashing_mode)
+{
+    if (strcmp(link_layer, "hsi") == 0)
+        return (info->mup.toggle_hsi_flashing_mode(flashing_mode) ==
+                E_MUP_SUCCEED) ? E_ERR_SUCCESS : E_ERR_FAILED;
+    return E_ERR_SUCCESS;
+}
+
 /**
  * flash modem data
  *
  * @param[in] info modem data
  * @param[in] comport modem communication port for flashing
+ * @param[in] ch_sw channel hw sw
  * @param[in] secur secur library data
  * @param[out] verdict provides modem fw update status
  *
@@ -115,7 +128,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info is empty
  */
-e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport,
+e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport, bool ch_sw,
                             secur_t *secur, e_modem_fw_error_t *verdict)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -143,6 +156,7 @@ e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport,
     mup_fw_update_params_t params = {
         .handle = handle,
         .mdm_com_port = comport,
+        .channel_hw_sw = ch_sw,
         .fw_file_path = info->fl_conf.run_inj_fls,
         .fw_file_path_len = strnlen(info->fl_conf.run_inj_fls,
                                     MAX_SIZE_CONF_VAL),

@@ -52,8 +52,9 @@
 static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    char *flashing_interface = NULL;
     mmgr_cli_fw_update_result_t result = {.id = E_MODEM_FW_ERROR_UNSPECIFIED };
+    char *flashing_interface = NULL;
+    bool ch_hw_sw = true;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -62,14 +63,19 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
 
-        if (strcmp(mmgr->config.link_layer, "hsi") == 0)
+        toggle_flashing_mode(&mmgr->info, mmgr->config.link_layer, true);
+        if (strcmp(mmgr->config.link_layer, "hsi") == 0) {
             flashing_interface = "/dev/ttyIFX1";
-        else if (strcmp(mmgr->config.link_layer, "hsic") == 0)
+            ch_hw_sw = true;
+        } else if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
             flashing_interface = mmgr->events.bus_events.modem_flash_path;
-        ret =
-            flash_modem(&mmgr->info, flashing_interface, &mmgr->secur,
-                        &result.id);
+            ch_hw_sw = false;
+        }
 
+        ret =
+            flash_modem(&mmgr->info, flashing_interface, ch_hw_sw, &mmgr->secur,
+                        &result.id);
+        toggle_flashing_mode(&mmgr->info, mmgr->config.link_layer, false);
         inform_all_clients(&mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
                            &result);
         if (result.id == E_MODEM_FW_BAD_FAMILY) {
@@ -85,6 +91,7 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
                 start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
             }
         }
+
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     }
 

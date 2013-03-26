@@ -45,6 +45,7 @@ typedef struct mup_op {
     e_mup_err_t (*initialize) (mup_interface_t **handle,
                                mup_ap_log_callback_t ap_log_callback);
     e_mup_err_t (*open_device) (mup_fw_update_params_t *params);
+    e_mup_err_t (*toggle_hsi_flashing_mode) (bool flashing_mode);
     e_mup_err_t (*update_fw) (mup_fw_update_params_t *params);
     e_mup_err_t (*dispose) (mup_interface_t *handle);
     e_mup_err_t (*check_fw_version) (char *fw_path, char *version);
