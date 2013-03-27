@@ -15,7 +15,6 @@
  */
 
 #include <errno.h>
-#include <sys/epoll.h>
 #include <string.h>
 #include <stdlib.h>
 #include <linux/limits.h>

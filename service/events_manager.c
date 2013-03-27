@@ -20,7 +20,6 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <stdbool.h>
-#include <sys/epoll.h>
 #include <sys/types.h>
 #include "at.h"
 #include "client_events.h"
@@ -30,10 +29,16 @@
 #include "logs.h"
 #include "modem_events.h"
 #include "mmgr.h"
+#include "security.h"
 #include "timer_events.h"
 #include "tty.h"
 
 #define FIRST_EVENT -1
+
+static e_mmgr_errors_t security_event(mmgr_data_t *mmgr)
+{
+    return secur_event(&mmgr->secur);
+}
 
 /**
  * close modem tty and cnxs
@@ -51,6 +56,7 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
 
     free(mmgr->events.ev);
     close_all_clients(&mmgr->clients);
+    secur_dispose(&mmgr->secur);
     if (mmgr->info.mcdr.lib != NULL)
         dlclose(mmgr->info.mcdr.lib);
     if (mmgr->info.mup.hdle != NULL)
@@ -77,8 +83,6 @@ out:
 e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    struct epoll_event ev;
-    struct epoll_event ev_mcd;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -129,21 +133,23 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = initialize_epoll(&mmgr->epollfd, mmgr->fd_cnx, EPOLLIN);
-    if (ret != E_ERR_SUCCESS) {
-        LOG_ERROR("epoll configuration failed");
+    if ((ret = init_ev_hdler(&mmgr->epollfd)) != E_ERR_SUCCESS)
         goto out;
-    }
 
-    ev_mcd.events = EPOLLIN;
-    ev_mcd.data.fd = mmgr->info.fd_mcd;
-    if (epoll_ctl(mmgr->epollfd, EPOLL_CTL_ADD, mmgr->info.fd_mcd, &ev_mcd) ==
-        -1) {
-        LOG_ERROR("failed to add modem control driver interface to epoll");
+    ret = add_fd_ev(mmgr->epollfd, mmgr->fd_cnx, EPOLLIN);
+    if (ret != E_ERR_SUCCESS)
         goto out;
-    }
+
+    ret = add_fd_ev(mmgr->epollfd, mmgr->info.fd_mcd, EPOLLIN);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
     ret = set_mcd_poll_states(&mmgr->info);
     LOG_DEBUG("MCD driver added to poll list");
+
+    ret = secur_init(&mmgr->secur, &mmgr->config);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
 
     /* configure events handlers */
     mmgr->hdler_events[E_EVENT_MODEM] = modem_event;
@@ -151,6 +157,7 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     mmgr->hdler_events[E_EVENT_BUS] = bus_events;
     mmgr->hdler_events[E_EVENT_NEW_CLIENT] = new_client;
     mmgr->hdler_events[E_EVENT_CLIENT] = known_client;
+    mmgr->hdler_events[E_EVENT_SECUR] = security_event;
     mmgr->hdler_events[E_EVENT_TIMEOUT] = timer_event;
 
     if ((ret = client_events_init(mmgr)) != E_ERR_SUCCESS) {
@@ -174,14 +181,9 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         }
 
         int wd_fd = bus_ev_get_fd(&mmgr->events.bus_events);
-        ev.events = EPOLLIN;
-        ev.data.fd = wd_fd;
-        if (epoll_ctl(mmgr->epollfd, EPOLL_CTL_ADD, wd_fd, &ev) == -1) {
-            LOG_ERROR("Error during epoll_ctl. fd=%d (%s)",
-                      wd_fd, strerror(errno));
-            ret = E_ERR_FAILED;
+        ret = add_fd_ev(mmgr->epollfd, wd_fd, EPOLLIN);
+        if (ret != E_ERR_SUCCESS)
             goto out;
-        }
         LOG_DEBUG("bus event fd added to poll list");
 
         // handle the first events after discovery
@@ -249,6 +251,8 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
             mmgr->events.state = E_EVENT_MCD;
         } else if (fd == mmgr->events.bus_events.wd_fd) {
             mmgr->events.state = E_EVENT_BUS;
+        } else if (fd == mmgr->secur.fd) {
+            mmgr->events.state = E_EVENT_SECUR;
         } else {
             mmgr->events.state = E_EVENT_CLIENT;
         }

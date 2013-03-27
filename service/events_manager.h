@@ -27,6 +27,7 @@
 #include "modem_info.h"
 #include "bus_events.h"
 #include "reset_escalation.h"
+#include "security.h"
 
 #define EVENTS \
     X(MODEM), \
@@ -35,6 +36,7 @@
     X(TIMEOUT), \
     X(MCD), \
     X(BUS), \
+    X(SECUR), \
     X(NUM)
 
 #define TIMER \
@@ -106,6 +108,7 @@ typedef struct mmgr_data {
     modem_info_t info;
     mmgr_events_t events;
     current_request_t request;
+    secur_t secur;
     /* functions handlers: */
     event_hdler_t hdler_events[E_EVENT_NUM];
     event_hdler_t hdler_client[E_MMGR_NUM_REQUESTS];

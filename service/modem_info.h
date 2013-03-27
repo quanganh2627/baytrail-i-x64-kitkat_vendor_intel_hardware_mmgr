@@ -44,9 +44,12 @@ typedef struct mup_op {
     void *hdle;
     e_mup_err_t (*initialize) (mup_interface_t **handle,
                                mup_ap_log_callback_t ap_log_callback);
+    e_mup_err_t (*open_device) (mup_fw_update_params_t *params);
     e_mup_err_t (*update_fw) (mup_fw_update_params_t *params);
     e_mup_err_t (*dispose) (mup_interface_t *handle);
     e_mup_err_t (*check_fw_version) (char *fw_path, char *version);
+    e_mup_err_t (*config_secur_channel) (mup_interface_t *handle, void *func,
+                                         char *rnd_path, size_t l);
 } mup_op_t;
 
 typedef struct modem_info {

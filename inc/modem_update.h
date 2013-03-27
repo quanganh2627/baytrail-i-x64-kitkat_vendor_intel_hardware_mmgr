@@ -104,6 +104,9 @@ extern "C" {
     e_mup_err_t mup_update_nvm(mup_nvm_update_params_t *params);
     e_mup_err_t mup_get_nvm_id(mup_nvm_read_id_params_t *params);
     e_mup_err_t mup_dispose(mup_interface_t *handle);
+    e_mup_err_t mup_open_device(mup_fw_update_params_t *param);
+    e_mup_err_t mup_configure_secur_channel(mup_interface_t *handle, void *func,
+                                            char *rnd_path, size_t len);
 
 #ifdef __cplusplus
 }

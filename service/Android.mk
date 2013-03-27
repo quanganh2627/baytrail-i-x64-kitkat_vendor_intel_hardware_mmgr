@@ -42,6 +42,7 @@ LOCAL_SRC_FILES:= \
     bus_events.c \
     mux.c \
     property.c \
+    security.c \
     tty.c \
     timer_events.c \
     reset_escalation.c

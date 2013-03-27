@@ -56,6 +56,9 @@ typedef struct mmgr_configuration {
     int timeout_ack_shtdwn;
     /* interface */
     int max_clients;
+    /* security */
+    bool secur_enable;
+    char secur_dlc[MAX_SIZE_CONF_VAL];
     /* mcdr config */
     bool modem_core_dump_enable;
     char mcdr_path[MAX_SIZE_CONF_VAL];

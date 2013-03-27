@@ -57,6 +57,9 @@
 #define DEF_MAX_TIMEOUT_ACK_SHTDWN INTEGER(1)   /* in seconds */
 /* mmgr interface */
 #define DEF_NB_ALLOWED_CLIENT INTEGER(12)
+/* security params: */
+#define DEF_SECUR_ENABLE INTEGER(false)
+#define DEF_SECUR_DLC "/dev/gsmtty22"
 /* mcdr default values */
 #define DEF_MODEM_CORE_DUMP INTEGER(true)
 #define DEF_MCDR_OUTPUT "/logs/modemcrash"
@@ -77,6 +80,7 @@
 #define DEF_RND_CERT "RND_CERT"
 
 #define DEF_BKUP_PATH "/factory/telephony"
+
 #define PRINT_GROUP "------ Group: %s ------\n"
 
 struct set_param;
@@ -375,6 +379,11 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          DEF_MCDR_PROTOCOL,.set = string},
     };
 
+    set_param_t secur[] = {
+        {"SecurityEnabled", &params->secur_enable, DEF_SECUR_ENABLE, boolean},
+        {"SecurDlc", &params->secur_dlc, DEF_SECUR_DLC, string},
+    };
+
     LOG_DEBUG("filename: %s", config_file);
     if (access(config_file, F_OK) != 0) {
         LOG_ERROR("config file is missing. Keeping default values");
@@ -392,6 +401,7 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
     parse(fd, "MMGR_INTERFACE", interface,
           sizeof(interface) / sizeof(*interface));
     parse(fd, "MCDR", mcdr, sizeof(mcdr) / sizeof(*mcdr));
+    parse(fd, "SECURITY", secur, sizeof(secur) / sizeof(*secur));
 
 out:
     return ret;

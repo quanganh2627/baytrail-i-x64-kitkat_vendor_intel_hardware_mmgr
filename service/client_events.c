@@ -18,8 +18,6 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <sys/epoll.h>
-#include <sys/stat.h>
 #include "client.h"
 #include "client_events.h"
 #include "errors.h"
@@ -29,6 +27,7 @@
 #include "modem_specific.h"
 #include "timer_events.h"
 #include "msg_to_data.h"
+#include "tty.h"
 
 const char *g_mmgr_requests[] = {
 #undef X
@@ -785,7 +784,6 @@ out:
  */
 e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
 {
-    struct epoll_event ev;
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int conn_sock;
     client_t *client = NULL;
@@ -801,11 +799,7 @@ e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
         if (conn_sock < 0) {
             LOG_ERROR("Error during accept (%s)", strerror(errno));
         } else {
-            ev.data.fd = conn_sock;
-            ev.events = EPOLLIN;
-            if (epoll_ctl(mmgr->epollfd, EPOLL_CTL_ADD, conn_sock, &ev) == -1) {
-                LOG_ERROR("epoll_ctl: conn_sock (%s)", strerror(errno));
-            } else {
+            if (add_fd_ev(mmgr->epollfd, conn_sock, EPOLLIN) == E_ERR_SUCCESS) {
                 ret = add_client(&mmgr->clients, conn_sock, &client);
                 if (ret != E_ERR_SUCCESS)
                     LOG_ERROR("failed to add new client");

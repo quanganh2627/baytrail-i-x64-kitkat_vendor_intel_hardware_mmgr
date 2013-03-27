@@ -33,9 +33,11 @@
 /* @TODO: this should be configurable via mmgr.conf */
 #define MUP_LIB "libmodemupdate.so"
 #define MUP_FUNC_INIT "mup_initialize"
+#define MUP_FUNC_OPEN "mup_open_device"
 #define MUP_FUNC_UP_FW "mup_update_fw"
 #define MUP_FUNC_DISPOSE "mup_dispose"
 #define MUP_FUNC_FW_VERSION "mup_check_fw_version"
+#define MUP_FUNC_CONFIG_SECUR "mup_configure_secur_channel"
 
 /**
  * callback to handle aplog messages
@@ -69,21 +71,24 @@ e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
     if (is_flashless) {
         info->mup.hdle = dlopen(MUP_LIB, RTLD_LAZY);
         if (info->mup.hdle == NULL) {
-            LOG_ERROR("failed to open mup lib");
+            LOG_ERROR("failed to open library");
             ret = E_ERR_FAILED;
             goto out;
         }
 
         /** see dlsym manpage to understand why this strange cast is used */
         *(void **)&info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
+        *(void **)&info->mup.open_device = dlsym(info->mup.hdle, MUP_FUNC_OPEN);
         *(void **)&info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
         *(void **)&info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
+        *(void **)&info->mup.config_secur_channel = dlsym(info->mup.hdle,
+                                                          MUP_FUNC_CONFIG_SECUR);
         *(void **)&info->mup.check_fw_version =
             dlsym(info->mup.hdle, MUP_FUNC_FW_VERSION);
 
         p = (char *)dlerror();
         if (p != NULL) {
-            LOG_ERROR("%s", p);
+            LOG_ERROR("An error ocurred during symbol resolution");
             ret = E_ERR_FAILED;
             dlclose(info->mup.hdle);
             info->mup.hdle = NULL;
@@ -103,6 +108,7 @@ out:
  *
  * @param[in] info modem data
  * @param[in] comport modem communication port for flashing
+ * @param[in] secur secur library data
  * @param[out] verdict provides modem fw update status
  *
  * @return E_ERR_FAILED if operation fails
@@ -110,12 +116,14 @@ out:
  * @return E_ERR_BAD_PARAMETER if info is empty
  */
 e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport,
-        e_modem_fw_error_t *verdict)
+                            secur_t *secur, e_modem_fw_error_t *verdict)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mup_interface_t *handle = NULL;
+    void *secur_callback = NULL;
 
     CHECK_PARAM(info, ret, out);
+    CHECK_PARAM(secur, ret, out);
 
     if (E_MUP_SUCCEED != info->mup.initialize(&handle, mup_log)) {
         ret = E_ERR_FAILED;
@@ -140,6 +148,25 @@ e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport,
                                     MAX_SIZE_CONF_VAL),
         .erase_all = false      /* for flashless modem, this should be false */
     };
+
+    if (E_MUP_SUCCEED != info->mup.open_device(&params)) {
+        ret = E_ERR_FAILED;
+        LOG_ERROR("failed to open device");
+        goto out;
+    }
+
+    secur_get_callback(secur, &secur_callback);
+    if (secur_callback != NULL) {
+        if (E_MUP_SUCCEED !=
+            info->mup.config_secur_channel(handle, secur_callback,
+                                           info->fl_conf.bkup_rnd_cert,
+                                           strnlen(info->fl_conf.bkup_rnd_cert,
+                                                   MAX_SIZE_CONF_VAL))) {
+            LOG_ERROR("failed to configure secur channel");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+    }
 
     if (E_MUP_SUCCEED != info->mup.update_fw(&params)) {
         ret = E_ERR_FAILED;
