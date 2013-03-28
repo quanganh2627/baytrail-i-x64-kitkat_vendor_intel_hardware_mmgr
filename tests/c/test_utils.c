@@ -39,13 +39,13 @@
 #define STDOUT_FILENO 1
 #endif
 
-#define DEV_GSMTTY "/dev/gsmtty1"
 #define LEN_FILTER 10
 
 #define AT_SELF_RESET "AT+CFUN=15\r"
 #define AT_CORE_DUMP "AT+XLOG=4\r"
 
 #define BZ_MSG "\n\n*** YOU SHOULD RAISE A BZ ***\n"
+#define WAKE_BUF_SIZE 1024
 
 const char *g_mmgr_requests[] = {
 #undef X
@@ -107,8 +107,9 @@ out:
 }
 
 /**
- * This function will send the command message to DEV_GSMTTY
+ * This function will send the command message to DLC
  *
+ * @param [in] path dlc path to use
  * @param [in] command AT request
  * @param [in] command_size AT request size
  *
@@ -118,16 +119,16 @@ out:
  * @return E_ERR_TTY_BAD_FD if a bad file descriptor is provided
  * @return E_ERR_BAD_PARAMETER if command is NULL
  */
-int send_at_cmd(char *command, int command_size)
+int send_at_cmd(char *path, char *command, int command_size)
 {
     int fd_tty;
     int ret = E_ERR_FAILED;
 
     CHECK_PARAM(command, ret, out);
 
-    open_tty(DEV_GSMTTY, &fd_tty);
+    open_tty(path, &fd_tty);
     if (fd_tty < 0) {
-        LOG_ERROR("Failed to open %s", DEV_GSMTTY);
+        LOG_ERROR("Failed to open %s", path);
         goto out;
     }
     ret = send_at_timeout(fd_tty, command, command_size, 10);
@@ -164,6 +165,28 @@ static int filter_archive(const struct dirent *d)
 static int compare_function(const struct dirent **a, const struct dirent **b)
 {
     return strncmp((*a)->d_name, (*b)->d_name, sizeof((*b)->d_name) - 1);
+}
+
+bool get_wakelock_state(void)
+{
+    bool state = false;
+    int fd;
+    int size = WAKE_BUF_SIZE;
+    char data[WAKE_BUF_SIZE];
+
+    while ((fd = open(WAKE_LOCK_SYSFS, O_RDONLY)) < 0) {
+        sleep(1);
+        LOG_DEBUG("retry to open %s", WAKE_LOCK_SYSFS);
+    }
+
+    memset(data, 0, size);
+    size = read(fd, data, size);
+
+    if ((size > 0) && (strstr(data, MODULE_NAME) != NULL))
+        state = true;
+    close(fd);
+
+    return state;
 }
 
 /**
@@ -238,6 +261,7 @@ out:
  *
  * @param [in] test_data test_data
  * @param [in] state state to reach
+ * @param [in] wakelock wakelock state
  * @param [in] timeout timeout (in second)
  *
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
@@ -245,7 +269,8 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-int wait_for_state(test_data_t *test_data, int state, int timeout)
+int wait_for_state(test_data_t *test_data, int state, bool wakelock,
+                   int timeout)
 {
     int ret = E_ERR_FAILED;
     int current_state = 0;
@@ -253,6 +278,8 @@ int wait_for_state(test_data_t *test_data, int state, int timeout)
     struct timeval start;
     struct timeval current;
     int remaining;
+    char *state_str[] = { "not ", "" };
+    bool wake_state;
 
     CHECK_PARAM(test_data, ret, out);
 
@@ -284,8 +311,16 @@ int wait_for_state(test_data_t *test_data, int state, int timeout)
         pthread_mutex_unlock(&test_data->new_state_read);
 
         if (current_state == test_data->waited_state) {
-            LOG_DEBUG("state reached");
-            ret = E_ERR_SUCCESS;
+            LOG_DEBUG("state reached (%s)", g_mmgr_events[current_state]);
+            wake_state = get_wakelock_state();
+            if (wake_state != wakelock)
+                LOG_ERROR("*** wakelock is %sset and should be %sset ***",
+                          state_str[wake_state], state_str[wakelock]);
+            else {
+                LOG_DEBUG("wakelock has reached correct state: %sset",
+                          state_str[wake_state]);
+                ret = E_ERR_SUCCESS;
+            }
         } else if ((current_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
                    (current_state == E_MMGR_NOTIFY_PLATFORM_REBOOT)) {
             LOG_DEBUG("modem is out of service");
@@ -703,7 +738,7 @@ int reset_by_client_request(test_data_t *data_test,
     CHECK_PARAM(data_test, ret, out);
 
     /* Wait modem up */
-    ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_UP,
+    ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is down");
@@ -715,13 +750,8 @@ int reset_by_client_request(test_data_t *data_test,
         goto out;
     }
 
-    ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_DOWN,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
-
     if (notification != E_MMGR_NUM_EVENTS) {
-        ret = wait_for_state(data_test, notification,
+        ret = wait_for_state(data_test, notification, true,
                              TIMEOUT_MODEM_DOWN_AFTER_CMD);
         if (ret != E_ERR_SUCCESS)
             goto out;
@@ -729,7 +759,8 @@ int reset_by_client_request(test_data_t *data_test,
 
     /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds
        to end the test */
-    ret = wait_for_state(data_test, final_state, TIMEOUT_MODEM_UP_AFTER_RESET);
+    ret = wait_for_state(data_test, final_state, false,
+                         TIMEOUT_MODEM_UP_AFTER_RESET);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
@@ -755,37 +786,38 @@ int at_core_dump(test_data_t *test)
     CHECK_PARAM(test, ret, out);
 
     /* Wait modem up */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is down");
         goto out;
     }
 
-    err = send_at_cmd(AT_CORE_DUMP, strlen(AT_CORE_DUMP));
+    err = send_at_cmd(test->config.shtdwn_dlc, AT_CORE_DUMP,
+                      strlen(AT_CORE_DUMP));
     if ((err != E_ERR_TTY_POLLHUP) && (err != E_ERR_SUCCESS)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, true,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP, true,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, true,
                          TIMEOUT_MODEM_UP_AFTER_RESET);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
     /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds
        to end the test */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 out:
     return ret;
@@ -809,7 +841,7 @@ int at_self_reset(test_data_t *test)
     CHECK_PARAM(test, ret, out);
 
     /* Wait modem up */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is down");
@@ -817,25 +849,26 @@ int at_self_reset(test_data_t *test)
     }
 
     /* Send reset command to modem */
-    err = send_at_cmd(AT_SELF_RESET, strlen(AT_SELF_RESET));
+    err = send_at_cmd(test->config.shtdwn_dlc, AT_SELF_RESET,
+                      strlen(AT_SELF_RESET));
     if ((err != E_ERR_TTY_POLLHUP) && (err != E_ERR_SUCCESS)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET, true,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, true,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
     /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds
        to end the test */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_UP_AFTER_RESET);
 out:
     return ret;

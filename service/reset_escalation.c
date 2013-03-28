@@ -161,14 +161,14 @@ static e_mmgr_errors_t platform_reboot(modem_info_t *unused)
 /**
  * Perform a out of service operation
  *
- * @param [in] unused set NULL
+ * @param [in] info modem info
  *
  * @return E_ERR_SUCCESS ALWAYS
  */
-static e_mmgr_errors_t out_of_service(modem_info_t *unused)
+static e_mmgr_errors_t out_of_service(modem_info_t *info)
 {
-    (void)unused;
-    /* Nothing to do */
+    modem_down(info);
+    info->ev = E_EV_MODEM_OFF;
     return E_ERR_SUCCESS;
 }
 

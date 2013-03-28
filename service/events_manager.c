@@ -26,6 +26,7 @@
 #include "client_cnx.h"
 #include "errors.h"
 #include "events_manager.h"
+#include "file.h"
 #include "logs.h"
 #include "modem_events.h"
 #include "mmgr.h"
@@ -57,6 +58,8 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
     free(mmgr->events.ev);
     close_all_clients(&mmgr->clients);
     secur_dispose(&mmgr->secur);
+    write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
+                  strlen(MODULE_NAME));
     if (mmgr->info.mcdr.lib != NULL)
         dlclose(mmgr->info.mcdr.lib);
     if (mmgr->info.mup.hdle != NULL)
@@ -275,6 +278,7 @@ out:
 e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
+    bool wakelock = false;
     char *events_str[] = {
 #undef X
 #define X(a) #a
@@ -292,8 +296,21 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             restore_modem(mmgr);
             mmgr->info.ev &= ~E_EV_FORCE_RESET;
         }
+
+        if ((mmgr->info.ev & E_EV_MODEM_OFF) ||
+            mmgr->client_notification == E_MMGR_EVENT_MODEM_UP) {
+            wakelock = false;
+            write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
+                          strlen(MODULE_NAME));
+        }
         if ((ret = wait_for_event(mmgr)) != E_ERR_SUCCESS)
             goto out;
+        if (wakelock == false) {
+            wakelock = true;
+            write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
+                          strlen(MODULE_NAME));
+        }
+
         LOG_DEBUG("event type: %s", events_str[mmgr->events.state]);
         if (mmgr->hdler_events[mmgr->events.state] != NULL) {
             if ((ret = mmgr->hdler_events[mmgr->events.state] (mmgr))
@@ -302,5 +319,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
         }
     }
 out:
+    /* if the wakelock is set here, it will be removed by events_cleanup
+     * function */
     return ret;
 }

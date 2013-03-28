@@ -31,10 +31,6 @@
 #include "timer_events.h"
 #include "tty.h"
 
-/* wakelocks declaration */
-#define WAKE_LOCK_SYSFS "/sys/power/wake_lock"
-#define WAKE_UNLOCK_SYSFS "/sys/power/wake_unlock"
-
 /* AT command to shutdown modem */
 #define POWER_OFF_MODEM "AT+CFUN=0\r"
 
@@ -59,7 +55,6 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     if (mmgr->config.is_flashless) {
-
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
 
@@ -103,11 +98,6 @@ static void read_core_dump(mmgr_data_t *mmgr)
 {
     if (!mmgr->info.mcdr.enabled)
         goto out;
-
-    /* CRITICAL section: */
-    write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                  strlen(MODULE_NAME));
-
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
@@ -126,8 +116,6 @@ static void read_core_dump(mmgr_data_t *mmgr)
         mmgr->events.modem_state = E_MDM_STATE_NONE;
     }
 
-    write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                  strlen(MODULE_NAME));
 out:
     mmgr->info.ev |= E_EV_FORCE_RESET;
 }
@@ -487,10 +475,6 @@ e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    /* CRITICAL section: */
-    write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                  strlen(MODULE_NAME));
-
     if (mmgr->info.ev != E_EV_NONE) {
         if (mmgr->info.mcdr.state == E_CD_SUCCEED_WITHOUT_PANIC_ID) {
             LOG_DEBUG("specific timeout after core dump detection");
@@ -504,8 +488,6 @@ e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr)
     }
 
 out:
-    write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                  strlen(MODULE_NAME));
     return ret;
 }
 

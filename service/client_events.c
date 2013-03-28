@@ -449,6 +449,7 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
                                !strcmp("hsic", mmgr->config.link_layer));
                 if (ret == E_ERR_SUCCESS) {
                     mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
+                    mmgr->info.ev &= ~E_EV_MODEM_OFF;
                     reset_escalation_counter(&mmgr->reset);
                     if (!mmgr->config.is_flashless)
                         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
