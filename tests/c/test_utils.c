@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -28,7 +29,7 @@
 #include <sys/wait.h>
 #include <cutils/sockets.h>
 #include "at.h"
-#include "crash_logger.h"
+#include "client_events.h"
 #include "errors.h"
 #include "file.h"
 #include "test_utils.h"
@@ -41,6 +42,11 @@
 #define DEV_GSMTTY "/dev/gsmtty1"
 #define LEN_FILTER 10
 
+#define AT_SELF_RESET "AT+CFUN=15\r"
+#define AT_CORE_DUMP "AT+XLOG=4\r"
+
+#define BZ_MSG "\n\n*** YOU SHOULD RAISE A BZ ***\n"
+
 const char *g_mmgr_requests[] = {
 #undef X
 #define X(a) #a
@@ -52,72 +58,6 @@ const char *g_mmgr_events[] = {
 #define X(a) #a
     MMGR_EVENTS
 };
-
-/**
- * compare file content
- *
- * @param [in] path file path
- * @param [in] data content to compare
- * @param [in] len content length
- *
- * @return E_ERR_BAD_PARAMETER if path or data is NULL
- * @return E_ERR_FAILED content not equal
- * @return E_ERR_SUCCESS content equal
- */
-int compare_file_content(const char *path, const char *data, int len)
-{
-    int ret = E_ERR_FAILED;
-    int read_size;
-    int fd;
-    char *tmp;
-
-    CHECK_PARAM(path, ret, out);
-    CHECK_PARAM(data, ret, out);
-
-    tmp = malloc(sizeof(char) * len);
-    if (tmp == NULL)
-        goto out;
-
-    fd = open(path, O_RDONLY);
-    if (fd != -1) {
-        read_size = read(fd, tmp, len);
-        LOG_DEBUG("the file contains: %s", data);
-        if (read_size == len) {
-            if (strncmp(data, tmp, len) == 0) {
-                ret = E_ERR_SUCCESS;
-            }
-        }
-        close(fd);
-    }
-    free(tmp);
-out:
-    return ret;
-}
-
-/**
- * remove file
- *
- * @param [in] filename file path
- *
- * @return E_ERR_BAD_PARAMETER if filename is NULL
- * @return E_ERR_FAILED remove fails
- * @return E_ERR_SUCCESS if successful
- */
-int remove_file(char *filename)
-{
-    int ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(filename, ret, out);
-
-    if (remove(filename) < 0) {
-        LOG_ERROR("failed to remove %s (%s)", filename, strerror(errno));
-        ret = E_ERR_FAILED;
-    } else {
-        LOG_DEBUG("file removed: %s", filename);
-    }
-out:
-    return ret;
-}
 
 /**
  * Update modem_state variable
@@ -294,49 +234,6 @@ out:
 }
 
 /**
- * Erase all files in modemcrash dir
- *
- * @param [in] path path
- *
- * @return E_ERR_BAD_PARAMETER if path is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-int cleanup_modemcrash_dir(const char *path)
-{
-    DIR *rep;
-    struct dirent *ent;
-    int ret = E_ERR_SUCCESS;
-    char filename[FILENAME_MAX];
-
-    CHECK_PARAM(path, ret, out);
-
-    /* Remove previous modem crash log */
-    LOG_DEBUG("open dir: %s", path);
-    rep = opendir(path);
-
-    if (rep != NULL) {
-        while ((ent = readdir(rep)) != NULL) {
-            /* Bypass files started by . (to bypass . and ..) */
-            if (strncmp(ent->d_name, ".", 1) == 0)
-                continue;
-            /* Delete all other files */
-            LOG_DEBUG("remove file: %s", ent->d_name);
-            snprintf(filename, FILENAME_MAX, "%s/%s", path, ent->d_name);
-            if (remove(filename) < 0)
-                LOG_ERROR("Not able to remove %s (%s)", filename,
-                          strerror(errno));
-        }
-        closedir(rep);
-    } else {
-        LOG_ERROR("Can't read %s folder", path);
-        ret = E_ERR_FAILED;
-    }
-out:
-    return ret;
-}
-
-/**
  * Wait for modem state with timeout
  *
  * @param [in] test_data test_data
@@ -460,6 +357,109 @@ static int event_modem_shutdown(mmgr_cli_event_t *ev)
         ret = E_ERR_SUCCESS;
     }
 
+out:
+    return ret;
+}
+
+static int event_error(mmgr_cli_event_t *ev)
+{
+    int ret = E_ERR_FAILED;
+    test_data_t *data = NULL;
+    mmgr_cli_error_t *err = NULL;
+
+    CHECK_PARAM(ev, ret, out);
+    data = (test_data_t *)ev->context;
+    if (data == NULL)
+        goto out;
+
+    data->test_succeed = false;
+
+    err = (mmgr_cli_error_t *)ev->data;
+    if (err == NULL) {
+        LOG_ERROR("empty data");
+        goto out;
+    }
+    LOG_DEBUG("error {id:%d reason:\"%s\" len:%d}", err->id, err->reason,
+              err->len);
+    if ((err->len == strlen(FAKE_ERROR_REASON)) &&
+        (strncmp(FAKE_ERROR_REASON, err->reason, err->len) == 0))
+        data->test_succeed = true;
+
+    ret = set_and_notify(ev->id, (test_data_t *)ev->context);
+out:
+    return ret;
+}
+
+static int event_ap_reset(mmgr_cli_event_t *ev)
+{
+    int ret = E_ERR_FAILED;
+    test_data_t *data = NULL;
+    mmgr_cli_ap_reset_t *ap = NULL;
+
+    CHECK_PARAM(ev, ret, out);
+    data = (test_data_t *)ev->context;
+    if (data == NULL)
+        goto out;
+
+    data->test_succeed = false;
+
+    ap = (mmgr_cli_ap_reset_t *)ev->data;
+    if (ap == NULL) {
+        LOG_ERROR("empty data");
+        goto out;
+    }
+    LOG_DEBUG("AP reset asked by: %s (len: %d)", ap->name, ap->len);
+    if ((ap->len == strlen(EXE_NAME)) &&
+        (strncmp(EXE_NAME, ap->name, ap->len) == 0))
+        data->test_succeed = true;
+
+    ret = set_and_notify(ev->id, (test_data_t *)ev->context);
+out:
+    return ret;
+}
+
+static int event_core_dump(mmgr_cli_event_t *ev)
+{
+    int ret = E_ERR_FAILED;
+    test_data_t *data = NULL;
+    mmgr_cli_core_dump_t *cd = NULL;
+    char *base_name = NULL;
+
+    CHECK_PARAM(ev, ret, out);
+    data = (test_data_t *)ev->context;
+    if (data == NULL)
+        goto out;
+
+    data->test_succeed = false;
+
+    cd = (mmgr_cli_core_dump_t *)ev->data;
+    if (cd == NULL) {
+        LOG_ERROR("empty data");
+        goto out;
+    }
+
+    switch (cd->state) {
+    case E_CD_FAILED:
+        LOG_ERROR("core dump not retrived");
+        goto out;
+        break;
+    case E_CD_SUCCEED_WITHOUT_PANIC_ID:
+        LOG_DEBUG("No panid id");
+        break;
+    case E_CD_SUCCEED:
+        LOG_DEBUG("panic id: %d", cd->panic_id);
+        break;
+    }
+    LOG_DEBUG("core dump path: %s", cd->path);
+
+    base_name = basename(cd->path);
+    if ((is_file_exists(cd->path, 0) == E_ERR_SUCCESS)
+        || (is_core_dump_found(base_name, "/sdcard/") == E_ERR_SUCCESS)) {
+        LOG_DEBUG("core dump found");
+        data->test_succeed = true;
+    }
+
+    ret = set_and_notify(ev->id, (test_data_t *)ev->context);
 out:
     return ret;
 }
@@ -613,6 +613,23 @@ int configure_client_library(test_data_t *test_data)
         E_ERR_CLI_SUCCEED)
         goto out;
 
+    if (mmgr_cli_subscribe_event(test_data->lib, event_core_dump,
+                                 E_MMGR_NOTIFY_CORE_DUMP_COMPLETE) !=
+        E_ERR_CLI_SUCCEED)
+        goto out;
+
+    if (mmgr_cli_subscribe_event(test_data->lib, event_ap_reset,
+                                 E_MMGR_NOTIFY_AP_RESET) != E_ERR_CLI_SUCCEED)
+        goto out;
+
+    if (mmgr_cli_subscribe_event(test_data->lib, event_without_ack,
+                                 E_MMGR_NOTIFY_SELF_RESET) != E_ERR_CLI_SUCCEED)
+        goto out;
+
+    if (mmgr_cli_subscribe_event(test_data->lib, event_error,
+                                 E_MMGR_NOTIFY_ERROR) != E_ERR_CLI_SUCCEED)
+        goto out;
+
     if (mmgr_cli_connect(test_data->lib) == E_ERR_CLI_SUCCEED) {
         LOG_DEBUG("connection to MMGR succeed");
         ret = E_ERR_SUCCESS;
@@ -627,192 +644,9 @@ out:
 }
 
 /**
- * Update core dump retrieve status
- *
- * @param [in,out] test_data aplog thread data
- * @param [in] state new state
- *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static int update_cd_state(aplog_thread_t *test_data,
-                           core_dump_retrieval_t state)
-{
-    int ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(test_data, ret, out);
-
-    pthread_mutex_lock(&test_data->mutex);
-    test_data->state = state;
-    pthread_mutex_unlock(&test_data->mutex);
-out:
-    return ret;
-}
-
-/**
- * Clear aplogs
- */
-static void clear_logs(void)
-{
-    char *execv_args[] = { "logcat", "-c", NULL };
-    int pid;
-
-    pid = fork();
-    if (pid == -1) {
-        LOG_ERROR("fork fails: (%s)", strerror(errno));
-        exit(1);
-    }
-
-    if (pid == 0) {
-        execvp(execv_args[0], execv_args);
-    } else {
-        /* wait for child */
-        LOG_DEBUG("done");
-        wait(NULL);
-    }
-}
-
-/**
- * Retrieve core dump filename from aplog
- *
- * @param [in,out] test_data test data
- * @param [in] fd socket fd
- *
- * @return E_ERR_BAD_PARAMETER if data is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static int extract_core_dump_name(aplog_thread_t *test_data, int fd)
-{
-    int epollfd;
-    bool running = true;
-    char buf[1024];
-    char *p_str = NULL;
-    const char pattern_found[] = "Modem Core Dump files were saved in:";
-    const char pattern_time[] = "retrieve_core_dump - Succeed (in ";
-    const char pattern_timeout[] = "retrieve_core_dump - Timeout error";
-    const char pattern_error[] = "retrieve_core_dump - Failed with error";
-    struct epoll_event ev;
-    int ret = E_ERR_SUCCESS;
-    int size;
-
-    CHECK_PARAM(test_data, ret, out);
-
-    /* configure epoll */
-    ret = initialize_epoll(&epollfd, fd, EPOLLIN);
-    if (ret != E_ERR_SUCCESS) {
-        goto out;
-    }
-
-    do {
-        pthread_mutex_lock(&test_data->mutex);
-        running = test_data->running;
-        pthread_mutex_unlock(&test_data->mutex);
-
-        if (epoll_wait(epollfd, &ev, 1, 1000) < 1) {
-            if ((errno == EBADF) || (errno == EINVAL)) {
-                LOG_ERROR("bad epoll configuration");
-                goto out;
-            } else {
-                continue;
-            }
-        }
-
-        if ((size = read(fd, buf, sizeof(buf) - 1)) <= 0)
-            continue;
-        buf[strnlen(buf, sizeof(buf)) - 1] = '\0';
-
-        if ((p_str = strstr(buf, pattern_found)) != NULL) {
-            p_str += strlen(pattern_found) + 1; /* skip space */
-            char *end = strstr(p_str, ".tar.gz");
-            int size = (end - p_str) + strlen(".tar.gz");;
-            if (size > FILENAME_SIZE)
-                size = FILENAME_SIZE;
-            pthread_mutex_lock(&test_data->mutex);
-            strncpy(test_data->filename, p_str, size);
-            test_data->filename[size] = '\0';
-            LOG_DEBUG("core dump filename found: %s", test_data->filename);
-            pthread_mutex_unlock(&test_data->mutex);
-        } else if (strstr(buf, pattern_timeout) != NULL) {
-            update_cd_state(test_data, E_CD_TIMEOUT);
-        } else if (strstr(buf, pattern_error) != NULL) {
-            update_cd_state(test_data, E_CD_ERROR);
-            goto out;
-        } else if ((p_str = strstr(buf, pattern_time)) != NULL) {
-            p_str += strlen(pattern_time);
-            pthread_mutex_lock(&test_data->mutex);
-            sscanf(p_str, "%d", &test_data->duration);
-            pthread_mutex_unlock(&test_data->mutex);
-            update_cd_state(test_data, E_CD_SUCCEED);
-            LOG_DEBUG("time: %ds", test_data->duration);
-            goto out;
-        }
-    } while (running);
-out:
-    return ret;
-}
-
-/**
- * Launch a new process to read aplog with aplog. This function
- * extract the core dump filename.
- *
- * @param [in,out] test_data test data
- */
-void listen_aplogs(aplog_thread_t *test_data)
-{
-    int pid;
-    int ret = E_ERR_FAILED;
-    char filter[LEN_FILTER];
-    if (snprintf(filter, LEN_FILTER, "%s:*", MODULE_NAME) < 0) {
-        LOG_DEBUG("setting filter failed");
-        strncpy(filter, "", LEN_FILTER);
-    }
-    char *execv_args[] = { "logcat", filter, "MCDR:*", "*:S", NULL };
-
-    CHECK_PARAM(test_data, ret, out);
-
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, test_data->sockets) < 0) {
-        LOG_ERROR("opening stream socket pair");
-        goto out;
-    }
-
-    clear_logs();
-    pid = fork();
-
-    if (pid == -1) {
-        LOG_ERROR("fork fails: (%s)", strerror(errno));
-        exit(1);
-    }
-
-    if (pid == 0) {
-        /* This is the child. */
-        if (dup2(test_data->sockets[0], STDOUT_FILENO) < 0) {
-            LOG_ERROR("dup2 fails: (%s)", strerror(errno));
-            exit(1);
-        }
-        close(test_data->sockets[1]);
-
-        /* launch logcat */
-        execvp(execv_args[0], execv_args);
-        LOG_ERROR("execvp fails: (%d) on '%s'", errno, execv_args[0]);
-    } else {
-        /* This is the parent. */
-        close(test_data->sockets[0]);
-
-        ret = extract_core_dump_name(test_data, test_data->sockets[1]);
-
-        kill(pid, SIGKILL);
-        close(test_data->sockets[1]);
-        close(test_data->sockets[0]);
-    }
-out:
-    pthread_exit(&ret);
-}
-
-/**
  * perform a modem reset request via a socket request
  *
  * @param [in] data_test test data
- * @param [in] check_file boolean to enable file existance check
  * @param [in] id request to send
  * @param [in] notification expected notification after AT command
  * @param [in] final_state final state expected
@@ -822,7 +656,7 @@ out:
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
-int reset_by_client_request(test_data_t *data_test, bool check_file,
+int reset_by_client_request(test_data_t *data_test,
                             e_mmgr_requests_t id,
                             e_mmgr_events_t notification,
                             e_mmgr_events_t final_state)
@@ -831,8 +665,6 @@ int reset_by_client_request(test_data_t *data_test, bool check_file,
     mmgr_cli_requests_t request = {.id = id };
 
     CHECK_PARAM(data_test, ret, out);
-
-    remove_file(CL_AP_RESET_FILE);
 
     /* Wait modem up */
     ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_UP,
@@ -865,33 +697,80 @@ int reset_by_client_request(test_data_t *data_test, bool check_file,
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    if (check_file)
-        ret = is_file_exists(CL_AP_RESET_FILE, CL_FILE_PERMISSIONS);
 out:
     return ret;
 }
 
 /**
- * perform a modem reset request via an AT command
+ * Ask for a modem core dump
  *
  * @param [in] test test data
- * @param [in] at_cmd AT command to send
- * @param [in] at_len AT command length
- * @param [in] notification expected notification after AT command
  *
  * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_MODEM_OUT if modem is OUT
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
-int reset_by_at_cmd(test_data_t *test, char *at_cmd, size_t at_len,
-                    e_mmgr_events_t notification)
+int at_core_dump(test_data_t *test)
 {
     int ret = E_ERR_FAILED;
     int err;
 
     CHECK_PARAM(test, ret, out);
-    CHECK_PARAM(at_cmd, ret, out);
+
+    /* Wait modem up */
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    if (ret != E_ERR_SUCCESS) {
+        LOG_DEBUG("modem is down");
+        goto out;
+    }
+
+    err = send_at_cmd(AT_CORE_DUMP, strlen(AT_CORE_DUMP));
+    if ((err != E_ERR_TTY_POLLHUP) && (err != E_ERR_SUCCESS)) {
+        ret = E_ERR_FAILED;
+        LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
+    }
+
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+                         TIMEOUT_MODEM_UP_AFTER_RESET);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds
+       to end the test */
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+out:
+    return ret;
+}
+
+/**
+ * perform a modem self-reset request via an AT command
+ *
+ * @param [in] test test data
+ *
+ * @return E_ERR_BAD_PARAMETER if test is NULL
+ * @return E_ERR_MODEM_OUT if modem is OUT
+ * @return E_ERR_FAILED test fails
+ * @return E_ERR_SUCCESS if successful
+ */
+int at_self_reset(test_data_t *test)
+{
+    int ret = E_ERR_FAILED;
+    int err;
+
+    CHECK_PARAM(test, ret, out);
 
     /* Wait modem up */
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
@@ -902,23 +781,21 @@ int reset_by_at_cmd(test_data_t *test, char *at_cmd, size_t at_len,
     }
 
     /* Send reset command to modem */
-    err = send_at_cmd(at_cmd, at_len);
+    err = send_at_cmd(AT_SELF_RESET, strlen(AT_SELF_RESET));
     if ((err != E_ERR_TTY_POLLHUP) && (err != E_ERR_SUCCESS)) {
         ret = E_ERR_FAILED;
-        LOG_DEBUG("send of AT commands fails ret=%d", ret);
-        goto out;
+        LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
     }
+
+    ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET,
+                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
 
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
-
-    if (notification != E_MMGR_NUM_EVENTS) {
-        ret = wait_for_state(test, notification, TIMEOUT_MODEM_DOWN_AFTER_CMD);
-        if (ret != E_ERR_SUCCESS)
-            goto out;
-    }
 
     /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds
        to end the test */

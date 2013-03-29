@@ -72,11 +72,13 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
             /** see dlsym manpage to understand why this strange cast is used */
             *(void **)&mcdr->read = dlsym(mcdr->lib, "mcdr_get_core_dump");
             *(void **)&mcdr->cleanup = dlsym(mcdr->lib, "mcdr_cleanup");
-            *(void **)&mcdr->state = dlsym(mcdr->lib, "mcdr_get_state");
+            *(void **)&mcdr->get_state = dlsym(mcdr->lib, "mcdr_get_state");
 
             p = (char *)dlerror();
             if (p != NULL) {
                 LOG_ERROR("%s", p);
+                dlclose(mcdr->lib);
+                mcdr->lib = NULL;
                 ret = E_ERR_FAILED;
             }
 
@@ -131,6 +133,7 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
     CHECK_PARAM(mcdr, ret, out);
 
     /* initialize thread structure */
+    mcdr->state = E_CD_FAILED;
     pthread_mutex_init(&cd_reader.mutex, NULL);
     pthread_cond_init(&cd_reader.cond, NULL);
     cd_reader.mcdr = mcdr;
@@ -161,7 +164,7 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
     pthread_mutex_unlock(&cd_reader.mutex);
 
     if (err == ETIMEDOUT) {
-        status = mcdr->state();
+        status = mcdr->get_state();
         LOG_ERROR("Timeout. mcdr_status = %d", status);
         if (status == MCDR_ARCHIVE_IN_PROGRESS) {
             LOG_DEBUG("Archiving still on-going");
@@ -184,6 +187,7 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
                 LOG_VERBOSE("Succeed (in %lus.) name:%s", tp_end.tv_sec -
                             tp.tv_sec, mcdr->data.coredump_file);
                 ret = E_ERR_SUCCESS;
+                mcdr->state = E_CD_SUCCEED_WITHOUT_PANIC_ID;
             } else {
                 LOG_ERROR("Failed with error %d", mcdr->data.state);
             }

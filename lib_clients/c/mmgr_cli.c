@@ -567,6 +567,15 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->free_data[E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH] =
         free_data_bckup_file;
 
+    p_lib->set_data[E_MMGR_NOTIFY_AP_RESET] = set_data_ap_reset;
+    p_lib->free_data[E_MMGR_NOTIFY_AP_RESET] = free_data_ap_reset;
+
+    p_lib->set_data[E_MMGR_NOTIFY_CORE_DUMP_COMPLETE] = set_data_core_dump;
+    p_lib->free_data[E_MMGR_NOTIFY_CORE_DUMP_COMPLETE] = free_data_core_dump;
+
+    p_lib->set_data[E_MMGR_NOTIFY_ERROR] = set_data_error;
+    p_lib->free_data[E_MMGR_NOTIFY_ERROR] = free_data_error;
+
     *handle = (mmgr_cli_handle_t *)p_lib;
     LOG_DEBUG("handle created successfully");
 out:

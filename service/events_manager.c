@@ -17,6 +17,7 @@
  */
 
 #include <errno.h>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <sys/epoll.h>
@@ -50,6 +51,10 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
 
     free(mmgr->events.ev);
     close_all_clients(&mmgr->clients);
+    if (mmgr->info.mcdr.lib != NULL)
+        dlclose(mmgr->info.mcdr.lib);
+    if (mmgr->info.mup.hdle != NULL)
+        dlclose(mmgr->info.mup.hdle);
     if (mmgr->fd_tty != CLOSED_FD)
         close_tty(&mmgr->fd_tty);
     if (mmgr->fd_cnx != CLOSED_FD)
@@ -112,9 +117,10 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
+    if ((ret = modem_specific_init(&mmgr->info, mmgr->config.is_flashless)
+         != E_ERR_SUCCESS))
+        goto out;
     if (mmgr->config.is_flashless) {
-        if ((ret = modem_specific_init() != E_ERR_SUCCESS))
-            goto out;
         if ((ret = regen_fls(&mmgr->info) != E_ERR_SUCCESS))
             goto out;
     }

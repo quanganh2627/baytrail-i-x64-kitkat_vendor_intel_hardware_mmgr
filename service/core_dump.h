@@ -21,6 +21,7 @@
 
 #include "config.h"
 #include "dumpreader.h"
+#include "mmgr.h"
 
 typedef struct mcdr_lib {
     bool enabled;
@@ -28,7 +29,9 @@ typedef struct mcdr_lib {
     mcdr_data_t data;
     void (*read) (mcdr_data_t * data);
     void (*cleanup) (void);
-    mcdr_status_t (*state) (void);
+    mcdr_status_t (*get_state) (void);
+    e_core_dump_state_t state;
+    int panic_id;
 } mcdr_lib_t;
 
 e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,

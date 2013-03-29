@@ -48,7 +48,7 @@ static e_reset_operation_state_t pre_modem_warm_reset(reset_management_t
     LOG_DEBUG("events 0x%.2X", p_reset->modem_info->ev);
     if (!(p_reset->modem_info->ev & E_EV_CONF_FAILED) &&
         ((p_reset->modem_info->ev & E_EV_MODEM_SELF_RESET) ||
-         (p_reset->modem_info->ev & E_EV_CORE_DUMP_SUCCEED))) {
+         (p_reset->modem_info->mcdr.state == E_CD_SUCCEED_WITHOUT_PANIC_ID))) {
         LOG_DEBUG("WARM RESET: skipped");
         ret = E_OPERATION_SKIP;
     }

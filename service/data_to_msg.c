@@ -483,6 +483,112 @@ out:
 }
 
 /**
+ * handle E_MMGR_NOTIFY_AP_RESET message allocation
+ *
+ * @param [in,out] msg data to send
+ * @param [in] data data to send
+ *
+ * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t set_msg_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    size_t size;
+    mmgr_cli_ap_reset_t *ap = request->data;
+    char *msg_data = NULL;
+
+    CHECK_PARAM(msg, ret, out);
+    CHECK_PARAM(request, ret, out);
+
+    size = ap->len;
+    ret = prepare_msg(msg, &msg_data, E_MMGR_NOTIFY_AP_RESET, &size);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    memcpy(msg_data, ap->name, sizeof(char) * ap->len);
+    ret = E_ERR_SUCCESS;
+
+out:
+    return ret;
+}
+
+/**
+ * handle E_MMGR_NOTIFY_CORE_DUMP_COMPLETE message allocation
+ *
+ * @param [in,out] msg data to send
+ * @param [in] data data to send
+ *
+ * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t set_msg_core_dump(msg_t *msg, mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    uint32_t tmp;
+    size_t size;
+    mmgr_cli_core_dump_t *cd = request->data;
+    char *msg_data = NULL;
+
+    CHECK_PARAM(msg, ret, out);
+    CHECK_PARAM(request, ret, out);
+
+    /* this structure is composed of 4 elements: 3 integers and a string */
+    size = 3 * sizeof(uint32_t) + sizeof(char) * cd->len;
+    ret = prepare_msg(msg, &msg_data, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, &size);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    memcpy(&tmp, &cd->state, sizeof(e_core_dump_state_t));
+    serialize_uint32(&msg_data, tmp);
+    serialize_int(&msg_data, cd->panic_id);
+    serialize_size_t(&msg_data, cd->len);
+    memcpy(msg_data, cd->path, sizeof(char) * cd->len);
+    ret = E_ERR_SUCCESS;
+
+out:
+    return ret;
+}
+
+/**
+ * handle E_MMGR_NOTIFY_ERROR message allocation
+ *
+ * @param [in,out] msg data to send
+ * @param [in] data data to send
+ *
+ * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t set_msg_error(msg_t *msg, mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    uint32_t tmp;
+    size_t size;
+    mmgr_cli_error_t *err = request->data;
+    char *msg_data = NULL;
+
+    CHECK_PARAM(msg, ret, out);
+    CHECK_PARAM(request, ret, out);
+
+    /* this structure is composed of 3 elements: 2 integers and a string */
+    size = 2 * sizeof(uint32_t) + sizeof(char) * err->len;
+    ret = prepare_msg(msg, &msg_data, E_MMGR_NOTIFY_ERROR, &size);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    serialize_int(&msg_data, err->id);
+    serialize_size_t(&msg_data, err->len);
+    memcpy(msg_data, err->reason, sizeof(char) * err->len);
+    ret = E_ERR_SUCCESS;
+
+out:
+    return ret;
+}
+
+/**
  * handle SET_NAME message allocation
  *
  * @param [out] msg data to send

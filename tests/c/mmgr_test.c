@@ -17,6 +17,7 @@
  */
 
 #include <cutils/sockets.h>
+#include <getopt.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,11 +44,12 @@
     "--------------------------------------------------\n" \
 "Usage: "EXE_NAME" [-h] [-f] [-t <test number>]\n" \
 "optional arguments:\n" \
-" -h                show this help message and exit\n" \
+" -h or --help      show this help message and exit\n" \
 " -f                skip CAUTION message\n" \
 " -v                display "EXE_NAME" version and "MODULE_NAME \
                     " minimal version\n" \
-" -t <test number>  launch the specified test\n"
+" -t <test number>  launch the specified test\n\n" \
+"long option name:\n"
 
 #define PRINT_TEST \
 "\n*************** Test %s ***************\n" \
@@ -65,6 +67,7 @@
 typedef struct test_case {
     char desc[DESCRIPTION_LEN];
     int (*func) (test_data_t *data);
+    char name[DESCRIPTION_LEN];
 } test_case_t;
 
 /**
@@ -201,6 +204,16 @@ bool agree_caution(void)
     return accept;
 }
 
+void usage(test_case_t *test, int nb)
+{
+    int i;
+
+    puts(USAGE);
+    for (i = 0; i < nb; i++)
+        printf("--%-16s %s\n", test[i].name, test[i].desc);
+
+}
+
 /**
  * mmgr-test main
  *
@@ -213,50 +226,82 @@ bool agree_caution(void)
 int main(int argc, char *argv[])
 {
     int err;
+    int choice;
     int ret = EXIT_SUCCESS;
     int test_id = INVALID_TEST;
     bool display_caution = true;
     char *end_ptr = NULL;
+    struct option *long_opts = NULL;
+    int nb_tests = 0;
+    int index = 0;
+    int i;
 
     test_case_t tests[] = {
-        {.desc = "Modem self-reset",.func = modem_self_reset},
-        {.desc = "Modem recovery request",.func = modem_recovery},
-        {
-         .desc = "Modem restart request (by-pass reset escalation)",
-         .func = modem_restart},
-        {.desc = "Modem reset with core dump",.func = reset_with_cd},
-        {.desc = "Force modem OFF and RIL",.func = turn_off_modem},
-        {.desc = "Turn on modem and RIL",.func = turn_on_modem},
-        {.desc = "Full reset escalation",.func = full_recovery},
-        {.desc = "Reset escalation counter",.func = reset_counter},
-        {.desc = "Resource management (works only if no client is connected)",
-         .func = resource_check},
-        {.desc = "lib mmgr API check",.func = test_libmmgrcli_api},
-        {.desc = "resource acquire",.func = resource_acquire},
-        {.desc = "resource release",.func = resource_release},
+        {"Modem self-reset", modem_self_reset, "self-reset"},
+        {"Modem recovery request", modem_recovery, "recovery"},
+        {"Modem restart request (by-pass reset escalation)", modem_restart,
+         "restart"},
+        {"Modem reset with core dump", reset_with_cd, "cd"},
+        {"Force modem OFF and RIL", turn_off_modem, "off"},
+        {"Turn on modem and RIL", turn_on_modem, "on"},
+        {"Full reset escalation", full_recovery, "full"},
+        {"Reset escalation counter", reset_counter, "timer"},
+        {"Resource management (works only if no client is connected)",
+         resource_check, "resource"},
+        {"lib mmgr API check", test_libmmgrcli_api, "cli"},
+        {"resource acquire", resource_acquire, "acquire"},
+        {"resource release", resource_release, "release"},
+        {"FAKE REQUEST: modem up", fake_modem_up, "fake_up"},
+        {"FAKE REQUEST: modem down", fake_modem_down, "fake_down"},
+        {"FAKE REQUEST: core dump", fake_cd, "fake_cd"},
+        {"FAKE REQUEST: core dump complete", fake_cd_complete, "fake_cd_end"},
+        {"FAKE REQUEST: ap reset", fake_ap_reset, "fake_ap_reset"},
+        {"FAKE REQUEST: self-reset", fake_self_reset, "fake_self_reset"},
+        {"FAKE REQUEST: modem shutdown", fake_modem_shtdwn, "fake_shutdown"},
+        {"FAKE REQUEST: platform reboot", fake_reboot, "fake_reboot"},
+        {"FAKE REQUEST: modem out of service", fake_modem_hs, "fake_oos"},
+        {"FAKE REQUEST: error", fake_error, "fake_error"},
     };
 
-    while ((err = getopt(argc, argv, "vhft:")) != -1) {
-        switch (err) {
-        case 'f':
-            display_caution = false;
-            break;
-        case 't':
-            test_id = strtol(optarg, &end_ptr, 10) - 1;
-            if (optarg == end_ptr)
-                test_id = INVALID_TEST;
-            break;
-        case 'v':
-            printf("\n%s (Build: %s:%s).\n"
-                   "Needs at least %s version: %s\n\n", EXE_NAME,
-                   __DATE__, __TIME__, MODULE_NAME, MIN_MMGR_VERSION);
-            goto out;
-            break;
-        case 'h':
-        default:
-            puts(USAGE);
-            goto out;
-            break;
+    nb_tests = sizeof(tests) / sizeof(*tests);
+    long_opts = calloc(sizeof(struct option), (nb_tests + 1));
+    if (long_opts == NULL) {
+        LOG_ERROR("memory allocation failed");
+        goto out;
+    }
+
+    for (i = 0; i < nb_tests; i++) {
+        long_opts[i].name = tests[i].name;
+        long_opts[i].has_arg = 0;
+        long_opts[i].flag = NULL;
+        long_opts[i].val = i;
+    }
+
+    while ((choice = getopt_long(argc, argv, "vhft:", long_opts, &index)) != -1) {
+        if (index != 0) {
+            test_id = long_opts[index].val;
+        } else {
+            switch (choice) {
+            case 'f':
+                display_caution = false;
+                break;
+            case 't':
+                test_id = strtol(optarg, &end_ptr, 10) - 1;
+                if (optarg == end_ptr)
+                    test_id = INVALID_TEST;
+                break;
+            case 'v':
+                printf("\n%s (Build: %s:%s).\n"
+                       "Needs at least %s version: %s\n\n", EXE_NAME,
+                       __DATE__, __TIME__, MODULE_NAME, MIN_MMGR_VERSION);
+                goto out;
+                break;
+            case 'h':
+            default:
+                usage(tests, nb_tests);
+                goto out;
+                break;
+            }
         }
     }
 
@@ -267,7 +312,7 @@ int main(int argc, char *argv[])
     if (test_id == INVALID_TEST) {
         choose_test(tests, sizeof(tests) / sizeof(*tests), &test_id);
     }
-    if ((test_id >= 0) && (test_id < (int)(sizeof(tests) / sizeof(*tests)))) {
+    if ((test_id >= 0) && (test_id < nb_tests)) {
         err = run_test(&tests[test_id]);
     } else {
         if (test_id != -1)
@@ -275,6 +320,9 @@ int main(int argc, char *argv[])
     }
 
 out:
+    if (long_opts != NULL)
+        free(long_opts);
+
     LOG_DEBUG("end");
     if (err != E_ERR_SUCCESS)
         ret = EXIT_FAILURE;

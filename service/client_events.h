@@ -21,6 +21,12 @@
 
 #include "events_manager.h"
 
+#define FAKE_ERROR_REASON "fake reason. Only for test purpose"
+#define FAKE_ERROR_ID 598
+
+#define FAKE_CD_FILENAME "cd_fake_coredump.tgz"
+#define FAKE_CD_ID 159374682
+
 e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr);
 e_mmgr_errors_t new_client(mmgr_data_t *mmgr);
 e_mmgr_errors_t known_client(mmgr_data_t *mmgr);

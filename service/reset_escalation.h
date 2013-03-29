@@ -25,10 +25,6 @@
 #include "modem_info.h"
 #include "modem_specific.h"
 
-/* persistent android property to count the platform reboot.
-   NB: The key length can't exceed PROPERTY_KEY_MAX */
-#define PLATFORM_REBOOT_KEY "persist.service.mmgr.reboot"
-
 /* escalation process states */
 typedef enum e_escalation_level {
     E_EL_MODEM_WARM_RESET = 0,

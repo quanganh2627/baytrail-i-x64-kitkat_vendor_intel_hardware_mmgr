@@ -25,7 +25,8 @@
 
 #define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0/hsic_enable"
 
-e_mmgr_errors_t modem_specific_init(void);
+/* @TODO: remove is_flashless param */
+e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless);
 e_mmgr_errors_t modem_warm_reset(modem_info_t *info);
 e_mmgr_errors_t modem_cold_reset(modem_info_t *info);
 e_mmgr_errors_t modem_down(modem_info_t *info);

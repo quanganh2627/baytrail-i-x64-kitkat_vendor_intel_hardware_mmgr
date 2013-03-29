@@ -19,9 +19,11 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <sys/epoll.h>
+#include <sys/stat.h>
 #include "client.h"
 #include "client_events.h"
 #include "errors.h"
+#include "file.h"
 #include "logs.h"
 #include "modem_events.h"
 #include "modem_specific.h"
@@ -495,6 +497,26 @@ out:
     return ret;
 }
 
+static e_mmgr_errors_t notify_ap_reset(mmgr_data_t *mmgr)
+{
+    mmgr_cli_ap_reset_t ap_rst;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    ap_rst.len = strnlen(mmgr->request.client->name, CLIENT_NAME_LEN);
+    ap_rst.name = malloc(sizeof(char) * ap_rst.len);
+    if (ap_rst.name == NULL) {
+        LOG_ERROR("memory allocation fails");
+        goto out;
+    }
+    strncpy(ap_rst.name, mmgr->request.client->name, ap_rst.len);
+    ret = inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_AP_RESET, &ap_rst);
+    free(ap_rst.name);
+out:
+    return ret;
+}
+
 /**
  * handle E_MMGR_REQUEST_MODEM_RECOVERY request
  *
@@ -520,6 +542,7 @@ static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
         if (sec > mmgr->reset.last_reset_time.tv_sec) {
             if (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) {
                 mmgr->info.ev |= E_EV_AP_RESET | E_EV_FORCE_RESET;
+                notify_ap_reset(mmgr);
             }
         } else {
             LOG_DEBUG("skipped. Request older than last recovery operation");
@@ -552,6 +575,7 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
         if (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) {
             mmgr->info.ev |= E_EV_AP_RESET | E_EV_FORCE_RESET;
             mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
+            notify_ap_reset(mmgr);
         }
     }
 out:
@@ -795,6 +819,125 @@ out:
     return ret;
 }
 
+static e_mmgr_errors_t request_fake_up(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    CHECK_PARAM(mmgr, ret, out);
+    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
+out:
+    return ret;
+}
+
+static e_mmgr_errors_t request_fake_down(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    CHECK_PARAM(mmgr, ret, out);
+    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+out:
+    return ret;
+}
+
+static e_mmgr_errors_t request_fake_shtdwn(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    CHECK_PARAM(mmgr, ret, out);
+    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
+out:
+    return ret;
+}
+
+static e_mmgr_errors_t request_fake_oos(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    CHECK_PARAM(mmgr, ret, out);
+    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
+out:
+    return ret;
+}
+
+static e_mmgr_errors_t request_fake_cdd(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    CHECK_PARAM(mmgr, ret, out);
+    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
+out:
+    return ret;
+}
+
+static e_mmgr_errors_t request_fake_ptfrmreboot(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    CHECK_PARAM(mmgr, ret, out);
+    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_PLATFORM_REBOOT, NULL);
+out:
+    return ret;
+}
+
+static e_mmgr_errors_t request_fake_self_reset(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    CHECK_PARAM(mmgr, ret, out);
+    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_SELF_RESET, NULL);
+out:
+    return ret;
+}
+
+static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    mmgr_cli_core_dump_t cd;
+    char filename[PATH_MAX];
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    snprintf(filename, PATH_MAX - 1, "%s/%s",
+             mmgr->info.mcdr.data.path, FAKE_CD_FILENAME);
+    create_empty_file(filename,
+                      S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH |
+                      S_IWOTH);
+
+    cd.state = E_CD_SUCCEED;
+    cd.panic_id = FAKE_CD_ID;
+    cd.len = strnlen(filename, PATH_MAX);
+
+    cd.path = malloc(sizeof(char) * cd.len);
+    if (cd.path == NULL) {
+        LOG_ERROR("memory allocation fails");
+        goto out;
+    }
+    memcpy(cd.path, filename, cd.len);
+    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, &cd);
+    free(cd.path);
+out:
+    return ret;
+}
+
+static e_mmgr_errors_t request_fake_ap_reset(mmgr_data_t *mmgr)
+{
+    return notify_ap_reset(mmgr);
+}
+
+static e_mmgr_errors_t request_fake_error(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    mmgr_cli_error_t err = {.id = FAKE_ERROR_ID };
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    err.len = strlen(FAKE_ERROR_REASON);
+    err.reason = malloc(sizeof(char) * err.len);
+    if (err.reason == NULL) {
+        LOG_ERROR("memory allocation fails");
+        goto out;
+    }
+
+    strncpy(err.reason, FAKE_ERROR_REASON, err.len);
+    inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+    free(err.reason);
+out:
+    return ret;
+}
+
 /**
  * initialize the client events handlers
  *
@@ -845,7 +988,22 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
         request_backup_file_path;
     mmgr->hdler_client[E_MMGR_REQUEST_MODEM_FW_PROGRESS] =
         request_modem_fw_progress;
-
+    /* fake requests */
+    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_DOWN] = request_fake_down;
+    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_UP] = request_fake_up;
+    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_MODEM_SHUTDOWN] =
+        request_fake_shtdwn;
+    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_MODEM_OUT_OF_SERVICE] =
+        request_fake_oos;
+    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_CORE_DUMP] = request_fake_cdd;
+    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_PLATFORM_REBOOT] =
+        request_fake_ptfrmreboot;
+    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_CORE_DUMP_COMPLETE] =
+        request_fake_cdd_complete;
+    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_AP_RESET] = request_fake_ap_reset;
+    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_SELF_RESET] =
+        request_fake_self_reset;
+    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_ERROR] = request_fake_error;
 out:
     return ret;
 }
