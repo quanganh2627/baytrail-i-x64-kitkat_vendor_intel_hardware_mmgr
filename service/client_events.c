@@ -767,6 +767,9 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
         LOG_DEBUG("Client (fd=%d name=%s) is disconnected", client->fd,
                   client->name);
         ret = remove_client(&mmgr->clients, client);
+        /* client must release the locked resource, if any */
+        mmgr->request.client = client;
+        request_resource_release(mmgr);
     } else
         LOG_ERROR("Client (fd=%d name=%s) bad message", client->fd,
                   client->name);
