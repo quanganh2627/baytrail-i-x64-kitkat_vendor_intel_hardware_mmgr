@@ -110,6 +110,9 @@ extern "C" {
     e_mup_err_t mup_open_device(mup_fw_update_params_t *param);
     e_mup_err_t mup_configure_secur_channel(mup_interface_t *handle, void *func,
                                             char *rnd_path, size_t len);
+    e_mup_err_t mup_gen_fls(const char *fls_in, const char *fls_out,
+                            const char *nvm_path, const char *cert_path,
+                            const char *sec_path);
 
 #ifdef __cplusplus
 }
