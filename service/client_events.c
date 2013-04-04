@@ -38,7 +38,7 @@ const char *g_mmgr_requests[] = {
 #define RND_CERTIFICATE_FILE  "/logs/modem_rnd_certif.bin"
 
 /**
- * handle REQUEST_MODEM_NVM_GET_ID request
+ * handle REQUEST_MODEM_NVM_GET_ID request if state is MDM_UP
  *
  * @private
  *
@@ -53,12 +53,7 @@ static e_mmgr_errors_t request_modem_nvm_get(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
-        mmgr->request.answer = E_MMGR_NACK;
-    } else {
-        /* @TODO read nvm id */
-    }
+    /* @TODO read nvm id */
     ret = E_ERR_SUCCESS;
 
 out:
@@ -66,7 +61,7 @@ out:
 }
 
 /**
- * handle REQUEST_MODEM_FW_UPDATE request
+ * handle REQUEST_MODEM_FW_UPDATE request if state is MDM_UP
  *
  * @private
  *
@@ -82,16 +77,11 @@ static e_mmgr_errors_t request_modem_fw_update(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
-        mmgr->request.answer = E_MMGR_NACK;
-    } else {
-        if (extract_data_fw_update(&mmgr->request.msg, &fw) != E_ERR_SUCCESS) {
-            LOG_ERROR("failed to extract data");
-            goto out;
-        }
-        //TODO: save file and restart modem
+    if (extract_data_fw_update(&mmgr->request.msg, &fw) != E_ERR_SUCCESS) {
+        LOG_ERROR("failed to extract data");
+        goto out;
     }
+    /* @TODO: save file and restart modem */
     ret = E_ERR_SUCCESS;
 
 out:
@@ -101,7 +91,7 @@ out:
 }
 
 /**
- * handle REQUEST_MODEM_NVM_UPDATE request
+ * handle REQUEST_MODEM_NVM_UPDATE request if state is MDM_UP
  *
  * @private
  *
@@ -117,24 +107,19 @@ static e_mmgr_errors_t request_modem_nvm_update(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
-        mmgr->request.answer = E_MMGR_NACK;
-    } else {
-        if (extract_data_nvm_update(&mmgr->request.msg, &nvm) != E_ERR_SUCCESS) {
-            LOG_ERROR("failed to extract data");
-            goto out;
-        }
-
-        /* @TODO: manage nvm update request */
+    if (extract_data_nvm_update(&mmgr->request.msg, &nvm) != E_ERR_SUCCESS) {
+        LOG_ERROR("failed to extract data");
+        goto out;
     }
+
+    /* @TODO: manage nvm update request */
     ret = E_ERR_SUCCESS;
 out:
     return ret;
 }
 
 /**
- * handle REQUEST_MODEM_RND_ERASE request
+ * handle REQUEST_MODEM_RND_ERASE request if state is MDM_UP
  *
  * @private
  *
@@ -156,7 +141,7 @@ out:
 }
 
 /**
- * handle REQUEST_MODEM_RND_GET request
+ * handle REQUEST_MODEM_RND_GET request if state is MDM_UP
  *
  * @private
  *
@@ -171,19 +156,14 @@ static e_mmgr_errors_t request_modem_rnd_get(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
-        mmgr->request.answer = E_MMGR_NACK;
-    } else {
-        /* @ŦODO: launch get rnd process */
-    }
+    /* @ŦODO: launch get rnd process */
     ret = E_ERR_SUCCESS;
 out:
     return ret;
 }
 
 /**
- * handle REQUEST_MODEM_FUSE_INFO request
+ * handle REQUEST_MODEM_FUSE_INFO request if state is MDM_UP
  *
  * @private
  *
@@ -198,19 +178,14 @@ static e_mmgr_errors_t request_modem_fuse_info(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
-        mmgr->request.answer = E_MMGR_NACK;
-    } else {
-        /* @TODO: launch get fuse info */
-    }
+    /* @TODO: launch get fuse info */
     ret = E_ERR_SUCCESS;
 out:
     return ret;
 }
 
 /**
- * handle REQUEST_MODEM_GET_HW_ID request
+ * handle REQUEST_MODEM_GET_HW_ID request if state is MDM_UP
  *
  * @private
  *
@@ -225,19 +200,14 @@ static e_mmgr_errors_t request_modem_get_hw_id(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-        (mmgr->client_notification == E_MMGR_EVENT_MODEM_DOWN)) {
-        mmgr->request.answer = E_MMGR_NACK;
-    } else {
-        /* @TODO: launch get hw id */
-    }
+    /* @TODO: launch get hw id */
     ret = E_ERR_SUCCESS;
 out:
     return ret;
 }
 
 /**
- * handle REQUEST_MODEM_NVM_PROGRESS request
+ * handle REQUEST_MODEM_NVM_PROGRESS request if state is MDM_UP
  *
  * @private
  *
@@ -264,7 +234,7 @@ out:
 }
 
 /**
- * handle REQUEST_GET_BACKUP_FILE_PATH request
+ * handle REQUEST_GET_BACKUP_FILE_PATH request if state is MDM_UP
  *
  * @private
  *
@@ -283,16 +253,15 @@ static e_mmgr_errors_t request_backup_file_path(mmgr_data_t *mmgr)
     /* @TODO: get bkup path */
 
     /* @TODO: when is it relevant to answer */
-    ret =
-        inform_client(mmgr->request.client,
-                      E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH, &bkup, false);
+    ret = inform_client(mmgr->request.client,
+                        E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH, &bkup, false);
 
 out:
     return ret;
 }
 
 /**
- * handle REQUEST_MODEM_FW_PROGRESS request
+ * handle REQUEST_MODEM_FW_PROGRESS request if state is MDM_UP
  *
  * @private
  *
@@ -319,7 +288,7 @@ out:
 }
 
 /**
- * handle E_MMGR_SET_NAME request
+ * handle E_MMGR_SET_NAME request if state is MDM_UP
  *
  * @private
  *
@@ -347,7 +316,7 @@ out:
 }
 
 /**
- * handle REQUEST_MODEM_BACKUP_PRODUCTION request
+ * handle REQUEST_MODEM_BACKUP_PRODUCTION request if state is MDM_UP
  *
  * @private
  *
@@ -403,7 +372,7 @@ out:
 }
 
 /**
- * handle E_MMGR_RESOURCE_ACQUIRE request
+ * handle E_MMGR_RESOURCE_ACQUIRE request if state is MDM_OFF
  *
  * @private
  *
@@ -412,54 +381,92 @@ out:
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
+static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) {
-        mmgr->request.answer = E_MMGR_NACK;
-    } else {
-        /* At least one client has acquired the resource. So, cancel
-           modem shutdown if it's on going */
+    mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
+    /* the modem is off, then wake up the modem */
+    LOG_DEBUG("wake up modem");
+    /* @TODO: workaround since start_hsic in modem_up does nothing
+     * and stop_hsic makes a restart of hsic. */
+    if (!strcmp("hsic", mmgr->config.link_layer)) {
+        stop_hsic(&mmgr->info);
+    }
+
+    if (mmgr->config.is_flashless)
+        mmgr->info.polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
+    else
+        mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
+    set_mcd_poll_states(&mmgr->info);
+
+    ret = modem_up(&mmgr->info, mmgr->config.is_flashless,
+                   !strcmp("hsic", mmgr->config.link_layer));
+    if (ret == E_ERR_SUCCESS) {
+        set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+        mmgr->events.cli_req = E_CLI_REQ_NONE;
+        reset_escalation_counter(&mmgr->reset);
+        if (!mmgr->config.is_flashless)
+            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+        /* if the modem is hsic, add wait_for_bus_ready */
+        /* @TODO: push that into modem_specific */
+        if (strcmp(mmgr->config.link_layer, "hsic") == 0)
+            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+    }
+out:
+    return ret;
+}
+
+/**
+ * handle E_MMGR_RESOURCE_ACQUIRE request if state is MDM_UP
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t resource_acquire(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
+
+out:
+    return ret;
+}
+
+/**
+ * handle E_MMGR_RESOURCE_ACQUIRE request if state is WAIT_CLI_ACK
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t resource_acquire_stop_down(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
+
+    if (mmgr->events.cli_req & E_CLI_REQ_OFF) {
+        /* At least one client has acquired the resource and modem shutdown
+         * procedure is on going. Stop it */
+        mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
         stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-        mmgr->info.ev &= ~E_EV_FORCE_MODEM_OFF;
-        mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
-
-        if (mmgr->client_notification == E_MMGR_NOTIFY_MODEM_SHUTDOWN) {
-            mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
-            inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
-        } else if (mmgr->info.ev & E_EV_MODEM_OFF) {
-            if (!(mmgr->info.ev & E_EV_WAIT_FOR_IPC_READY)) {
-                LOG_DEBUG("wake up modem");
-                //@TODO: workaround since start_hsic in modem_up does nothing
-                // and stop_hsic makes a restart of hsic.
-                if (!strcmp("hsic", mmgr->config.link_layer)) {
-                    stop_hsic(&mmgr->info);
-                }
-
-                if (mmgr->config.is_flashless)
-                    mmgr->info.polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
-                else
-                    mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
-                set_mcd_poll_states(&mmgr->info);
-
-                ret = modem_up(&mmgr->info, mmgr->config.is_flashless,
-                               !strcmp("hsic", mmgr->config.link_layer));
-                if (ret == E_ERR_SUCCESS) {
-                    mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
-                    mmgr->info.ev &= ~E_EV_MODEM_OFF;
-                    reset_escalation_counter(&mmgr->reset);
-                    if (!mmgr->config.is_flashless)
-                        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-                    /* if the modem is hsic, add wait_for_bus_ready */
-                    /* @TODO: push that into modem_specific */
-                    if (strcmp(mmgr->config.link_layer, "hsic") == 0)
-                        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-                }
-            }
-        }
+        mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
+        inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
+        set_mmgr_state(mmgr, E_MMGR_MDM_UP);
     }
 
 out:
@@ -467,7 +474,7 @@ out:
 }
 
 /**
- * handle E_MMGR_RESOURCE_RELEASE request
+ * handle E_MMGR_RESOURCE_RELEASE request if state not MDM_OOS
  *
  * @private
  *
@@ -484,15 +491,12 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
 
     mmgr->request.client->cnx |= E_CNX_RESOURCE_RELEASED;
 
-    if ((mmgr->client_notification != E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) &&
-        !(mmgr->info.ev & E_EV_MODEM_OFF)) {
-        if (check_resource_released(&mmgr->clients, true) == E_ERR_SUCCESS) {
-            LOG_INFO("notify clients that modem will be shutdown");
-            mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-            inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN,
-                               NULL);
-            start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-        }
+    if (check_resource_released(&mmgr->clients, true) == E_ERR_SUCCESS) {
+        LOG_INFO("notify clients that modem will be shutdown");
+        mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
+        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
+        start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+        set_mmgr_state(mmgr, E_MMGR_WAIT_CLI_ACK);
     }
 out:
     return ret;
@@ -519,7 +523,7 @@ out:
 }
 
 /**
- * handle E_MMGR_REQUEST_MODEM_RECOVERY request
+ * handle E_MMGR_REQUEST_MODEM_RECOVERY request if state is MDM_UP
  *
  * @private
  *
@@ -535,26 +539,20 @@ static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-        (mmgr->info.ev & E_EV_MODEM_OFF)) {
-        mmgr->request.answer = E_MMGR_NACK;
+    memcpy(&sec, &mmgr->request.msg.hdr.ts, sizeof(uint32_t));
+    if (sec > mmgr->reset.last_reset_time.tv_sec) {
+        mmgr->events.cli_req = E_CLI_REQ_RESET;
+        notify_ap_reset(mmgr);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     } else {
-        memcpy(&sec, &mmgr->request.msg.hdr.ts, sizeof(uint32_t));
-        if (sec > mmgr->reset.last_reset_time.tv_sec) {
-            if (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) {
-                mmgr->info.ev |= E_EV_AP_RESET | E_EV_FORCE_RESET;
-                notify_ap_reset(mmgr);
-            }
-        } else {
-            LOG_DEBUG("skipped. Request older than last recovery operation");
-        }
+        LOG_DEBUG("skipped. Request older than last recovery");
     }
 out:
     return ret;
 }
 
 /**
- * handle E_MMGR_REQUEST_MODEM_RESTART request
+ * handle E_MMGR_REQUEST_MODEM_RESTART request if state is MDM_UP
  *
  * @private
  *
@@ -569,22 +567,16 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((mmgr->client_notification == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-        (mmgr->info.ev & E_EV_MODEM_OFF)) {
-        mmgr->request.answer = E_MMGR_NACK;
-    } else {
-        if (mmgr->client_notification != E_MMGR_NOTIFY_MODEM_COLD_RESET) {
-            mmgr->info.ev |= E_EV_AP_RESET | E_EV_FORCE_RESET;
-            mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
-            notify_ap_reset(mmgr);
-        }
-    }
+    mmgr->events.cli_req = E_CLI_REQ_RESET;
+    mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
+    notify_ap_reset(mmgr);
+    set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 out:
     return ret;
 }
 
 /**
- * handle request
+ * handle request ACK_COLD_RESET if state is WAIT_CLI_ACK
  *
  * @private
  *
@@ -604,7 +596,8 @@ static e_mmgr_errors_t request_ack_cold_reset(mmgr_data_t *mmgr)
         mmgr->request.client->cnx |= E_CNX_COLD_RESET;
         if (check_cold_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
             LOG_DEBUG("All clients agreed cold reset");
-            mmgr->info.ev |= E_EV_FORCE_RESET;
+            mmgr->events.cli_req = E_CLI_REQ_RESET;
+            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         }
     }
 out:
@@ -612,7 +605,7 @@ out:
 }
 
 /**
- * handle request
+ * handle request ACK_MODEM_SHUTDOWN if state is WAIT_CLI_ACK
  *
  * @private
  *
@@ -632,8 +625,9 @@ static e_mmgr_errors_t request_ack_modem_shutdown(mmgr_data_t *mmgr)
         mmgr->request.client->cnx |= E_CNX_MODEM_SHUTDOWN;
         if (check_shutdown_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
             LOG_DEBUG("All clients agreed modem shutdown");
-            mmgr->info.ev |= E_EV_FORCE_MODEM_OFF;
+            mmgr->events.cli_req = E_CLI_REQ_OFF;
             stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         }
     }
 out:
@@ -641,7 +635,7 @@ out:
 }
 
 /**
- * handle E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN request
+ * handle E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN request if state is MDM_UP
  *
  * @private
  *
@@ -656,13 +650,10 @@ static e_mmgr_errors_t request_force_modem_shutdown(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->info.ev & E_EV_MODEM_OFF) {
-        mmgr->request.answer = E_MMGR_NACK;
-    } else {
-        mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-        mmgr->request.additional_info = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
-        start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-    }
+    mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
+    mmgr->request.additional_info = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
+    start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+    set_mmgr_state(mmgr, E_MMGR_WAIT_CLI_ACK);
 out:
     return ret;
 }
@@ -691,12 +682,6 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
 
     size = mmgr->request.msg.hdr.len;
 
-    /* Not accepting client requests for now, NACK ! */
-    if (!mmgr->request.accept_request) {
-        mmgr->request.answer = E_MMGR_NACK;
-        inform_client(mmgr->request.client, mmgr->request.answer, NULL, false);
-    }
-
     if (size > 0) {
         mmgr->request.msg.data = calloc(size, sizeof(char));
         if (mmgr->request.msg.data == NULL)
@@ -714,8 +699,9 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
                  g_mmgr_requests[mmgr->request.msg.hdr.id],
                  mmgr->request.client->fd, mmgr->request.client->name);
 
-        if (mmgr->hdler_client[mmgr->request.msg.hdr.id] != NULL)
-            ret = mmgr->hdler_client[mmgr->request.msg.hdr.id] (mmgr);
+        if (mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id] != NULL)
+            ret = mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id]
+                (mmgr);
 
         if (mmgr->request.answer < E_MMGR_NUM_EVENTS)
             inform_client(mmgr->request.client, mmgr->request.answer, NULL,
@@ -937,6 +923,17 @@ out:
     return ret;
 }
 
+e_mmgr_errors_t client_nack(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(mmgr, ret, out);
+    mmgr->request.answer = E_MMGR_NACK;
+
+out:
+    return ret;
+}
+
 /**
  * initialize the client events handlers
  *
@@ -948,61 +945,107 @@ out:
 e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int i;
+    int i, j;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    for (i = 0; i < E_MMGR_NUM_REQUESTS; i++)
-        mmgr->hdler_client[i] = NULL;
+    /* Configure FSM: */
 
-    mmgr->hdler_client[E_MMGR_SET_NAME] = request_set_name;
-    mmgr->hdler_client[E_MMGR_SET_EVENTS] = request_set_events;
-    mmgr->hdler_client[E_MMGR_RESOURCE_ACQUIRE] = request_resource_acquire;
-    mmgr->hdler_client[E_MMGR_RESOURCE_RELEASE] = request_resource_release;
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_RECOVERY] = request_modem_recovery;
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_RESTART] = request_modem_restart;
-    mmgr->hdler_client[E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN] =
+    /* NB: Never accept client request during MDM_RESET or MDM_CONF_ONGOING
+     * event */
+
+    /* set default behavior */
+    for (i = 0; i < E_MMGR_NUM; i++)
+        for (j = 0; j < E_MMGR_NUM_REQUESTS; j++)
+            mmgr->hdler_client[i][j] = client_nack;
+
+    /* A client is ALWAYS able to establish a connection, except during
+     * MDM_RESET and MDM_CONF_ONGOING.
+     * fake commands shall be accepted too  */
+    for (i = 0; i < E_MMGR_NUM; i++) {
+        if ((i == E_MMGR_MDM_RESET) || (i == E_MMGR_MDM_CONF_ONGOING))
+            continue;
+
+        mmgr->hdler_client[i][E_MMGR_SET_NAME] = request_set_name;
+        mmgr->hdler_client[i][E_MMGR_SET_EVENTS] = request_set_events;
+        /* fake requests */
+        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_DOWN] = request_fake_down;
+        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_UP] = request_fake_up;
+        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_MODEM_SHUTDOWN] =
+            request_fake_shtdwn;
+        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_MODEM_OUT_OF_SERVICE] =
+            request_fake_oos;
+        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_CORE_DUMP] = request_fake_cdd;
+        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_PLATFORM_REBOOT] =
+            request_fake_ptfrmreboot;
+        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_CORE_DUMP_COMPLETE] =
+            request_fake_cdd_complete;
+        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_AP_RESET] =
+            request_fake_ap_reset;
+        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_SELF_RESET] =
+            request_fake_self_reset;
+        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_ERROR] = request_fake_error;
+    }
+
+    /* E_MMGR_RESOURCE_ACQUIRE */
+    mmgr->hdler_client[E_MMGR_MDM_OFF][E_MMGR_RESOURCE_ACQUIRE] =
+        resource_acquire_wakeup_modem;
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_RESOURCE_ACQUIRE] =
+        resource_acquire;
+    mmgr->hdler_client[E_MMGR_WAIT_CLI_ACK][E_MMGR_RESOURCE_ACQUIRE] =
+        resource_acquire_stop_down;
+
+    /* E_MMGR_RESOURCE_RELEASE */
+    mmgr->hdler_client[E_MMGR_MDM_OFF][E_MMGR_RESOURCE_RELEASE] =
+        request_resource_release;
+    mmgr->hdler_client[E_MMGR_WAIT_CLI_ACK][E_MMGR_RESOURCE_RELEASE] =
+        request_resource_release;
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_RESOURCE_RELEASE] =
+        request_resource_release;
+
+    /* E_MMGR_REQUEST_MODEM_RECOVERY */
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_RECOVERY] =
+        request_modem_recovery;
+
+    /* E_MMGR_REQUEST_MODEM_RESTART */
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_RESTART] =
+        request_modem_restart;
+
+    /* E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN */
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN] =
         request_force_modem_shutdown;
-    mmgr->hdler_client[E_MMGR_ACK_MODEM_COLD_RESET] = request_ack_cold_reset;
-    mmgr->hdler_client[E_MMGR_ACK_MODEM_SHUTDOWN] = request_ack_modem_shutdown;
-    /* flashing API: */
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_FW_UPDATE] =
-        request_modem_fw_update;
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_RND_ERASE] =
-        request_modem_rnd_erase;
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_RND_GET] = request_modem_rnd_get;
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_FUSE_INFO] =
-        request_modem_fuse_info;
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_GET_HW_ID] =
-        request_modem_get_hw_id;
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_NVM_UPDATE] =
-        request_modem_nvm_update;
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_NVM_GET_ID] = request_modem_nvm_get;
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_BACKUP_PRODUCTION] =
-        request_bkup_prod;
 
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_NVM_PROGRESS] =
+    /* E_MMGR_ACK_MODEM_COLD_RESET */
+    mmgr->hdler_client[E_MMGR_WAIT_CLI_ACK][E_MMGR_ACK_MODEM_COLD_RESET] =
+        request_ack_cold_reset;
+
+    /* E_MMGR_ACK_MODEM_SHUTDOWN */
+    mmgr->hdler_client[E_MMGR_WAIT_CLI_ACK][E_MMGR_ACK_MODEM_SHUTDOWN] =
+        request_ack_modem_shutdown;
+
+    /* flashing API: */
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_FW_UPDATE] =
+        request_modem_fw_update;
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_RND_ERASE] =
+        request_modem_rnd_erase;
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_RND_GET] =
+        request_modem_rnd_get;
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_FUSE_INFO] =
+        request_modem_fuse_info;
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_GET_HW_ID] =
+        request_modem_get_hw_id;
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_NVM_UPDATE] =
+        request_modem_nvm_update;
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_NVM_GET_ID] =
+        request_modem_nvm_get;
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_BACKUP_PRODUCTION] =
+        request_bkup_prod;
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_NVM_PROGRESS] =
         request_modem_nvm_progress;
-    mmgr->hdler_client[E_MMGR_REQUEST_GET_BACKUP_FILE_PATH] =
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_GET_BACKUP_FILE_PATH] =
         request_backup_file_path;
-    mmgr->hdler_client[E_MMGR_REQUEST_MODEM_FW_PROGRESS] =
+    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_FW_PROGRESS] =
         request_modem_fw_progress;
-    /* fake requests */
-    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_DOWN] = request_fake_down;
-    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_UP] = request_fake_up;
-    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_MODEM_SHUTDOWN] =
-        request_fake_shtdwn;
-    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_MODEM_OUT_OF_SERVICE] =
-        request_fake_oos;
-    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_CORE_DUMP] = request_fake_cdd;
-    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_PLATFORM_REBOOT] =
-        request_fake_ptfrmreboot;
-    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_CORE_DUMP_COMPLETE] =
-        request_fake_cdd_complete;
-    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_AP_RESET] = request_fake_ap_reset;
-    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_SELF_RESET] =
-        request_fake_self_reset;
-    mmgr->hdler_client[E_MMGR_REQUEST_FAKE_ERROR] = request_fake_error;
 out:
     return ret;
 }

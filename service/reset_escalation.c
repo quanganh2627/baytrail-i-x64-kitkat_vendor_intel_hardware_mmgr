@@ -106,7 +106,7 @@ static e_reset_operation_state_t pre_platform_reboot(reset_management_t
     }
     if (reboot_counter >= p_reset->process[E_EL_PLATFORM_REBOOT].retry_allowed) {
         /* go to next level */
-        LOG_INFO("%s STATE: Reboot cancelled. Max value reached", MODULE_NAME);
+        LOG_INFO("Reboot cancelled. Max value reached");
         ret = E_OPERATION_NEXT;
     } else {
         reboot_counter++;
@@ -131,7 +131,7 @@ out:
 static e_reset_operation_state_t pre_out_of_service(reset_management_t *none)
 {
     (void)none;
-    LOG_INFO("%s STATE: MODEM OUT OF SERVICE", MODULE_NAME);
+    LOG_INFO("MODEM OUT OF SERVICE");
     return E_OPERATION_CONTINUE;
 }
 
@@ -148,8 +148,7 @@ static e_mmgr_errors_t platform_reboot(modem_info_t *unused)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     (void)unused;
-    LOG_INFO("%s STATE: PLATFORM REBOOT\n"
-             "[SHTDWN] Reboot requested by %s", MODULE_NAME, MODULE_NAME);
+    LOG_INFO("PLATFORM REBOOT. [SHTDWN] Reboot requested by %s", MODULE_NAME);
 
     /* force commit buffer cache to disk to prevent data lost
        Specially the COLD_RESET file */
@@ -168,7 +167,6 @@ static e_mmgr_errors_t platform_reboot(modem_info_t *unused)
 static e_mmgr_errors_t out_of_service(modem_info_t *info)
 {
     modem_down(info);
-    info->ev = E_EV_MODEM_OFF;
     return E_ERR_SUCCESS;
 }
 

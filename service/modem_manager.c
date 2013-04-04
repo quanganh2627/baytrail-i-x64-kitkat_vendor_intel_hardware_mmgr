@@ -42,7 +42,7 @@ mmgr_data_t *g_mmgr = NULL;
 static void cleanup(void)
 {
     events_cleanup(g_mmgr);
-    LOG_VERBOSE("Exiting %s", MODULE_NAME);
+    LOG_VERBOSE("Exiting");
 }
 
 /**
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
             goto out;
         }
     }
-    LOG_DEBUG("%s boot. last commit: \"%s\"", MODULE_NAME, GIT_COMMIT_ID);
+    LOG_DEBUG("Boot. last commit: \"%s\"", GIT_COMMIT_ID);
 
 #ifdef GOCV_MMGR
     setenv("GCOV_PREFIX", GCOV_FOLDER, 1);
@@ -151,36 +151,33 @@ int main(int argc, char *argv[])
 #endif
 
     if (set_signal_handler() == E_ERR_FAILED) {
-        LOG_ERROR("%s STATE: Error during sigaction initialization. Exit",
-                  MODULE_NAME);
+        LOG_ERROR("Error during sigaction initialization. Exit");
         ret = EXIT_FAILURE;
         goto out;
     }
 
     if (atexit(cleanup) != 0) {
-        LOG_ERROR("%s STATE: exit configuration failed. Exit", MODULE_NAME);
+        LOG_ERROR("Exit configuration failed. Exit");
         ret = EXIT_FAILURE;
         goto out;
     }
 
     if ((err = mmgr_configure(&mmgr.config, conf_file))
         == E_ERR_BAD_PARAMETER) {
-        LOG_ERROR("%s STATE: initialization failed (reason=%d). Exit",
-                  MODULE_NAME, err);
+        LOG_ERROR("Initialization failed (reason=%d). Exit", err);
         ret = EXIT_FAILURE;
         goto out;
     }
 
     err = escalation_recovery_init(&mmgr.config, &mmgr.reset, &mmgr.info);
     if (err != E_ERR_SUCCESS) {
-        LOG_ERROR("%s STATE: reset escalation init failed (reason=%d). Exit",
-                  MODULE_NAME, err);
+        LOG_ERROR("Reset escalation init failed (reason=%d). Exit", err);
         ret = EXIT_FAILURE;
         goto out;
     }
 
     if (events_init(&mmgr) != E_ERR_SUCCESS) {
-        LOG_ERROR("%s STATE: events configuration failed. Exit", MODULE_NAME);
+        LOG_ERROR("Events configuration failed. Exit");
         ret = EXIT_FAILURE;
         goto out;
     }
