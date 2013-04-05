@@ -24,7 +24,6 @@
 #include "config.h"
 #include "file.h"
 #include "events_manager.h"
-#include "version.h"
 
 #define USAGE \
 "Start "MODULE_NAME" Daemon.\n" \
@@ -131,8 +130,8 @@ int main(int argc, char *argv[])
             break;
 
         case 'v':
-            fprintf(stdout, "%s (Version: %s) (Build: %s:%s)\n", argv[0],
-                    MODULE_VERSION, __DATE__, __TIME__);
+            fprintf(stdout, "%s (last commit: \"%s\")\n", argv[0],
+                    GIT_COMMIT_ID);
             goto out;
             break;
 
@@ -141,9 +140,7 @@ int main(int argc, char *argv[])
             goto out;
         }
     }
-
-    LOG_DEBUG("%s STATE: BOOT (Version: %s) (Build: %s:%s)",
-              MODULE_NAME, MODULE_VERSION, __DATE__, __TIME__);
+    LOG_DEBUG("%s boot. last commit: \"%s\"", MODULE_NAME, GIT_COMMIT_ID);
 
 #ifdef GOCV_MMGR
     setenv("GCOV_PREFIX", GCOV_FOLDER, 1);
