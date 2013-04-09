@@ -86,12 +86,22 @@ out:
 e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    bool telephony_stack = true;
 
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->fd_tty = CLOSED_FD;
     mmgr->fd_cnx = CLOSED_FD;
     mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
+
+    if (mmgr->config.tel_stack) {
+        get_property("persist.service.telephony", &telephony_stack);
+        if (!telephony_stack) {
+            LOG_DEBUG("telephony stack is disabled");
+            write_to_file(HSIC_PATH, SYSFS_OPEN_MODE, "0", 1);
+            mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
+        }
+    }
 
     mmgr->events.nfds = 0;
     mmgr->events.ev = malloc(sizeof(struct epoll_event) *

@@ -35,6 +35,7 @@
 #define GPP_MAX_FRAME_SIZE INTEGER(32768)
 /* modem max frame size */
 #define MODEM_MAX_FRAME_SIZE INTEGER(1509)
+#define DEF_TEL_STACK INTEGER(false)
 
 /* flashless data */
 #define DEF_IS_FLASHLESS INTEGER(false)
@@ -329,6 +330,8 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          .def = DEF_FLASH_PID,.set = string},
         {.key = "FlashVid",.dest = &params->flash_vid,
          .def = DEF_FLASH_VID,.set = string},
+        {.key = "disable_tel_stack",.dest = &params->tel_stack,
+         .def = DEF_TEL_STACK,.set = boolean},
     };
 
     set_param_t recov[] = {
