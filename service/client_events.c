@@ -390,9 +390,9 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
     /* the modem is off, then wake up the modem */
     LOG_DEBUG("wake up modem");
-    /* @TODO: workaround since start_hsic in modem_up does nothing
+    /* @TODO: workaround since start_hsic in mdm_up does nothing
      * and stop_hsic makes a restart of hsic. */
-    if (!strcmp("hsic", mmgr->config.link_layer)) {
+    if (mmgr->info.link == E_LINK_HSIC) {
         stop_hsic(&mmgr->info);
     }
 
@@ -402,17 +402,15 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
     set_mcd_poll_states(&mmgr->info);
 
-    ret = modem_up(&mmgr->info, mmgr->config.is_flashless,
-                   !strcmp("hsic", mmgr->config.link_layer));
-    if (ret == E_ERR_SUCCESS) {
+    if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
         set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
         mmgr->events.cli_req = E_CLI_REQ_NONE;
-        reset_escalation_counter(&mmgr->reset);
+        recov_reinit(&mmgr->reset);
         if (!mmgr->config.is_flashless)
             start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         /* if the modem is hsic, add wait_for_bus_ready */
         /* @TODO: push that into modem_specific */
-        if (strcmp(mmgr->config.link_layer, "hsic") == 0)
+        if (mmgr->info.link == E_LINK_HSIC)
             start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     }
 out:
@@ -495,6 +493,8 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
         LOG_INFO("notify clients that modem will be shutdown");
         mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
         inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
+        /* if we have a current modem start procedure, stop all its timers */
+        stop_all_timers(&mmgr->timer);
         start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
         set_mmgr_state(mmgr, E_MMGR_WAIT_CLI_ACK);
     }

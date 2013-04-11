@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    err = escalation_recovery_init(&mmgr.config, &mmgr.reset, &mmgr.info);
+    err = recov_init(&mmgr.config, &mmgr.reset);
     if (err != E_ERR_SUCCESS) {
         LOG_ERROR("Reset escalation init failed (reason=%d). Exit", err);
         ret = EXIT_FAILURE;

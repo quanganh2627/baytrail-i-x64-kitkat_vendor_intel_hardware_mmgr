@@ -107,6 +107,7 @@ typedef struct current_request {
 
 struct mmgr_data;
 typedef e_mmgr_errors_t (*event_hdler_t) (struct mmgr_data * mmgr);
+typedef e_mmgr_errors_t (*reset_mdm_op_t) (modem_info_t *modem_info);
 
 typedef struct mmgr_data {
     int epollfd;
@@ -125,7 +126,8 @@ typedef struct mmgr_data {
     /* functions handlers: */
     event_hdler_t hdler_events[E_EVENT_NUM];
     event_hdler_t hdler_client[E_MMGR_NUM][E_MMGR_NUM_REQUESTS];
-    event_hdler_t hdler_modem[E_EL_NUMBER_OF];
+    event_hdler_t hdler_pre_mdm[E_EL_NUMBER_OF];
+    reset_mdm_op_t hdler_mdm[E_EL_NUMBER_OF];
 } mmgr_data_t;
 
 e_mmgr_errors_t events_manager(mmgr_data_t *mmgr);

@@ -147,13 +147,11 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    if ((ret = modem_specific_init(&mmgr->info, mmgr->config.is_flashless)
-         != E_ERR_SUCCESS))
+    if ((ret = mdm_specific_init(&mmgr->info)) != E_ERR_SUCCESS)
         goto out;
-    if (mmgr->config.is_flashless) {
-        if ((ret = regen_fls(&mmgr->info) != E_ERR_SUCCESS))
-            goto out;
-    }
+
+    if ((ret = mdm_prepare(&mmgr->info)) != E_ERR_SUCCESS)
+        goto out;
 
     ret = open_cnx(&mmgr->fd_cnx);
     if (ret != E_ERR_SUCCESS)
@@ -196,7 +194,7 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
+    if (mmgr->info.link == E_LINK_HSIC) {
         if ((ret =
              bus_events_init(&mmgr->events.bus_events, mmgr->config.bb_pid,
                              mmgr->config.bb_vid, mmgr->config.flash_pid,
@@ -317,7 +315,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
         } else if (mmgr->state == E_MMGR_MDM_RESET) {
             LOG_DEBUG("restoring modem");
-            restore_modem(mmgr);
+            reset_modem(mmgr);
             mmgr->events.cli_req &= ~E_CLI_REQ_RESET;
         }
 

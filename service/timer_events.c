@@ -62,6 +62,20 @@ out:
     return ret;
 }
 
+e_mmgr_errors_t stop_all_timers(mmgr_timer_t *timer)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(timer, ret, out);
+
+    timer->type = 0x0;
+    LOG_DEBUG("timer stopped");
+    timer->cur_timeout = TIMEOUT_EPOLL_INFINITE;
+
+out:
+    return ret;
+}
+
 /**
  * stop a timer for a specific event
  *

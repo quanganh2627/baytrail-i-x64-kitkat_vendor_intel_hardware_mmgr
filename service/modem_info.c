@@ -66,8 +66,12 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
     CHECK_PARAM(info, ret, out);
 
     info->ev = E_EV_MODEM_OFF;  /* modem is OFF at boot-up */
-    info->restore_timeout = config->max_retry_time;
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
+    info->is_flashless = config->is_flashless;
+    if (strcmp(config->link_layer, "hsic") == 0)
+        info->link = E_LINK_HSIC;
+    else
+        info->link = E_LINK_HSI;
 
     if (config->is_flashless)
         modem_info_flashless_config(FLASHLESS_CFG, &info->fl_conf);

@@ -28,21 +28,23 @@
 
 #define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0/hsic_enable"
 
-/* @TODO: remove is_flashless param */
-e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless);
-e_mmgr_errors_t modem_warm_reset(modem_info_t *info);
-e_mmgr_errors_t modem_cold_reset(modem_info_t *info);
-e_mmgr_errors_t modem_down(modem_info_t *info);
-e_mmgr_errors_t modem_up(modem_info_t *info, bool is_flashless, bool is_hsic);
-e_mmgr_errors_t get_modem_state(int fd_mcd, e_modem_events_type_t *state);
+e_mmgr_errors_t mdm_specific_init(modem_info_t *info);
+e_mmgr_errors_t mdm_warm_reset(modem_info_t *info);
+e_mmgr_errors_t mdm_cold_reset(modem_info_t *info);
+e_mmgr_errors_t mdm_down(modem_info_t *info);
+e_mmgr_errors_t mdm_up(modem_info_t *info);
+e_mmgr_errors_t mdm_get_state(int fd_mcd, e_modem_events_type_t *state);
 e_mmgr_errors_t start_hsic(modem_info_t *info);
 e_mmgr_errors_t stop_hsic(modem_info_t *info);
-e_mmgr_errors_t regen_fls(modem_info_t *info);
 e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport, bool ch_sw,
                             secur_t *secur, e_modem_fw_error_t *verdict);
 e_mmgr_errors_t set_mcd_poll_states(modem_info_t *info);
-e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, char *link_layer,
-                                     bool flashing_mode);
+e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode);
+
+e_mmgr_errors_t mdm_prepare(modem_info_t *info);
+e_mmgr_errors_t mdm_prepare_link(modem_info_t *info);
+e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info,
+                                       bool subscribe_cd_ev);
 
 void mup_log(const char *msg, size_t msg_len);
 

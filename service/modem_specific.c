@@ -56,19 +56,18 @@ void mup_log(const char *msg, size_t msg_len)
  * init module function
  *
  * @param[in] info modem data
- * @param[in] is_flashless
  *
  * @return E_ERR_FAILED
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
+e_mmgr_errors_t mdm_specific_init(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char *p = NULL;
 
     CHECK_PARAM(info, ret, out);
 
-    if (is_flashless) {
+    if (info->is_flashless) {
         info->mup.hdle = dlopen(MUP_LIB, RTLD_LAZY);
         if (info->mup.hdle == NULL) {
             LOG_ERROR("failed to open library");
@@ -104,10 +103,9 @@ out:
     return ret;
 }
 
-e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, char *link_layer,
-                                     bool flashing_mode)
+e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode)
 {
-    if (strcmp(link_layer, "hsi") == 0)
+    if (info->link == E_LINK_HSI)
         return (info->mup.toggle_hsi_flashing_mode(flashing_mode) ==
                 E_MUP_SUCCEED) ? E_ERR_SUCCESS : E_ERR_FAILED;
     return E_ERR_SUCCESS;
@@ -242,7 +240,7 @@ e_mmgr_errors_t stop_hsic(modem_info_t *info)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t regen_fls(modem_info_t *info)
+static e_mmgr_errors_t regen_fls(modem_info_t *info)
 {
 
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -288,7 +286,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t modem_warm_reset(modem_info_t *info)
+e_mmgr_errors_t mdm_warm_reset(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -312,7 +310,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t modem_cold_reset(modem_info_t *info)
+e_mmgr_errors_t mdm_cold_reset(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -335,7 +333,7 @@ out:
  * @return E_OPERATION_BAD_PARAMETER if info is NULL
  * @return E_OPERATION_CONTINUE
  */
-e_mmgr_errors_t modem_down(modem_info_t *info)
+e_mmgr_errors_t mdm_down(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
@@ -356,18 +354,13 @@ out:
  * power on modem
  *
  * @param [in] info modem info structure
- * @param [in] is_flashless
- * @param [in] is_hsic
  *
  * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t modem_up(modem_info_t *info, bool is_flashless, bool is_hsic)
+e_mmgr_errors_t mdm_up(modem_info_t *info)
 {
-
-    /* @TODO: rework this to remove the is_flashless and is_hsic
-       boolean to hide modem_specific parameters from the calling module */
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int state;
 
@@ -375,18 +368,17 @@ e_mmgr_errors_t modem_up(modem_info_t *info, bool is_flashless, bool is_hsic)
 
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
 
-    /*@TODO: broken start_hsic does nothing */
-    if (is_hsic)
+    if (info->link == E_LINK_HSIC)
         start_hsic(info);
 
-    if (is_flashless) {
+    if (info->is_flashless) {
         if (state & MDM_CTRL_STATE_OFF) {
             if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {
                 LOG_DEBUG("failed to power on the modem: %s", strerror(errno));
                 ret = E_ERR_FAILED;
             }
         } else {
-            ret = modem_cold_reset(info);
+            ret = mdm_cold_reset(info);
         }
     } else if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {
         LOG_DEBUG("failed to power on the modem: %s", strerror(errno));
@@ -409,7 +401,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info is NULL
  */
-e_mmgr_errors_t get_modem_state(int fd_mcd, e_modem_events_type_t *state)
+e_mmgr_errors_t mdm_get_state(int fd_mcd, e_modem_events_type_t *state)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int read = 0;
@@ -466,7 +458,7 @@ out:
  *
  * @param [in,out] info modem info context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -484,6 +476,81 @@ e_mmgr_errors_t set_mcd_poll_states(modem_info_t *info)
         ret = E_ERR_FAILED;
     }
 
+out:
+    return ret;
+}
+
+/**
+ * This function is used to prepare the firmware modem
+ *
+ * @param [in,out] info modem info context
+ *
+ * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ **/
+e_mmgr_errors_t mdm_prepare(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    if (info->is_flashless) {
+        /* re-generates the fls through nvm injection lib if the modem is
+         * flashless */
+        ret = regen_fls(info);
+    }
+out:
+    return ret;
+}
+
+/**
+ * This function is used to start the modem IPC link
+ *
+ * @param [in,out] info modem info context
+ *
+ * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ **/
+e_mmgr_errors_t mdm_prepare_link(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    /* Stop hsic if the modem is hsic */
+    if (info->link == E_LINK_HSIC)
+        stop_hsic(info);
+out:
+    return ret;
+}
+
+/**
+ * This function is used to configure modem events after modem restart
+ *
+ * @param [in,out] info modem info context
+ * @param [in] subscribe_cd_ev boolean to define if we should subscribe to
+ * core dump event or not
+ *
+ * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ **/
+e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info, bool subscribe_cd_ev)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    if (info->is_flashless)
+        info->polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
+    else
+        info->polled_states = MDM_CTRL_STATE_IPC_READY;
+
+    if (subscribe_cd_ev)
+        info->polled_states |= MDM_CTRL_STATE_COREDUMP;
+    ret = set_mcd_poll_states(info);
 out:
     return ret;
 }

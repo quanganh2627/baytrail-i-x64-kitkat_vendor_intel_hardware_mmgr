@@ -61,14 +61,20 @@ typedef struct mup_op {
                             const char *certificate, const char *secur);
 } mup_op_t;
 
+typedef enum e_link_type {
+    E_LINK_HSI,
+    E_LINK_HSIC,
+} e_link_type_t;
+
 typedef struct modem_info {
     mup_op_t mup;
     e_modem_events_type_t ev;
     mcdr_lib_t mcdr;
     int fd_mcd;
     int polled_states;
-    int restore_timeout;
     flashless_config_t fl_conf;
+    bool is_flashless;
+    e_link_type_t link;
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
