@@ -531,39 +531,12 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
 
     p_lib->set_msg[E_MMGR_SET_NAME] = set_msg_name;
     p_lib->set_msg[E_MMGR_SET_EVENTS] = set_msg_filter;
-    p_lib->set_msg[E_MMGR_REQUEST_MODEM_FW_UPDATE] = set_msg_fw_update;
-    p_lib->set_msg[E_MMGR_REQUEST_MODEM_NVM_UPDATE] = set_msg_nvm_update;
-
-    p_lib->set_data[E_MMGR_RESPONSE_MODEM_RND] = set_data_rnd_id;
-    p_lib->free_data[E_MMGR_RESPONSE_MODEM_RND] = free_data_rnd_id;
 
     p_lib->set_data[E_MMGR_RESPONSE_MODEM_HW_ID] = set_data_hw_id;
     p_lib->free_data[E_MMGR_RESPONSE_MODEM_HW_ID] = free_data_hw_id;
 
-    p_lib->set_data[E_MMGR_RESPONSE_MODEM_NVM_ID] = set_data_nvm_id;
-    p_lib->free_data[E_MMGR_RESPONSE_MODEM_NVM_ID] = free_data_nvm_id;
-
-    p_lib->set_data[E_MMGR_RESPONSE_MODEM_FW_PROGRESS] = set_data_fw_progress;
-    p_lib->free_data[E_MMGR_RESPONSE_MODEM_FW_PROGRESS] =
-        free_one_element_struct;
-
-    p_lib->set_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] = set_data_fw_result;
-    p_lib->free_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] = free_one_element_struct;
-
-    p_lib->set_data[E_MMGR_RESPONSE_MODEM_NVM_RESULT] = set_data_nvm_result;
-    p_lib->free_data[E_MMGR_RESPONSE_MODEM_NVM_RESULT] =
-        free_one_element_struct;
-
-    p_lib->set_data[E_MMGR_RESPONSE_MODEM_NVM_PROGRESS] = set_data_nvm_progress;
-    p_lib->free_data[E_MMGR_RESPONSE_MODEM_NVM_PROGRESS] =
-        free_one_element_struct;
-
     p_lib->set_data[E_MMGR_RESPONSE_FUSE_INFO] = set_data_fuse_info;
     p_lib->free_data[E_MMGR_RESPONSE_FUSE_INFO] = free_one_element_struct;
-
-    p_lib->set_data[E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH] = set_data_bckup_file;
-    p_lib->free_data[E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH] =
-        free_data_bckup_file;
 
     p_lib->set_data[E_MMGR_NOTIFY_AP_RESET] = set_data_ap_reset;
     p_lib->free_data[E_MMGR_NOTIFY_AP_RESET] = free_data_ap_reset;

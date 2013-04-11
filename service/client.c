@@ -184,20 +184,8 @@ e_mmgr_errors_t initialize_list(client_list_t *clients, int list_size)
     for (i = 0; i < E_MMGR_NUM_EVENTS; i++)
         clients->set_data[i] = set_msg_empty;
 
-    clients->set_data[E_MMGR_RESPONSE_MODEM_RND] = set_msg_rnd;
     clients->set_data[E_MMGR_RESPONSE_MODEM_HW_ID] = set_msg_modem_hw_id;
-    clients->set_data[E_MMGR_RESPONSE_MODEM_NVM_ID] = set_msg_nvm_id;
-    clients->set_data[E_MMGR_RESPONSE_MODEM_FW_PROGRESS] =
-        set_msg_modem_fw_progress;
-    clients->set_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] =
-        set_msg_modem_fw_result;
-    clients->set_data[E_MMGR_RESPONSE_MODEM_NVM_PROGRESS] =
-        set_msg_modem_nvm_progress;
-    clients->set_data[E_MMGR_RESPONSE_MODEM_NVM_RESULT] =
-        set_msg_modem_nvm_result;
     clients->set_data[E_MMGR_RESPONSE_FUSE_INFO] = set_msg_fuse_info;
-    clients->set_data[E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH] =
-        set_msg_backup_file_path;
     clients->set_data[E_MMGR_NOTIFY_AP_RESET] = set_msg_ap_reset;
     clients->set_data[E_MMGR_NOTIFY_CORE_DUMP_COMPLETE] = set_msg_core_dump;
     clients->set_data[E_MMGR_NOTIFY_ERROR] = set_msg_error;

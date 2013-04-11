@@ -38,131 +38,6 @@ const char *g_mmgr_requests[] = {
 #define RND_CERTIFICATE_FILE  "/logs/modem_rnd_certif.bin"
 
 /**
- * handle REQUEST_MODEM_NVM_GET_ID request if state is MDM_UP
- *
- * @private
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t request_modem_nvm_get(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    /* @TODO: handle this request */
-    ret = E_ERR_SUCCESS;
-
-out:
-    return ret;
-}
-
-/**
- * handle REQUEST_MODEM_FW_UPDATE request if state is MDM_UP
- *
- * @private
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t request_modem_fw_update(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_fw_update_t fw = {.fls_path = NULL };
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    if (extract_data_fw_update(&mmgr->request.msg, &fw) != E_ERR_SUCCESS) {
-        LOG_ERROR("failed to extract data");
-        goto out;
-    }
-    /* @TODO: handle this request */
-    ret = E_ERR_SUCCESS;
-
-out:
-    if (fw.fls_path != NULL)
-        free(fw.fls_path);
-    return ret;
-}
-
-/**
- * handle REQUEST_MODEM_NVM_UPDATE request if state is MDM_UP
- *
- * @private
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t request_modem_nvm_update(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_nvm_update_t nvm;
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    if (extract_data_nvm_update(&mmgr->request.msg, &nvm) != E_ERR_SUCCESS) {
-        LOG_ERROR("failed to extract data");
-        goto out;
-    }
-
-    /* @TODO: handle this request */
-    ret = E_ERR_SUCCESS;
-out:
-    return ret;
-}
-
-/**
- * handle REQUEST_MODEM_RND_ERASE request if state is MDM_UP
- *
- * @private
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t request_modem_rnd_erase(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    /* @TODO: handle this request */
-    ret = E_ERR_SUCCESS;
-out:
-    return ret;
-}
-
-/**
- * handle REQUEST_MODEM_RND_GET request if state is MDM_UP
- *
- * @private
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t request_modem_rnd_get(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    /* @TODO: handle this request */
-    ret = E_ERR_SUCCESS;
-out:
-    return ret;
-}
-
-/**
  * handle REQUEST_MODEM_FUSE_INFO request if state is MDM_UP
  *
  * @private
@@ -202,87 +77,6 @@ static e_mmgr_errors_t request_modem_get_hw_id(mmgr_data_t *mmgr)
 
     /* @TODO: handle this request */
     ret = E_ERR_SUCCESS;
-out:
-    return ret;
-}
-
-/**
- * handle REQUEST_MODEM_NVM_PROGRESS request if state is MDM_UP
- *
- * @private
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t request_modem_nvm_progress(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_nvm_update_progress_t progress;
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    /* @TODO: get flashing rate */
-    progress.rate = 100;
-
-    /* @TODO: when is it relevant to answer */
-    ret = inform_client(mmgr->request.client,
-                        E_MMGR_RESPONSE_MODEM_NVM_PROGRESS, &progress, false);
-out:
-    return ret;
-}
-
-/**
- * handle REQUEST_GET_BACKUP_FILE_PATH request if state is MDM_UP
- *
- * @private
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t request_backup_file_path(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_backup_path_t bkup = {.path = NULL };
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    /* @TODO: get bkup path */
-
-    /* @TODO: when is it relevant to answer */
-    ret = inform_client(mmgr->request.client,
-                        E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH, &bkup, false);
-
-out:
-    return ret;
-}
-
-/**
- * handle REQUEST_MODEM_FW_PROGRESS request if state is MDM_UP
- *
- * @private
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t request_modem_fw_progress(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_fw_update_progress_t progress;
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    /* @TODO: get flashing rate */
-    progress.rate = 100;
-
-    /* @TODO: when is it relevant to answer */
-    ret = inform_client(mmgr->request.client,
-                        E_MMGR_RESPONSE_MODEM_FW_PROGRESS, &progress, false);
 out:
     return ret;
 }
@@ -1023,28 +817,12 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
         request_ack_modem_shutdown;
 
     /* flashing API: */
-    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_FW_UPDATE] =
-        request_modem_fw_update;
-    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_RND_ERASE] =
-        request_modem_rnd_erase;
-    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_RND_GET] =
-        request_modem_rnd_get;
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_FUSE_INFO] =
         request_modem_fuse_info;
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_GET_HW_ID] =
         request_modem_get_hw_id;
-    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_NVM_UPDATE] =
-        request_modem_nvm_update;
-    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_NVM_GET_ID] =
-        request_modem_nvm_get;
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_BACKUP_PRODUCTION] =
         request_bkup_prod;
-    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_NVM_PROGRESS] =
-        request_modem_nvm_progress;
-    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_GET_BACKUP_FILE_PATH] =
-        request_backup_file_path;
-    mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_FW_PROGRESS] =
-        request_modem_fw_progress;
 out:
     return ret;
 }
