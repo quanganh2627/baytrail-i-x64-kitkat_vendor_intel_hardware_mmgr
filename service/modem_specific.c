@@ -48,7 +48,7 @@
  */
 void mup_log(const char *msg, size_t msg_len)
 {
-    (void)msg_len;              //unused
+    (void)msg_len;              /* unused */
     LOG_DEBUG("%s", msg);
 }
 
@@ -205,9 +205,10 @@ out:
  */
 e_mmgr_errors_t start_hsic(modem_info_t *info)
 {
-    //FIXME: Writting 0 to stop the HSIC is useless and writting 1 stops and restarts the hsic
-    //just write 1 in the HSIC_PATH when we want to stop/start
-    //spec needs to be fixed with SE or need to be fixed by HSIC driver to conform to the spec
+    /* @TODO FIXME: Writting 0 to stop the HSIC is useless and writting 1 stops
+     * and restarts the hsic just write 1 in the HSIC_PATH when we want to
+     * stop/start spec needs to be fixed with SE or need to be fixed by HSIC
+     * driver to conform to the spec */
     return E_ERR_SUCCESS;
 }
 
@@ -222,12 +223,13 @@ e_mmgr_errors_t start_hsic(modem_info_t *info)
  */
 e_mmgr_errors_t stop_hsic(modem_info_t *info)
 {
-/*    return write_to_file(HSIC_PATH, SYSFS_OPEN_MODE, "0", 1);*/
-    //FIXME: Writes 1 to HSIC_PATH to restart the HSIC before a cold boot
-    //needs to be adressed
-    (void)info;                 //unused
+    /* return write_to_file(HSIC_PATH, SYSFS_OPEN_MODE, "0", 1); */
+
+    /* @TODO: FIXME: Writes 1 to HSIC_PATH to restart the HSIC before a cold
+     * boot needs to be adressed */
+    (void)info;                 /* unused */
     e_mmgr_errors_t ret = write_to_file(HSIC_PATH, SYSFS_OPEN_MODE, "1", 1);
-    usleep(500 * 1000);         /* TODO: remove me */
+    usleep(500 * 1000);         /* @TODO: remove me */
     return ret;
 }
 

@@ -176,8 +176,8 @@ e_mmgr_errors_t set_data_bckup_file(msg_t *msg, mmgr_cli_event_t *request)
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
 
-    /* calloc is used to be sure that path is NULL.
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that path is NULL. the buffer will be freed by
+     * the matching freed function */
     bkup = calloc(1, sizeof(mmgr_cli_backup_path_t));
     if (bkup == NULL) {
         LOG_ERROR("memory allocation fails");
@@ -417,8 +417,8 @@ e_mmgr_errors_t set_data_nvm_id(msg_t *msg, mmgr_cli_event_t *request)
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
 
-    /* calloc is used to be sure that path is NULL
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that path is NULL the buffer will be freed by
+     * the matching freed function */
     nvm = calloc(1, sizeof(mmgr_cli_nvm_read_id_t));
     if (nvm == NULL) {
         LOG_ERROR("memory allocation fails");
@@ -467,8 +467,8 @@ e_mmgr_errors_t set_data_hw_id(msg_t *msg, mmgr_cli_event_t *request)
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
 
-    /* calloc is used to be sure that id is NULL
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that id is NULL the buffer will be freed by
+     * the matching freed function */
     hw = calloc(1, sizeof(mmgr_cli_hw_id_t));
     if (hw == NULL) {
         LOG_ERROR("memory allocation fails");
@@ -510,8 +510,8 @@ e_mmgr_errors_t set_data_rnd_id(msg_t *msg, mmgr_cli_event_t *request)
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
 
-    /* calloc is used to be sure that path is NULL
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that path is NULL the buffer will be freed by
+     * the matching freed function */
     rnd = calloc(1, sizeof(mmgr_cli_rnd_path_t));
     if (rnd == NULL) {
         LOG_ERROR("memory allocation fails");
@@ -553,8 +553,8 @@ e_mmgr_errors_t set_data_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
 
-    /* calloc is used to be sure that name is NULL
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that name is NULL the buffer will be freed by
+     * the matching freed function */
     ap = calloc(1, sizeof(mmgr_cli_ap_reset_t));
     if (ap == NULL) {
         LOG_ERROR("memory allocation failed");
@@ -604,8 +604,8 @@ e_mmgr_errors_t set_data_core_dump(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
     }
 
-    /* calloc is used to be sure that path is NULL
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that path is NULL the buffer will be freed by
+     * the matching freed function */
     cd = calloc(1, sizeof(mmgr_cli_core_dump_t));
     if (cd == NULL) {
         LOG_ERROR("memory allocation failed");
@@ -663,8 +663,8 @@ e_mmgr_errors_t set_data_error(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
     }
 
-    /* calloc is used to be sure that reason is NULL
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that reason is NULL the buffer will be freed
+     * by the matching freed function */
     err = calloc(1, sizeof(mmgr_cli_error_t));
     if (err == NULL) {
         LOG_ERROR("memory allocation failed");

@@ -59,8 +59,8 @@ typedef struct mmgr_lib_context {
     msg_handler set_data[E_MMGR_NUM_EVENTS];
     free_handler free_data[E_MMGR_NUM_EVENTS];
 #ifdef DEBUG_MMGR_CLI
-    /* the purpose of this variable is to check that this structure
-       has correctly been initialized */
+    /* the purpose of this variable is to check that this structure has
+     * correctly been initialized */
     uint32_t init;
 #endif
 } mmgr_lib_context_t;
@@ -253,10 +253,8 @@ static inline e_err_mmgr_cli_t register_client(mmgr_cli_handle_t *handle)
     CHECK_CLI_PARAM(handle, ret, out);
 
     ret = check_state(handle, &p_lib, false);
-    if (ret != E_ERR_CLI_SUCCEED) {
-        LOG_ERROR("TODO");
+    if (ret != E_ERR_CLI_SUCCEED)
         goto out;
-    }
 
     request[0].id = E_MMGR_SET_NAME;
     request[0].len = strnlen(p_lib->cli_name, CLIENT_NAME_LEN);

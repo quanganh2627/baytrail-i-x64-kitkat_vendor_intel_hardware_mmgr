@@ -346,8 +346,8 @@ static int set_and_notify(e_mmgr_requests_t id, test_data_t *test_data)
 
     CHECK_PARAM(test_data, ret, out);
 
-    /* lock modem state update. the state can only be upgraded
-       if read by wait_for_state function */
+    /* lock modem state update. the state can only be upgraded if read by
+     * wait_for_state function */
     pthread_mutex_lock(&test_data->new_state_read);
 
     pthread_mutex_lock(&test_data->mutex);
@@ -475,7 +475,7 @@ static int event_core_dump(mmgr_cli_event_t *ev)
 
     switch (cd->state) {
     case E_CD_FAILED:
-        LOG_ERROR("core dump not retrived");
+        LOG_ERROR("core dump not retrieved");
         goto out;
         break;
     case E_CD_SUCCEED_WITHOUT_PANIC_ID:
@@ -483,6 +483,9 @@ static int event_core_dump(mmgr_cli_event_t *ev)
         break;
     case E_CD_SUCCEED:
         LOG_DEBUG("panic id: %d", cd->panic_id);
+        break;
+    case E_CD_FAILED_WITH_PANIC_ID:
+        LOG_DEBUG("failed to retrieve core dump. panic id: %d", cd->panic_id);
         break;
     }
     LOG_DEBUG("core dump path: %s", cd->path);
@@ -757,8 +760,8 @@ int reset_by_client_request(test_data_t *data_test,
             goto out;
     }
 
-    /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds
-       to end the test */
+    /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds to end the
+     * test */
     ret = wait_for_state(data_test, final_state, false,
                          TIMEOUT_MODEM_UP_AFTER_RESET);
     if (ret != E_ERR_SUCCESS)
@@ -815,8 +818,8 @@ int at_core_dump(test_data_t *test)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds
-       to end the test */
+    /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds to end the
+     * test */
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 out:
@@ -866,8 +869,8 @@ int at_self_reset(test_data_t *test)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds
-       to end the test */
+    /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds to end the
+     * test */
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_UP_AFTER_RESET);
 out:

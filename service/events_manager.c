@@ -210,13 +210,13 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
             goto out;
         LOG_DEBUG("bus event fd added to poll list");
 
-        // handle the first events after discovery
+        /* handle the first events after discovery */
         if (get_bus_state(&mmgr->events.bus_events) & MDM_BB_READY) {
-            // ready to configure modem
+            /* ready to configure modem */
             mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
             mmgr->events.link_state |= E_MDM_LINK_BB_READY;
         } else if (get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) {
-            // ready to flash modem
+            /* ready to flash modem */
             mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
             mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
         } else if (!mmgr->config.is_flashless)

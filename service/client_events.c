@@ -53,7 +53,7 @@ static e_mmgr_errors_t request_modem_nvm_get(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    /* @TODO read nvm id */
+    /* @TODO: handle this request */
     ret = E_ERR_SUCCESS;
 
 out:
@@ -81,7 +81,7 @@ static e_mmgr_errors_t request_modem_fw_update(mmgr_data_t *mmgr)
         LOG_ERROR("failed to extract data");
         goto out;
     }
-    /* @TODO: save file and restart modem */
+    /* @TODO: handle this request */
     ret = E_ERR_SUCCESS;
 
 out:
@@ -112,7 +112,7 @@ static e_mmgr_errors_t request_modem_nvm_update(mmgr_data_t *mmgr)
         goto out;
     }
 
-    /* @TODO: manage nvm update request */
+    /* @TODO: handle this request */
     ret = E_ERR_SUCCESS;
 out:
     return ret;
@@ -134,7 +134,7 @@ static e_mmgr_errors_t request_modem_rnd_erase(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    /* @TODO: launch erase RND */
+    /* @TODO: handle this request */
     ret = E_ERR_SUCCESS;
 out:
     return ret;
@@ -156,7 +156,7 @@ static e_mmgr_errors_t request_modem_rnd_get(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    /* @ŦODO: launch get rnd process */
+    /* @TODO: handle this request */
     ret = E_ERR_SUCCESS;
 out:
     return ret;
@@ -178,7 +178,7 @@ static e_mmgr_errors_t request_modem_fuse_info(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    /* @TODO: launch get fuse info */
+    /* @TODO: handle this request */
     ret = E_ERR_SUCCESS;
 out:
     return ret;
@@ -200,7 +200,7 @@ static e_mmgr_errors_t request_modem_get_hw_id(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    /* @TODO: launch get hw id */
+    /* @TODO: handle this request */
     ret = E_ERR_SUCCESS;
 out:
     return ret;
@@ -360,8 +360,8 @@ static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
 
         /* inform client that connection has succeed */
         inform_client(mmgr->request.client, E_MMGR_ACK, NULL, true);
-        /* client is registered and accepted. So, MMGR should provide
-           the current modem status if client has subsribed to it */
+        /* client is registered and accepted. So, MMGR should provide the
+         * current modem status if client has subsribed to it */
         ret = inform_client(mmgr->request.client, mmgr->client_notification,
                             NULL, false);
     } else {
@@ -390,8 +390,8 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
     /* the modem is off, then wake up the modem */
     LOG_DEBUG("wake up modem");
-    /* @TODO: workaround since start_hsic in mdm_up does nothing
-     * and stop_hsic makes a restart of hsic. */
+    /* @TODO: workaround since start_hsic in mdm_up does nothing and stop_hsic
+     * makes a restart of hsic. */
     if (mmgr->info.link == E_LINK_HSIC) {
         stop_hsic(&mmgr->info);
     }
@@ -794,7 +794,7 @@ e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
                 if (ret != E_ERR_SUCCESS)
                     LOG_ERROR("failed to add new client");
                 /* do not provide modem status as long as client has not
-                   provided its name */
+                 * provided its name */
             }
         }
     } else {
@@ -960,8 +960,7 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
             mmgr->hdler_client[i][j] = client_nack;
 
     /* A client is ALWAYS able to establish a connection, except during
-     * MDM_RESET and MDM_CONF_ONGOING.
-     * fake commands shall be accepted too  */
+     * MDM_RESET and MDM_CONF_ONGOING. fake commands shall be accepted too */
     for (i = 0; i < E_MMGR_NUM; i++) {
         if ((i == E_MMGR_MDM_RESET) || (i == E_MMGR_MDM_CONF_ONGOING))
             continue;

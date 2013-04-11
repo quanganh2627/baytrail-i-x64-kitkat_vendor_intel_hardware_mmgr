@@ -262,8 +262,8 @@ e_mmgr_errors_t remove_client(client_list_t *clients, client_t *client)
     CHECK_PARAM(client, ret, out);
 
     /* No needs to unsubscribe the fd from epoll list. It's automatically done
-       when the fd is closed. See epoll man page.
-       As remove_from_list set fd to CLOSED_FD, do a backup to close it */
+     * when the fd is closed. See epoll man page. As remove_from_list set fd to
+     * CLOSED_FD, do a backup to close it */
     fd = client->fd;
     ret = remove_from_list(clients, client);
     close_cnx(&fd);

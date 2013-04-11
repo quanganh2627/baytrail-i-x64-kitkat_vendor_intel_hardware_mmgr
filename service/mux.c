@@ -148,8 +148,8 @@ e_mmgr_errors_t configure_cmux_driver(int fd_tty, int max_frame_size)
     cfg.encapsulation = 0;
     /* we are starting side */
     cfg.initiator = 1;
-    /* In specification 3GPP TS 27.010, 5.7.2
-     * set same size as MUX configuration */
+    /* In specification 3GPP TS 27.010, 5.7.2 set same size as MUX
+     * configuration */
     cfg.mru = max_frame_size;
     cfg.mtu = max_frame_size;
     /* Disable burst mode (not supported by IMC modem) */

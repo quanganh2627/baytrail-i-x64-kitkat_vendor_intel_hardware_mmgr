@@ -183,9 +183,8 @@ int main(int argc, char *argv[])
     }
     events_manager(&mmgr);
 out:
-    /* @TODO: REMOVE EXIT.
-       bogus? If returns is used, atexit function callback is called but mmgr
-       is deallocated... */
+    /* @TODO: REMOVE EXIT. bogus? If returns is used, atexit function callback
+     * is called but mmgr is deallocated... */
     exit(ret);
     return ret;
 }

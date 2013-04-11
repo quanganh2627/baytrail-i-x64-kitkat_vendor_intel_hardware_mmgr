@@ -45,8 +45,7 @@ e_mmgr_errors_t platform_reboot(modem_info_t *unused)
     (void)unused;
     LOG_INFO("PLATFORM REBOOT. [SHTDWN] Reboot requested by %s", MODULE_NAME);
 
-    /* force commit buffer cache to disk to prevent data lost
-       Specially the COLD_RESET file */
+    /* force commit buffer cache to disk to prevent data lost */
     sync();
     broadcast_action(E_ACTION_INTENT_REBOOT);
     return ret;
@@ -85,8 +84,8 @@ e_mmgr_errors_t recov_start(reset_management_t *reset)
         goto out;
     }
 
-    /* If there is more than xx seconds since the last reset, consider that
-     * we were in a stable state before the issue. So, reset the escalation
+    /* If there is more than xx seconds since the last reset, consider that we
+     * were in a stable state before the issue. So, reset the escalation
      * recovery variable to default. */
     if ((reset->level.id != E_EL_MODEM_OUT_OF_SERVICE) &&
         (reset->modem_restart != E_FORCE_RESET_ON_GOING)) {

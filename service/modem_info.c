@@ -128,8 +128,8 @@ static e_mmgr_errors_t get_panic_id(char *xlog, modem_info_t *info)
         goto out;
 
     if ((class == 0xAAAA) || (class == 0xBBBB) || (class == 0xCCCC)) {
-        /* the panic id is extracted only if class id is equal to
-           0xAAAA or 0xBBBB or OxCCCC */
+        /* the panic id is extracted only if class id is equal to 0xAAAA or
+         * 0xBBBB or OxCCCC */
 
         /* looking for panic id */
         p_str = strstr(xlog, id_pattern);
@@ -299,24 +299,21 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         goto out;
     }
 
-    ret = E_ERR_FAILED;
-
-    /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients (this
-       guarantees that the MUX control channel has been established with the modem).
-
-       Will retry for up to MAX_TIME_DELAY milliseconds. */
+    /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients
+     * (this guarantees that the MUX control channel has been established with
+     * the modem). Will retry for up to MAX_TIME_DELAY milliseconds. */
     LOG_DEBUG("looking for %s", config->waitloop_tty_name);
     for (retry = 0; retry < MAX_STAT_RETRIES; retry++) {
         int tmp_fd;
 
         if ((tmp_fd = open(config->waitloop_tty_name, O_RDWR)) >= 0) {
             close(tmp_fd);
-            ret = E_ERR_SUCCESS;
             break;
         }
         usleep(STAT_DELAY * 1000);
     }
-    if (ret != E_ERR_SUCCESS) {
+    if (retry > MAX_STAT_RETRIES) {
+        ret = E_ERR_FAILED;
         LOG_ERROR("was not able to open TTY %s", config->waitloop_tty_name);
     } else {
         LOG_DEBUG("opened TTY %s after %d loop(s)", config->waitloop_tty_name,

@@ -70,13 +70,9 @@ e_mmgr_errors_t secur_event(secur_t *secur)
         p = data + data_size;
         memcpy(p, buffer, sizeof(char) * read_size);
         data_size += read_size;
-
-        //TODO: remove this:
-        LOG_DEBUG("data received: %s", p);
     }
 
-    /* extract data
-     * +xsecchannel: receiver/sender ID, request ID, length, data */
+    /* extract data +xsecchannel: receiver/sender ID, request ID, length, data */
     p = (uint8_t *)strstr("+xsecchannel:", buffer);
     if (p == NULL)
         goto out;
@@ -89,9 +85,8 @@ e_mmgr_errors_t secur_event(secur_t *secur)
 
     secur->callback(&type, &data_size, &p);
 
-    /* @TODO: check if the reply is well formated
-     * currently, the received header is kept and the data to send overwrites
-     * the receive data */
+    /* @TODO: check if the reply is well formated currently, the received
+     * header is kept and the data to send overwrites the receive data */
     send_at_timeout(secur->fd, (char *)data, data_size + header_size,
                     AT_SEC_TIMEOUT);
 
