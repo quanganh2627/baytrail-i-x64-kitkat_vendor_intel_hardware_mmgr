@@ -16,9 +16,10 @@
  **
  */
 
-#include "timer_events.h"
-#include "logs.h"
 #include "events_manager.h"
+#include "file.h"
+#include "logs.h"
+#include "timer_events.h"
 
 static const char *g_type_str[] = {
 #undef X
@@ -57,6 +58,7 @@ e_mmgr_errors_t start_timer(mmgr_timer_t *timer, e_timer_type_t type)
         timer->cur_timeout = timer->timeout[type];
         LOG_DEBUG("update timeout: %dms", timer->cur_timeout);
     }
+
 out:
     return ret;
 }

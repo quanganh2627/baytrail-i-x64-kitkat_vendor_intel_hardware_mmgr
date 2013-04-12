@@ -17,7 +17,6 @@
  */
 
 #include <errno.h>
-#include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -28,12 +27,9 @@
 #include "logs.h"
 #include "modem_events.h"
 #include "mux.h"
+#include "security.h"
 #include "timer_events.h"
 #include "tty.h"
-
-/* wakelocks declaration */
-#define WAKE_LOCK_SYSFS "/sys/power/wake_lock"
-#define WAKE_UNLOCK_SYSFS "/sys/power/wake_unlock"
 
 /* AT command to shutdown modem */
 #define POWER_OFF_MODEM "AT+CFUN=0\r"
@@ -52,24 +48,46 @@
 static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    mmgr_cli_fw_update_result_t result = {.id = E_MODEM_FW_ERROR_UNSPECIFIED };
+    char *flashing_interface = NULL;
+    bool ch_hw_sw = true;
 
     CHECK_PARAM(mmgr, ret, out);
 
     if (mmgr->config.is_flashless) {
-
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
 
-        ret = flash_modem(&mmgr->info);
+        toggle_flashing_mode(&mmgr->info, mmgr->config.link_layer, true);
+        if (strcmp(mmgr->config.link_layer, "hsi") == 0) {
+            flashing_interface = "/dev/ttyIFX1";
+            ch_hw_sw = true;
+        } else if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
+            flashing_interface = mmgr->events.bus_events.modem_flash_path;
+            ch_hw_sw = false;
+        }
 
-        //@TODO: fix that into flash_modem/modem_specific
-        if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
-            //@TODO: wait for ttyACM0 to appear after flash
-            sleep(4);
+        ret =
+            flash_modem(&mmgr->info, flashing_interface, ch_hw_sw, &mmgr->secur,
+                        &result.id);
+        toggle_flashing_mode(&mmgr->info, mmgr->config.link_layer, false);
+        inform_all_clients(&mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
+                           &result);
+        if (result.id == E_MODEM_FW_BAD_FAMILY) {
+            modem_shutdown(mmgr);
+            mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
+            broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
+        } else if (result.id == E_MODEM_FW_SUCCEED) {
+
+            /* @TODO: fix that into flash_modem/modem_specific */
+            if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
+                /* @TODO: wait for ttyACM0 to appear after flash */
+                sleep(4);
+                start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+            }
         }
 
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     }
 
 out:
@@ -80,11 +98,6 @@ static void read_core_dump(mmgr_data_t *mmgr)
 {
     if (!mmgr->info.mcdr.enabled)
         goto out;
-
-    /* CRITICAL section: */
-    write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                  strlen(MODULE_NAME));
-
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
@@ -103,8 +116,6 @@ static void read_core_dump(mmgr_data_t *mmgr)
         mmgr->events.modem_state = E_MDM_STATE_NONE;
     }
 
-    write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                  strlen(MODULE_NAME));
 out:
     mmgr->info.ev |= E_EV_FORCE_RESET;
 }
@@ -120,19 +131,13 @@ out:
  */
 static e_mmgr_errors_t update_modem_tty(mmgr_data_t *mmgr)
 {
-    struct epoll_event ev;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
 
-    ev.events = EPOLLIN;
-    ev.data.fd = mmgr->fd_tty;
-    if (epoll_ctl(mmgr->epollfd, EPOLL_CTL_ADD, mmgr->fd_tty, &ev) == -1) {
-        LOG_ERROR("Error during epoll_ctl. fd=%d (%s)",
-                  mmgr->fd_tty, strerror(errno));
-        ret = E_ERR_FAILED;
+    ret = add_fd_ev(mmgr->epollfd, mmgr->fd_tty, EPOLLIN);
+    if (ret != E_ERR_SUCCESS)
         goto out;
-    }
 
     mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP | MDM_CTRL_STATE_OFF;
     mmgr->info.polled_states |=
@@ -337,6 +342,8 @@ static e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
         (mmgr->reset.state != E_OPERATION_WAIT)) {
 
         close_tty(&mmgr->fd_tty);
+        secur_stop(&mmgr->secur);
+
         /* re-generates the fls through nvm injection lib if the modem
            is_flashless */
         if (mmgr->config.is_flashless) {
@@ -468,10 +475,6 @@ e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    /* CRITICAL section: */
-    write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                  strlen(MODULE_NAME));
-
     if (mmgr->info.ev != E_EV_NONE) {
         if (mmgr->info.mcdr.state == E_CD_SUCCEED_WITHOUT_PANIC_ID) {
             LOG_DEBUG("specific timeout after core dump detection");
@@ -485,8 +488,6 @@ e_mmgr_errors_t restore_modem(mmgr_data_t *mmgr)
     }
 
 out:
-    write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                  strlen(MODULE_NAME));
     return ret;
 }
 
@@ -524,6 +525,24 @@ out:
     return ret;
 }
 
+static e_mmgr_errors_t launch_secur(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int fd;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    if ((ret = secur_register(&mmgr->secur, &fd) != E_ERR_SUCCESS))
+        goto out;
+
+    if (fd != CLOSED_FD) {
+        add_fd_ev(mmgr->epollfd, fd, EPOLLIN);
+        ret = secur_start(&mmgr->secur);
+    }
+out:
+    return ret;
+}
+
 /**
  * handle modem control event
  *
@@ -552,9 +571,12 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
 
-        if (mmgr->events.modem_state & E_MDM_STATE_FLASH_READY) {
+        if (((strcmp(mmgr->config.link_layer, "hsic") == 0) &&
+             mmgr->events.modem_state & E_MDM_STATE_FLASH_READY) ||
+            (strcmp(mmgr->config.link_layer, "hsi") == 0)) {
             ret = do_flash(mmgr);
         }
+
     } else if (state & E_EV_IPC_READY) {
 
         LOG_DEBUG("current state: E_EV_IPC_READY");
@@ -563,9 +585,10 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         mmgr->events.modem_state |= E_MDM_STATE_IPC_READY;
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
-        if (mmgr->events.modem_state & E_MDM_STATE_BB_READY)
-            ret = configure_modem(mmgr);
-
+        if (mmgr->events.modem_state & E_MDM_STATE_BB_READY) {
+            if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS)
+                ret = launch_secur(mmgr);
+        }
     } else if (state & E_EV_CORE_DUMP) {
         LOG_DEBUG("current state: E_EV_CORE_DUMP");
 
@@ -634,14 +657,16 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.modem_state &= ~E_MDM_STATE_FLASH_READY;
         mmgr->events.modem_state |= E_MDM_STATE_BB_READY;
-        if (mmgr->events.modem_state & E_MDM_STATE_IPC_READY)
-            ret = configure_modem(mmgr);
+        if (mmgr->events.modem_state & E_MDM_STATE_IPC_READY) {
+            if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS)
+                ret = launch_secur(mmgr);
+        }
     } else if (get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) {
         // ready to flash modem
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.modem_state |= E_MDM_STATE_FLASH_READY;
         mmgr->events.modem_state &= ~E_MDM_STATE_BB_READY;
-        if (1) {                //@TODO: REVERT ME mmgr->events.modem_state & E_MDM_STATE_FW_DL_READY) {
+        if (mmgr->events.modem_state & E_MDM_STATE_FW_DL_READY) {
             ret = do_flash(mmgr);
         }
     } else if (get_bus_state(&mmgr->events.bus_events) & MDM_CD_READY) {

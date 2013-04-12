@@ -20,6 +20,7 @@
 #define __MMGR_MUP_HEADER__
 
 #include <stddef.h>
+#include <stdbool.h>
 #include "mmgr.h"
 
 typedef enum e_mup_err {
@@ -42,6 +43,8 @@ extern "C" {
 
     typedef struct mup_fw_update_params {
         mup_interface_t *handle;
+        char *mdm_com_port;
+        bool channel_hw_sw;
         char *fw_file_path;
         size_t fw_file_path_len;
         int erase_all;
@@ -93,6 +96,7 @@ extern "C" {
 
     e_mup_err_t mup_initialize(mup_interface_t **handle,
                                mup_ap_log_callback_t ap_log_callback);
+    e_mup_err_t mup_check_fw_version(char *path, char *version);
     e_mup_err_t mup_update_fw(mup_fw_update_params_t *params);
     e_mup_err_t mup_update_rnd(mup_rndcert_update_params_t *params);
     e_mup_err_t mup_read_rnd(mup_rndcert_read_params_t *params);
@@ -102,6 +106,10 @@ extern "C" {
     e_mup_err_t mup_update_nvm(mup_nvm_update_params_t *params);
     e_mup_err_t mup_get_nvm_id(mup_nvm_read_id_params_t *params);
     e_mup_err_t mup_dispose(mup_interface_t *handle);
+    e_mup_err_t mup_toggle_hsi_flashing_mode(bool flashing_mode);
+    e_mup_err_t mup_open_device(mup_fw_update_params_t *param);
+    e_mup_err_t mup_configure_secur_channel(mup_interface_t *handle, void *func,
+                                            char *rnd_path, size_t len);
 
 #ifdef __cplusplus
 }

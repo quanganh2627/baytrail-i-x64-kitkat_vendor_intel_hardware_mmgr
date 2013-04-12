@@ -33,8 +33,12 @@
 /* @TODO: this should be configurable via mmgr.conf */
 #define MUP_LIB "libmodemupdate.so"
 #define MUP_FUNC_INIT "mup_initialize"
+#define MUP_FUNC_OPEN "mup_open_device"
+#define MUP_FUNC_TOGGLE_HSI_FLASHING_MODE "mup_toggle_hsi_flashing_mode"
 #define MUP_FUNC_UP_FW "mup_update_fw"
 #define MUP_FUNC_DISPOSE "mup_dispose"
+#define MUP_FUNC_FW_VERSION "mup_check_fw_version"
+#define MUP_FUNC_CONFIG_SECUR "mup_configure_secur_channel"
 
 /**
  * callback to handle aplog messages
@@ -68,19 +72,26 @@ e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
     if (is_flashless) {
         info->mup.hdle = dlopen(MUP_LIB, RTLD_LAZY);
         if (info->mup.hdle == NULL) {
-            LOG_ERROR("failed to open mup lib");
+            LOG_ERROR("failed to open library");
             ret = E_ERR_FAILED;
             goto out;
         }
 
         /** see dlsym manpage to understand why this strange cast is used */
         *(void **)&info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
+        *(void **)&info->mup.open_device = dlsym(info->mup.hdle, MUP_FUNC_OPEN);
+        *(void **)&info->mup.toggle_hsi_flashing_mode =
+            dlsym(info->mup.hdle, MUP_FUNC_TOGGLE_HSI_FLASHING_MODE);
         *(void **)&info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
         *(void **)&info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
+        *(void **)&info->mup.config_secur_channel = dlsym(info->mup.hdle,
+                                                          MUP_FUNC_CONFIG_SECUR);
+        *(void **)&info->mup.check_fw_version =
+            dlsym(info->mup.hdle, MUP_FUNC_FW_VERSION);
 
         p = (char *)dlerror();
         if (p != NULL) {
-            LOG_ERROR("%s", p);
+            LOG_ERROR("An error ocurred during symbol resolution");
             ret = E_ERR_FAILED;
             dlclose(info->mup.hdle);
             info->mup.hdle = NULL;
@@ -95,21 +106,37 @@ out:
     return ret;
 }
 
+e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, char *link_layer,
+                                     bool flashing_mode)
+{
+    if (strcmp(link_layer, "hsi") == 0)
+        return (info->mup.toggle_hsi_flashing_mode(flashing_mode) ==
+                E_MUP_SUCCEED) ? E_ERR_SUCCESS : E_ERR_FAILED;
+    return E_ERR_SUCCESS;
+}
+
 /**
  * flash modem data
  *
  * @param[in] info modem data
+ * @param[in] comport modem communication port for flashing
+ * @param[in] ch_sw channel hw sw
+ * @param[in] secur secur library data
+ * @param[out] verdict provides modem fw update status
  *
  * @return E_ERR_FAILED if operation fails
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info is empty
  */
-e_mmgr_errors_t flash_modem(modem_info_t *info)
+e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport, bool ch_sw,
+                            secur_t *secur, e_modem_fw_error_t *verdict)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mup_interface_t *handle = NULL;
+    void *secur_callback = NULL;
 
     CHECK_PARAM(info, ret, out);
+    CHECK_PARAM(secur, ret, out);
 
     if (E_MUP_SUCCEED != info->mup.initialize(&handle, mup_log)) {
         ret = E_ERR_FAILED;
@@ -117,16 +144,49 @@ e_mmgr_errors_t flash_modem(modem_info_t *info)
         goto out;
     }
 
+    /* @TODO retrieve modem version via SFI table and remove this static value */
+    if (info->mup.check_fw_version(info->fl_conf.run_inj_fls, "XMM7160") !=
+        E_MUP_SUCCEED) {
+        LOG_ERROR("Bad modem family. Shutdown the modem");
+        ret = E_ERR_FAILED;
+        *verdict = E_MODEM_FW_BAD_FAMILY;
+        goto out;
+    }
+
     mup_fw_update_params_t params = {
         .handle = handle,
-        .fw_file_path = info->fls_out,
-        .fw_file_path_len = strnlen(info->fls_in, MAX_SIZE_CONF_VAL),
+        .mdm_com_port = comport,
+        .channel_hw_sw = ch_sw,
+        .fw_file_path = info->fl_conf.run_inj_fls,
+        .fw_file_path_len = strnlen(info->fl_conf.run_inj_fls,
+                                    MAX_SIZE_CONF_VAL),
         .erase_all = false      /* for flashless modem, this should be false */
     };
+
+    if (E_MUP_SUCCEED != info->mup.open_device(&params)) {
+        ret = E_ERR_FAILED;
+        LOG_ERROR("failed to open device");
+        goto out;
+    }
+
+    secur_get_callback(secur, &secur_callback);
+    if (secur_callback != NULL) {
+        if (E_MUP_SUCCEED !=
+            info->mup.config_secur_channel(handle, secur_callback,
+                                           info->fl_conf.bkup_rnd_cert,
+                                           strnlen(info->fl_conf.bkup_rnd_cert,
+                                                   MAX_SIZE_CONF_VAL))) {
+            LOG_ERROR("failed to configure secur channel");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+    }
 
     if (E_MUP_SUCCEED != info->mup.update_fw(&params)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("modem firmware update failed");
+    } else {
+        *verdict = E_MODEM_FW_SUCCEED;
     }
 
     if (E_MUP_SUCCEED != info->mup.dispose(handle)) {
@@ -192,31 +252,32 @@ e_mmgr_errors_t regen_fls(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    // @TODO: clean this up to use InjectionTool as a lib
-    // Currently InjectionTool is in C++, which means we can't link to it from C
-    // without using g++
-    if ((ret = is_file_exists(info->fls_in, 0)) != E_ERR_SUCCESS) {
-        LOG_ERROR("fls file (%s) is missing", info->fls_in);
+    /* @TODO: replace InjectionTool by download lib */
+    if ((ret = is_file_exists(info->fl_conf.run_boot_fls, 0)) != E_ERR_SUCCESS) {
+        LOG_ERROR("fls file (%s) is missing", info->fl_conf.run_boot_fls);
         goto out;
     }
+
     ret = E_ERR_FAILED;
-    remove(info->fls_out);
+    remove(info->fl_conf.run_inj_fls);
     pid_t chld = fork();
     if (chld == 0) {
         LOG_DEBUG("trying to package fls file");
-        execl(INJECTION_TOOL, "injection_tool", "-i", info->fls_in,
-              "-o", info->fls_out, "-n", info->nvm_files_path, NULL);
+        execl(INJECTION_TOOL, "injection_tool", "-i",
+              info->fl_conf.run_boot_fls, "-o", info->fl_conf.run_inj_fls, "-n",
+              info->fl_conf.run_path, NULL);
         LOG_ERROR("execl has failed");
         exit(0);
     } else {
         waitpid(chld, &status, 0);
         if ((status == 0)
-            && (is_file_exists(info->fls_out, 0) == E_ERR_SUCCESS)) {
+            && (is_file_exists(info->fl_conf.run_inj_fls, 0) == E_ERR_SUCCESS)) {
             ret = E_ERR_SUCCESS;
         }
     }
     if (ret == E_ERR_SUCCESS) {
-        LOG_INFO("fls file created successfully (%s)", info->fls_out);
+        LOG_INFO("fls file created successfully (%s)",
+                 info->fl_conf.run_inj_fls);
     } else {
         LOG_ERROR("failed to create fls file");
     }

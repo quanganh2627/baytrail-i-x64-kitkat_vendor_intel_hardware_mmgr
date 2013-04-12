@@ -56,6 +56,9 @@ typedef struct mmgr_configuration {
     int timeout_ack_shtdwn;
     /* interface */
     int max_clients;
+    /* security */
+    bool secur_enable;
+    char secur_dlc[MAX_SIZE_CONF_VAL];
     /* mcdr config */
     bool modem_core_dump_enable;
     char mcdr_path[MAX_SIZE_CONF_VAL];
@@ -66,10 +69,25 @@ typedef struct mmgr_configuration {
     char mcdr_protocol[MAX_SIZE_CONF_VAL];
 } mmgr_configuration_t;
 
+typedef struct flashless_config {
+    char bkup_path[MAX_SIZE_CONF_VAL];
+    char bkup_cal[MAX_SIZE_CONF_VAL];
+    char bkup_stat[MAX_SIZE_CONF_VAL];
+    char bkup_rnd_cert[MAX_SIZE_CONF_VAL];
+
+    char run_path[MAX_SIZE_CONF_VAL];
+    char run_fw_path[MAX_SIZE_CONF_VAL];
+    char run_boot_fls[MAX_SIZE_CONF_VAL];
+    char run_inj_fls[MAX_SIZE_CONF_VAL];
+    char run_cal[MAX_SIZE_CONF_VAL];
+    char run_stat[MAX_SIZE_CONF_VAL];
+    char run_dyn[MAX_SIZE_CONF_VAL];
+} flashless_config_t;
+
 e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *parameters,
                                const char *config_file);
 
-e_mmgr_errors_t modem_info_flashless_config(char *config_file, char *fls_in,
-                                            char *fls_out, char *cal_path,
-                                            char *nvm_path);
+e_mmgr_errors_t modem_info_flashless_config(char *config_file,
+                                            flashless_config_t *);
+
 #endif                          /* __MMGR_CONFIG_HEADER__ */

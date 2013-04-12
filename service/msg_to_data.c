@@ -30,7 +30,7 @@
  *
  * @return none
  */
-static void deserialize_uint32(char **buffer, uint32_t * value)
+static void deserialize_uint32(char **buffer, uint32_t *value)
 {
     memcpy(value, *buffer, sizeof(uint32_t));
     *value = ntohl(*value);

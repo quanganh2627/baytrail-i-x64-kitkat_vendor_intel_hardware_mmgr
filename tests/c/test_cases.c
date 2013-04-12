@@ -184,12 +184,12 @@ int full_recovery(test_data_t *test)
         }
 
         if (reboot >= test->config.nb_platform_reboot) {
-            ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE,
+            ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, false,
                                  TIMEOUT_MODEM_DOWN_AFTER_CMD);
             if (ret == E_ERR_MODEM_OUT)
                 ret = E_ERR_SUCCESS;
         } else {
-            ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT,
+            ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT, false,
                                  TIMEOUT_MODEM_DOWN_AFTER_CMD);
             if (ret == E_ERR_MODEM_OUT)
                 ret = E_ERR_SUCCESS;
@@ -219,6 +219,9 @@ int resource_acquire(test_data_t *test)
 
     if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
         ret = E_ERR_SUCCESS;
+
+    if (test->config.is_flashless)
+        wait_for_state(test, E_MMGR_RESPONSE_MODEM_FW_RESULT, false, 20);
 out:
     return ret;
 }
@@ -332,7 +335,7 @@ int turn_on_modem(test_data_t *test)
 
     CHECK_PARAM(test, ret, out);
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is up");
@@ -345,7 +348,7 @@ int turn_on_modem(test_data_t *test)
     if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
         ret = E_ERR_FAILED;
     } else {
-        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                              TIMEOUT_MODEM_UP_AFTER_RESET);
     }
 
@@ -374,7 +377,7 @@ int resource_check(test_data_t *test)
          "resource...\n"
          "*************************************************************\n");
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
@@ -392,11 +395,11 @@ int resource_check(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN, 5);
+    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN, false, 5);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
     request.id = E_MMGR_RESOURCE_ACQUIRE;
@@ -405,7 +408,7 @@ int resource_check(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
 out:
@@ -616,7 +619,7 @@ int fake_modem_down(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
 out:
@@ -635,7 +638,7 @@ int fake_modem_up(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
 out:
@@ -654,7 +657,7 @@ int fake_modem_shtdwn(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
 out:
@@ -675,7 +678,7 @@ int fake_modem_hs(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
 out:
@@ -694,7 +697,7 @@ int fake_cd(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
 out:
@@ -716,7 +719,7 @@ int fake_cd_complete(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
     if (!test->test_succeed)
@@ -739,7 +742,7 @@ int fake_error(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_ERROR,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_ERROR, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
     if (!test->test_succeed)
@@ -762,7 +765,7 @@ int fake_ap_reset(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_AP_RESET,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_AP_RESET, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
     if (!test->test_succeed)
@@ -783,7 +786,7 @@ int fake_self_reset(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
 out:
@@ -803,7 +806,7 @@ int fake_reboot(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT, false,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
 out:

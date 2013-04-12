@@ -18,8 +18,6 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <sys/epoll.h>
-#include <sys/stat.h>
 #include "client.h"
 #include "client_events.h"
 #include "errors.h"
@@ -29,6 +27,7 @@
 #include "modem_specific.h"
 #include "timer_events.h"
 #include "msg_to_data.h"
+#include "tty.h"
 
 const char *g_mmgr_requests[] = {
 #undef X
@@ -450,10 +449,12 @@ static e_mmgr_errors_t request_resource_acquire(mmgr_data_t *mmgr)
                                !strcmp("hsic", mmgr->config.link_layer));
                 if (ret == E_ERR_SUCCESS) {
                     mmgr->info.ev |= E_EV_WAIT_FOR_IPC_READY;
+                    mmgr->info.ev &= ~E_EV_MODEM_OFF;
                     reset_escalation_counter(&mmgr->reset);
-                    start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-                    //if the modem is hsic, add wait_for_bus_ready
-                    //@TODO: push that into modem_specific
+                    if (!mmgr->config.is_flashless)
+                        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+                    /* if the modem is hsic, add wait_for_bus_ready */
+                    /* @TODO: push that into modem_specific */
                     if (strcmp(mmgr->config.link_layer, "hsic") == 0)
                         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
                 }
@@ -752,7 +753,7 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
                       mmgr->events.ev[mmgr->events.cur_ev].data.fd, &client);
     if ((ret != E_ERR_SUCCESS) || (client == NULL)) {
         LOG_ERROR("failed to find client (fd=%d)",
-                mmgr->events.ev[mmgr->events.cur_ev].data.fd);
+                  mmgr->events.ev[mmgr->events.cur_ev].data.fd);
         goto out;
     }
 
@@ -766,6 +767,9 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
         LOG_DEBUG("Client (fd=%d name=%s) is disconnected", client->fd,
                   client->name);
         ret = remove_client(&mmgr->clients, client);
+        /* client must release the locked resource, if any */
+        mmgr->request.client = client;
+        request_resource_release(mmgr);
     } else
         LOG_ERROR("Client (fd=%d name=%s) bad message", client->fd,
                   client->name);
@@ -784,7 +788,6 @@ out:
  */
 e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
 {
-    struct epoll_event ev;
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int conn_sock;
     client_t *client = NULL;
@@ -800,11 +803,7 @@ e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
         if (conn_sock < 0) {
             LOG_ERROR("Error during accept (%s)", strerror(errno));
         } else {
-            ev.data.fd = conn_sock;
-            ev.events = EPOLLIN;
-            if (epoll_ctl(mmgr->epollfd, EPOLL_CTL_ADD, conn_sock, &ev) == -1) {
-                LOG_ERROR("epoll_ctl: conn_sock (%s)", strerror(errno));
-            } else {
+            if (add_fd_ev(mmgr->epollfd, conn_sock, EPOLLIN) == E_ERR_SUCCESS) {
                 ret = add_client(&mmgr->clients, conn_sock, &client);
                 if (ret != E_ERR_SUCCESS)
                     LOG_ERROR("failed to add new client");

@@ -45,8 +45,8 @@ typedef struct test_data {
 
 int modem_state_set(test_data_t *test_data, int state);
 int compare_file_content(const char *path, const char *data, int len);
-int wait_for_state(test_data_t *thread_data, int state, int timeout);
-int send_at_cmd(char *command, int command_size);
+int wait_for_state(test_data_t *thread_data, int state, bool wakelock,
+                   int timeout);
 int is_core_dump_found(char *filename, const char *core_dump_dir);
 int cleanup_modemcrash_dir(const char *path);
 int configure_client_library(test_data_t *data);

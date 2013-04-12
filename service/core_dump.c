@@ -58,7 +58,7 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
 
     if (!config->modem_core_dump_enable) {
         mcdr->enabled = false;
-        LOG_VERBOSE("MCDR library not found");
+        LOG_VERBOSE("failed to load library");
     } else {
         mcdr->lib = dlopen(MCDR_LIBRARY_NAME, RTLD_LAZY);
         if (mcdr->lib == NULL) {
@@ -76,7 +76,7 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
 
             p = (char *)dlerror();
             if (p != NULL) {
-                LOG_ERROR("%s", p);
+                LOG_ERROR("An error ocurred during symbol resolution");
                 dlclose(mcdr->lib);
                 mcdr->lib = NULL;
                 ret = E_ERR_FAILED;

@@ -14,6 +14,7 @@
  **
  */
 
+#define MMGR_FW_OPERATIONS
 #include <errno.h>
 #include <ctype.h>
 #include <fcntl.h>
@@ -71,8 +72,7 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
 
     if (config->is_flashless)
-        modem_info_flashless_config(FLASHLESS_CFG, info->fls_in, info->fls_out,
-                                    info->cal_path, info->nvm_files_path);
+        modem_info_flashless_config(FLASHLESS_CFG, &info->fl_conf);
 
     ret = core_dump_init(config, &info->mcdr);
     if (ret != E_ERR_SUCCESS)

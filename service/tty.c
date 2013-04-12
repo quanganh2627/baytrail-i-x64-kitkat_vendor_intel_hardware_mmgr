@@ -20,7 +20,6 @@
 #include <fcntl.h>
 #include <string.h>
 #include <termios.h>
-#include <sys/epoll.h>
 #include "errors.h"
 #include "logs.h"
 #include "tty.h"
@@ -28,7 +27,7 @@
 #define MAX_OPEN_RETRY 5
 
 /**
- * initialize epoll: add socket and tty to epoll
+ * add fd to epoll
  *
  * @param [out] epollfd epoll fd
  * @param [in] fd file descriptor
@@ -38,27 +37,32 @@
  * @return E_ERR_FAILED initialization fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t initialize_epoll(int *epollfd, int fd, int events)
+e_mmgr_errors_t add_fd_ev(int epollfd, int fd, int events)
 {
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     struct epoll_event ev;
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    ev.events = events;
+    ev.data.fd = fd;
+    if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
+        LOG_ERROR("Failed to add fd: (%s)", strerror(errno));
+        ret = E_ERR_FAILED;
+    }
+
+    return ret;
+}
+
+e_mmgr_errors_t init_ev_hdler(int *epollfd)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(epollfd, ret, out);
 
     *epollfd = epoll_create(1);
     if (*epollfd == -1) {
-        LOG_ERROR("epoll_create fails");
-        goto out;
+        LOG_ERROR("epoll initialization failed");
+        ret = E_ERR_FAILED;
     }
-
-    ev.events = events;
-    ev.data.fd = fd;
-    if (epoll_ctl(*epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
-        LOG_ERROR("Error during epoll_ctl. (%s)", strerror(errno));
-        goto out;
-    }
-
-    ret = E_ERR_SUCCESS;
 out:
     return ret;
 }
@@ -72,6 +76,7 @@ out:
  * @return E_ERR_TTY_ERROR if an unexpected event occurs or poll failed
  * @return E_ERR_TTY_TIMEOUT if any event occurs
  * @return E_ERR_TTY_POLLHUP if a pollhup occurs
+ * @return E_ERR_FAILED if epoll create fails
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t wait_for_tty_event(int fd, int timeout)
@@ -81,7 +86,10 @@ e_mmgr_errors_t wait_for_tty_event(int fd, int timeout)
     int err;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    ret = initialize_epoll(&epollfd, fd, EPOLLIN | EPOLLHUP);
+    if ((ret = init_ev_hdler(&epollfd)) != E_ERR_SUCCESS)
+        goto out;
+
+    ret = add_fd_ev(epollfd, fd, EPOLLIN | EPOLLHUP);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
