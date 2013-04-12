@@ -184,7 +184,7 @@ e_mmgr_errors_t write_to_tty(int fd, const char *data, int data_size)
 
     do {
         err = write(fd, data + cur, data_size - cur);
-        cur += ret;
+        cur += err;
 
         if (err == 0) {
             LOG_ERROR("write nothing (%s) fd=%d", strerror(errno), fd);
