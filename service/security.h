@@ -22,12 +22,15 @@
 #include "errors.h"
 #include "config.h"
 
+typedef int (*secur_callback_fptr_t) (uint32_t *type, uint32_t *length,
+                                      uint8_t **data);
+
 typedef struct secur {
     bool enable;
     char *dlc;
     int fd;
     void *hdle;
-    int (*callback) (uint32_t *type, uint32_t *length, uint8_t **data);
+    secur_callback_fptr_t callback;
 } secur_t;
 
 e_mmgr_errors_t secur_init(secur_t *secur, mmgr_configuration_t *config);
@@ -36,6 +39,7 @@ e_mmgr_errors_t secur_start(secur_t *secur);
 e_mmgr_errors_t secur_stop(secur_t *secur);
 e_mmgr_errors_t secur_event(secur_t *secur);
 e_mmgr_errors_t secur_dispose(secur_t *secur);
-e_mmgr_errors_t secur_get_callback(secur_t *secur, void **callback);
+e_mmgr_errors_t secur_get_callback(secur_t *secur,
+                                   secur_callback_fptr_t * callback);
 
 #endif

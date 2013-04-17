@@ -36,6 +36,10 @@ typedef struct core_dump_thread {
 #define CORE_DUMP_RECOVERY_MAX_TIME 600
 #define MCDR_LIBRARY_NAME "libmcdr.so"
 
+#define MCDR_GET_CORE_DUMP "mcdr_get_core_dump"
+#define MCDR_CLEANUP "mcdr_cleanup"
+#define MCDR_GET_STATE "mcdr_get_state"
+
 /**
  * initialize core dump. If the libmcdr is available, mcdr will be enabled
  * disabled if not.
@@ -69,10 +73,9 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
             strncpy(mcdr->data.path, config->mcdr_path, MAX_SIZE_CONF_VAL - 1);
             strncpy(mcdr->data.port, config->mcdr_device,
                     MAX_SIZE_CONF_VAL - 1);
-            /** see dlsym manpage to understand why this strange cast is used */
-            *(void **)&mcdr->read = dlsym(mcdr->lib, "mcdr_get_core_dump");
-            *(void **)&mcdr->cleanup = dlsym(mcdr->lib, "mcdr_cleanup");
-            *(void **)&mcdr->get_state = dlsym(mcdr->lib, "mcdr_get_state");
+            mcdr->read = dlsym(mcdr->lib, MCDR_GET_CORE_DUMP);
+            mcdr->cleanup = dlsym(mcdr->lib, MCDR_CLEANUP);
+            mcdr->get_state = dlsym(mcdr->lib, MCDR_GET_STATE);
 
             p = (char *)dlerror();
             if (p != NULL) {

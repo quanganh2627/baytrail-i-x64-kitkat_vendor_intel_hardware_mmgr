@@ -37,7 +37,7 @@
 #define MUP_FUNC_DISPOSE "mup_dispose"
 #define MUP_FUNC_FW_VERSION "mup_check_fw_version"
 #define MUP_FUNC_CONFIG_SECUR "mup_configure_secur_channel"
-#define MUP_GEN_FLS "mup_gen_fls"
+#define MUP_FUNC_GEN_FLS "mup_gen_fls"
 
 #define UART_PM "/sys/devices/pci0000:00/0000:00:05.1/power/control"
 #define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0"
@@ -231,18 +231,16 @@ e_mmgr_errors_t mdm_specific_init(modem_info_t *info)
             goto out;
         }
 
-        /** see dlsym manpage to understand why this strange cast is used */
-        *(void **)&info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
-        *(void **)&info->mup.open_device = dlsym(info->mup.hdle, MUP_FUNC_OPEN);
-        *(void **)&info->mup.toggle_hsi_flashing_mode =
-            dlsym(info->mup.hdle, MUP_FUNC_TOGGLE_HSI_FLASHING_MODE);
-        *(void **)&info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
-        *(void **)&info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
-        *(void **)&info->mup.config_secur_channel = dlsym(info->mup.hdle,
-                                                          MUP_FUNC_CONFIG_SECUR);
-        *(void **)&info->mup.check_fw_version =
-            dlsym(info->mup.hdle, MUP_FUNC_FW_VERSION);
-        *(void **)&info->mup.gen_fls = dlsym(info->mup.hdle, MUP_GEN_FLS);
+        info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
+        info->mup.open_device = dlsym(info->mup.hdle, MUP_FUNC_OPEN);
+        info->mup.toggle_hsi_flashing_mode = dlsym(info->mup.hdle,
+                                                   MUP_FUNC_TOGGLE_HSI_FLASHING_MODE);
+        info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
+        info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
+        info->mup.config_secur_channel =
+            dlsym(info->mup.hdle, MUP_FUNC_CONFIG_SECUR);
+        info->mup.check_fw_version = dlsym(info->mup.hdle, MUP_FUNC_FW_VERSION);
+        info->mup.gen_fls = dlsym(info->mup.hdle, MUP_FUNC_GEN_FLS);
 
         p = (char *)dlerror();
         if (p != NULL) {
@@ -293,7 +291,7 @@ e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport, bool ch_sw,
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mup_interface_t *handle = NULL;
-    void *secur_callback = NULL;
+    secur_callback_fptr_t secur_callback = NULL;
 
     CHECK_PARAM(info, ret, out);
     CHECK_PARAM(secur, ret, out);

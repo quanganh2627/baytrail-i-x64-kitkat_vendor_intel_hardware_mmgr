@@ -27,7 +27,7 @@ typedef struct mcdr_lib {
     bool enabled;
     void *lib;
     mcdr_data_t data;
-    void (*read) (mcdr_data_t * data);
+    void (*read) (mcdr_data_t *);
     void (*cleanup) (void);
     mcdr_status_t (*get_state) (void);
     e_core_dump_state_t state;
