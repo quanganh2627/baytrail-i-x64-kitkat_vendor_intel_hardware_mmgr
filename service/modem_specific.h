@@ -26,8 +26,6 @@
 #include "security.h"
 #include <linux/mdm_ctrl.h>
 
-#define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0/hsic_enable"
-
 e_mmgr_errors_t mdm_specific_init(modem_info_t *info);
 e_mmgr_errors_t mdm_warm_reset(modem_info_t *info);
 e_mmgr_errors_t mdm_cold_reset(modem_info_t *info);
@@ -45,6 +43,9 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info);
 e_mmgr_errors_t mdm_prepare_link(modem_info_t *info);
 e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info,
                                        bool subscribe_cd_ev);
+
+e_mmgr_errors_t mdm_set_cd_ipc_pm(modem_info_t *info, bool state);
+e_mmgr_errors_t mdm_set_ipc_pm(modem_info_t *info, bool state);
 
 void mup_log(const char *msg, size_t msg_len);
 

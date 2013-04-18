@@ -49,6 +49,26 @@ typedef enum e_switch_to_mux_states {
     E_MUX_DRIVER,
 } e_switch_to_mux_states_t;
 
+static e_mmgr_errors_t mdm_get_link_type(const char *type, e_link_type_t *link)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(type, ret, out);
+    CHECK_PARAM(link, ret, out);
+
+    if (strcmp(type, "hsic") == 0)
+        *link = E_LINK_HSIC;
+    else if (strcmp(type, "hsi") == 0)
+        *link = E_LINK_HSI;
+    else if (strcmp(type, "uart") == 0)
+        *link = E_LINK_UART;
+    else
+        ret = E_ERR_FAILED;
+
+out:
+    return ret;
+}
+
 /**
  * initialize modem info structure and mcdr
  *
@@ -68,13 +88,17 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
     info->ev = E_EV_MODEM_OFF;  /* modem is OFF at boot-up */
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
     info->is_flashless = config->is_flashless;
-    if (strcmp(config->link_layer, "hsic") == 0)
-        info->link = E_LINK_HSIC;
-    else
-        info->link = E_LINK_HSI;
 
     if (config->is_flashless)
         modem_info_flashless_config(FLASHLESS_CFG, &info->fl_conf);
+
+    if ((ret = mdm_get_link_type(config->link_layer, &info->mdm_link))
+        != E_ERR_SUCCESS)
+        goto out;
+
+    if ((ret = mdm_get_link_type(config->mcdr_link_layer, &info->cd_link))
+        != E_ERR_SUCCESS)
+        goto out;
 
     ret = core_dump_init(config, &info->mcdr);
     if (ret != E_ERR_SUCCESS)

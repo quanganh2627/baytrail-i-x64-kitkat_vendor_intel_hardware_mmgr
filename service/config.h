@@ -68,6 +68,7 @@ typedef struct mmgr_configuration {
     char mcdr_pid[MAX_SIZE_CONF_VAL];
     char mcdr_vid[MAX_SIZE_CONF_VAL];
     char mcdr_protocol[MAX_SIZE_CONF_VAL];
+    char mcdr_link_layer[MAX_SIZE_CONF_VAL];
 } mmgr_configuration_t;
 
 typedef struct flashless_config {

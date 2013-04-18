@@ -20,6 +20,7 @@
 #define __MMGR_FILE_HEADER__
 
 #include <sys/stat.h>
+#define OPEN_MODE_RW_UGO (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 #define SYSFS_OPEN_MODE S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP
 #define MMGR_UMASK (S_IXUSR|S_IXGRP|S_IWOTH|S_IXOTH)
 
@@ -27,9 +28,10 @@
 #define WAKE_LOCK_SYSFS "/sys/power/wake_lock"
 #define WAKE_UNLOCK_SYSFS "/sys/power/wake_unlock"
 
+e_mmgr_errors_t read_file(char *path, unsigned long mode, char *value,
+                          size_t *size);
 e_mmgr_errors_t write_to_file(char *path, unsigned long mode, char *value,
                               size_t size);
-e_mmgr_errors_t create_empty_file(char *filename, unsigned long rights);
 e_mmgr_errors_t is_file_exists(const char *path, unsigned long rights);
 
 #endif                          /* __MMGR_FILE_HEADER__ */

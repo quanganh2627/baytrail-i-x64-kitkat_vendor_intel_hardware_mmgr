@@ -186,7 +186,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     LOG_DEBUG("wake up modem");
     /* @TODO: workaround since start_hsic in mdm_up does nothing and stop_hsic
      * makes a restart of hsic. */
-    if (mmgr->info.link == E_LINK_HSIC) {
+    if (mmgr->info.mdm_link == E_LINK_HSIC) {
         stop_hsic(&mmgr->info);
     }
 
@@ -204,7 +204,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
             start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         /* if the modem is hsic, add wait_for_bus_ready */
         /* @TODO: push that into modem_specific */
-        if (mmgr->info.link == E_LINK_HSIC)
+        if (mmgr->info.mdm_link == E_LINK_HSIC)
             start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     }
 out:
@@ -666,14 +666,13 @@ static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_cli_core_dump_t cd;
     char filename[PATH_MAX];
+    char data[1] = "";
 
     CHECK_PARAM(mmgr, ret, out);
 
     snprintf(filename, PATH_MAX - 1, "%s/%s",
              mmgr->info.mcdr.data.path, FAKE_CD_FILENAME);
-    create_empty_file(filename,
-                      S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH |
-                      S_IWOTH);
+    write_to_file(filename, OPEN_MODE_RW_UGO, data, 0);
 
     cd.state = E_CD_SUCCEED;
     cd.panic_id = FAKE_CD_ID;

@@ -61,10 +61,10 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         set_mcd_poll_states(&mmgr->info);
 
         toggle_flashing_mode(&mmgr->info, true);
-        if (mmgr->info.link == E_LINK_HSI) {
+        if (mmgr->info.mdm_link == E_LINK_HSI) {
             flashing_interface = "/dev/ttyIFX1";
             ch_hw_sw = true;
-        } else if (mmgr->info.link == E_LINK_HSIC) {
+        } else if (mmgr->info.mdm_link == E_LINK_HSIC) {
             flashing_interface = mmgr->events.bus_events.modem_flash_path;
             ch_hw_sw = false;
         }
@@ -81,7 +81,7 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         } else if (result.id == E_MODEM_FW_SUCCEED) {
 
             /* @TODO: fix that into flash_modem/modem_specific */
-            if (mmgr->info.link == E_LINK_HSIC) {
+            if (mmgr->info.mdm_link == E_LINK_HSIC) {
                 /* @TODO: wait for ttyACM0 to appear after flash */
                 sleep(4);
                 start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
@@ -102,7 +102,9 @@ static void read_core_dump(mmgr_data_t *mmgr)
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
+    mdm_set_cd_ipc_pm(&mmgr->info, false);
     retrieve_core_dump(&mmgr->info.mcdr);
+    mdm_set_cd_ipc_pm(&mmgr->info, true);
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
 
     mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
@@ -111,7 +113,7 @@ static void read_core_dump(mmgr_data_t *mmgr)
     if (!mmgr->config.is_flashless) {
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     }
-    if (mmgr->info.link == E_LINK_HSIC) {
+    if (mmgr->info.mdm_link == E_LINK_HSIC) {
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state = E_MDM_LINK_NONE;
     }
@@ -399,7 +401,7 @@ out_mdm_ev:
                                            E_OPERATION_SKIP)));
     if (!mmgr->config.is_flashless)
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-    if (mmgr->info.link == E_LINK_HSIC) {
+    if (mmgr->info.mdm_link == E_LINK_HSIC) {
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state = E_MDM_LINK_NONE;
     }
@@ -561,9 +563,9 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
 
-        if (((mmgr->info.link == E_LINK_HSIC) &&
+        if (((mmgr->info.mdm_link == E_LINK_HSIC) &&
              mmgr->events.link_state & E_MDM_LINK_FLASH_READY) ||
-            (mmgr->info.link == E_LINK_HSI)) {
+            (mmgr->info.mdm_link == E_LINK_HSI)) {
             ret = do_flash(mmgr);
         }
 
@@ -594,7 +596,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_COREDUMP;
         set_mcd_poll_states(&mmgr->info);
 
-        if ((mmgr->info.link == E_LINK_HSIC) &&
+        if ((mmgr->info.mdm_link == E_LINK_HSIC) &&
             !(mmgr->events.link_state & E_MDM_LINK_CORE_DUMP_READ_READY)) {
             LOG_DEBUG("waiting for bus enumeration");
         } else {
@@ -611,7 +613,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
 
             /* @TODO: workaround since start_hsic in mdm_up does nothing and
              * stop_hsic makes a restart of hsic. */
-            if (mmgr->info.link == E_LINK_HSIC) {
+            if (mmgr->info.mdm_link == E_LINK_HSIC) {
                 stop_hsic(&mmgr->info);
             }
 

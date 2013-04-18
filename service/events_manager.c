@@ -110,7 +110,10 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         get_property("persist.service.telephony", &telephony_stack);
         if (!telephony_stack) {
             LOG_DEBUG("telephony stack is disabled");
-            write_to_file(HSIC_PATH, SYSFS_OPEN_MODE, "0", 1);
+            /* @TODO: this code will be removed once patch 100742 reverted */
+#define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0"
+#define HSIC_ENABLE_PATH HSIC_PATH"/hsic_enable"
+            write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "0", 1);
             mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
         }
     }
@@ -194,7 +197,7 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    if (mmgr->info.link == E_LINK_HSIC) {
+    if (mmgr->info.mdm_link == E_LINK_HSIC) {
         if ((ret =
              bus_events_init(&mmgr->events.bus_events, mmgr->config.bb_pid,
                              mmgr->config.bb_vid, mmgr->config.flash_pid,
