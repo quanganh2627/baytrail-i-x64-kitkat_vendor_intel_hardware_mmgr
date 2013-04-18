@@ -232,6 +232,7 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
             start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     } else {
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
+        mmgr->events.bus_events.wd_fd = CLOSED_FD;
     }
 
 out:
