@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <linux/hsi_ffl_tty.h>
 #include <linux/mdm_ctrl.h>
 #include "at.h"
@@ -237,7 +235,6 @@ out_xlog:
 e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
                               modem_info_t *info, int timeout)
 {
-    struct stat st;
     int retry;
     e_mmgr_errors_t ret = E_ERR_BAD_PARAMETER;
     e_switch_to_mux_states_t state;
@@ -298,20 +295,28 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         goto out;
     }
 
-    /* Wait the mux file to appear on the filesystem.
-       We cannot open it yet due to permissions.
-       Will retry for up to MAX_STAT_RETRIES seconds. */
-    LOG_DEBUG("looking for %s", config->latest_tty_name);
+    ret = E_ERR_FAILED;
+
+    /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients (this
+       guarantees that the MUX control channel has been established with the modem).
+
+       Will retry for up to MAX_TIME_DELAY milliseconds. */
+    LOG_DEBUG("looking for %s", config->waitloop_tty_name);
     for (retry = 0; retry < MAX_STAT_RETRIES; retry++) {
-        usleep(STAT_DELAY * 1000);
-        if (stat(config->latest_tty_name, &st) == 0) {
+        int tmp_fd;
+
+        if ((tmp_fd = open(config->waitloop_tty_name, O_RDWR)) >= 0) {
+            close(tmp_fd);
             ret = E_ERR_SUCCESS;
             break;
         }
+        usleep(STAT_DELAY * 1000);
     }
     if (ret != E_ERR_SUCCESS) {
-        LOG_ERROR("%s does not appear", config->latest_tty_name);
+        LOG_ERROR("was not able to open TTY %s", config->waitloop_tty_name);
     } else {
+        LOG_DEBUG("opened TTY %s after %d loop(s)", config->waitloop_tty_name,
+                  retry);
         /* It's necessary to reset the terminal configuration after MUX init */
         ret = set_termio(*fd_tty);
     }
