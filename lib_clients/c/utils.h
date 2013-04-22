@@ -23,11 +23,11 @@
 
 e_err_mmgr_cli_t check_state(mmgr_cli_handle_t *handle,
                              mmgr_lib_context_t **p_lib, bool connected);
-e_err_mmgr_cli_t send_msg(mmgr_cli_handle_t *handle,
-                          const mmgr_cli_requests_t *request, bool cnx_state);
-e_err_mmgr_cli_t register_client(mmgr_cli_handle_t *handle);
+e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
+                          const mmgr_cli_requests_t *request);
 e_err_mmgr_cli_t read_events(mmgr_lib_context_t *p_lib);
 
-e_err_mmgr_cli_t is_connected(mmgr_lib_context_t *p_lib, bool *answer);
+e_err_mmgr_cli_t cli_connect(mmgr_lib_context_t *p_lib);
+e_err_mmgr_cli_t cli_disconnect(mmgr_lib_context_t *p_lib);
 
 #endif                          /* __MMGR_CLI_UTILS_H__ */

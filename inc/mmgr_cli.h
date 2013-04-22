@@ -133,7 +133,7 @@ extern "C" {
      * @return E_ERR_CLI_FAILED if already disconnected
      * @return E_ERR_CLI_SUCCEED
      */
-    int mmgr_cli_disconnect(mmgr_cli_handle_t *handle);
+    e_err_mmgr_cli_t mmgr_cli_disconnect(mmgr_cli_handle_t *handle);
 
     /**
      * acquire the modem resource

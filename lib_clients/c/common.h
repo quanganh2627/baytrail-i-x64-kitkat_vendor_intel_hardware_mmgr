@@ -34,6 +34,17 @@
 typedef e_mmgr_errors_t (*msg_handler) (msg_t *, mmgr_cli_event_t *);
 typedef e_mmgr_errors_t (*free_handler) (mmgr_cli_event_t *);
 
+#define CNX_STATES\
+    X(DISCONNECTED),\
+    X(CONNECTED),\
+    X(RECONNECT)
+
+typedef enum cnx_state {
+#undef X
+#define X(a) E_CNX_##a
+    CNX_STATES
+} cnx_state_t;
+
 /**
  * internal structure for mmgr_cli
  *
@@ -44,7 +55,7 @@ typedef struct mmgr_lib_context {
     pthread_t thr_id;
     pthread_mutex_t mtx;
     void *cli_ctx;
-    bool connected;
+    cnx_state_t connected;
     int fd_socket;
     int fd_pipe[2];
     event_handler func[E_MMGR_NUM_EVENTS];

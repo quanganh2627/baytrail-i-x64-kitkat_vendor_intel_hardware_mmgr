@@ -16,7 +16,6 @@
  **
  */
 
-#include <cutils/sockets.h>
 #include "utils.h"
 #include "mmgr_cli.h"
 
@@ -33,7 +32,17 @@
 e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
                                    const mmgr_cli_requests_t *request)
 {
-    return send_msg(handle, request, true);
+    e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
+    mmgr_lib_context_t *p_lib = NULL;
+
+    ret = check_state(handle, &p_lib, true);
+    if (ret != E_ERR_CLI_SUCCEED) {
+        LOG_ERROR("request not sent");
+    } else {
+        ret = send_msg(p_lib, request);
+    }
+
+    return ret;
 }
 
 /**
@@ -83,7 +92,7 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->fd_socket = CLOSED_FD;
     p_lib->fd_pipe[READ] = CLOSED_FD;
     p_lib->fd_pipe[WRITE] = CLOSED_FD;
-    p_lib->connected = false;
+    p_lib->connected = E_CNX_DISCONNECTED;
     p_lib->thr_id = -1;
     strncpy(p_lib->cli_name, client_name, CLIENT_NAME_LEN - 1);
 #if DEBUG_MMGR_CLI
@@ -175,9 +184,8 @@ e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
 
     ret = check_state(handle, &p_lib, false);
     if (ret != E_ERR_CLI_SUCCEED) {
-        LOG_ERROR
-            ("To subscribe to an event, you should provide a valid handle"
-             " and be disconnected");
+        LOG_ERROR("To subscribe to an event, you should provide a valid handle"
+                  " and be disconnected");
         goto out;
     }
 
@@ -262,7 +270,6 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret;
     mmgr_lib_context_t *p_lib = NULL;
-    int fd = CLOSED_FD;
 
     ret = check_state(handle, &p_lib, false);
     if (ret != E_ERR_CLI_SUCCEED)
@@ -271,34 +278,9 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
     if (pipe(p_lib->fd_pipe) < 0) {
         LOG_ERROR("(client=%s) failed to create pipe (%s)", p_lib->cli_name,
                   strerror(errno));
-        goto out;
-    }
-
-    fd = socket_local_client(MMGR_SOCKET_NAME,
-                             ANDROID_SOCKET_NAMESPACE_RESERVED, SOCK_STREAM);
-    if (fd < 0) {
-        LOG_ERROR("(client=%s) failed to open socket", p_lib->cli_name);
-        ret = E_ERR_CLI_FAILED;
-        goto out;
-    }
-
-    pthread_mutex_lock(&p_lib->mtx);
-    p_lib->fd_socket = fd;
-    p_lib->connected = false;
-    p_lib->lock = false;
-    pthread_mutex_unlock(&p_lib->mtx);
-
-    if ((ret = register_client(handle)) != E_ERR_CLI_SUCCEED)
-        goto out;
-
-    if (pthread_create(&p_lib->thr_id, NULL, (void *)read_events, p_lib) != 0) {
-        LOG_ERROR
-            ("(fd=%d client=%s) failed to launch read_events. Disconnect "
-             "the client", fd, p_lib->cli_name);
-        mmgr_cli_disconnect(handle);
         ret = E_ERR_CLI_FAILED;
     } else {
-        ret = E_ERR_CLI_SUCCEED;
+        ret = cli_connect(p_lib);
     }
 
 out:
@@ -314,50 +296,15 @@ out:
  * @return E_ERR_CLI_FAILED if already disconnected
  * @return E_ERR_CLI_SUCCEED
  */
-int mmgr_cli_disconnect(mmgr_cli_handle_t *handle)
+e_err_mmgr_cli_t mmgr_cli_disconnect(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     mmgr_lib_context_t *p_lib = NULL;
-    bool connected;
-    char msg[PIPE_BUF];
-    ssize_t size;
 
     ret = check_state(handle, &p_lib, true);
-    if (ret == E_ERR_CLI_BAD_HANDLE)
-        goto out;
+    if (ret == E_ERR_CLI_SUCCEED)
+        ret = cli_disconnect(p_lib);
 
-    memset(msg, 0, sizeof(msg));
-
-    is_connected(p_lib, &connected);
-    if (connected) {
-        LOG_DEBUG("(fd=%d client=%s) writing signal", p_lib->fd_socket,
-                  p_lib->cli_name);
-        if ((size = write(p_lib->fd_pipe[WRITE], msg, sizeof(msg))) < -1) {
-            LOG_ERROR("(fd=%d client=%s) write failed (%s)",
-                      p_lib->fd_socket, p_lib->cli_name, strerror(errno));
-        }
-    }
-
-    LOG_DEBUG("(fd=%d client=%s) waiting for end of reading thread",
-              p_lib->fd_socket, p_lib->cli_name);
-    if (p_lib->thr_id != -1) {
-        pthread_join(p_lib->thr_id, NULL);
-        p_lib->thr_id = -1;
-    }
-
-    LOG_DEBUG("(fd=%d client=%s) reading thread stopped",
-              p_lib->fd_socket, p_lib->cli_name);
-
-    is_connected(p_lib, &connected);
-    if (!connected) {
-        LOG_DEBUG("(fd=%d client=%s) is disconnected", p_lib->fd_socket,
-                  p_lib->cli_name);
-        ret = E_ERR_CLI_SUCCEED;
-    } else {
-        LOG_ERROR("(fd=%d client=%s) failed to disconnect",
-                  p_lib->fd_socket, p_lib->cli_name);
-    }
-out:
     return ret;
 }
 
@@ -389,7 +336,7 @@ e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
                   p_lib->cli_name);
         ret = E_ERR_CLI_ALREADY_LOCK;
     } else {
-        ret = mmgr_cli_send_msg(handle, &request);
+        ret = send_msg(p_lib, &request);
         p_lib->lock = true;
     }
 out:
@@ -424,7 +371,7 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
                   p_lib->cli_name);
         ret = E_ERR_CLI_ALREADY_UNLOCK;
     } else {
-        ret = mmgr_cli_send_msg(handle, &request);
+        ret = send_msg(p_lib, &request);
         p_lib->lock = false;
     }
 out:
