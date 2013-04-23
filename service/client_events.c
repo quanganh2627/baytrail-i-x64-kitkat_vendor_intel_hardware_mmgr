@@ -467,6 +467,7 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
+    bool registered = false;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -492,6 +493,14 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
         LOG_INFO("Request (%s) received from client (fd=%d name=%s)",
                  g_mmgr_requests[mmgr->request.msg.hdr.id],
                  mmgr->request.client->fd, mmgr->request.client->name);
+
+        is_registered(mmgr->request.client, &registered);
+        if (!registered && (mmgr->request.msg.hdr.id != E_MMGR_SET_NAME) &&
+            (mmgr->request.msg.hdr.id != E_MMGR_SET_EVENTS)) {
+            LOG_DEBUG("client not fully registered. Request rejected");
+            mmgr->request.answer = E_MMGR_NACK;
+            goto out_free;
+        }
 
         if (mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id] != NULL)
             ret = mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id]

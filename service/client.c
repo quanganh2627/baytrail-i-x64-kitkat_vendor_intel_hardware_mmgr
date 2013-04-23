@@ -34,6 +34,27 @@ const char *g_mmgr_events[] = {
 };
 
 /**
+ * Check if the client is fully registered
+ *
+ * @param [in] client
+ * @param [out] state true if registered
+ *
+ * @return E_ERR_BAD_PARAMETER
+ * @return E_ERR_SUCCESS
+ */
+e_mmgr_errors_t is_registered(client_t *client, bool *state)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(client, ret, out);
+    CHECK_PARAM(state, ret, out);
+
+    *state = (client->cnx & E_CNX_NAME) && (client->cnx & E_CNX_FILTER);
+out:
+    return ret;
+}
+
+/**
  * Check all clients acknowledgement
  *
  * @private
