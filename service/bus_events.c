@@ -114,6 +114,7 @@ int is_pid_and_vid(const char *path, uint16_t pid, uint16_t vid)
     uint16_t ppid = usb_device_get_product_id(dev);
     uint16_t pvid = usb_device_get_vendor_id(dev);
     LOG_DEBUG("Event bus pid 0x%.4x vid 0x%.4x", ppid, pvid);
+    usb_device_close(dev);
 
     return (ppid == pid && pvid == vid);
 }

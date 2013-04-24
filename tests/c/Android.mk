@@ -24,7 +24,7 @@ LOCAL_SRC_FILES:= \
     mmgr_test.c \
     test_cases.c \
     test_utils.c
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := optional tests
 LOCAL_STATIC_LIBRARIES := libcutils libc
 LOCAL_SHARED_LIBRARIES := libglib-2.0 libmmgrcli
 LOCAL_LDLIBS += -lpthread
