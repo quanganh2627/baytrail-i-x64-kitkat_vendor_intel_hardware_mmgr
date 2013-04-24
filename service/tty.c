@@ -24,7 +24,7 @@
 #include "logs.h"
 #include "tty.h"
 
-#define MAX_OPEN_RETRY 5
+#define MAX_OPEN_RETRY 50000
 
 /**
  * add fd to epoll
