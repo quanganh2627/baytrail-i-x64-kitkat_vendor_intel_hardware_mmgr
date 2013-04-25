@@ -557,8 +557,8 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
                   client->name);
         /* client must release the locked resource, if any. handle this
          * resource release according to MMGR state */
-        if (mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id] != NULL)
-            ret = mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id]
+        if (mmgr->hdler_client[mmgr->state][E_MMGR_RESOURCE_RELEASE] != NULL)
+            ret = mmgr->hdler_client[mmgr->state][E_MMGR_RESOURCE_RELEASE]
                 (mmgr);
         ret = remove_client(&mmgr->clients, client);
     } else
