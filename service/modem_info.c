@@ -23,6 +23,7 @@
 #include <termios.h>
 #include <linux/hsi_ffl_tty.h>
 #include <linux/mdm_ctrl.h>
+#include <time.h>
 #include "at.h"
 #include "errors.h"
 #include "logs.h"
@@ -263,7 +264,6 @@ out_xlog:
 e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
                               modem_info_t *info, int timeout)
 {
-    int retry;
     e_mmgr_errors_t ret = E_ERR_BAD_PARAMETER;
     e_switch_to_mux_states_t state;
     struct timespec current, start;
@@ -325,23 +325,31 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
 
     /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients
      * (this guarantees that the MUX control channel has been established with
-     * the modem). Will retry for up to MAX_TIME_DELAY milliseconds. */
-    LOG_DEBUG("looking for %s", config->waitloop_tty_name);
-    for (retry = 0; retry < MAX_STAT_RETRIES; retry++) {
+     * the modem).
+     *
+     * Will retry for up to MAX_TIME_DELAY seconds. */
+    LOG_DEBUG("looking for TTY %s", config->waitloop_tty_name);
+    ret = E_ERR_FAILED;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    do {
         int tmp_fd;
 
+        usleep(STAT_DELAY * 1000);
         if ((tmp_fd = open(config->waitloop_tty_name, O_RDWR)) >= 0) {
             close(tmp_fd);
+            ret = E_ERR_SUCCESS;
             break;
         }
-        usleep(STAT_DELAY * 1000);
-    }
-    if (retry > MAX_STAT_RETRIES) {
-        ret = E_ERR_FAILED;
+
+        clock_gettime(CLOCK_MONOTONIC, &current);
+    } while ((current.tv_sec < (start.tv_sec + MAX_TIME_DELAY)) ||
+             ((current.tv_sec == (start.tv_sec + MAX_TIME_DELAY)) &&
+              (current.tv_nsec < start.tv_nsec)));
+
+    if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("was not able to open TTY %s", config->waitloop_tty_name);
     } else {
-        LOG_DEBUG("opened TTY %s after %d loop(s)", config->waitloop_tty_name,
-                  retry);
+        LOG_DEBUG("TTY %s open success", config->waitloop_tty_name);
         /* It's necessary to reset the terminal configuration after MUX init */
         ret = set_termio(*fd_tty);
     }
