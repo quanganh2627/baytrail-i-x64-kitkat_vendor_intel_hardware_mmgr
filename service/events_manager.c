@@ -82,6 +82,8 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
         close_cnx(&mmgr->fd_cnx);
     if (mmgr->info.fd_mcd != CLOSED_FD)
         close_tty(&mmgr->info.fd_mcd);
+    if (mmgr->epollfd != CLOSED_FD)
+        close(mmgr->epollfd);
 out:
     return ret;
 }
@@ -163,6 +165,7 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
+    mmgr->epollfd = CLOSED_FD;
     if ((ret = init_ev_hdler(&mmgr->epollfd)) != E_ERR_SUCCESS)
         goto out;
 

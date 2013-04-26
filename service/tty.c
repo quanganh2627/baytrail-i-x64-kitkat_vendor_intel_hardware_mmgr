@@ -59,7 +59,7 @@ e_mmgr_errors_t init_ev_hdler(int *epollfd)
     CHECK_PARAM(epollfd, ret, out);
 
     *epollfd = epoll_create(1);
-    if (*epollfd == -1) {
+    if (*epollfd == CLOSED_FD) {
         LOG_ERROR("epoll initialization failed");
         ret = E_ERR_FAILED;
     }
@@ -82,7 +82,7 @@ out:
 e_mmgr_errors_t wait_for_tty_event(int fd, int timeout)
 {
     struct epoll_event ev;
-    int epollfd;
+    int epollfd = CLOSED_FD;
     int err;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -112,6 +112,8 @@ e_mmgr_errors_t wait_for_tty_event(int fd, int timeout)
         ret = E_ERR_TTY_ERROR;
     }
 out:
+    if (epollfd != CLOSED_FD)
+        close(epollfd);
     return ret;
 }
 
