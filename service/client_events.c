@@ -190,10 +190,11 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         stop_hsic(&mmgr->info);
     }
 
+    mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
     if (mmgr->config.is_flashless)
-        mmgr->info.polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
+        mmgr->info.polled_states |= MDM_CTRL_STATE_FW_DOWNLOAD_READY;
     else
-        mmgr->info.polled_states = MDM_CTRL_STATE_IPC_READY;
+        mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
     set_mcd_poll_states(&mmgr->info);
 
     if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
