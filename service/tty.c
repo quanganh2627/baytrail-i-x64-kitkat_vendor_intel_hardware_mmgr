@@ -265,6 +265,9 @@ e_mmgr_errors_t open_tty(const char *tty_name, int *fd)
     CHECK_PARAM(tty_name, ret, out);
     CHECK_PARAM(fd, ret, out);
 
+    if (*fd != CLOSED_FD)
+        goto out;
+
     LOG_DEBUG("trying to open tty device: %s", tty_name);
     for (count = 0; count < MAX_OPEN_RETRY; count++) {
         *fd = open(tty_name, O_RDWR);

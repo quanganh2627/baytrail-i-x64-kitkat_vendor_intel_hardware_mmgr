@@ -112,11 +112,11 @@ e_mmgr_errors_t secur_register(secur_t *secur, int *fd)
 
     CHECK_PARAM(secur, ret, out);
 
-    if (secur->enable) {
+    secur->fd = CLOSED_FD;
+    if (secur->enable)
         ret = open_tty(secur->dlc, &secur->fd);
-        *fd = secur->fd;
-    } else
-        *fd = CLOSED_FD;
+
+    *fd = secur->fd;
 
 out:
     return ret;
