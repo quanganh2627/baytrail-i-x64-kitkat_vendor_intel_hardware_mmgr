@@ -51,8 +51,10 @@ public class ModemStatusFragment extends Fragment implements
         super.onDestroy();
 
         try {
-            this.modemManager.disconnect();
-            this.modemManager = null;
+            if(this.modemManager != null) {
+                this.modemManager.disconnect();
+                this.modemManager = null;
+            }
         } catch (Exception ex) {
             MessageBoxHelper.showException(this.getActivity(), ex);
         }
@@ -109,17 +111,22 @@ public class ModemStatusFragment extends Fragment implements
             this.textViewClientStatus.setText("CONNECTING...");
         }
 
-        this.modemManager.connectAsync("MMGR Test", new AsyncOperationResultListener() {
-            @Override
-            public void onOperationError(Exception ex) {
-                ModemStatusFragment.this.setUIDisconnectedMode();
-            }
+        if(this.modemManager != null) {
+            this.modemManager.connectAsync("MMGR Test", new AsyncOperationResultListener() {
+                @Override
+                public void onOperationError(Exception ex) {
+                    ModemStatusFragment.this.setUIDisconnectedMode();
+                }
 
-            @Override
-            public void onOperationComplete() {
-                ModemStatusFragment.this.setUIConnectedMode();
-            }
-        });
+                @Override
+                public void onOperationComplete() {
+                    ModemStatusFragment.this.setUIConnectedMode();
+                }
+            });
+        }
+        else {
+            ModemStatusFragment.this.setUIDisconnectedMode();
+        }
         return ret;
     }
 
