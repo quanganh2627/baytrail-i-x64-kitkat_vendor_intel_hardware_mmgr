@@ -33,7 +33,7 @@ typedef struct mmgr_configuration {
     /* general parameters */
     char modem_port[MAX_SIZE_CONF_VAL];
     char shtdwn_dlc[MAX_SIZE_CONF_VAL];
-    char waitloop_tty_name[MAX_SIZE_CONF_VAL];
+    char latest_tty_name[MAX_SIZE_CONF_VAL];
     char link_layer[MAX_SIZE_CONF_VAL];
     int delay_before_at;
     int max_frame_size;

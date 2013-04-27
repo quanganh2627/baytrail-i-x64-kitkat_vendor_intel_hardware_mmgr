@@ -28,7 +28,7 @@
 /* MMGR default value for configuration */
 #define DEF_MODEM_PORT "/dev/ttyIFX0"
 #define DEF_SHTDWN_DLC "/dev/gsmtty22"
-#define DEF_WAITLOOP_TTY_NAME  "/dev/gsmtty15"
+#define DEF_LATEST_TTY_NAME  "/dev/gsmtty63"
 #define DEF_LINK_LAYER "hsi"
 #define DEF_DELAY_BEFORE_AT INTEGER(3456)
 /* 27.010 5.7.2 max frame size */
@@ -311,8 +311,8 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          DEF_MODEM_PORT,.set = string},
         {.key = "ShutdownDLC",.dest = &params->shtdwn_dlc,.def =
          DEF_SHTDWN_DLC,.set = string},
-        {.key = "WaitLoopTTYName",.dest = &params->waitloop_tty_name,
-         .def = DEF_WAITLOOP_TTY_NAME,.set = string},
+        {.key = "LatestTTYName",.dest = &params->latest_tty_name,
+         .def = DEF_LATEST_TTY_NAME,.set = string},
         {.key = "LinkLayer",.dest = &params->link_layer,
          .def = DEF_LINK_LAYER,.set = string},
         {.key = "DelayBeforeFirstAt",.dest = &params->delay_before_at,

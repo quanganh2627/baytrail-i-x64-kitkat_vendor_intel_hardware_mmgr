@@ -51,8 +51,6 @@ typedef struct mup_op {
     e_mup_err_t (*check_fw_version) (char *fw_path, char *version);
     e_mup_err_t (*config_secur_channel) (mup_interface_t *handle, void *func,
                                          char *rnd_path, size_t l);
-    e_mup_err_t (*gen_fls) (const char *in, const char *out, const char *dir,
-                            const char *certificate, const char *secur);
 } mup_op_t;
 
 typedef struct modem_info {

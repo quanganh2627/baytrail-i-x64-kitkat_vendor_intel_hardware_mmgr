@@ -24,10 +24,12 @@
 
 #include <dlfcn.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
 #define FLS_FILE_PERMISSION (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH)
+#define INJECTION_TOOL "/system/bin/injection_tool"
 /* @TODO: this should be configurable via mmgr.conf */
 #define MUP_LIB "libmodemupdate.so"
 #define MUP_FUNC_INIT "mup_initialize"
@@ -37,7 +39,6 @@
 #define MUP_FUNC_DISPOSE "mup_dispose"
 #define MUP_FUNC_FW_VERSION "mup_check_fw_version"
 #define MUP_FUNC_CONFIG_SECUR "mup_configure_secur_channel"
-#define MUP_GEN_FLS "mup_gen_fls"
 
 /**
  * callback to handle aplog messages
@@ -58,7 +59,7 @@ void mup_log(const char *msg, size_t msg_len)
  * @param[in] info modem data
  * @param[in] is_flashless
  *
- * @return E_ERR_FAILED
+ * @return E_ERR_FAILED if INJECTION_TOOL is missing
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
@@ -87,7 +88,6 @@ e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
                                                           MUP_FUNC_CONFIG_SECUR);
         *(void **)&info->mup.check_fw_version =
             dlsym(info->mup.hdle, MUP_FUNC_FW_VERSION);
-        *(void **)&info->mup.gen_fls = dlsym(info->mup.hdle, MUP_GEN_FLS);
 
         p = (char *)dlerror();
         if (p != NULL) {
@@ -97,6 +97,8 @@ e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
             info->mup.hdle = NULL;
             goto out;
         }
+
+        ret = is_file_exists(INJECTION_TOOL, 0);
     } else {
         info->mup.hdle = NULL;
     }
@@ -246,34 +248,38 @@ e_mmgr_errors_t regen_fls(modem_info_t *info)
 {
 
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    e_mup_err_t mup_err;
-    char no_file[2] = "";
+    int status;
 
     CHECK_PARAM(info, ret, out);
 
+    /* @TODO: replace InjectionTool by download lib */
     if ((ret = is_file_exists(info->fl_conf.run_boot_fls, 0)) != E_ERR_SUCCESS) {
         LOG_ERROR("fls file (%s) is missing", info->fl_conf.run_boot_fls);
         goto out;
     }
 
+    ret = E_ERR_FAILED;
     remove(info->fl_conf.run_inj_fls);
-    LOG_DEBUG("trying to package fls file");
-
-    /* @TODO: add certificate and secur files */
-    mup_err = info->mup.gen_fls(info->fl_conf.run_boot_fls,
-                                info->fl_conf.run_inj_fls,
-                                info->fl_conf.run_path, no_file, no_file);
-
-    if (mup_err == E_MUP_SUCCEED) {
-        ret = is_file_exists(info->fl_conf.run_inj_fls, 0);
-        if (ret == E_ERR_SUCCESS) {
-            LOG_INFO("fls file created successfully (%s)",
-                     info->fl_conf.run_inj_fls);
-        } else {
-            LOG_ERROR("failed to create fls file");
-        }
+    pid_t chld = fork();
+    if (chld == 0) {
+        LOG_DEBUG("trying to package fls file");
+        execl(INJECTION_TOOL, "injection_tool", "-i",
+              info->fl_conf.run_boot_fls, "-o", info->fl_conf.run_inj_fls, "-n",
+              info->fl_conf.run_path, NULL);
+        LOG_ERROR("execl has failed");
+        exit(0);
     } else {
-        ret = E_ERR_FAILED;
+        waitpid(chld, &status, 0);
+        if ((status == 0)
+            && (is_file_exists(info->fl_conf.run_inj_fls, 0) == E_ERR_SUCCESS)) {
+            ret = E_ERR_SUCCESS;
+        }
+    }
+    if (ret == E_ERR_SUCCESS) {
+        LOG_INFO("fls file created successfully (%s)",
+                 info->fl_conf.run_inj_fls);
+    } else {
+        LOG_ERROR("failed to create fls file");
     }
 out:
     return ret;
