@@ -114,6 +114,7 @@ int is_pid_and_vid(const char *path, uint16_t pid, uint16_t vid)
     uint16_t ppid = usb_device_get_product_id(dev);
     uint16_t pvid = usb_device_get_vendor_id(dev);
     LOG_DEBUG("Event bus pid 0x%.4x vid 0x%.4x", ppid, pvid);
+    usb_device_close(dev);
 
     return (ppid == pid && pvid == vid);
 }
@@ -250,7 +251,7 @@ e_mmgr_errors_t bus_events_init(bus_ev_t *bus_events, char *bb_pid,
     usb_host_load(bus_events->ctx, device_added_cb, device_rmed_cb, NULL,
                   &bus_events->cli_ctx);
     /* when calling usb_host_load, there's a call to find_existing_devices
-       which triggers added_cb events so, there's been events ... maybe. */
+     * which triggers added_cb events so, there's been events ... maybe. */
     bus_handle_events(bus_events);
 
 out:

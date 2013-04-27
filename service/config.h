@@ -33,7 +33,7 @@ typedef struct mmgr_configuration {
     /* general parameters */
     char modem_port[MAX_SIZE_CONF_VAL];
     char shtdwn_dlc[MAX_SIZE_CONF_VAL];
-    char latest_tty_name[MAX_SIZE_CONF_VAL];
+    char waitloop_tty_name[MAX_SIZE_CONF_VAL];
     char link_layer[MAX_SIZE_CONF_VAL];
     int delay_before_at;
     int max_frame_size;
@@ -42,6 +42,7 @@ typedef struct mmgr_configuration {
     char bb_vid[MAX_SIZE_CONF_VAL];
     char flash_pid[MAX_SIZE_CONF_VAL];
     char flash_vid[MAX_SIZE_CONF_VAL];
+    bool tel_stack;
     /* modem recovery parameters */
     bool modem_reset_enable;
     int nb_warm_reset;
@@ -67,6 +68,7 @@ typedef struct mmgr_configuration {
     char mcdr_pid[MAX_SIZE_CONF_VAL];
     char mcdr_vid[MAX_SIZE_CONF_VAL];
     char mcdr_protocol[MAX_SIZE_CONF_VAL];
+    char mcdr_link_layer[MAX_SIZE_CONF_VAL];
 } mmgr_configuration_t;
 
 typedef struct flashless_config {

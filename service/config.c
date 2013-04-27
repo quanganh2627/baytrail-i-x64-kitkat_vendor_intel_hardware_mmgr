@@ -28,13 +28,14 @@
 /* MMGR default value for configuration */
 #define DEF_MODEM_PORT "/dev/ttyIFX0"
 #define DEF_SHTDWN_DLC "/dev/gsmtty22"
-#define DEF_LATEST_TTY_NAME  "/dev/gsmtty63"
+#define DEF_WAITLOOP_TTY_NAME  "/dev/gsmtty15"
 #define DEF_LINK_LAYER "hsi"
 #define DEF_DELAY_BEFORE_AT INTEGER(3456)
 /* 27.010 5.7.2 max frame size */
 #define GPP_MAX_FRAME_SIZE INTEGER(32768)
 /* modem max frame size */
 #define MODEM_MAX_FRAME_SIZE INTEGER(1509)
+#define DEF_TEL_STACK INTEGER(false)
 
 /* flashless data */
 #define DEF_IS_FLASHLESS INTEGER(false)
@@ -78,6 +79,7 @@
 #define DEF_STATIC "static.nvm"
 #define DEF_DYNAMIC "dynamic.nvm"
 #define DEF_RND_CERT "RND_CERT"
+#define DEF_MCDR_LINK_LAYER "uart"
 
 #define DEF_BKUP_PATH "/factory/telephony"
 
@@ -311,8 +313,8 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          DEF_MODEM_PORT,.set = string},
         {.key = "ShutdownDLC",.dest = &params->shtdwn_dlc,.def =
          DEF_SHTDWN_DLC,.set = string},
-        {.key = "LatestTTYName",.dest = &params->latest_tty_name,
-         .def = DEF_LATEST_TTY_NAME,.set = string},
+        {.key = "WaitLoopTTYName",.dest = &params->waitloop_tty_name,
+         .def = DEF_WAITLOOP_TTY_NAME,.set = string},
         {.key = "LinkLayer",.dest = &params->link_layer,
          .def = DEF_LINK_LAYER,.set = string},
         {.key = "DelayBeforeFirstAt",.dest = &params->delay_before_at,
@@ -329,6 +331,8 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          .def = DEF_FLASH_PID,.set = string},
         {.key = "FlashVid",.dest = &params->flash_vid,
          .def = DEF_FLASH_VID,.set = string},
+        {.key = "disable_tel_stack",.dest = &params->tel_stack,
+         .def = DEF_TEL_STACK,.set = boolean},
     };
 
     set_param_t recov[] = {
@@ -377,6 +381,8 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          DEF_MCDR_VID,.set = string},
         {.key = "McdrProtocol",.dest = &params->mcdr_protocol,.def =
          DEF_MCDR_PROTOCOL,.set = string},
+        {.key = "McdrLinkLayer",.dest = &params->mcdr_link_layer,
+         .def = DEF_MCDR_LINK_LAYER,.set = string},
     };
 
     set_param_t secur[] = {

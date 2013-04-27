@@ -24,12 +24,10 @@
 
 #include <dlfcn.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
 #define FLS_FILE_PERMISSION (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH)
-#define INJECTION_TOOL "/system/bin/injection_tool"
 /* @TODO: this should be configurable via mmgr.conf */
 #define MUP_LIB "libmodemupdate.so"
 #define MUP_FUNC_INIT "mup_initialize"
@@ -39,6 +37,18 @@
 #define MUP_FUNC_DISPOSE "mup_dispose"
 #define MUP_FUNC_FW_VERSION "mup_check_fw_version"
 #define MUP_FUNC_CONFIG_SECUR "mup_configure_secur_channel"
+#define MUP_GEN_FLS "mup_gen_fls"
+
+#define UART_PM "/sys/devices/pci0000:00/0000:00:05.1/power/control"
+#define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0"
+#define HSIC_ENABLE_PATH HSIC_PATH"/hsic_enable"
+#define HSIC_PM HSIC_PATH"/L2_autosuspend_enable"
+#define PM_CMD_SIZE 6
+
+#define HSIC_PM_ON "1"
+#define HSIC_PM_OFF "0"
+#define UART_PM_ON "auto"
+#define UART_PM_OFF "on"
 
 /**
  * callback to handle aplog messages
@@ -49,27 +59,168 @@
  */
 void mup_log(const char *msg, size_t msg_len)
 {
-    (void)msg_len;              //unused
+    (void)msg_len;              /* unused */
     LOG_DEBUG("%s", msg);
+}
+
+/**
+ * This function sets the IPC power management
+ *
+ * @param [in] link type of link
+ * @param [in] state (true: power management is enabled)
+ *
+ * @return E_ERR_FAILED if it fails
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
+ */
+static e_mmgr_errors_t set_ipc_pm(e_link_type_t link, bool state)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    char *hsic_cmd[] = { HSIC_PM_OFF, HSIC_PM_ON };
+    char *uart_cmd[] = { UART_PM_OFF, UART_PM_ON };
+    char *path = NULL;
+    char *cmd = NULL;
+
+    switch (link) {
+    case E_LINK_HSI:
+        /* Nothing to do */
+        ret = E_ERR_FAILED;
+        break;
+    case E_LINK_HSIC:
+        path = HSIC_PM;
+        cmd = hsic_cmd[state];
+        break;
+    case E_LINK_UART:
+        path = UART_PM;
+        cmd = uart_cmd[state];
+        break;
+    }
+    if (path && cmd)
+        ret = write_to_file(path, SYSFS_OPEN_MODE, cmd, strlen(cmd));
+    return ret;
+}
+
+/**
+ * This function gets the IPC power management
+ *
+ * @param [in] link type of link
+ * @param [out] state (true: power management is enabled)
+ *
+ * @return E_ERR_FAILED if it fails
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
+ */
+static e_mmgr_errors_t get_ipc_pm(e_link_type_t link, bool *state)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    char *path = NULL;
+    char *cmd = NULL;
+    char data[PM_CMD_SIZE];
+    size_t size = PM_CMD_SIZE;
+
+    CHECK_PARAM(state, ret, out);
+
+    switch (link) {
+    case E_LINK_HSI:
+        /* Nothing to do */
+        break;
+    case E_LINK_HSIC:
+        path = HSIC_PM;
+        cmd = HSIC_PM_ON;
+        break;
+    case E_LINK_UART:
+        path = UART_PM;
+        cmd = UART_PM_ON;
+        break;
+    }
+    if (path && cmd)
+        read_file(path, OPEN_MODE_RW_UGO, data, &size);
+
+    if (strncmp(cmd, data, strlen(cmd)) == 0)
+        *state = true;
+    else
+        *state = false;
+
+out:
+    return ret;
+}
+
+/**
+ * This function controls the core dump IPC power management
+ *
+ * @param [in] info modem info
+ * @param [in] state (true: power management is enabled)
+ *
+ * @return E_ERR_FAILED if it fails
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
+ */
+e_mmgr_errors_t mdm_set_cd_ipc_pm(modem_info_t *info, bool state)
+{
+    return set_ipc_pm(info->cd_link, state);
+}
+
+/**
+ * This function controls the modem IPC power management
+ *
+ * @param [in] info modem info
+ * @param [in] state (true: power management is enabled)
+ *
+ * @return E_ERR_FAILED if it fails
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
+ */
+e_mmgr_errors_t mdm_set_ipc_pm(modem_info_t *info, bool state)
+{
+    return set_ipc_pm(info->mdm_link, state);
+}
+
+/**
+ * This function get the core dump IPC power management state
+ *
+ * @param [in] info modem info
+ * @param [out] state (true: power management is enabled)
+ *
+ * @return E_ERR_FAILED if it fails
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
+ */
+e_mmgr_errors_t mdm_get_cd_ipc_pm(modem_info_t *info, bool *state)
+{
+    return get_ipc_pm(info->cd_link, state);
+}
+
+/**
+ * This function get the modem IPC power management state
+ *
+ * @param [in] info modem info
+ * @param [out] state (true: power management is enabled)
+ *
+ * @return E_ERR_FAILED if it fails
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
+ */
+e_mmgr_errors_t mdm_get_ipc_pm(modem_info_t *info, bool *state)
+{
+    return get_ipc_pm(info->mdm_link, state);
 }
 
 /**
  * init module function
  *
  * @param[in] info modem data
- * @param[in] is_flashless
  *
- * @return E_ERR_FAILED if INJECTION_TOOL is missing
+ * @return E_ERR_FAILED
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
+e_mmgr_errors_t mdm_specific_init(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char *p = NULL;
 
     CHECK_PARAM(info, ret, out);
 
-    if (is_flashless) {
+    if (info->is_flashless) {
         info->mup.hdle = dlopen(MUP_LIB, RTLD_LAZY);
         if (info->mup.hdle == NULL) {
             LOG_ERROR("failed to open library");
@@ -88,6 +239,7 @@ e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
                                                           MUP_FUNC_CONFIG_SECUR);
         *(void **)&info->mup.check_fw_version =
             dlsym(info->mup.hdle, MUP_FUNC_FW_VERSION);
+        *(void **)&info->mup.gen_fls = dlsym(info->mup.hdle, MUP_GEN_FLS);
 
         p = (char *)dlerror();
         if (p != NULL) {
@@ -97,8 +249,6 @@ e_mmgr_errors_t modem_specific_init(modem_info_t *info, bool is_flashless)
             info->mup.hdle = NULL;
             goto out;
         }
-
-        ret = is_file_exists(INJECTION_TOOL, 0);
     } else {
         info->mup.hdle = NULL;
     }
@@ -106,13 +256,20 @@ out:
     return ret;
 }
 
-e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, char *link_layer,
-                                     bool flashing_mode)
+e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode)
 {
-    if (strcmp(link_layer, "hsi") == 0)
-        return (info->mup.toggle_hsi_flashing_mode(flashing_mode) ==
-                E_MUP_SUCCEED) ? E_ERR_SUCCESS : E_ERR_FAILED;
-    return E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    if (info->mdm_link == E_LINK_HSI)
+        ret = (info->mup.toggle_hsi_flashing_mode(flashing_mode) ==
+               E_MUP_SUCCEED) ? E_ERR_SUCCESS : E_ERR_FAILED;
+    else
+        ret = E_ERR_SUCCESS;
+
+out:
+    return ret;
 }
 
 /**
@@ -209,9 +366,10 @@ out:
  */
 e_mmgr_errors_t start_hsic(modem_info_t *info)
 {
-    //FIXME: Writting 0 to stop the HSIC is useless and writting 1 stops and restarts the hsic
-    //just write 1 in the HSIC_PATH when we want to stop/start
-    //spec needs to be fixed with SE or need to be fixed by HSIC driver to conform to the spec
+    /* @TODO FIXME: Writting 0 to stop the HSIC is useless and writting 1 stops
+     * and restarts the hsic just write 1 in the HSIC_ENABLE_PATH when we want
+     * to stop/start spec needs to be fixed with SE or need to be fixed by HSIC
+     * driver to conform to the spec */
     return E_ERR_SUCCESS;
 }
 
@@ -226,12 +384,14 @@ e_mmgr_errors_t start_hsic(modem_info_t *info)
  */
 e_mmgr_errors_t stop_hsic(modem_info_t *info)
 {
-/*    return write_to_file(HSIC_PATH, SYSFS_OPEN_MODE, "0", 1);*/
-    //FIXME: Writes 1 to HSIC_PATH to restart the HSIC before a cold boot
-    //needs to be adressed
-    (void)info;                 //unused
-    e_mmgr_errors_t ret = write_to_file(HSIC_PATH, SYSFS_OPEN_MODE, "1", 1);
-    usleep(500 * 1000);         /* TODO: remove me */
+    /* return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "0", 1); */
+
+    /* @TODO: FIXME: Writes 1 to HSIC_ENABLE_PATH to restart the HSIC before a
+     * cold boot needs to be adressed */
+    (void)info;                 /* unused */
+    e_mmgr_errors_t ret =
+        write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "1", 1);
+    usleep(500 * 1000);         /* @TODO: remove me */
     return ret;
 }
 
@@ -244,42 +404,38 @@ e_mmgr_errors_t stop_hsic(modem_info_t *info)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t regen_fls(modem_info_t *info)
+static e_mmgr_errors_t regen_fls(modem_info_t *info)
 {
 
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    int status;
+    e_mup_err_t mup_err;
+    char no_file[2] = "";
 
     CHECK_PARAM(info, ret, out);
 
-    /* @TODO: replace InjectionTool by download lib */
     if ((ret = is_file_exists(info->fl_conf.run_boot_fls, 0)) != E_ERR_SUCCESS) {
         LOG_ERROR("fls file (%s) is missing", info->fl_conf.run_boot_fls);
         goto out;
     }
 
-    ret = E_ERR_FAILED;
     remove(info->fl_conf.run_inj_fls);
-    pid_t chld = fork();
-    if (chld == 0) {
-        LOG_DEBUG("trying to package fls file");
-        execl(INJECTION_TOOL, "injection_tool", "-i",
-              info->fl_conf.run_boot_fls, "-o", info->fl_conf.run_inj_fls, "-n",
-              info->fl_conf.run_path, NULL);
-        LOG_ERROR("execl has failed");
-        exit(0);
-    } else {
-        waitpid(chld, &status, 0);
-        if ((status == 0)
-            && (is_file_exists(info->fl_conf.run_inj_fls, 0) == E_ERR_SUCCESS)) {
-            ret = E_ERR_SUCCESS;
+    LOG_DEBUG("trying to package fls file");
+
+    /* @TODO: add certificate and secur files */
+    mup_err = info->mup.gen_fls(info->fl_conf.run_boot_fls,
+                                info->fl_conf.run_inj_fls,
+                                info->fl_conf.run_path, no_file, no_file);
+
+    if (mup_err == E_MUP_SUCCEED) {
+        ret = is_file_exists(info->fl_conf.run_inj_fls, 0);
+        if (ret == E_ERR_SUCCESS) {
+            LOG_INFO("fls file created successfully (%s)",
+                     info->fl_conf.run_inj_fls);
+        } else {
+            LOG_ERROR("failed to create fls file");
         }
-    }
-    if (ret == E_ERR_SUCCESS) {
-        LOG_INFO("fls file created successfully (%s)",
-                 info->fl_conf.run_inj_fls);
     } else {
-        LOG_ERROR("failed to create fls file");
+        ret = E_ERR_FAILED;
     }
 out:
     return ret;
@@ -294,7 +450,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t modem_warm_reset(modem_info_t *info)
+e_mmgr_errors_t mdm_warm_reset(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -318,7 +474,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t modem_cold_reset(modem_info_t *info)
+e_mmgr_errors_t mdm_cold_reset(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -341,7 +497,7 @@ out:
  * @return E_OPERATION_BAD_PARAMETER if info is NULL
  * @return E_OPERATION_CONTINUE
  */
-e_mmgr_errors_t modem_down(modem_info_t *info)
+e_mmgr_errors_t mdm_down(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
@@ -362,18 +518,13 @@ out:
  * power on modem
  *
  * @param [in] info modem info structure
- * @param [in] is_flashless
- * @param [in] is_hsic
  *
  * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t modem_up(modem_info_t *info, bool is_flashless, bool is_hsic)
+e_mmgr_errors_t mdm_up(modem_info_t *info)
 {
-
-    /* @TODO: rework this to remove the is_flashless and is_hsic
-       boolean to hide modem_specific parameters from the calling module */
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int state;
 
@@ -381,18 +532,18 @@ e_mmgr_errors_t modem_up(modem_info_t *info, bool is_flashless, bool is_hsic)
 
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
 
-    /*@TODO: broken start_hsic does nothing */
-    if (is_hsic)
+    /* @TODO: broken start_hsic does nothing */
+    if (info->mdm_link == E_LINK_HSIC)
         start_hsic(info);
 
-    if (is_flashless) {
+    if (info->is_flashless) {
         if (state & MDM_CTRL_STATE_OFF) {
             if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {
                 LOG_DEBUG("failed to power on the modem: %s", strerror(errno));
                 ret = E_ERR_FAILED;
             }
         } else {
-            ret = modem_cold_reset(info);
+            ret = mdm_cold_reset(info);
         }
     } else if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {
         LOG_DEBUG("failed to power on the modem: %s", strerror(errno));
@@ -415,7 +566,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info is NULL
  */
-e_mmgr_errors_t get_modem_state(int fd_mcd, e_modem_events_type_t *state)
+e_mmgr_errors_t mdm_get_state(int fd_mcd, e_modem_events_type_t *state)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int read = 0;
@@ -472,7 +623,7 @@ out:
  *
  * @param [in,out] info modem info context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -490,6 +641,81 @@ e_mmgr_errors_t set_mcd_poll_states(modem_info_t *info)
         ret = E_ERR_FAILED;
     }
 
+out:
+    return ret;
+}
+
+/**
+ * This function is used to prepare the firmware modem
+ *
+ * @param [in,out] info modem info context
+ *
+ * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ **/
+e_mmgr_errors_t mdm_prepare(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    if (info->is_flashless) {
+        /* re-generates the fls through nvm injection lib if the modem is
+         * flashless */
+        ret = regen_fls(info);
+    }
+out:
+    return ret;
+}
+
+/**
+ * This function is used to start the modem IPC link
+ *
+ * @param [in,out] info modem info context
+ *
+ * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ **/
+e_mmgr_errors_t mdm_prepare_link(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    /* Stop hsic if the modem is hsic */
+    if (info->mdm_link == E_LINK_HSIC)
+        stop_hsic(info);
+out:
+    return ret;
+}
+
+/**
+ * This function is used to configure modem events after modem restart
+ *
+ * @param [in,out] info modem info context
+ * @param [in] subscribe_cd_ev boolean to define if we should subscribe to
+ * core dump event or not
+ *
+ * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ **/
+e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info, bool subscribe_cd_ev)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    if (info->is_flashless)
+        info->polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
+    else
+        info->polled_states = MDM_CTRL_STATE_IPC_READY;
+
+    if (subscribe_cd_ev)
+        info->polled_states |= MDM_CTRL_STATE_COREDUMP;
+    ret = set_mcd_poll_states(info);
 out:
     return ret;
 }

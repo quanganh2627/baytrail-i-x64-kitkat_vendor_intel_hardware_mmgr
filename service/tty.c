@@ -24,7 +24,7 @@
 #include "logs.h"
 #include "tty.h"
 
-#define MAX_OPEN_RETRY 5
+#define MAX_OPEN_RETRY 50000
 
 /**
  * add fd to epoll
@@ -222,22 +222,24 @@ e_mmgr_errors_t set_termio(int fd)
     memset(&newtio, 0, sizeof(newtio));
 
     /* disable postprocess output characters */
+    /* *INDENT-OFF* */
     newtio.c_oflag &= ~OPOST;
-    newtio.c_lflag &= ~(ECHO    /* disable echo input characters */
-                        | ECHONL        /* disable echo new line */
-                        | ICANON        /* disable erase, kill, werase, and */
+    newtio.c_lflag &= ~(ECHO /* disable echo input characters */
+                        | ECHONL /* disable echo new line */
+                        | ICANON /* disable erase, kill, werase, and */
                         /* print special characters */
-                        | ISIG  /* disable interrupt, quit, and suspend */
+                        | ISIG /* disable interrupt, quit, and suspend */
                         /* special characters */
-                        | IEXTEN);      /* disable non-POSIX special characters */
+                        | IEXTEN); /* disable non-POSIX special characters */
 
-    newtio.c_cflag &= ~(CSIZE   /* no size */
-                        | PARENB        /* disable parity bit */
+    newtio.c_cflag &= ~(CSIZE /* no size */
+                        | PARENB /* disable parity bit */
                         | CBAUD /* clear current baud rate */
-                        | CBAUDEX);     /* clear current buad rate */
-    newtio.c_cflag |= CS8;      /* character size 8 bits */
-    newtio.c_cflag |= CLOCAL | CREAD;   /* Ignore modem control lines */
-    newtio.c_cflag |= B115200;  /* baud rate 115200 */
+                        | CBAUDEX); /* clear current buad rate */
+    newtio.c_cflag |= CS8; /* character size 8 bits */
+    newtio.c_cflag |= CLOCAL | CREAD; /* Ignore modem control lines */
+    newtio.c_cflag |= B115200; /* baud rate 115200 */
+    /* *INDENT-ON* */
 
     tcflush(fd, TCIFLUSH);
     tcsetattr(fd, TCSANOW, &newtio);

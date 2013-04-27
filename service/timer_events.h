@@ -25,5 +25,6 @@ e_mmgr_errors_t timer_init(mmgr_timer_t *timer, mmgr_configuration_t *config);
 e_mmgr_errors_t start_timer(mmgr_timer_t *timer, e_timer_type_t type);
 e_mmgr_errors_t stop_timer(mmgr_timer_t *timer, e_timer_type_t type);
 e_mmgr_errors_t timer_event(mmgr_data_t *mmgr);
+e_mmgr_errors_t stop_all_timers(mmgr_timer_t *timer);
 
 #endif                          /* __MMGR_TIMER_HEADER__ */

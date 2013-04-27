@@ -104,7 +104,7 @@ static void thread_core_dump(core_dump_thread_t *cd_reader)
 {
     cd_reader->mcdr->read(&cd_reader->mcdr->data);
     /* the thread is finished. send the conditional signal waited by
-       pthread_cond_timedwait */
+     * pthread_cond_timedwait */
     pthread_mutex_lock(&cd_reader->mutex);
     pthread_cond_signal(&cd_reader->cond);
     pthread_mutex_unlock(&cd_reader->mutex);
@@ -148,8 +148,8 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
         return E_ERR_FAILED;
     }
 
-    /* The core dump read operation can't exceed two minutes.
-       The thread will be interrupted with pthread_cond_timedwait */
+    /* The core dump read operation can't exceed two minutes. The thread will
+     * be interrupted with pthread_cond_timedwait */
 
     /* Get the current time and add CORE_DUMP_RECOVERY_MAX_TIME. */
     gettimeofday(&tp, NULL);
@@ -157,8 +157,8 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
     ts.tv_nsec = tp.tv_usec * 1000;
     ts.tv_sec += CORE_DUMP_RECOVERY_MAX_TIME;
 
-    /* launch time condition
-       The mutex must be locked before calling pthread_cond_timedwait. */
+    /* launch time condition The mutex must be locked before calling
+     * pthread_cond_timedwait. */
     pthread_mutex_lock(&cd_reader.mutex);
     err = pthread_cond_timedwait(&cd_reader.cond, &cd_reader.mutex, &ts);
     pthread_mutex_unlock(&cd_reader.mutex);
@@ -169,7 +169,7 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
         if (status == MCDR_ARCHIVE_IN_PROGRESS) {
             LOG_DEBUG("Archiving still on-going");
             /* @TODO: perhaps a timeout can be usefull to prevent infinite
-               archiving process */
+             * archiving process */
         } else {
             LOG_ERROR("Core dump retrieval takes too much time. Aborting");
             mcdr->cleanup();

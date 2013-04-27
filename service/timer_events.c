@@ -28,7 +28,6 @@ static const char *g_type_str[] = {
 };
 
 #define STEPS 10
-#define TIMEOUT_ACCEPT_CLIENT 1000      /* in millisecond */
 #define TIMEOUT_EPOLL_INFINITE -1       /* wait indefinitely */
 
 /**
@@ -58,6 +57,20 @@ e_mmgr_errors_t start_timer(mmgr_timer_t *timer, e_timer_type_t type)
         timer->cur_timeout = timer->timeout[type];
         LOG_DEBUG("update timeout: %dms", timer->cur_timeout);
     }
+
+out:
+    return ret;
+}
+
+e_mmgr_errors_t stop_all_timers(mmgr_timer_t *timer)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(timer, ret, out);
+
+    timer->type = 0x0;
+    LOG_DEBUG("timer stopped");
+    timer->cur_timeout = TIMEOUT_EPOLL_INFINITE;
 
 out:
     return ret;
@@ -103,10 +116,6 @@ e_mmgr_errors_t stop_timer(mmgr_timer_t *timer, e_timer_type_t type)
             (min > timer->timeout[E_TIMER_WAIT_FOR_BUS_READY]))
             min = timer->timeout[E_TIMER_WAIT_FOR_BUS_READY];
 
-        if ((timer->type & (0x01 << E_TIMER_ACCEPT_CLIENT_RQUEST)) &&
-            (min > timer->timeout[E_TIMER_ACCEPT_CLIENT_RQUEST]))
-            min = timer->timeout[E_TIMER_ACCEPT_CLIENT_RQUEST];
-
         timer->cur_timeout = min;
         LOG_DEBUG("update timeout: %dms", timer->cur_timeout);
     }
@@ -136,42 +145,34 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         ((current.tv_sec - mmgr->timer.start[E_TIMER_COLD_RESET_ACK].tv_sec)
          > mmgr->config.timeout_ack_cold)) {
         check_cold_ack(&mmgr->clients, true);
-        mmgr->info.ev |= E_EV_FORCE_RESET;
         stop_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
     if ((mmgr->timer.type & (0x01 << E_TIMER_MODEM_SHUTDOWN_ACK)) &&
         ((current.tv_sec - mmgr->timer.start[E_TIMER_MODEM_SHUTDOWN_ACK].tv_sec)
          > mmgr->config.timeout_ack_shtdwn)) {
         check_shutdown_ack(&mmgr->clients, true);
-        mmgr->info.ev |= E_EV_FORCE_MODEM_OFF;
+        mmgr->events.cli_req = E_CLI_REQ_OFF;
         stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
         reset_shutdown_ack(&mmgr->clients);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
     if ((mmgr->timer.type & (0x01 << E_TIMER_WAIT_FOR_IPC_READY)) &&
         ((current.tv_sec - mmgr->timer.start[E_TIMER_WAIT_FOR_IPC_READY].tv_sec)
          > mmgr->config.modem_reset_delay)) {
         LOG_DEBUG("IPC READY not received. force modem reset");
-        mmgr->info.ev |= E_EV_FORCE_RESET | E_EV_CONF_FAILED;
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
     if ((mmgr->timer.type & (0x01 << E_TIMER_WAIT_FOR_BUS_READY)) &&
         ((current.tv_sec - mmgr->timer.start[E_TIMER_WAIT_FOR_BUS_READY].tv_sec)
          > mmgr->config.modem_reset_delay)) {
         LOG_DEBUG("BUS READY not received. force modem reset");
-        mmgr->info.ev |= E_EV_FORCE_RESET | E_EV_CONF_FAILED;
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-    }
-
-    if ((mmgr->timer.type & (0x01 << E_TIMER_ACCEPT_CLIENT_RQUEST)) &&
-        ((current.tv_sec -
-          mmgr->timer.start[E_TIMER_ACCEPT_CLIENT_RQUEST].tv_sec)
-         > mmgr->config.modem_reset_delay)) {
-        LOG_DEBUG("Accepting back client requests");
-        mmgr->request.accept_request = true;
-        stop_timer(&mmgr->timer, E_TIMER_ACCEPT_CLIENT_RQUEST);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
 out:
@@ -200,7 +201,6 @@ e_mmgr_errors_t timer_init(mmgr_timer_t *timer, mmgr_configuration_t *config)
         (config->timeout_ack_cold * 1000) / STEPS;
     timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK] =
         (config->timeout_ack_shtdwn * 1000) / STEPS;
-    timer->timeout[E_TIMER_ACCEPT_CLIENT_RQUEST] = TIMEOUT_ACCEPT_CLIENT;
     timer->timeout[E_TIMER_WAIT_FOR_IPC_READY] =
         (config->modem_reset_delay * 1000) / STEPS;
     timer->timeout[E_TIMER_WAIT_FOR_BUS_READY] =
