@@ -204,6 +204,8 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, mmgr_configuration_t *config,
 
     tcflush(fd_tty, TCIOFLUSH);
 
+    LOG_DEBUG("Send of %s", AT_XLOG_GET);
+
     ret = write_to_tty(fd_tty, AT_XLOG_GET, strlen(AT_XLOG_GET));
     if (ret != E_ERR_SUCCESS)
         goto out_xlog;
