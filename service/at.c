@@ -125,7 +125,7 @@ out:
 e_mmgr_errors_t send_at_retry(int fd_tty, const char *at_cmd, int at_cmd_size,
                               int retry, int timeout)
 {
-    int err;
+    int err = E_ERR_AT_CMD_RESEND;
 
     CHECK_PARAM(at_cmd, err, out);
 
