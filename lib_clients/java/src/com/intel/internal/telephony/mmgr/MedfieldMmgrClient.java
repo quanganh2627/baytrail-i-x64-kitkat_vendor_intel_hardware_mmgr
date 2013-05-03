@@ -44,6 +44,7 @@ import com.intel.internal.telephony.mmgr.responses.MmgrBaseResponse;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
@@ -471,8 +472,24 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
             if (data != null) {
 
+                OutputStream outputStream = null;
                 try {
-                    this.clientSocket.getOutputStream().write(data);
+                    if (this.clientSocket != null) {
+                        outputStream = this.clientSocket.getOutputStream();
+                        if (outputStream != null) {
+                            outputStream.write(data);
+                        } else {
+                            Log.e(Constants.LOG_TAG,
+                                    "Could not write to MMGR socket: outputStream is null.");
+                            throw new MmgrClientException(
+                                    "Could not write to MMGR socket: outputStream is null.");
+                        }
+                    } else {
+                        Log.e(Constants.LOG_TAG,
+                                "Could not write to MMGR socket: clientSocket is null.");
+                        throw new MmgrClientException(
+                                "Could not write to MMGR socket: clientSocket is null.");
+                    }
                 } catch (IOException ex) {
                     throw new MmgrClientException(
                             "Could not write to MMGR socket.", ex);

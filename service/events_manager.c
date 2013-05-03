@@ -123,7 +123,10 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
                              (mmgr->config.max_clients + 1));
     mmgr->events.cur_ev = FIRST_EVENT;
     mmgr->events.link_state = E_MDM_LINK_NONE;
-    set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
+    if (telephony_stack)
+        set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
+    else
+        set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
 
     mmgr->request.accept_request = true;
 

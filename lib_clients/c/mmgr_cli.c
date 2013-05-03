@@ -284,6 +284,7 @@ static inline e_err_mmgr_cli_t register_client(mmgr_cli_handle_t *handle)
     } else {
         LOG_ERROR("(fd=%d client=%s) failed to connect",
                   p_lib->fd_socket, p_lib->cli_name);
+        ret = E_ERR_CLI_FAILED;
     }
 out:
     return ret;
@@ -696,7 +697,6 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
     if (ret != E_ERR_CLI_SUCCEED)
         goto out;
 
-    ret = E_ERR_CLI_FAILED;
     if (pipe(p_lib->fd_pipe) < 0) {
         LOG_ERROR("(client=%s) failed to create pipe (%s)", p_lib->cli_name,
                   strerror(errno));
@@ -707,6 +707,7 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
                              ANDROID_SOCKET_NAMESPACE_RESERVED, SOCK_STREAM);
     if (fd < 0) {
         LOG_ERROR("(client=%s) failed to open socket", p_lib->cli_name);
+        ret = E_ERR_CLI_FAILED;
         goto out;
     }
 
@@ -716,7 +717,7 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
     p_lib->lock = false;
     pthread_mutex_unlock(&p_lib->mtx);
 
-    if (register_client(handle) != E_ERR_CLI_SUCCEED)
+    if ((ret = register_client(handle)) != E_ERR_CLI_SUCCEED)
         goto out;
 
     if (pthread_create(&p_lib->thr_id, NULL, (void *)read_events, p_lib) != 0) {
