@@ -115,7 +115,7 @@ static e_mmgr_errors_t get_ipc_pm(e_link_type_t link, bool *state)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     char *path = NULL;
     char *cmd = NULL;
-    char data[PM_CMD_SIZE];
+    char data[PM_CMD_SIZE] = { '\0' };
     size_t size = PM_CMD_SIZE;
 
     CHECK_PARAM(state, ret, out);
@@ -133,13 +133,16 @@ static e_mmgr_errors_t get_ipc_pm(e_link_type_t link, bool *state)
         cmd = UART_PM_ON;
         break;
     }
-    if (path && cmd)
+    if (path && cmd) {
         read_file(path, OPEN_MODE_RW_UGO, data, &size);
 
-    if (strncmp(cmd, data, strlen(cmd)) == 0)
-        *state = true;
-    else
-        *state = false;
+        if (strncmp(cmd, data, strlen(cmd)) == 0)
+            *state = true;
+        else
+            *state = false;
+
+        ret = E_ERR_SUCCESS;
+    }
 
 out:
     return ret;
