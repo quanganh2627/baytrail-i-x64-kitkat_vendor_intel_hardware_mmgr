@@ -229,8 +229,8 @@ static e_mmgr_errors_t set_param(GKeyFile *fd, char *grp, set_param_t *param)
             param->set.copy(param->dest, src);
             ret = E_ERR_SUCCESS;
         } else {
-            LOG_ERROR("READ ERROR: (%s)", gerror->message);
-            g_error_free(gerror);
+            //LOG_ERROR("READ ERROR: (%s)", gerror->message);
+            //g_error_free(gerror);
         }
     }
     param->set.display(param);
