@@ -313,7 +313,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int err;
-    int fd;
+    int fd = CLOSED_FD;
     int mdm_state;
 
     CHECK_PARAM(mmgr, ret, out);
@@ -328,7 +328,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, &mdm_state) == -1)
         LOG_DEBUG("couldn't set MCD state: %s", strerror(errno));
 
-    err = open_tty(mmgr->config.shtdwn_dlc, &fd);
+    open_tty(mmgr->config.shtdwn_dlc, &fd);
     if (fd < 0) {
         LOG_ERROR("operation FAILED");
     } else {

@@ -544,6 +544,8 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
     if ((ret != E_ERR_SUCCESS) || (client == NULL)) {
         LOG_ERROR("failed to find client (fd=%d)",
                   mmgr->events.ev[mmgr->events.cur_ev].data.fd);
+        /* close file descriptor to avoid fake events */
+        close(mmgr->events.ev[mmgr->events.cur_ev].data.fd);
         goto out;
     }
 

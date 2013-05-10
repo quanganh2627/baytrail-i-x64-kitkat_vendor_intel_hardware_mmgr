@@ -24,7 +24,7 @@
 #include "logs.h"
 #include "tty.h"
 
-#define MAX_OPEN_RETRY 5
+#define MAX_OPEN_RETRY 50000
 
 /**
  * add fd to epoll
@@ -59,7 +59,7 @@ e_mmgr_errors_t init_ev_hdler(int *epollfd)
     CHECK_PARAM(epollfd, ret, out);
 
     *epollfd = epoll_create(1);
-    if (*epollfd == -1) {
+    if (*epollfd == CLOSED_FD) {
         LOG_ERROR("epoll initialization failed");
         ret = E_ERR_FAILED;
     }
@@ -82,7 +82,7 @@ out:
 e_mmgr_errors_t wait_for_tty_event(int fd, int timeout)
 {
     struct epoll_event ev;
-    int epollfd;
+    int epollfd = CLOSED_FD;
     int err;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -112,6 +112,8 @@ e_mmgr_errors_t wait_for_tty_event(int fd, int timeout)
         ret = E_ERR_TTY_ERROR;
     }
 out:
+    if (epollfd != CLOSED_FD)
+        close(epollfd);
     return ret;
 }
 
@@ -184,7 +186,7 @@ e_mmgr_errors_t write_to_tty(int fd, const char *data, int data_size)
 
     do {
         err = write(fd, data + cur, data_size - cur);
-        cur += ret;
+        cur += err;
 
         if (err == 0) {
             LOG_ERROR("write nothing (%s) fd=%d", strerror(errno), fd);
@@ -264,6 +266,9 @@ e_mmgr_errors_t open_tty(const char *tty_name, int *fd)
 
     CHECK_PARAM(tty_name, ret, out);
     CHECK_PARAM(fd, ret, out);
+
+    if (*fd != CLOSED_FD)
+        goto out;
 
     LOG_DEBUG("trying to open tty device: %s", tty_name);
     for (count = 0; count < MAX_OPEN_RETRY; count++) {

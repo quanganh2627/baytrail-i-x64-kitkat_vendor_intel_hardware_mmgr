@@ -60,7 +60,7 @@ public class ModemStatusManager implements Callback {
                     this.statusEventsHandler);
         } else {
             throw new InstantiationException(
-                    "Neither of STMD and MMGR are present of this device.");
+                    "Neither STMD nor MMGR are present on this device.");
         }
         this.requestHandler = new Handler(this.modemStatusMonitor);
     }

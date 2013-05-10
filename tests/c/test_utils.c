@@ -121,7 +121,7 @@ out:
  */
 int send_at_cmd(char *path, char *command, int command_size)
 {
-    int fd_tty;
+    int fd_tty = CLOSED_FD;
     int ret = E_ERR_FAILED;
 
     CHECK_PARAM(command, ret, out);

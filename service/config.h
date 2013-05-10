@@ -24,7 +24,7 @@
 #include "dumpreader.h"
 
 /* Maximum size for configuration string value */
-#define MAX_SIZE_CONF_VAL 50
+#define MAX_SIZE_CONF_VAL 64
 /* Default configuration file name */
 #define DEFAULT_MMGR_CONFIG_FILE "/system/etc/telephony/mmgr.conf"
 
