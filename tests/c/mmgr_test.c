@@ -225,7 +225,7 @@ void usage(test_case_t *test, int nb)
  */
 int main(int argc, char *argv[])
 {
-    int err;
+    int err = E_ERR_FAILED;
     int choice;
     int ret = EXIT_SUCCESS;
     int test_id = INVALID_TEST;

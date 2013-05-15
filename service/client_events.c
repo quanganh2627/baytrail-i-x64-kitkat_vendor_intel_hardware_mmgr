@@ -19,6 +19,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include "client.h"
+#include "client_cnx.h"
 #include "client_events.h"
 #include "errors.h"
 #include "file.h"
@@ -787,6 +788,7 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
     /* NB: Never accept client request during MDM_RESET or MDM_CONF_ONGOING
      * event */
 
+    mmgr->events.cli_req = E_CLI_REQ_NONE;
     /* set default behavior */
     for (i = 0; i < E_MMGR_NUM; i++)
         for (j = 0; j < E_MMGR_NUM_REQUESTS; j++)
