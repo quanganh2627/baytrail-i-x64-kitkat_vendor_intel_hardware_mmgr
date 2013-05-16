@@ -273,6 +273,27 @@ out:
 }
 
 /**
+ * handle E_MMGR_RESOURCE_RELEASE request if state is MDM_OFF
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_resource_release_mdm_off(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    mmgr->request.client->cnx |= E_CNX_RESOURCE_RELEASED;
+out:
+    return ret;
+}
+
+/**
  * handle E_MMGR_RESOURCE_RELEASE request if state not MDM_OOS
  *
  * @private
@@ -808,7 +829,7 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
 
     /* E_MMGR_RESOURCE_RELEASE */
     mmgr->hdler_client[E_MMGR_MDM_OFF][E_MMGR_RESOURCE_RELEASE] =
-        request_resource_release;
+        request_resource_release_mdm_off;
     mmgr->hdler_client[E_MMGR_WAIT_CLI_ACK][E_MMGR_RESOURCE_RELEASE] =
         request_resource_release;
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_RESOURCE_RELEASE] =
