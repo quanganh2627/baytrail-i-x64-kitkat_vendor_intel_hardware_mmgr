@@ -189,11 +189,6 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
     /* the modem is off, then wake up the modem */
     LOG_DEBUG("wake up modem");
-    /* @TODO: workaround since start_hsic in mdm_up does nothing and stop_hsic
-     * makes a restart of hsic. */
-    if (mmgr->info.mdm_link == E_LINK_HSIC) {
-        stop_hsic(&mmgr->info);
-    }
 
     mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
     if (mmgr->config.is_flashless)

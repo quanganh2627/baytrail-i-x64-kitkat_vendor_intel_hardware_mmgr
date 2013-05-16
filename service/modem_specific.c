@@ -359,41 +359,39 @@ out:
 /**
  * start hsic link
  *
- * @param [in] info modem info structure
- *
  * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t start_hsic(modem_info_t *info)
+static e_mmgr_errors_t start_hsic(void)
 {
-    /* @TODO FIXME: Writting 0 to stop the HSIC is useless and writting 1 stops
-     * and restarts the hsic just write 1 in the HSIC_ENABLE_PATH when we want
-     * to stop/start spec needs to be fixed with SE or need to be fixed by HSIC
-     * driver to conform to the spec */
-    return E_ERR_SUCCESS;
+    return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "1", 1);
 }
 
 /**
  * stop hsic link
  *
- * @param [in] info modem info structure
+ * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+static e_mmgr_errors_t stop_hsic(void)
+{
+    return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "0", 1);
+}
+
+/**
+ * restart hsic link
  *
  * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t stop_hsic(modem_info_t *info)
+static e_mmgr_errors_t restart_hsic(void)
 {
-    /* return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "0", 1); */
-
-    /* @TODO: FIXME: Writes 1 to HSIC_ENABLE_PATH to restart the HSIC before a
-     * cold boot needs to be adressed */
-    (void)info;                 /* unused */
-    e_mmgr_errors_t ret =
-        write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "1", 1);
-    usleep(500 * 1000);         /* @TODO: remove me */
-    return ret;
+    /* When the HSIC is already UP, writing 1 resets the hsic, It's what we
+     * want here. This function only exists for "readability" purpose. */
+    return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "1", 1);
 }
 
 /**
@@ -504,6 +502,9 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
+    if (info->mdm_link == E_LINK_HSIC)
+        stop_hsic();
+
     if (ioctl(info->fd_mcd, MDM_CTRL_POWER_OFF) == -1) {
         ret = E_ERR_FAILED;
         LOG_DEBUG("couldn't shutdown modem: %s", strerror(errno));
@@ -533,9 +534,8 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
 
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
 
-    /* @TODO: broken start_hsic does nothing */
     if (info->mdm_link == E_LINK_HSIC)
-        start_hsic(info);
+        start_hsic();
 
     if (info->is_flashless) {
         if (state & MDM_CTRL_STATE_OFF) {
@@ -553,6 +553,8 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
 
     if (ret == E_ERR_SUCCESS)
         LOG_DEBUG("Modem successfully POWERED-UP");
+    else if (info->mdm_link == E_LINK_HSIC)
+        stop_hsic();
 
 out:
     return ret;
@@ -685,9 +687,9 @@ e_mmgr_errors_t mdm_prepare_link(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    /* Stop hsic if the modem is hsic */
+    /* restart hsic if the modem is hsic */
     if (info->mdm_link == E_LINK_HSIC)
-        stop_hsic(info);
+        restart_hsic();
 out:
     return ret;
 }

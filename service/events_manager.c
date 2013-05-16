@@ -30,11 +30,13 @@
 #include "logs.h"
 #include "modem_events.h"
 #include "mmgr.h"
+#include "property.h"
 #include "security.h"
 #include "timer_events.h"
 #include "tty.h"
 
 #define FIRST_EVENT -1
+#define TEL_STACK_PROPERTY "persist.service.telephony"
 
 const char *g_mmgr_st[] = {
 #undef X
@@ -100,7 +102,7 @@ out:
 e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    bool telephony_stack = true;
+    int telephony_stack = 1;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -109,13 +111,10 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
 
     if (mmgr->config.tel_stack) {
-        get_property("persist.service.telephony", &telephony_stack);
+        get_property(TEL_STACK_PROPERTY, &telephony_stack);
         if (!telephony_stack) {
             LOG_DEBUG("telephony stack is disabled");
-            /* @TODO: this code will be removed once patch 100742 reverted */
-#define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0"
-#define HSIC_ENABLE_PATH HSIC_PATH"/hsic_enable"
-            write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "0", 1);
+            mdm_down(&mmgr->info);
             mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
         }
     }
