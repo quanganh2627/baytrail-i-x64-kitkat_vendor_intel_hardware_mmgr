@@ -36,7 +36,7 @@
 #include "tty.h"
 
 #define FIRST_EVENT -1
-#define TEL_STACK_PROPERTY "persist.service.telephony"
+#define TEL_STACK_PROPERTY "persist.service.telephony.off"
 
 const char *g_mmgr_st[] = {
 #undef X
@@ -102,7 +102,7 @@ out:
 e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int telephony_stack = 1;
+    int disable_telephony = 1;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -110,25 +110,20 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     mmgr->fd_cnx = CLOSED_FD;
     mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
 
-    if (mmgr->config.tel_stack) {
-        get_property(TEL_STACK_PROPERTY, &telephony_stack);
-        if (!telephony_stack) {
-            LOG_DEBUG("telephony stack is disabled");
-            mdm_down(&mmgr->info);
-            mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
-        }
-    }
+    get_property(TEL_STACK_PROPERTY, &disable_telephony);
+    if (disable_telephony == 1) {
+        LOG_DEBUG("telephony stack is disabled");
+        mdm_down(&mmgr->info);
+        mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
+        set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
+    } else
+        set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
 
     mmgr->events.nfds = 0;
     mmgr->events.ev = malloc(sizeof(struct epoll_event) *
                              (mmgr->config.max_clients + 1));
     mmgr->events.cur_ev = FIRST_EVENT;
     mmgr->events.link_state = E_MDM_LINK_NONE;
-    if (telephony_stack)
-        set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
-    else
-        set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
-
     mmgr->request.accept_request = true;
 
     if (mmgr->events.ev == NULL) {
