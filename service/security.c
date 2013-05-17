@@ -68,7 +68,10 @@ e_mmgr_errors_t secur_event(secur_t *secur)
         }
 
         p = data + data_size;
-        memcpy(p, buffer, sizeof(char) * read_size);
+        memcpy(p, buffer, (read_size > AT_SIZE ? AT_SIZE : read_size));
+        /* truncate buffer in case where read_size > AT_SIZE
+         * if this case happens, will be debugged easier with holes
+         * in data */
         data_size += read_size;
     }
 
@@ -198,8 +201,7 @@ e_mmgr_errors_t secur_init(secur_t *secur, mmgr_configuration_t *config)
             goto out;
         }
 
-        /** see dlsym manpage to understand why this strange cast is used */
-        *(void **)&secur->callback = dlsym(secur->hdle, SECUR_CALLBACK);
+        secur->callback = dlsym(secur->hdle, SECUR_CALLBACK);
 
         p = (char *)dlerror();
         if (p != NULL) {
@@ -254,14 +256,15 @@ out:
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t secur_get_callback(secur_t *secur, void **callback)
+e_mmgr_errors_t secur_get_callback(secur_t *secur,
+                                   secur_callback_fptr_t * callback)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(secur, ret, out);
 
     if (secur->enable) {
-        *callback = (void *)secur->callback;
+        *callback = secur->callback;
     } else {
         *callback = NULL;
     }

@@ -158,7 +158,7 @@ int full_recovery(test_data_t *test)
                                       E_MMGR_REQUEST_MODEM_RECOVERY,
                                       E_MMGR_NOTIFY_MODEM_WARM_RESET,
                                       E_MMGR_EVENT_MODEM_UP);
-        if ((ret != E_ERR_SUCCESS) && (!test->test_succeed))
+        if ((ret != E_ERR_SUCCESS) || (!test->test_succeed))
             goto out;
     }
     if (test->config.nb_cold_reset > 0) {
