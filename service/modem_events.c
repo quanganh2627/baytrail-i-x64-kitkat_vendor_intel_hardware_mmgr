@@ -653,11 +653,11 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    LOG_DEBUG("Modem event triggered");
     bus_read_events(&mmgr->events.bus_events);
     bus_handle_events(&mmgr->events.bus_events);
-    if (get_bus_state(&mmgr->events.bus_events) & MDM_BB_READY) {
-        /* ready to configure modem */
+    if ((get_bus_state(&mmgr->events.bus_events) & MDM_BB_READY) &&
+        (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
+        LOG_DEBUG("ready to configure modem");
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
@@ -665,16 +665,18 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
             if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS)
                 ret = launch_secur(mmgr);
         }
-    } else if (get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) {
-        /* ready to flash modem */
+    } else if ((get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) &&
+               (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
+        LOG_DEBUG("ready to flash modem");
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
         if (mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) {
             ret = do_flash(mmgr);
         }
-    } else if (get_bus_state(&mmgr->events.bus_events) & MDM_CD_READY) {
-        /* ready to read a core dump */
+    } else if ((get_bus_state(&mmgr->events.bus_events) & MDM_CD_READY) &&
+               (mmgr->state == E_MMGR_MDM_CORE_DUMP)) {
+        LOG_DEBUG("ready to read a core dump");
         if (mmgr->fd_tty != CLOSED_FD) {
             mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
