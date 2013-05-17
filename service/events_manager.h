@@ -100,8 +100,6 @@ typedef struct mmgr_events {
 typedef struct current_request {
     msg_t msg;
     client_t *client;
-    e_mmgr_events_t answer;
-    e_mmgr_events_t additional_info;
     bool accept_request;
 } current_request_t;
 

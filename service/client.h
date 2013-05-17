@@ -66,7 +66,7 @@ e_mmgr_errors_t is_registererd(client_t *client, bool *state);
 e_mmgr_errors_t inform_all_clients(client_list_t *clients,
                                    e_mmgr_events_t state, void *data);
 e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state, void
-                              *data, bool force);
+                              *data);
 e_mmgr_errors_t close_all_clients(client_list_t *clients);
 
 e_mmgr_errors_t check_cold_ack(client_list_t *clients, bool listing);

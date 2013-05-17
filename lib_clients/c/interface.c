@@ -19,8 +19,18 @@
 #include "utils.h"
 #include "mmgr_cli.h"
 
+#define CHECK_EVENT(id, err, out) do { \
+    if (id>= E_MMGR_NUM_EVENTS) { \
+        LOG_ERROR("unknown event"); \
+        ret = E_ERR_CLI_FAILED; \
+        goto out; \
+    } \
+} while (0)
+
 /**
- * function to send an mmgr request
+ * Send a request to MMGR.
+ * This function returns when the request is sent successfully,
+ * or fail on error, or fail after a timeout of 20s.
  *
  * @param [in] handle library handle
  * @param [in] request request to send to the mmgr
@@ -46,7 +56,7 @@ e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
 }
 
 /**
- * create mmgr client library handle. This function should be called first.
+ * Create mmgr client library handle. This function should be called first.
  * To avoid memory leaks *handle must be set to NULL by the caller.
  *
  * @param [out] handle library handle
@@ -87,7 +97,9 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     }
 
     pthread_mutex_init(&p_lib->mtx, NULL);
-    p_lib->events = 0;
+    pthread_mutex_init(&p_lib->mtx_signal, NULL);
+    pthread_cond_init(&p_lib->cond, NULL);
+    p_lib->events = (0x1 << E_MMGR_ACK) | (0x1 << E_MMGR_NACK);
     p_lib->cli_ctx = context;
     p_lib->fd_socket = CLOSED_FD;
     p_lib->fd_pipe[READ] = CLOSED_FD;
@@ -135,7 +147,7 @@ out:
 }
 
 /**
- * delete mmgr client library handle
+ * Delete mmgr client library handle
  *
  * @param [in, out] handle library handle
  *
@@ -163,8 +175,9 @@ out:
 }
 
 /**
- * subscribe to an event. This function shall only be invoked on a valid
+ * Subscribe to an event. This function shall only be invoked on a valid
  * unconnected handle.
+ * NB: users can't subscribe to ACK or NACK events.
  *
  * @param [in,out] handle library handle
  * @param [in] func function pointer to the handle
@@ -172,7 +185,7 @@ out:
  *
  * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
  * @return E_ERR_CLI_FAILED if connected or event already configured or func is
- *                          NULL or unknown event
+ *                          NULL or unknown/invalid event
  * @return E_ERR_CLI_SUCCEED
  */
 e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
@@ -190,6 +203,10 @@ e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
     }
 
     CHECK_EVENT(id, ret, out);
+    if ((id == E_MMGR_ACK) || (id == E_MMGR_NACK)) {
+        ret = E_ERR_CLI_FAILED;
+        goto out;
+    }
 
     if (func == NULL) {
         LOG_ERROR("function is NULL");
@@ -219,14 +236,15 @@ out:
 }
 
 /**
- * unsubscribe to an event. This function shall only be invoked on a valid
+ * Unsubscribe to an event. This function shall only be invoked on a valid
  * unconnected handle.
+ * NB: users can't subscribe to ACK or NACK events.
  *
  * @param [in, out] handle library handle
  * @param [in] id event to unsubscribe to
  *
  * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
- * @return E_ERR_CLI_FAILED if connected or unknown event
+ * @return E_ERR_CLI_FAILED if connected or unknown/invalid event
  * @return E_ERR_CLI_SUCCEED
  */
 e_err_mmgr_cli_t mmgr_cli_unsubscribe_event(mmgr_cli_handle_t *handle,
@@ -242,6 +260,10 @@ e_err_mmgr_cli_t mmgr_cli_unsubscribe_event(mmgr_cli_handle_t *handle,
     }
 
     CHECK_EVENT(id, ret, out);
+    if ((id == E_MMGR_ACK) || (id == E_MMGR_NACK)) {
+        ret = E_ERR_CLI_FAILED;
+        goto out;
+    }
 
     pthread_mutex_lock(&p_lib->mtx);
     p_lib->events &= ~(0x01 << id);
@@ -255,15 +277,15 @@ out:
 }
 
 /**
- * connect the client to the mmgr. This function shall only be invoked on a
- * valid unconnected handle. subscribe/unsubscribe cannot be used on this
- * when handle is connected.
- * Client can do a connect even there is no event subscribed
+ * Connect a previously not connected client to MMGR.
+ * This function returns when the connection is achieved successfully,
+ * or fail on error, or fail after a timeout of 20s.
+ * This function shall only be invoked on a valid unconnected handle.
  *
  * @param [in] handle library handle
  *
  * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
- * @return E_ERR_CLI_FAILED if already connected
+ * @return E_ERR_CLI_FAILED if already connected or timeout raised
  * @return E_ERR_CLI_SUCCEED
  */
 e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
@@ -288,7 +310,7 @@ out:
 }
 
 /**
- * disconnect from mmgr. If a lock is set, the unlock is done automatically
+ * Disconnect from MMGR. If a lock is set, the unlock is done automatically.
  *
  * @param [in] handle library handle
  *
@@ -309,13 +331,15 @@ e_err_mmgr_cli_t mmgr_cli_disconnect(mmgr_cli_handle_t *handle)
 }
 
 /**
- * acquire the modem resource
+ * Acquire the modem resource. This will start the modem if needed.
+ * This function returns when acquire request is accepted by MMGR (but not handled yet).
+ * It could fail if MMGR is not responsive or after a timeout of 20s.
  *
  * @param [in] handle library handle
  *
  * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
- * @return E_ERR_CLI_FAILED if not connected
- * @return E_ERR_CLI_ALREADY_LOCK if already locked
+ * @return E_ERR_CLI_FAILED if not connected or timeout raised
+ * @return E_ERR_CLI_ALREADY_LOCK if the modem resource is already acquired
  * @return E_ERR_CLI_SUCCEED
  */
 e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
@@ -337,19 +361,24 @@ e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
         ret = E_ERR_CLI_ALREADY_LOCK;
     } else {
         ret = send_msg(p_lib, &request);
-        p_lib->lock = true;
+        if ((ret == E_ERR_CLI_SUCCEED) && (p_lib->ack == E_MMGR_ACK))
+            p_lib->lock = true;
+        else
+            ret = E_ERR_FAILED;
     }
 out:
     return ret;
 }
 
 /**
- * release the modem resource
+ * Release the modem resource. This can stop the modem if no one else holds the resource.
+ * This function returns when release request is accepted by MMGR (but not handled yet).
+ * It could fail if MMGR is not responsive or after a timeout of 20s.
  *
  * @param [in] handle library handle
  *
  * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
- * @return E_ERR_CLI_FAILED if not connected
+ * @return E_ERR_CLI_FAILED if not connected or timeout
  * @return E_ERR_CLI_ALREADY_UNLOCK if already unlocked
  * @return E_ERR_CLI_SUCCEED
  */
@@ -372,7 +401,10 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
         ret = E_ERR_CLI_ALREADY_UNLOCK;
     } else {
         ret = send_msg(p_lib, &request);
-        p_lib->lock = false;
+        if ((ret == E_ERR_CLI_SUCCEED) && (p_lib->ack == E_MMGR_ACK))
+            p_lib->lock = false;
+        else
+            ret = E_ERR_FAILED;
     }
 out:
     return ret;

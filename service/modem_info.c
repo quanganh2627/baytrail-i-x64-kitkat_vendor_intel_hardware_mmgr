@@ -325,9 +325,7 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
 
     /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients
      * (this guarantees that the MUX control channel has been established with
-     * the modem).
-     *
-     * Will retry for up to MAX_TIME_DELAY seconds. */
+     * the modem). Will retry for up to MAX_TIME_DELAY seconds. */
     LOG_DEBUG("looking for TTY %s", config->waitloop_tty_name);
     ret = E_ERR_FAILED;
     clock_gettime(CLOCK_MONOTONIC, &start);

@@ -69,6 +69,10 @@ typedef struct mmgr_lib_context {
      * correctly been initialized */
     uint32_t init;
 #endif
+    /* variables used for sync op: */
+    pthread_mutex_t mtx_signal;
+    pthread_cond_t cond;
+    e_mmgr_events_t ack;
 } mmgr_lib_context_t;
 
 #define INIT_CHECK 0xCE5A12BB
@@ -81,14 +85,6 @@ typedef struct mmgr_lib_context {
     if (handle == NULL) { \
         LOG_ERROR(xstr(handle)" is NULL"); \
         err = E_ERR_CLI_BAD_HANDLE; \
-        goto out; \
-    } \
-} while (0)
-
-#define CHECK_EVENT(id, err, out) do { \
-    if (id>= E_MMGR_NUM_EVENTS) { \
-        LOG_ERROR("unknown event"); \
-        ret = E_ERR_CLI_FAILED; \
         goto out; \
     } \
 } while (0)

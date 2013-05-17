@@ -142,6 +142,8 @@ static inline e_mmgr_errors_t init_client(client_t *client, int fd)
 
     client->fd = fd;
     client->cnx = E_CNX_RESOURCE_RELEASED;
+    /* users should be registered to these events */
+    client->subscription = (0x1 << E_MMGR_ACK) | (0x1 << E_MMGR_NACK);
     strncpy(client->name, NEW_CLIENT_NAME, CLIENT_NAME_LEN);
     clock_gettime(CLOCK_MONOTONIC, &client->time);
 out:
@@ -371,14 +373,13 @@ out:
  * @param [in] client client to inform
  * @param [in] state state to provide
  * @param [in] data data to send
- * @param[out] force force notification even if not subscribed
  *
  * @return E_ERR_BAD_PARAMETER clients or/and client is/are NULL
  * @return E_ERR_SUCCESS if not found
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
-                              void *data, bool force)
+                              void *data)
 {
     size_t size;
     size_t write_size;
@@ -399,7 +400,7 @@ e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
 
     size = SIZE_HEADER + msg.hdr.len;
     write_size = size;
-    if (force || ((0x01 << state) & client->subscription)) {
+    if ((0x01 << state) & client->subscription) {
         if ((ret = write_cnx(client->fd, msg.data, &write_size)) !=
             E_ERR_SUCCESS)
             goto out;
@@ -442,7 +443,7 @@ e_mmgr_errors_t inform_all_clients(client_list_t *clients,
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD)
-            ret = inform_client(&clients->list[i], state, data, false);
+            ret = inform_client(&clients->list[i], state, data);
     }
 out:
     return ret;

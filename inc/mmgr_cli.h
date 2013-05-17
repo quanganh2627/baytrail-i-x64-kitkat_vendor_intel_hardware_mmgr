@@ -51,7 +51,7 @@ extern "C" {
     typedef void *mmgr_cli_handle_t;
 
     /**
-     * create mmgr client library handle. This function should be called first.
+     * Create mmgr client library handle. This function should be called first.
      * To avoid memory leaks *handle must be set to NULL by the caller.
      *
      * @param [out] handle library handle
@@ -59,7 +59,7 @@ extern "C" {
      * @param [in] context pointer to a struct that shall be passed to function
      *             context handle can be NULL if unused.
      *
-     * @return E_ERR_CLI_FAILED if client_name is NULL or create handle failed
+     * @return E_ERR_CLI_FAILED if client_name is NULL or handle creation failed
      * @return E_ERR_CLI_BAD_HANDLE if handle is already created
      * @return E_ERR_CLI_SUCCEED
      */
@@ -68,28 +68,28 @@ extern "C" {
                                             void *context);
 
     /**
-     * delete mmgr client library handle
+     * Delete mmgr client library handle
      *
      * @param [in, out] handle library handle
      *
-     * @return E_ERR_CLI_BAD_HANDLE if handle is invalid or handle already
-     *         deleted
+     * @return E_ERR_CLI_BAD_HANDLE if handle is invalid or handle already deleted
      * @return E_ERR_CLI_FAILED if client is connected
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_delete_handle(mmgr_cli_handle_t *handle);
 
     /**
-     * subscribe to an event. This function shall only be invoked on a valid
+     * Subscribe to an event. This function shall only be invoked on a valid
      * unconnected handle.
+     * NB: users can't subscribe to ACK or NACK events.
      *
-     * @param [in, out] handle library handle
+     * @param [in,out] handle library handle
      * @param [in] func function pointer to the handle
      * @param [in] id event to subscribe to
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if connected or event already configured or func
-     *         is NULL or unknown event
+     * @return E_ERR_CLI_FAILED if connected or event already configured or func is
+     *                          NULL or unknown/invalid event
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
@@ -97,35 +97,36 @@ extern "C" {
                                               e_mmgr_events_t id);
 
     /**
-     * unsubscribe to an event. This function shall only be invoked on a valid
+     * Unsubscribe to an event. This function shall only be invoked on a valid
      * unconnected handle.
+     * NB: users can't subscribe to ACK or NACK events.
      *
      * @param [in, out] handle library handle
      * @param [in] id event to unsubscribe to
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if connected or unknown event
+     * @return E_ERR_CLI_FAILED if connected or unknown/invalid event
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_unsubscribe_event(mmgr_cli_handle_t *handle,
                                                 e_mmgr_events_t ev);
 
     /**
-     * connect the client to the mmgr. This function shall only be invoked on a
-     * valid unconnected handle. subscribe/unsubscribe cannot be used on this
-     * when handle is connected.
-     * Client can do a connect even there is no event subscribed
+     * Connect a previously not connected client to MMGR.
+     * This function returns when the connection is achieved successfully,
+     * or fail on error, or fail after a timeout of 20s.
+     * This function shall only be invoked on a valid unconnected handle.
      *
      * @param [in] handle library handle
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if already connected
+     * @return E_ERR_CLI_FAILED if already connected or timeout raised
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle);
 
     /**
-     * disconnect from mmgr. If a lock is set, the unlock is done automatically
+     * Disconnect from MMGR. If a lock is set, the unlock is done automatically.
      *
      * @param [in] handle library handle
      *
@@ -136,19 +137,23 @@ extern "C" {
     e_err_mmgr_cli_t mmgr_cli_disconnect(mmgr_cli_handle_t *handle);
 
     /**
-     * acquire the modem resource
+     * Acquire the modem resource. This will start the modem if needed.
+     * This function returns when acquire request is accepted by MMGR (but not handled yet).
+     * It could fail if MMGR is not responsive or after a timeout of 20s.
      *
      * @param [in] handle library handle
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if not connected
-     * @return E_ERR_CLI_ALREADY_LOCK if already locked
+     * @return E_ERR_CLI_FAILED if not connected or timeout raised
+     * @return E_ERR_CLI_ALREADY_LOCK if the modem resource is already acquired
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle);
 
     /**
-     * release the modem resource
+     * Release the modem resource. This can stop the modem if no one else holds the resource.
+     * This function returns when release request is accepted by MMGR (but not handled yet).
+     * It could fail if MMGR is not responsive or after a timeout of 20s.
      *
      * @param [in] handle library handle
      *
@@ -160,7 +165,9 @@ extern "C" {
     e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle);
 
     /**
-     * send an mmgr request
+     * Send a request to MMGR.
+     * This function returns when the request is sent successfully,
+     * or fail on error, or fail after a timeout of 20s.
      *
      * @param [in] handle library handle
      * @param [in] request request to send to the mmgr
