@@ -40,17 +40,8 @@
     X(ACK_MODEM_COLD_RESET),\
     X(ACK_MODEM_SHUTDOWN),\
     /* flashing request */ \
-    X(REQUEST_MODEM_FW_UPDATE),\
-    X(REQUEST_MODEM_FW_PROGRESS),\
-    X(REQUEST_MODEM_RND_UPDATE),\
-    X(REQUEST_MODEM_RND_ERASE),\
-    X(REQUEST_MODEM_RND_GET),\
     X(REQUEST_MODEM_FUSE_INFO),\
     X(REQUEST_MODEM_GET_HW_ID),\
-    X(REQUEST_MODEM_NVM_UPDATE),\
-    X(REQUEST_MODEM_NVM_PROGRESS),\
-    X(REQUEST_MODEM_NVM_GET_ID),\
-    X(REQUEST_GET_BACKUP_FILE_PATH),\
     X(REQUEST_MODEM_BACKUP_PRODUCTION),\
     /* fake requests */ \
     X(REQUEST_FAKE_DOWN), \
@@ -85,16 +76,9 @@
     X(NOTIFY_SELF_RESET),\
     X(NOTIFY_ERROR),\
     /* flashing notifications */ \
-    X(RESPONSE_MODEM_RND),\
     X(RESPONSE_MODEM_HW_ID),\
-    X(RESPONSE_MODEM_NVM_ID),\
-    X(RESPONSE_MODEM_FW_PROGRESS),\
     X(RESPONSE_MODEM_FW_RESULT),\
-    X(RESPONSE_MODEM_NVM_PROGRESS),\
-    X(RESPONSE_MODEM_NVM_RESULT),\
     X(RESPONSE_FUSE_INFO),\
-    X(RESPONSE_GET_BACKUP_FILE_PATH),\
-    X(RESPONSE_BACKUP_PRODUCTION_RESULT),\
     X(NUM_EVENTS)
 
 #define CORE_DUMP_STATE \
@@ -140,7 +124,6 @@ typedef struct mmgr_cli_error {
 } mmgr_cli_error_t;
 
 #ifdef MMGR_FW_OPERATIONS
-#include <stdbool.h>
 #include <sys/types.h>
 
 #define FW_ERROR \
@@ -153,75 +136,15 @@ typedef struct mmgr_cli_error {
     X(ERROR_UNSPECIFIED),\
     X(NUM)
 
-#define NVM_ERROR \
-    X(SUCCEED),\
-    X(INTERNAL_AP_ERROR),\
-    X(MODEM_OPEN),\
-    X(MODEM_WRITE),\
-    X(MODEM_READ),\
-    X(DELTA_FILE_NOT_FOUND),\
-    X(SET_SCRIPT_ERROR),\
-    X(RUN_SCRIPT_ERROR),\
-    X(READ_ID_ERROR),\
-    X(NUM)
-
 typedef enum e_modem_fw_error {
 #undef X
 #define X(a) E_MODEM_FW_##a
     FW_ERROR
 } e_modem_fw_error_t;
 
-typedef enum e_modem_nvm_error {
-#undef X
-#define X(a) E_MODEM_NVM_##a
-    NVM_ERROR
-} e_modem_nvm_error_t;
-
-typedef struct mmgr_cli_fw_update {
-    bool precheck;
-    bool no_modem_reset;
-    bool erase_all;
-    size_t fls_path_len;
-    char *fls_path;
-} mmgr_cli_fw_update_t;
-
-typedef struct mmgr_cli_nvm_update {
-    bool precheck;
-    size_t nvm_path_len;
-    char *nvm_path;
-} mmgr_cli_nvm_update_t;
-
-typedef struct mmgr_cli_fw_update_progress {
-    int rate;
-} mmgr_cli_fw_update_progress_t;
-
 typedef struct mmgr_cli_fw_update_result {
     e_modem_fw_error_t id;
 } mmgr_cli_fw_update_result_t;
-
-typedef struct mmgr_cli_nvm_update_progress {
-    int rate;
-} mmgr_cli_nvm_update_progress_t;
-
-typedef struct mmgr_cli_nvm_update_result {
-    e_modem_nvm_error_t id;
-} mmgr_cli_nvm_update_result_t;
-
-typedef struct mmgr_cli_nvm_read_id {
-    bool result;
-    size_t len;
-    char *path;
-} mmgr_cli_nvm_read_id_t;
-
-typedef struct mmgr_cli_backup_path {
-    size_t len;
-    char *path;
-} mmgr_cli_backup_path_t;
-
-typedef struct mmgr_cli_rnd_path {
-    size_t len;
-    char *path;
-} mmgr_cli_rnd_path_t;
 
 typedef struct mmgr_cli_fuse_info {
     char id[FUSE_LEN];

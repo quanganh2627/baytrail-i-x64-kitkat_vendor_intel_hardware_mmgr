@@ -36,6 +36,10 @@ typedef struct core_dump_thread {
 #define CORE_DUMP_RECOVERY_MAX_TIME 600
 #define MCDR_LIBRARY_NAME "libmcdr.so"
 
+#define MCDR_GET_CORE_DUMP "mcdr_get_core_dump"
+#define MCDR_CLEANUP "mcdr_cleanup"
+#define MCDR_GET_STATE "mcdr_get_state"
+
 /**
  * initialize core dump. If the libmcdr is available, mcdr will be enabled
  * disabled if not.
@@ -69,10 +73,9 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
             strncpy(mcdr->data.path, config->mcdr_path, MAX_SIZE_CONF_VAL - 1);
             strncpy(mcdr->data.port, config->mcdr_device,
                     MAX_SIZE_CONF_VAL - 1);
-            /** see dlsym manpage to understand why this strange cast is used */
-            *(void **)&mcdr->read = dlsym(mcdr->lib, "mcdr_get_core_dump");
-            *(void **)&mcdr->cleanup = dlsym(mcdr->lib, "mcdr_cleanup");
-            *(void **)&mcdr->get_state = dlsym(mcdr->lib, "mcdr_get_state");
+            mcdr->read = dlsym(mcdr->lib, MCDR_GET_CORE_DUMP);
+            mcdr->cleanup = dlsym(mcdr->lib, MCDR_CLEANUP);
+            mcdr->get_state = dlsym(mcdr->lib, MCDR_GET_STATE);
 
             p = (char *)dlerror();
             if (p != NULL) {
@@ -104,7 +107,7 @@ static void thread_core_dump(core_dump_thread_t *cd_reader)
 {
     cd_reader->mcdr->read(&cd_reader->mcdr->data);
     /* the thread is finished. send the conditional signal waited by
-       pthread_cond_timedwait */
+     * pthread_cond_timedwait */
     pthread_mutex_lock(&cd_reader->mutex);
     pthread_cond_signal(&cd_reader->cond);
     pthread_mutex_unlock(&cd_reader->mutex);
@@ -148,8 +151,8 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
         return E_ERR_FAILED;
     }
 
-    /* The core dump read operation can't exceed two minutes.
-       The thread will be interrupted with pthread_cond_timedwait */
+    /* The core dump read operation can't exceed two minutes. The thread will
+     * be interrupted with pthread_cond_timedwait */
 
     /* Get the current time and add CORE_DUMP_RECOVERY_MAX_TIME. */
     gettimeofday(&tp, NULL);
@@ -157,8 +160,8 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
     ts.tv_nsec = tp.tv_usec * 1000;
     ts.tv_sec += CORE_DUMP_RECOVERY_MAX_TIME;
 
-    /* launch time condition
-       The mutex must be locked before calling pthread_cond_timedwait. */
+    /* launch time condition The mutex must be locked before calling
+     * pthread_cond_timedwait. */
     pthread_mutex_lock(&cd_reader.mutex);
     err = pthread_cond_timedwait(&cd_reader.cond, &cd_reader.mutex, &ts);
     pthread_mutex_unlock(&cd_reader.mutex);
@@ -169,7 +172,7 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
         if (status == MCDR_ARCHIVE_IN_PROGRESS) {
             LOG_DEBUG("Archiving still on-going");
             /* @TODO: perhaps a timeout can be usefull to prevent infinite
-               archiving process */
+             * archiving process */
         } else {
             LOG_ERROR("Core dump retrieval takes too much time. Aborting");
             mcdr->cleanup();

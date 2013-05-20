@@ -67,4 +67,4 @@ int bus_ev_get_fd(bus_ev_t *bus_events);
 int bus_read_events(bus_ev_t *bus_events);
 e_mmgr_errors_t bus_handle_events(bus_ev_t *bus_events);
 
-#endif                          // __MMGR_BUS_EV_MANAGER_HEADER__
+#endif                          /* __MMGR_BUS_EV_MANAGER_HEADER__ */

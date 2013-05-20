@@ -34,6 +34,27 @@ const char *g_mmgr_events[] = {
 };
 
 /**
+ * Check if the client is fully registered
+ *
+ * @param [in] client
+ * @param [out] state true if registered
+ *
+ * @return E_ERR_BAD_PARAMETER
+ * @return E_ERR_SUCCESS
+ */
+e_mmgr_errors_t is_registered(client_t *client, bool *state)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(client, ret, out);
+    CHECK_PARAM(state, ret, out);
+
+    *state = (client->cnx & E_CNX_NAME) && (client->cnx & E_CNX_FILTER);
+out:
+    return ret;
+}
+
+/**
  * Check all clients acknowledgement
  *
  * @private
@@ -184,20 +205,8 @@ e_mmgr_errors_t initialize_list(client_list_t *clients, int list_size)
     for (i = 0; i < E_MMGR_NUM_EVENTS; i++)
         clients->set_data[i] = set_msg_empty;
 
-    clients->set_data[E_MMGR_RESPONSE_MODEM_RND] = set_msg_rnd;
     clients->set_data[E_MMGR_RESPONSE_MODEM_HW_ID] = set_msg_modem_hw_id;
-    clients->set_data[E_MMGR_RESPONSE_MODEM_NVM_ID] = set_msg_nvm_id;
-    clients->set_data[E_MMGR_RESPONSE_MODEM_FW_PROGRESS] =
-        set_msg_modem_fw_progress;
-    clients->set_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] =
-        set_msg_modem_fw_result;
-    clients->set_data[E_MMGR_RESPONSE_MODEM_NVM_PROGRESS] =
-        set_msg_modem_nvm_progress;
-    clients->set_data[E_MMGR_RESPONSE_MODEM_NVM_RESULT] =
-        set_msg_modem_nvm_result;
     clients->set_data[E_MMGR_RESPONSE_FUSE_INFO] = set_msg_fuse_info;
-    clients->set_data[E_MMGR_RESPONSE_GET_BACKUP_FILE_PATH] =
-        set_msg_backup_file_path;
     clients->set_data[E_MMGR_NOTIFY_AP_RESET] = set_msg_ap_reset;
     clients->set_data[E_MMGR_NOTIFY_CORE_DUMP_COMPLETE] = set_msg_core_dump;
     clients->set_data[E_MMGR_NOTIFY_ERROR] = set_msg_error;
@@ -262,8 +271,8 @@ e_mmgr_errors_t remove_client(client_list_t *clients, client_t *client)
     CHECK_PARAM(client, ret, out);
 
     /* No needs to unsubscribe the fd from epoll list. It's automatically done
-       when the fd is closed. See epoll man page.
-       As remove_from_list set fd to CLOSED_FD, do a backup to close it */
+     * when the fd is closed. See epoll man page. As remove_from_list set fd to
+     * CLOSED_FD, do a backup to close it */
     fd = client->fd;
     ret = remove_from_list(clients, client);
     close_cnx(&fd);

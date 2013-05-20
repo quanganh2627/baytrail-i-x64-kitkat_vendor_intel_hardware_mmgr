@@ -24,7 +24,7 @@
 #include "dumpreader.h"
 
 /* Maximum size for configuration string value */
-#define MAX_SIZE_CONF_VAL 50
+#define MAX_SIZE_CONF_VAL 64
 /* Default configuration file name */
 #define DEFAULT_MMGR_CONFIG_FILE "/system/etc/telephony/mmgr.conf"
 
@@ -68,6 +68,7 @@ typedef struct mmgr_configuration {
     char mcdr_pid[MAX_SIZE_CONF_VAL];
     char mcdr_vid[MAX_SIZE_CONF_VAL];
     char mcdr_protocol[MAX_SIZE_CONF_VAL];
+    char mcdr_link_layer[MAX_SIZE_CONF_VAL];
 } mmgr_configuration_t;
 
 typedef struct flashless_config {

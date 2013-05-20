@@ -251,7 +251,7 @@ e_mmgr_errors_t bus_events_init(bus_ev_t *bus_events, char *bb_pid,
     usb_host_load(bus_events->ctx, device_added_cb, device_rmed_cb, NULL,
                   &bus_events->cli_ctx);
     /* when calling usb_host_load, there's a call to find_existing_devices
-       which triggers added_cb events so, there's been events ... maybe. */
+     * which triggers added_cb events so, there's been events ... maybe. */
     bus_handle_events(bus_events);
 
 out:

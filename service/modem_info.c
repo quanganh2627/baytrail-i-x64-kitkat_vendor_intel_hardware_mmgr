@@ -23,6 +23,7 @@
 #include <termios.h>
 #include <linux/hsi_ffl_tty.h>
 #include <linux/mdm_ctrl.h>
+#include <time.h>
 #include "at.h"
 #include "errors.h"
 #include "logs.h"
@@ -39,7 +40,7 @@
 
 /* switch to MUX timings */
 #define STAT_DELAY 250          /* in milliseconds */
-#define MAX_TIME_DELAY 4000     /* in milliseconds */
+#define MAX_TIME_DELAY 50000    /* in milliseconds */
 #define MAX_STAT_RETRIES (MAX_TIME_DELAY / STAT_DELAY)
 
 typedef enum e_switch_to_mux_states {
@@ -48,6 +49,26 @@ typedef enum e_switch_to_mux_states {
     E_MUX_AT_CMD,
     E_MUX_DRIVER,
 } e_switch_to_mux_states_t;
+
+static e_mmgr_errors_t mdm_get_link_type(const char *type, e_link_type_t *link)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(type, ret, out);
+    CHECK_PARAM(link, ret, out);
+
+    if (strcmp(type, "hsic") == 0)
+        *link = E_LINK_HSIC;
+    else if (strcmp(type, "hsi") == 0)
+        *link = E_LINK_HSI;
+    else if (strcmp(type, "uart") == 0)
+        *link = E_LINK_UART;
+    else
+        ret = E_ERR_FAILED;
+
+out:
+    return ret;
+}
 
 /**
  * initialize modem info structure and mcdr
@@ -66,11 +87,19 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
     CHECK_PARAM(info, ret, out);
 
     info->ev = E_EV_MODEM_OFF;  /* modem is OFF at boot-up */
-    info->restore_timeout = config->max_retry_time;
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
+    info->is_flashless = config->is_flashless;
 
     if (config->is_flashless)
         modem_info_flashless_config(FLASHLESS_CFG, &info->fl_conf);
+
+    if ((ret = mdm_get_link_type(config->link_layer, &info->mdm_link))
+        != E_ERR_SUCCESS)
+        goto out;
+
+    if ((ret = mdm_get_link_type(config->mcdr_link_layer, &info->cd_link))
+        != E_ERR_SUCCESS)
+        goto out;
 
     ret = core_dump_init(config, &info->mcdr);
     if (ret != E_ERR_SUCCESS)
@@ -124,8 +153,8 @@ static e_mmgr_errors_t get_panic_id(char *xlog, modem_info_t *info)
         goto out;
 
     if ((class == 0xAAAA) || (class == 0xBBBB) || (class == 0xCCCC)) {
-        /* the panic id is extracted only if class id is equal to
-           0xAAAA or 0xBBBB or OxCCCC */
+        /* the panic id is extracted only if class id is equal to 0xAAAA or
+         * 0xBBBB or OxCCCC */
 
         /* looking for panic id */
         p_str = strstr(xlog, id_pattern);
@@ -235,7 +264,6 @@ out_xlog:
 e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
                               modem_info_t *info, int timeout)
 {
-    int retry;
     e_mmgr_errors_t ret = E_ERR_BAD_PARAMETER;
     e_switch_to_mux_states_t state;
     struct timespec current, start;
@@ -295,28 +323,33 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         goto out;
     }
 
+    /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients
+     * (this guarantees that the MUX control channel has been established with
+     * the modem).
+     *
+     * Will retry for up to MAX_TIME_DELAY seconds. */
+    LOG_DEBUG("looking for TTY %s", config->waitloop_tty_name);
     ret = E_ERR_FAILED;
-
-    /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients (this
-       guarantees that the MUX control channel has been established with the modem).
-
-       Will retry for up to MAX_TIME_DELAY milliseconds. */
-    LOG_DEBUG("looking for %s", config->waitloop_tty_name);
-    for (retry = 0; retry < MAX_STAT_RETRIES; retry++) {
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    do {
         int tmp_fd;
 
+        usleep(STAT_DELAY * 1000);
         if ((tmp_fd = open(config->waitloop_tty_name, O_RDWR)) >= 0) {
             close(tmp_fd);
             ret = E_ERR_SUCCESS;
             break;
         }
-        usleep(STAT_DELAY * 1000);
-    }
+
+        clock_gettime(CLOCK_MONOTONIC, &current);
+    } while ((current.tv_sec < (start.tv_sec + MAX_TIME_DELAY)) ||
+             ((current.tv_sec == (start.tv_sec + MAX_TIME_DELAY)) &&
+              (current.tv_nsec < start.tv_nsec)));
+
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("was not able to open TTY %s", config->waitloop_tty_name);
     } else {
-        LOG_DEBUG("opened TTY %s after %d loop(s)", config->waitloop_tty_name,
-                  retry);
+        LOG_DEBUG("TTY %s open success", config->waitloop_tty_name);
         /* It's necessary to reset the terminal configuration after MUX init */
         ret = set_termio(*fd_tty);
     }

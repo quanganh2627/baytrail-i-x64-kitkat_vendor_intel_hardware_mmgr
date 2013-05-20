@@ -64,13 +64,12 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size)
     LOG_DEBUG("Wait answer...");
     for (;;) {
 
-        /* Give time to receive response or POLLHUP. Timing diagram shows
-           200 ms timeout for CAREADY and 500 ms timeout to receive OK.
-           Instead of having two timeouts (one for 200ms and one for 300ms),
-           make one timeout value of 500 ms. This one timeout should cover
-           both possible negative outcomes.
-           Note: Per request poll timeout has now been increased to 2.5s
-           because HSI TTY_HANGUP_DELAY is 2s */
+        /* Give time to receive response or POLLHUP. Timing diagram shows 200
+         * ms timeout for CAREADY and 500 ms timeout to receive OK. Instead of
+         * having two timeouts (one for 200ms and one for 300ms), make one
+         * timeout value of 500 ms. This one timeout should cover both possible
+         * negative outcomes. Note: Per request poll timeout has now been
+         * increased to 2.5s because HSI TTY_HANGUP_DELAY is 2s */
         ret = wait_for_tty_event(fd, AT_TIMEOUT);
         if (ret != E_ERR_SUCCESS) {
             if (ret != E_ERR_TTY_POLLHUP)
@@ -136,8 +135,8 @@ e_mmgr_errors_t send_at_timeout(int fd_tty, const char *at_cmd, int at_cmd_size,
     end = start;
     end.tv_sec += timeout;
 
-    /* Send AT until we get a valid response from modem,
-       or after timeout (in seconds) of trying */
+    /* Send AT until we get a valid response from modem, or after timeout (in
+     * seconds) of trying */
     do {
         err = send_at(fd_tty, at_cmd, at_cmd_size);
         if ((err == E_ERR_TTY_BAD_FD) || (err == E_ERR_TTY_POLLHUP) ||

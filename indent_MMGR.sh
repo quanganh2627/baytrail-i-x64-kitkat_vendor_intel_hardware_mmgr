@@ -19,7 +19,7 @@
 # Please, before uploading a new patch, run this script to indent
 # properly the MMGR code.
 
-INDENT_RULES="-linux -nut -cdw -il0 -i4"
+INDENT_RULES="-linux -nut -cdw -il0 -i4 -fca -sc -lc80"
 
 # All typdefs declared in source files (instead of header) or indent unknown
 # typedefs must be declared here
@@ -45,6 +45,9 @@ function indent_c_mmgr
     # code indenatation: extract specific typdefs from headers files to help
     # indent.
     indent $INDENT_RULES $src_types $hdr_types $src_list
+    # remove whitespace. sometimes indent is not able to remove whitespace in
+    # comment block
+    sed -i 's: *$::' $src_list
 }
 
 function indent_android_mk_files

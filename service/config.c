@@ -79,6 +79,7 @@
 #define DEF_STATIC "static.nvm"
 #define DEF_DYNAMIC "dynamic.nvm"
 #define DEF_RND_CERT "RND_CERT"
+#define DEF_MCDR_LINK_LAYER "uart"
 
 #define DEF_BKUP_PATH "/factory/telephony"
 
@@ -380,6 +381,8 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          DEF_MCDR_VID,.set = string},
         {.key = "McdrProtocol",.dest = &params->mcdr_protocol,.def =
          DEF_MCDR_PROTOCOL,.set = string},
+        {.key = "McdrLinkLayer",.dest = &params->mcdr_link_layer,
+         .def = DEF_MCDR_LINK_LAYER,.set = string},
     };
 
     set_param_t secur[] = {

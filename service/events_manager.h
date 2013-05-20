@@ -44,7 +44,16 @@
     X(MODEM_SHUTDOWN_ACK), \
     X(WAIT_FOR_IPC_READY), \
     X(WAIT_FOR_BUS_READY), \
-    X(ACCEPT_CLIENT_RQUEST), \
+    X(NUM)
+
+#define MMGR_STATE\
+    X(MDM_OFF),\
+    X(MDM_RESET),\
+    X(WAIT_CLI_ACK),\
+    X(MDM_CONF_ONGOING),\
+    X(MDM_CORE_DUMP),\
+    X(MDM_UP),\
+    X(MDM_OOS),\
     X(NUM)
 
 typedef enum e_timer_type {
@@ -59,15 +68,17 @@ typedef enum e_events_type {
     EVENTS
 } e_events_type_t;
 
-typedef enum e_modem_state {
-    E_MDM_STATE_NONE = 0x00,
-    E_MDM_STATE_BB_READY = 0x1,
-    E_MDM_STATE_FLASH_READY = 0x1 << 1,
-    E_MDM_STATE_IPC_READY = 0x1 << 2,
-    E_MDM_STATE_FW_DL_READY = 0x1 << 3,
-    E_MDM_STATE_CORE_DUMP_READY = 0x1 << 4,
-    E_MDM_STATE_CORE_DUMP_READ_READY = 0x1 << 5,
-} e_modem_state_t;
+typedef enum e_client_req {
+    E_CLI_REQ_NONE = 0x0,
+    E_CLI_REQ_RESET = 0x1 << 1,
+    E_CLI_REQ_OFF = 0x1 << 2,
+} e_client_req_t;
+
+typedef enum e_mmgr_state {
+#undef X
+#define X(a) E_MMGR_##a
+    MMGR_STATE
+} e_mmgr_state_t;
 
 typedef struct mmgr_timer {
     uint8_t type;
@@ -82,7 +93,8 @@ typedef struct mmgr_events {
     int cur_ev;
     e_events_type_t state;
     bus_ev_t bus_events;
-    e_modem_state_t modem_state;
+    e_client_req_t cli_req;
+    e_mdm_link_state_t link_state;
 } mmgr_events_t;
 
 typedef struct current_request {
@@ -95,11 +107,13 @@ typedef struct current_request {
 
 struct mmgr_data;
 typedef e_mmgr_errors_t (*event_hdler_t) (struct mmgr_data * mmgr);
+typedef e_mmgr_errors_t (*reset_mdm_op_t) (modem_info_t *modem_info);
 
 typedef struct mmgr_data {
     int epollfd;
     int fd_tty;
     int fd_cnx;
+    e_mmgr_state_t state;
     e_mmgr_events_t client_notification;
     mmgr_configuration_t config;
     reset_management_t reset;
@@ -111,12 +125,14 @@ typedef struct mmgr_data {
     secur_t secur;
     /* functions handlers: */
     event_hdler_t hdler_events[E_EVENT_NUM];
-    event_hdler_t hdler_client[E_MMGR_NUM_REQUESTS];
-    event_hdler_t hdler_modem[E_EL_NUMBER_OF];
+    event_hdler_t hdler_client[E_MMGR_NUM][E_MMGR_NUM_REQUESTS];
+    event_hdler_t hdler_pre_mdm[E_EL_NUMBER_OF];
+    reset_mdm_op_t hdler_mdm[E_EL_NUMBER_OF];
 } mmgr_data_t;
 
 e_mmgr_errors_t events_manager(mmgr_data_t *mmgr);
 e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr);
 e_mmgr_errors_t events_init(mmgr_data_t *mmgr);
+inline void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state);
 
 #endif                          /* __MMGR_EVENTS_MANAGER_HEADER__ */

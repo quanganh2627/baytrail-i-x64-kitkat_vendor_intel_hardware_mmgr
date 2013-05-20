@@ -68,21 +68,6 @@ static void deserialize_size_t(char **buffer, size_t *value)
 }
 
 /**
- * deserialize bool data from buffer
- *
- * @param [in,out] buffer data received. the address is shifted of read size
- * @param [out] value data extracted
- *
- * @return none
- */
-static void deserialize_bool(char **buffer, bool *value)
-{
-    uint32_t tmp = 0;
-    deserialize_uint32(buffer, &tmp);
-    memcpy(value, &tmp, sizeof(bool));
-}
-
-/**
  * read data from cnx and extract header
  *
  * @param [in] fd cnx file descriptor
@@ -159,49 +144,6 @@ out:
 }
 
 /**
- * set client structure for RESPONSE_GET_BACKUP_FILE_PATH message
- *
- * @param [in,out] msg data received
- * @param [in] request data to provide to MMGR client
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t set_data_bckup_file(msg_t *msg, mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_backup_path_t *bkup = NULL;
-
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
-
-    /* calloc is used to be sure that path is NULL.
-     * the buffer will be freed by the matching freed function */
-    bkup = calloc(1, sizeof(mmgr_cli_backup_path_t));
-    if (bkup == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-    memcpy(&bkup->len, &msg->hdr.len, sizeof(size_t));
-
-    /* the buffer will be freed by the matching freed function */
-    bkup->path = malloc(bkup->len * sizeof(char));
-    if (bkup->path == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-
-    memcpy(bkup->path, msg->data, bkup->len);
-    memset(bkup->path + bkup->len, '\0', sizeof(char));
-    ret = E_ERR_SUCCESS;
-
-out:
-    request->data = bkup;
-    return ret;
-}
-
-/**
  * set client structure for RESPONSE_FUSE_INFO message
  *
  * @param [in,out] msg data received
@@ -237,219 +179,6 @@ out:
 }
 
 /**
- * set client structure for RESPONSE_MODEM_NVM_PROGRESS message
- *
- * @param [in,out] msg data received
- * @param [in] request data to provide to MMGR client
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t set_data_nvm_progress(msg_t *msg, mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    size_t len;
-    mmgr_cli_nvm_update_progress_t *progress = NULL;
-    char *msg_data = NULL;
-
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
-
-    memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
-    /* the buffer will be freed by the matching freed function */
-    progress = malloc(sizeof(mmgr_cli_nvm_update_progress_t));
-    if (progress == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-
-    msg_data = msg->data;
-    deserialize_int(&msg_data, &progress->rate);
-    ret = E_ERR_SUCCESS;
-
-out:
-    request->data = progress;
-    return ret;
-}
-
-/**
- * set client structure for RESPONSE_MODEM_FW_PROGRESS message
- *
- * @param [in,out] msg data received
- * @param [in] request data to provide to MMGR client
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t set_data_fw_progress(msg_t *msg, mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    size_t len;
-    mmgr_cli_fw_update_progress_t *progress = NULL;
-    char *msg_data = NULL;
-
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
-
-    memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
-    /* the buffer will be freed by the matching freed function */
-    progress = malloc(sizeof(mmgr_cli_fw_update_progress_t));
-    if (progress == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-
-    msg_data = msg->data;
-    deserialize_int(&msg_data, &progress->rate);
-    ret = E_ERR_SUCCESS;
-
-out:
-    request->data = progress;
-    return ret;
-}
-
-/**
- * set client structure for RESPONSE_MODEM_FW_RESULT message
- *
- * @param [in,out] msg data received
- * @param [in] request data to provide to MMGR client
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    size_t len;
-    mmgr_cli_fw_update_result_t *result = NULL;
-    uint32_t tmp = 0;
-    char *msg_data = NULL;
-
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
-
-    memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
-    /* the buffer will be freed by the matching freed function */
-    result = malloc(sizeof(mmgr_cli_fw_update_result_t));
-    if (result == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-
-    if (len != sizeof(e_modem_fw_error_t)) {
-        LOG_ERROR("bad message size");
-        goto out;
-    }
-
-    msg_data = msg->data;
-    deserialize_uint32(&msg_data, &tmp);
-    memcpy(&result->id, &tmp, sizeof(e_modem_fw_error_t));
-    ret = E_ERR_SUCCESS;
-
-out:
-    request->data = result;
-    return ret;
-}
-
-/**
- * set client structure for RESPONSE_MODEM_NVM_PROGRESS message
- *
- * @param [in,out] msg data received
- * @param [in] request data to provide to MMGR client
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t set_data_nvm_result(msg_t *msg, mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    size_t len;
-    mmgr_cli_nvm_update_result_t *result = NULL;
-    uint32_t tmp = 0;
-    char *msg_data = NULL;
-
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
-
-    memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
-    /* the buffer will be freed by the matching freed function */
-    result = malloc(sizeof(mmgr_cli_nvm_update_result_t));
-    if (result == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-
-    if (len != sizeof(e_modem_nvm_error_t)) {
-        LOG_ERROR("bad message size");
-        goto out;
-    }
-
-    msg_data = msg->data;
-    deserialize_uint32(&msg_data, &tmp);
-    memcpy(&result->id, &tmp, sizeof(e_modem_nvm_error_t));
-    ret = E_ERR_SUCCESS;
-
-out:
-    request->data = result;
-    return ret;
-}
-
-/**
- * set client structure for RESPONSE_MODEM_NVM_ID message
- *
- * @param [in,out] msg data received
- * @param [in] request data to provide to MMGR client
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t set_data_nvm_id(msg_t *msg, mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_nvm_read_id_t *nvm = NULL;
-    char *msg_data = NULL;
-
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
-
-    /* calloc is used to be sure that path is NULL
-     * the buffer will be freed by the matching freed function */
-    nvm = calloc(1, sizeof(mmgr_cli_nvm_read_id_t));
-    if (nvm == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-
-    msg_data = msg->data;
-    deserialize_bool(&msg_data, &nvm->result);
-    deserialize_size_t(&msg_data, &nvm->len);
-
-    if ((nvm->len <= 0) && (nvm->len != (msg->hdr.len - 2 * sizeof(uint32_t)))) {
-        LOG_ERROR("bad len");
-        goto out;
-    }
-
-    /* the buffer will be freed by the matching freed function */
-    nvm->path = malloc(nvm->len * sizeof(char));
-    if (nvm->path == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-    memcpy(nvm->path, msg->data + 2 * sizeof(uint32_t), nvm->len);
-    memset(nvm->path + nvm->len, '\0', sizeof(char));
-    ret = E_ERR_SUCCESS;
-
-out:
-    request->data = nvm;
-    return ret;
-}
-
-/**
  * set client structure for RESPONSE_MODEM_HW_ID message
  *
  * @param [in,out] msg data received
@@ -467,8 +196,8 @@ e_mmgr_errors_t set_data_hw_id(msg_t *msg, mmgr_cli_event_t *request)
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
 
-    /* calloc is used to be sure that id is NULL
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that id is NULL the buffer will be freed by
+     * the matching freed function */
     hw = calloc(1, sizeof(mmgr_cli_hw_id_t));
     if (hw == NULL) {
         LOG_ERROR("memory allocation fails");
@@ -493,53 +222,10 @@ out:
 }
 
 /**
- * set client structure for RESPONSE_MODEM_RND message
- *
- * @param [in,out] msg data received
- * @param [in] request data to provide to MMGR client
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t set_data_rnd_id(msg_t *msg, mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_rnd_path_t *rnd = NULL;
-
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
-
-    /* calloc is used to be sure that path is NULL
-     * the buffer will be freed by the matching freed function */
-    rnd = calloc(1, sizeof(mmgr_cli_rnd_path_t));
-    if (rnd == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-    memcpy(&rnd->len, &msg->hdr.len, sizeof(size_t));
-
-    /* the buffer will be freed by the matching freed function */
-    rnd->path = malloc(rnd->len * sizeof(char));
-    if (rnd->path == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-
-    memcpy(rnd->path, msg->data, rnd->len);
-    memset(rnd->path + rnd->len, '\0', sizeof(char));
-    ret = E_ERR_SUCCESS;
-
-out:
-    request->data = rnd;
-    return ret;
-}
-
-/**
  * extract data from E_MMGR_NOTIFY_AP_RESET message
  *
  * @param [in] msg message received
- * @param [in] nvm data extracted
+ * @param [in] request
  *
  * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
@@ -553,8 +239,8 @@ e_mmgr_errors_t set_data_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
 
-    /* calloc is used to be sure that name is NULL
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that name is NULL the buffer will be freed by
+     * the matching freed function */
     ap = calloc(1, sizeof(mmgr_cli_ap_reset_t));
     if (ap == NULL) {
         LOG_ERROR("memory allocation failed");
@@ -582,7 +268,7 @@ out:
  * extract data from E_MMGR_NOTIFY_CORE_DUMP_COMPLETE message
  *
  * @param [in] msg message received
- * @param [in] nvm data extracted
+ * @param [in] request
  *
  * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
@@ -604,8 +290,8 @@ e_mmgr_errors_t set_data_core_dump(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
     }
 
-    /* calloc is used to be sure that path is NULL
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that path is NULL the buffer will be freed by
+     * the matching freed function */
     cd = calloc(1, sizeof(mmgr_cli_core_dump_t));
     if (cd == NULL) {
         LOG_ERROR("memory allocation failed");
@@ -642,7 +328,7 @@ out:
  * extract data from E_MMGR_NOTIFY_ERROR message
  *
  * @param [in] msg message received
- * @param [in] nvm data extracted
+ * @param [in] request
  *
  * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
@@ -663,8 +349,8 @@ e_mmgr_errors_t set_data_error(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
     }
 
-    /* calloc is used to be sure that reason is NULL
-     * the buffer will be freed by the matching freed function */
+    /* calloc is used to be sure that reason is NULL the buffer will be freed
+     * by the matching freed function */
     err = calloc(1, sizeof(mmgr_cli_error_t));
     if (err == NULL) {
         LOG_ERROR("memory allocation failed");
@@ -723,64 +409,6 @@ out:
 }
 
 /**
- * free client structure for message RESPONSE_GET_BACKUP_FILE_PATH message
- *
- * @param [in] request data to delete
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t free_data_bckup_file(mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_backup_path_t *bkup = NULL;
-
-    CHECK_PARAM(request, ret, out);
-
-    bkup = request->data;
-    if (bkup != NULL) {
-        if (bkup->path != NULL)
-            free(bkup->path);
-        free(bkup);
-        ret = E_ERR_SUCCESS;
-    } else {
-        LOG_ERROR("failed to free memory");
-    }
-out:
-    return ret;
-}
-
-/**
- * free client structure for message RESPONSE_MODEM_NVM_ID message
- *
- * @param [in] request data to delete
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t free_data_nvm_id(mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_nvm_read_id_t *nvm = NULL;
-
-    CHECK_PARAM(request, ret, out);
-
-    nvm = request->data;
-    if (nvm != NULL) {
-        if (nvm->path != NULL)
-            free(nvm->path);
-        free(nvm);
-        ret = E_ERR_SUCCESS;
-    } else {
-        LOG_ERROR("failed to free memory");
-    }
-out:
-    return ret;
-}
-
-/**
  * free client structure for message RESPONSE_MODEM_HW_ID message
  *
  * @param [in] request data to delete
@@ -801,35 +429,6 @@ e_mmgr_errors_t free_data_hw_id(mmgr_cli_event_t *request)
         if (hw->id != NULL)
             free(hw->id);
         free(hw);
-        ret = E_ERR_SUCCESS;
-    } else {
-        LOG_ERROR("failed to free memory");
-    }
-out:
-    return ret;
-}
-
-/**
- * free client structure for message RESPONSE_MODEM_RND message
- *
- * @param [in] request data to delete
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t free_data_rnd_id(mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_rnd_path_t *rnd = NULL;
-
-    CHECK_PARAM(request, ret, out);
-
-    rnd = request->data;
-    if (rnd != NULL) {
-        if (rnd->path != NULL)
-            free(rnd->path);
-        free(rnd);
         ret = E_ERR_SUCCESS;
     } else {
         LOG_ERROR("failed to free memory");
@@ -938,97 +537,4 @@ e_mmgr_errors_t free_data_empty(mmgr_cli_event_t *event)
 {
     (void)event;                /* unused */
     return E_ERR_SUCCESS;
-}
-
-/**
- * extract data from E_MMGR_RESPONSE_MODEM_FW_PROGRESS message
- *
- * @param [in] msg message received
- * @param [in] fw data extracted
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t extract_data_fw_update(msg_t *msg, mmgr_cli_fw_update_t *fw)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    char *msg_data = NULL;
-
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(fw, ret, out);
-
-    if (msg->hdr.len < (4 * sizeof(uint32_t))) {
-        LOG_ERROR("mandatory data is missing");
-        goto out;
-    }
-
-    msg_data = msg->data;
-    deserialize_bool(&msg_data, &fw->precheck);
-    deserialize_bool(&msg_data, &fw->no_modem_reset);
-    deserialize_bool(&msg_data, &fw->erase_all);
-    deserialize_size_t(&msg_data, &fw->fls_path_len);
-
-    if (fw->fls_path_len != (msg->hdr.len - (msg_data - msg->data))) {
-        LOG_ERROR("bad string length");
-        goto out;
-    }
-
-    /* the buffer will be freed by the matching freed function */
-    fw->fls_path = malloc(sizeof(fw->fls_path_len) * sizeof(char));
-    if (fw->fls_path == NULL) {
-        LOG_ERROR("memory allocation failed");
-        goto out;
-    }
-    strncpy(fw->fls_path, msg_data, fw->fls_path_len);
-    LOG_DEBUG("fls_path: %s", fw->fls_path);
-    ret = E_ERR_SUCCESS;
-
-out:
-    return ret;
-}
-
-/**
- * extract data from E_MMGR_RESPONSE_MODEM_NVM_PROGRESS message
- *
- * @param [in] msg message received
- * @param [in] nvm data extracted
- *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t extract_data_nvm_update(msg_t *msg, mmgr_cli_nvm_update_t *nvm)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    char *msg_data = NULL;
-
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(nvm, ret, out);
-
-    if (msg->hdr.len < (2 * sizeof(uint32_t))) {
-        LOG_ERROR("mandatory data is missing");
-        goto out;
-    }
-
-    msg_data = msg->data;
-    deserialize_bool(&msg_data, &nvm->precheck);
-    deserialize_size_t(&msg_data, &nvm->nvm_path_len);
-
-    if (nvm->nvm_path_len != (msg->hdr.len - (msg_data - msg->data))) {
-        LOG_ERROR("bad string length");
-        goto out;
-    }
-
-    /* the buffer will be freed by the matching freed function */
-    nvm->nvm_path = malloc(sizeof(nvm->nvm_path_len) * sizeof(char));
-    if (nvm->nvm_path == NULL) {
-        LOG_ERROR("memory allocation failed");
-        goto out;
-    }
-    strncpy(nvm->nvm_path, msg_data, nvm->nvm_path_len);
-    LOG_DEBUG("nvm->nvm_path %s", nvm->nvm_path);
-    ret = E_ERR_SUCCESS;
-out:
-    return ret;
 }

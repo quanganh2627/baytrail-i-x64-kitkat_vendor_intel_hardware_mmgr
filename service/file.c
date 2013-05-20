@@ -25,6 +25,47 @@
 #include "logs.h"
 
 /**
+ * read a string from a file
+ *
+ * @param [in] path complete file path
+ * @param [in] mode open permissions
+ * @param [out] value string to read
+ * @param [out] size of the buffer. the size is updated with
+ * read value
+ *
+ * @return E_ERR_FAILED if open fails
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if path or value is/are NULL
+ */
+e_mmgr_errors_t read_file(char *path, unsigned long mode, char *value,
+                          size_t *size)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    int fd;
+    int read_size = 0;
+
+    CHECK_PARAM(path, ret, out);
+    CHECK_PARAM(value, ret, out);
+
+    memset(value, 0, *size);
+    fd = open(path, O_RDONLY, mode);
+    if (fd < 0) {
+        LOG_ERROR("open of (%s) failed (%s)", path, strerror(errno));
+    } else {
+        read_size = read(fd, value, *size);
+        if (close(fd) == 0) {
+            ret = E_ERR_SUCCESS;
+            LOG_DEBUG("read to (%s) succeed", path);
+        } else {
+            LOG_ERROR("read to (%s) failed. (%s)", path, strerror(errno));
+        }
+        *size = read_size;
+    }
+out:
+    return ret;
+}
+
+/**
  * write a string to a file
  *
  * @param [in] path complete file path
@@ -41,54 +82,22 @@ e_mmgr_errors_t write_to_file(char *path, unsigned long mode, char *value,
 {
     int fd;
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    ssize_t write_size;
+    ssize_t write_size = 0;
 
     CHECK_PARAM(path, ret, out);
     CHECK_PARAM(value, ret, out);
 
     fd = open(path, O_WRONLY | O_CREAT, mode);
-    if (fd == -1) {
+    if (fd < 0) {
         LOG_ERROR("open of (%s) failed (%s)", path, strerror(errno));
     } else {
-        write_size = write(fd, value, size);
-        if ((close(fd) == 0) && (write_size > 0) &&
-            ((size_t)write_size == size)) {
+        if (size > 0)
+            write_size = write(fd, value, size);
+        if ((close(fd) == 0) && ((size_t)write_size == size)) {
             ret = E_ERR_SUCCESS;
             LOG_DEBUG("write to (%s) succeed", path);
         } else {
             LOG_ERROR("write to (%s) failed. (%s)", path, strerror(errno));
-        }
-    }
-out:
-    return ret;
-}
-
-/**
- * Create an empty file with rights
- *
- * @param [in] filename complete file name path
- * @param [in] rights file access permissions
- *
- * @return E_ERR_BAD_PARAMETER if filename is NULL
- * @return E_ERR_FAILED if failed
- * @return E_ERR_SUCCESS if sucessful
- */
-e_mmgr_errors_t create_empty_file(char *filename, unsigned long rights)
-{
-    int fd;
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(filename, ret, out);
-
-    fd = open(filename, O_RDWR | O_CREAT, rights);
-    if (fd < 0) {
-        LOG_ERROR("Failed to create file %s: (%s)", filename, strerror(errno));
-    } else {
-        if (close(fd) == -1) {
-            LOG_ERROR("close failed (%s)", strerror(errno));
-        } else {
-            LOG_DEBUG("(%s) created", filename);
-            ret = E_ERR_SUCCESS;
         }
     }
 out:

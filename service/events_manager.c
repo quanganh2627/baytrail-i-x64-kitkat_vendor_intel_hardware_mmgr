@@ -36,6 +36,18 @@
 
 #define FIRST_EVENT -1
 
+const char *g_mmgr_st[] = {
+#undef X
+#define X(a) #a
+    MMGR_STATE
+};
+
+inline void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state)
+{
+    mmgr->state = state;
+    LOG_VERBOSE("new STATE: %s", g_mmgr_st[mmgr->state]);
+}
+
 static e_mmgr_errors_t security_event(mmgr_data_t *mmgr)
 {
     return secur_event(&mmgr->secur);
@@ -70,6 +82,8 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
         close_cnx(&mmgr->fd_cnx);
     if (mmgr->info.fd_mcd != CLOSED_FD)
         close_tty(&mmgr->info.fd_mcd);
+    if (mmgr->epollfd != CLOSED_FD)
+        close(mmgr->epollfd);
 out:
     return ret;
 }
@@ -98,7 +112,10 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         get_property("persist.service.telephony", &telephony_stack);
         if (!telephony_stack) {
             LOG_DEBUG("telephony stack is disabled");
-            write_to_file(HSIC_PATH, SYSFS_OPEN_MODE, "0", 1);
+            /* @TODO: this code will be removed once patch 100742 reverted */
+#define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0"
+#define HSIC_ENABLE_PATH HSIC_PATH"/hsic_enable"
+            write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "0", 1);
             mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
         }
     }
@@ -107,7 +124,11 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     mmgr->events.ev = malloc(sizeof(struct epoll_event) *
                              (mmgr->config.max_clients + 1));
     mmgr->events.cur_ev = FIRST_EVENT;
-    mmgr->events.modem_state = E_MDM_STATE_NONE;
+    mmgr->events.link_state = E_MDM_LINK_NONE;
+    if (telephony_stack)
+        set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
+    else
+        set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
 
     mmgr->request.accept_request = true;
 
@@ -134,18 +155,17 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    if ((ret = modem_specific_init(&mmgr->info, mmgr->config.is_flashless)
-         != E_ERR_SUCCESS))
+    if ((ret = mdm_specific_init(&mmgr->info)) != E_ERR_SUCCESS)
         goto out;
-    if (mmgr->config.is_flashless) {
-        if ((ret = regen_fls(&mmgr->info) != E_ERR_SUCCESS))
-            goto out;
-    }
+
+    if ((ret = mdm_prepare(&mmgr->info)) != E_ERR_SUCCESS)
+        goto out;
 
     ret = open_cnx(&mmgr->fd_cnx);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
+    mmgr->epollfd = CLOSED_FD;
     if ((ret = init_ev_hdler(&mmgr->epollfd)) != E_ERR_SUCCESS)
         goto out;
 
@@ -183,7 +203,7 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    if (strcmp(mmgr->config.link_layer, "hsic") == 0) {
+    if (mmgr->info.mdm_link == E_LINK_HSIC) {
         if ((ret =
              bus_events_init(&mmgr->events.bus_events, mmgr->config.bb_pid,
                              mmgr->config.bb_vid, mmgr->config.flash_pid,
@@ -199,19 +219,19 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
             goto out;
         LOG_DEBUG("bus event fd added to poll list");
 
-        // handle the first events after discovery
+        /* handle the first events after discovery */
         if (get_bus_state(&mmgr->events.bus_events) & MDM_BB_READY) {
-            // ready to configure modem
-            mmgr->events.modem_state &= ~E_MDM_STATE_FLASH_READY;
-            mmgr->events.modem_state |= E_MDM_STATE_BB_READY;
+            /* ready to configure modem */
+            mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
+            mmgr->events.link_state |= E_MDM_LINK_BB_READY;
         } else if (get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) {
-            // ready to flash modem
-            mmgr->events.modem_state |= E_MDM_STATE_FLASH_READY;
-            mmgr->events.modem_state &= ~E_MDM_STATE_BB_READY;
+            /* ready to flash modem */
+            mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
+            mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
         } else if (!mmgr->config.is_flashless)
             start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     } else {
-        mmgr->events.modem_state |= E_MDM_STATE_BB_READY;
+        mmgr->events.link_state |= E_MDM_LINK_BB_READY;
     }
 
 out:
@@ -298,17 +318,18 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     for (;;) {
-        if (mmgr->info.ev & E_EV_FORCE_MODEM_OFF) {
-            mmgr->info.ev = E_EV_MODEM_OFF;
+        if (mmgr->events.cli_req & E_CLI_REQ_OFF) {
             modem_shutdown(mmgr);
-        } else if (mmgr->info.ev & E_EV_FORCE_RESET) {
+            set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
+            mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
+        } else if (mmgr->state == E_MMGR_MDM_RESET) {
             LOG_DEBUG("restoring modem");
-            restore_modem(mmgr);
-            mmgr->info.ev &= ~E_EV_FORCE_RESET;
+            reset_modem(mmgr);
+            mmgr->events.cli_req &= ~E_CLI_REQ_RESET;
         }
 
-        if ((mmgr->info.ev & E_EV_MODEM_OFF) ||
-            mmgr->client_notification == E_MMGR_EVENT_MODEM_UP) {
+        if ((mmgr->state == E_MMGR_MDM_OFF) || (mmgr->state == E_MMGR_MDM_UP) ||
+            (mmgr->state == E_MMGR_MDM_OOS)) {
             wakelock = false;
             write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                           strlen(MODULE_NAME));
