@@ -827,7 +827,7 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
     mmgr->hdler_client[E_MMGR_MDM_OFF][E_MMGR_RESOURCE_RELEASE] =
         request_resource_release_mdm_off;
     mmgr->hdler_client[E_MMGR_WAIT_CLI_ACK][E_MMGR_RESOURCE_RELEASE] =
-        request_resource_release;
+        request_resource_release_mdm_off;
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_RESOURCE_RELEASE] =
         request_resource_release;
 
