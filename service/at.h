@@ -21,9 +21,12 @@
 
 #define AT_READ_MAX_RETRIES 4
 
+#define AT_ANSWER_SHORT_TIMEOUT 2500
+#define AT_ANSWER_LONG_TIMEOUT 30000
+
 #include "errors.h"
 
-e_mmgr_errors_t send_at_timeout(int fd_tty, const char *at_cmd, int at_cmd_size,
-                                int timeout);
+e_mmgr_errors_t send_at_retry(int fd_tty, const char *at_cmd, int at_cmd_size,
+                              int retry, int timeout);
 
 #endif                          /* __MMGR_AT_HEADER__ */

@@ -22,7 +22,7 @@
 #include "tty.h"
 #include <dlfcn.h>
 
-#define AT_SEC_TIMEOUT 10
+#define AT_SEC_RETRY 4
 #define AT_SIZE 1024
 #define SECUR_LIB "libdx_cc7.so"
 #define SECUR_CALLBACK "secure_channel_callback"
@@ -89,8 +89,8 @@ e_mmgr_errors_t secur_event(secur_t *secur)
 
     /* @TODO: check if the reply is well formated currently, the received
      * header is kept and the data to send overwrites the receive data */
-    send_at_timeout(secur->fd, (char *)data, data_size + header_size,
-                    AT_SEC_TIMEOUT);
+    send_at_retry(secur->fd, (char *)data, data_size + header_size,
+                    AT_SEC_RETRY, AT_ANSWER_SHORT_TIMEOUT);
 
 out:
     if (data != NULL)
@@ -141,8 +141,8 @@ e_mmgr_errors_t secur_start(secur_t *secur)
     CHECK_PARAM(secur, ret, out);
 
     if (secur->enable)
-        ret = send_at_timeout(secur->fd, at_cmd, strlen(at_cmd),
-                              AT_SEC_TIMEOUT);
+        ret = send_at_retry(secur->fd, at_cmd, strlen(at_cmd),
+                              AT_SEC_RETRY, AT_ANSWER_SHORT_TIMEOUT);
 out:
     return ret;
 }

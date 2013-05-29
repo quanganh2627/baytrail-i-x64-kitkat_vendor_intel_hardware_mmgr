@@ -30,7 +30,6 @@
 #include "logs.h"
 #include "tty.h"
 
-#define AT_TIMEOUT 2500
 #define AT_SIZE 20
 
 /**
@@ -39,6 +38,7 @@
  * @param [in] fd tty file descriptor
  * @param [in] command at command to send
  * @param [in] command_size length of command
+ * @param [in] timeout timeout for the command answer (in ms)
  *
  * @return E_ERR_SUCCESS command sends and 'OK' received
  * @return E_ERR_AT_CMD_RESEND generic failure. Command to resend
@@ -46,7 +46,8 @@
  * @return E_ERR_TTY_BAD_FD if a bad file descriptor is provided
  * @return E_ERR_BAD_PARAMETER if data is NULL
  */
-static e_mmgr_errors_t send_at(int fd, const char *command, int command_size)
+static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
+                               int timeout)
 {
     e_mmgr_errors_t ret;
     int data_size = AT_SIZE;
@@ -64,13 +65,8 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size)
     LOG_DEBUG("Wait answer...");
     for (;;) {
 
-        /* Give time to receive response or POLLHUP. Timing diagram shows 200
-         * ms timeout for CAREADY and 500 ms timeout to receive OK. Instead of
-         * having two timeouts (one for 200ms and one for 300ms), make one
-         * timeout value of 500 ms. This one timeout should cover both possible
-         * negative outcomes. Note: Per request poll timeout has now been
-         * increased to 2.5s because HSI TTY_HANGUP_DELAY is 2s */
-        ret = wait_for_tty_event(fd, AT_TIMEOUT);
+        /* Give time to receive response or POLLHUP. */
+        ret = wait_for_tty_event(fd, timeout);
         if (ret != E_ERR_SUCCESS) {
             if (ret != E_ERR_TTY_POLLHUP)
                 ret = E_ERR_AT_CMD_RESEND;
@@ -107,13 +103,13 @@ failure:
 }
 
 /**
- * Try to send an AT command to modem with timeout
- * Timeout can't be less than AT_TIMEOUT
+ * Try to send an AT command to modem
  *
  * @param [in] fd_tty tty file descriptor
  * @param [in] at_cmd AT command to send
  * @param [in] at_cmd_size AT command size
- * @param [in] timeout timeout (in seconds)
+ * @param [in] retry number of retries to send the AT command
+ * @param [in] timeout timeout for the command answer (in ms)
  *
  * @return E_ERR_SUCCESS command sends and 'OK' received
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
@@ -121,35 +117,22 @@ failure:
  * @return E_ERR_TTY_BAD_FD bad file descriptor
  * @return E_ERR_BAD_PARAMETER if at_cmd is NULL
  */
-e_mmgr_errors_t send_at_timeout(int fd_tty, const char *at_cmd, int at_cmd_size,
-                                int timeout)
+e_mmgr_errors_t send_at_retry(int fd_tty, const char *at_cmd, int at_cmd_size,
+                              int retry, int timeout)
 {
-    struct timespec start;
-    struct timespec current;
-    struct timespec end;
     int err;
 
     CHECK_PARAM(at_cmd, err, out);
 
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    end = start;
-    end.tv_sec += timeout;
 
-    /* Send AT until we get a valid response from modem, or after timeout (in
-     * seconds) of trying */
-    do {
-        err = send_at(fd_tty, at_cmd, at_cmd_size);
+    /* Send AT until we get a valid response from modem,
+       or after retry retries */
+    for (; retry >= 0; retry--) {
+        err = send_at(fd_tty, at_cmd, at_cmd_size, timeout);
         if ((err == E_ERR_TTY_BAD_FD) || (err == E_ERR_TTY_POLLHUP) ||
-            (err == E_ERR_BAD_PARAMETER))
-            goto out;
-
-        if (err == E_ERR_SUCCESS) {
+            (err == E_ERR_BAD_PARAMETER) || (err == E_ERR_SUCCESS))
             break;
-        } else {
-            sleep(1);
-            clock_gettime(CLOCK_MONOTONIC, &current);
-        }
-    } while (current.tv_sec < end.tv_sec);
+    }
 
     if (err == E_ERR_AT_CMD_RESEND)
         LOG_ERROR("Invalid or no response from modem");

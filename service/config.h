@@ -52,7 +52,7 @@ typedef struct mmgr_configuration {
     int min_time_issue;
     int delay_before_reset;
     int delay_before_reboot;
-    int max_retry_time;
+    int max_retry;
     int timeout_ack_cold;
     int timeout_ack_shtdwn;
     /* interface */

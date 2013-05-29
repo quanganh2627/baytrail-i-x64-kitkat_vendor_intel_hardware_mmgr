@@ -37,6 +37,7 @@
 
 #define READ_SIZE 64
 
+#define AT_CFUN_RETRY 0
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 
 /**
@@ -330,8 +331,8 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     if (fd < 0) {
         LOG_ERROR("operation FAILED");
     } else {
-        err = send_at_timeout(fd, POWER_OFF_MODEM, strlen(POWER_OFF_MODEM),
-                              mmgr->config.max_retry_time);
+        err = send_at_retry(fd, POWER_OFF_MODEM, strlen(POWER_OFF_MODEM),
+                            AT_CFUN_RETRY, AT_ANSWER_LONG_TIMEOUT);
         if (err != E_ERR_SUCCESS) {
             LOG_ERROR("Unable to send (%s)", POWER_OFF_MODEM);
         }
@@ -467,7 +468,7 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
         goto out;
     }
     ret = switch_to_mux(&mmgr->fd_tty, &mmgr->config, &mmgr->info,
-                        mmgr->config.max_retry_time);
+                        mmgr->config.max_retry);
     if (ret == E_ERR_SUCCESS) {
         if ((mmgr->info.mcdr.enabled) && (mmgr->info.ev & E_EV_CORE_DUMP)) {
             notify_core_dump(mmgr);

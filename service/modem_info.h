@@ -22,7 +22,7 @@
 #include "core_dump.h"
 #include "modem_update.h"
 
-#define TIMEOUT_HANDSHAKE_AFTER_CD 30   /* in seconds */
+#define HANDSHAKE_AFTER_CD_RETRIES_COUNT 12
 #define MBD_DEV "/dev/mdm_ctrl"
 #define FLASHLESS_CFG "/etc/telephony/flashless.conf"
 

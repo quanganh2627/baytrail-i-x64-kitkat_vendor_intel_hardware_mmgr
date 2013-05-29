@@ -51,7 +51,7 @@
  *
  * @param [in] fd_tty modem file descriptor
  * @param [in] config mmgr config
- * @param [in] timeout timeout
+ * @param [in] retry retries to send command
  *
  * @return E_ERR_BAD_PARAMETER if config is NULL
  * @return E_ERR_TTY_BAD_FD bad file descriptor
@@ -60,7 +60,7 @@
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_handshake(int fd_tty, mmgr_configuration_t *config,
-                                int timeout)
+                                int retry)
 {
     int ret;
 
@@ -69,7 +69,8 @@ e_mmgr_errors_t modem_handshake(int fd_tty, mmgr_configuration_t *config,
     sleep(config->delay_before_at);
     LOG_VERBOSE("sending PING to modem");
 
-    ret = send_at_timeout(fd_tty, AT_PING_CMD, strlen(AT_PING_CMD), timeout);
+    ret = send_at_retry(fd_tty, AT_PING_CMD, strlen(AT_PING_CMD), retry,
+                        AT_ANSWER_SHORT_TIMEOUT);
     if (ret != E_ERR_SUCCESS)
         LOG_ERROR("PING not successful");
 out:
@@ -171,7 +172,7 @@ out:
  *
  * @param [in] fd_tty modem file descriptor
  * @param [in] config mmgr config
- * @param [in] timeout timeout
+ * @param [in] retry retries to send command
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_AT_CMD_RESEND  generic failure
@@ -181,7 +182,7 @@ out:
  * @return E_ERR_FAILED if AT+CMUX creation command failed
  */
 e_mmgr_errors_t send_at_cmux(int fd_tty, mmgr_configuration_t *config,
-                             int timeout)
+                             int retry)
 {
     char at_cmux_config[AT_MUX_CMD_SIZE];
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -197,8 +198,9 @@ e_mmgr_errors_t send_at_cmux(int fd_tty, mmgr_configuration_t *config,
         goto end_send_at_cmux;
     }
 
-    ret = send_at_timeout(fd_tty, at_cmux_config,
-                          strnlen(at_cmux_config, AT_MUX_CMD_SIZE), timeout);
+    ret = send_at_retry(fd_tty, at_cmux_config,
+                        strnlen(at_cmux_config, AT_MUX_CMD_SIZE), retry,
+                        AT_ANSWER_SHORT_TIMEOUT);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("AT+CMUX not successful");
     }

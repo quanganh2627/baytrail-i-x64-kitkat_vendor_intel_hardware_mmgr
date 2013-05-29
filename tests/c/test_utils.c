@@ -131,7 +131,7 @@ int send_at_cmd(char *path, char *command, int command_size)
         LOG_ERROR("Failed to open %s", path);
         goto out;
     }
-    ret = send_at_timeout(fd_tty, command, command_size, 10);
+    ret = send_at_retry(fd_tty, command, command_size, 4, 2500);
     close(fd_tty);
 out:
     return ret;
