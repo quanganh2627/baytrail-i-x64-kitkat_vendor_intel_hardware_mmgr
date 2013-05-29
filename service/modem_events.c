@@ -38,6 +38,7 @@
 #define READ_SIZE 64
 
 #define AT_CFUN_RETRY 0
+#define WAIT_FOR_WARM_BOOT_TIMEOUT 30000
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 
 /**
@@ -316,25 +317,30 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int err;
     int fd = CLOSED_FD;
-    int mdm_state;
 
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->info.polled_states = 0;
     ret = set_mcd_poll_states(&mmgr->info);
 
-    mdm_state = MDM_CTRL_STATE_OFF;
-    if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, &mdm_state) == -1)
-        LOG_DEBUG("couldn't set MCD state: %s", strerror(errno));
-
     open_tty(mmgr->config.shtdwn_dlc, &fd);
     if (fd < 0) {
         LOG_ERROR("operation FAILED");
     } else {
+        struct mdm_ctrl_cmd mdm_cmd;
+        mdm_cmd.timeout = WAIT_FOR_WARM_BOOT_TIMEOUT;
+        mdm_cmd.param = MDM_CTRL_STATE_WARM_BOOT;
+        modem_info_t *info = &mmgr->info;
+
         err = send_at_retry(fd, POWER_OFF_MODEM, strlen(POWER_OFF_MODEM),
-                            AT_CFUN_RETRY, AT_ANSWER_LONG_TIMEOUT);
-        if (err != E_ERR_SUCCESS) {
-            LOG_ERROR("Unable to send (%s)", POWER_OFF_MODEM);
+                            AT_CFUN_RETRY, AT_ANSWER_NO_TIMEOUT);
+
+        LOG_DEBUG("Waiting for MDM_CTRL_STATE_WARM_BOOT");
+
+        if (ioctl(info->fd_mcd, MDM_CTRL_WAIT_FOR_STATE, &mdm_cmd) <= 0) {
+            LOG_DEBUG("Waiting for MDM_CTRL_STATE_WARM_BOOT failed");
+        } else {
+            LOG_DEBUG("MDM_CTRL_STATE_WARM_BOOT received");
         }
         close_tty(&fd);
     }

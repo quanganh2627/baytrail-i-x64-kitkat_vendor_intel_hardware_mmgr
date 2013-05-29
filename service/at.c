@@ -53,14 +53,19 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
     int data_size = AT_SIZE;
     char data[AT_SIZE + 1];
 
-    CHECK_PARAM(command, ret, failure);
+    CHECK_PARAM(command, ret, out);
 
     /* Send AT command to modem */
     LOG_DEBUG("Send of %s", command);
     tcflush(fd, TCIOFLUSH);
     ret = write_to_tty(fd, command, command_size);
     if (ret != E_ERR_SUCCESS)
-        goto failure;
+        goto out;
+
+    if (timeout == AT_ANSWER_NO_TIMEOUT) {
+        LOG_DEBUG("No response needed from modem to %s", command);
+        goto out;
+    }
 
     LOG_DEBUG("Wait answer...");
     for (;;) {
@@ -70,7 +75,7 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
         if (ret != E_ERR_SUCCESS) {
             if (ret != E_ERR_TTY_POLLHUP)
                 ret = E_ERR_AT_CMD_RESEND;
-            goto failure;
+            goto out;
         }
 
         /* Read response data but give up after AT_READ_MAX_RETRIES tries */
@@ -79,7 +84,7 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
         if (ret != E_ERR_SUCCESS) {
             if (ret != E_ERR_TTY_BAD_FD)
                 ret = E_ERR_AT_CMD_RESEND;
-            goto failure;
+            goto out;
         }
 
         /* Did we get an "OK" back? */
@@ -98,7 +103,7 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
     }                           /* Loop waiting answer */
 
     tcflush(fd, TCIFLUSH);
-failure:
+out:
     return ret;
 }
 
