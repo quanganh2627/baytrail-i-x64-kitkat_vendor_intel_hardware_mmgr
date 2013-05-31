@@ -46,6 +46,7 @@ e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info,
 
 e_mmgr_errors_t mdm_set_cd_ipc_pm(modem_info_t *info, bool state);
 e_mmgr_errors_t mdm_set_ipc_pm(modem_info_t *info, bool state);
+e_mmgr_errors_t mdm_get_ipc_pm(modem_info_t *info, bool *state);
 
 void mup_log(const char *msg, size_t msg_len);
 

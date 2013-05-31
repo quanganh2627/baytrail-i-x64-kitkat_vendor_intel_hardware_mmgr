@@ -69,9 +69,8 @@ e_mmgr_errors_t secur_event(secur_t *secur)
 
         p = data + data_size;
         memcpy(p, buffer, (read_size > AT_SIZE ? AT_SIZE : read_size));
-        /* truncate buffer in case where read_size > AT_SIZE
-         * if this case happens, will be debugged easier with holes
-         * in data */
+        /* truncate buffer in case where read_size > AT_SIZE if this case
+         * happens, will be debugged easier with holes in data */
         data_size += read_size;
     }
 

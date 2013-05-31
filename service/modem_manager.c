@@ -116,6 +116,8 @@ int main(int argc, char *argv[])
     char *conf_file = DEFAULT_MMGR_CONFIG_FILE;
     mmgr_data_t mmgr;
 
+    /* Initialize the mmgr structure */
+    memset(&mmgr, 0, sizeof(mmgr_data_t));
     g_mmgr = &mmgr;
 
     while (-1 != (err = getopt(argc, argv, "hc:v"))) {

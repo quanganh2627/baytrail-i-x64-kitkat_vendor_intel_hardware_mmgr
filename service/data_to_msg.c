@@ -309,7 +309,6 @@ out:
 e_mmgr_errors_t set_msg_error(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    uint32_t tmp;
     size_t size;
     mmgr_cli_error_t *err = request->data;
     char *msg_data = NULL;

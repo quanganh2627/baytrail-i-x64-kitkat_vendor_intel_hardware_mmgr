@@ -35,7 +35,7 @@
 #define AT_MCDR_PROTOCOL "at@cdd:paramdump()\r"
 #define AT_XLOG_GET "AT+XLOG=0\r"
 #define AT_XLOG_RESET "AT+XLOG=2\r"
-#define AT_XLOG_TIMEOUT 25000
+#define AT_XLOG_TIMEOUT 2500
 #define AT_ANSWER_SIZE 254
 
 /* switch to MUX timings */
@@ -210,6 +210,13 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, mmgr_configuration_t *config,
 
     memset(data, 0, AT_ANSWER_SIZE + 1);
 
+    ret = wait_for_tty_event(fd_tty, AT_XLOG_TIMEOUT);
+    if (ret != E_ERR_SUCCESS) {
+        if (ret != E_ERR_TTY_POLLHUP)
+            ret = E_ERR_AT_CMD_RESEND;
+        goto out_xlog;
+    }
+
     do {
         read_size = AT_ANSWER_SIZE;
         ret = read_from_tty(fd_tty, data, &read_size, AT_READ_MAX_RETRIES);
@@ -233,6 +240,7 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, mmgr_configuration_t *config,
 
     ret = send_at_timeout(fd_tty, AT_XLOG_RESET, strlen(AT_XLOG_RESET),
                           config->max_retry_time);
+    tcflush(fd_tty, TCIFLUSH);
 out_xlog:
     return ret;
 }
@@ -325,9 +333,7 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
 
     /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients
      * (this guarantees that the MUX control channel has been established with
-     * the modem).
-     *
-     * Will retry for up to MAX_TIME_DELAY seconds. */
+     * the modem). Will retry for up to MAX_TIME_DELAY seconds. */
     LOG_DEBUG("looking for TTY %s", config->waitloop_tty_name);
     ret = E_ERR_FAILED;
     clock_gettime(CLOCK_MONOTONIC, &start);

@@ -9,7 +9,8 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../../service \
     $(TARGET_OUT_HEADERS)/IFX-modem
 LOCAL_SRC_FILES := \
-    mmgr_cli.c \
+    interface.c \
+    utils.c \
     ../../service/client_cnx.c \
     ../../service/data_to_msg.c \
     ../../service/msg_to_data.c
@@ -27,7 +28,8 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../../service \
     $(TARGET_OUT_HEADERS)/IFX-modem
 LOCAL_SRC_FILES := \
-    mmgr_cli.c \
+    interface.c \
+    utils.c \
     ../../service/client_cnx.c \
     ../../service/data_to_msg.c \
     ../../service/msg_to_data.c

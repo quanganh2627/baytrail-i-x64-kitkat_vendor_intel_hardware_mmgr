@@ -55,18 +55,18 @@ typedef struct client_list {
     set_msg set_data[E_MMGR_NUM_EVENTS];
 } client_list_t;
 
+e_mmgr_errors_t is_registered(client_t *client, bool *state);
 e_mmgr_errors_t initialize_list(client_list_t *clients, int list_size);
 e_mmgr_errors_t add_client(client_list_t *clients, int fd, client_t **client);
 e_mmgr_errors_t remove_client(client_list_t *clients, client_t *client);
 e_mmgr_errors_t set_client_name(client_t *client, char *name, size_t len);
 e_mmgr_errors_t set_client_filter(client_t *client, uint32_t subscription);
 e_mmgr_errors_t find_client(client_list_t *clients, int fd, client_t **client);
-e_mmgr_errors_t is_registererd(client_t *client, bool *state);
 
 e_mmgr_errors_t inform_all_clients(client_list_t *clients,
                                    e_mmgr_events_t state, void *data);
 e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state, void
-                              *data, bool force);
+                              *data);
 e_mmgr_errors_t close_all_clients(client_list_t *clients);
 
 e_mmgr_errors_t check_cold_ack(client_list_t *clients, bool listing);

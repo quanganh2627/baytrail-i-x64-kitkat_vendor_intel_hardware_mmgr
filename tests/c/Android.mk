@@ -10,10 +10,10 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../../service \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
-        hardware/intel/glib/ \
-        hardware/intel/glib/android/ \
-        hardware/intel/glib/glib/ \
-        ../inc
+    vendor/intel/external/glib/ \
+    vendor/intel/external/glib/android/ \
+    vendor/intel/external/glib/glib/ \
+    ../inc
 
 LOCAL_SRC_FILES:= \
     ../../service/at.c \

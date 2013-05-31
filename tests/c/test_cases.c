@@ -428,18 +428,19 @@ int test_libmmgrcli_api(test_data_t *test)
 {
     int ret = E_ERR_FAILED;
     int line = -1;
+    const char name[] = EXE_NAME "_2";
 
     CHECK_PARAM(test, ret, out);
 
     mmgr_cli_requests_t request = {.id = E_MMGR_NUM_REQUESTS };
     mmgr_cli_handle_t *hdle;
 
-    if (mmgr_cli_create_handle(NULL, EXE_NAME, NULL) != E_ERR_CLI_BAD_HANDLE) {
+    if (mmgr_cli_create_handle(NULL, name, NULL) != E_ERR_CLI_BAD_HANDLE) {
         line = __LINE__;
         goto out;
     }
 
-    if (mmgr_cli_create_handle(&hdle, EXE_NAME, NULL) != E_ERR_CLI_BAD_HANDLE) {
+    if (mmgr_cli_create_handle(&hdle, name, NULL) != E_ERR_CLI_BAD_HANDLE) {
         line = __LINE__;
         goto out;
     }
@@ -450,7 +451,7 @@ int test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    if (mmgr_cli_create_handle(&hdle, EXE_NAME, NULL) != E_ERR_CLI_SUCCEED) {
+    if (mmgr_cli_create_handle(&hdle, name, NULL) != E_ERR_CLI_SUCCEED) {
         line = __LINE__;
         goto out;
     }
@@ -510,16 +511,12 @@ int test_libmmgrcli_api(test_data_t *test)
     }
 
     if (mmgr_cli_subscribe_event(test->lib, event_without_ack,
-                                 E_MMGR_ACK) != E_ERR_CLI_SUCCEED) {
+                                 E_MMGR_ACK) != E_ERR_CLI_FAILED) {
         line = __LINE__;
         goto out;
     }
 
-    if (mmgr_cli_unsubscribe_event(test->lib, E_MMGR_NACK) != E_ERR_CLI_SUCCEED) {
-        line = __LINE__;
-        goto out;
-    }
-    if (mmgr_cli_unsubscribe_event(test->lib, E_MMGR_NACK) != E_ERR_CLI_SUCCEED) {
+    if (mmgr_cli_unsubscribe_event(test->lib, E_MMGR_NACK) != E_ERR_CLI_FAILED) {
         line = __LINE__;
         goto out;
     }
@@ -548,6 +545,10 @@ int test_libmmgrcli_api(test_data_t *test)
         line = __LINE__;
         goto out;
     }
+
+    /* ack modem state. Otherwise the mmgr-test callback will block */
+    pthread_mutex_trylock(&test->new_state_read);
+    pthread_mutex_unlock(&test->new_state_read);
 
     if (mmgr_cli_connect(NULL) != E_ERR_CLI_BAD_HANDLE) {
         line = __LINE__;

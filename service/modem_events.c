@@ -27,6 +27,7 @@
 #include "logs.h"
 #include "modem_events.h"
 #include "mux.h"
+#include "property.h"
 #include "security.h"
 #include "timer_events.h"
 #include "tty.h"
@@ -321,9 +322,6 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     mmgr->info.polled_states = 0;
     ret = set_mcd_poll_states(&mmgr->info);
 
-    mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-    inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
-
     mdm_state = MDM_CTRL_STATE_OFF;
     if (ioctl(mmgr->info.fd_mcd, MDM_CTRL_SET_STATE, &mdm_state) == -1)
         LOG_DEBUG("couldn't set MCD state: %s", strerror(errno));
@@ -339,6 +337,9 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
         }
         close_tty(&fd);
     }
+
+    mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
+    inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
 
     close_tty(&mmgr->fd_tty);
     ret = mdm_down(&mmgr->info);
