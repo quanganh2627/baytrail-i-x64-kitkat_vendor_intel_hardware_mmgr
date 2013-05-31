@@ -664,6 +664,22 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
     CHECK_PARAM(info, ret, out);
 
     if (info->is_flashless) {
+        /* Restore calibration file from backup if missing */
+        if (is_file_exists(info->fl_conf.run_cal, 0) != E_ERR_SUCCESS) {
+            if (copy_file
+                (info->fl_conf.bkup_cal, info->fl_conf.run_cal,
+                 FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
+                /* This is not a blocking error case because this can happen in
+                 * production when first calib is about to be done. Just raise a
+                 * warning. */
+                LOG_INFO("No calib could be restored from %s,"
+                         " device must be re-calibrated",
+                         info->fl_conf.bkup_cal);
+            } else {
+                LOG_INFO("Calibration file restored from %s",
+                         info->fl_conf.bkup_cal);
+            }
+        }
         /* re-generates the fls through nvm injection lib if the modem is
          * flashless */
         ret = regen_fls(info);

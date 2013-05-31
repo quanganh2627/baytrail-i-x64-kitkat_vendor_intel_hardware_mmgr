@@ -24,6 +24,8 @@
 #include "file.h"
 #include "logs.h"
 
+#define FILE_COPY_BUFFER_SIZE   4096
+
 /**
  * read a string from a file
  *
@@ -139,5 +141,71 @@ e_mmgr_errors_t is_file_exists(const char *path, unsigned long rights)
         }
     }
 out:
+    return ret;
+}
+
+/**
+* Copies a file from specified source to destination.
+*
+* @param [in] src Source file to copy.
+* @param [in] dst Destination file to copy to.
+* @param [in] dst_mode Mode to give to destination file.
+*
+* @return E_ERR_BAD_PARAMETER if src or dst is NULL
+* @return E_ERR_FAILED file not copied
+* @return E_ERR_SUCCESS file copied
+*/
+e_mmgr_errors_t copy_file(const char *src, const char *dst, mode_t dst_mode)
+{
+    int in_fd = -1;
+    int out_fd = -1;
+    char buff[FILE_COPY_BUFFER_SIZE];
+    ssize_t read_count = 0;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    mode_t old_umask = 0;
+
+    CHECK_PARAM(src, ret, out);
+    CHECK_PARAM(dst, ret, out);
+
+    old_umask = umask(~dst_mode);
+
+    in_fd = open(src, O_RDONLY);
+    if (in_fd < 0) {
+        ret = E_ERR_FAILED;
+        LOG_DEBUG("Cannot open source file, errno = %d", errno);
+        goto out;
+    }
+
+    out_fd = open(dst, O_CREAT | O_WRONLY | O_TRUNC, dst_mode);
+    if (out_fd < 0) {
+        ret = E_ERR_FAILED;
+        LOG_DEBUG("Cannot create destination file, errno = %d", errno);
+        goto out;
+    }
+
+    do {
+        read_count = read(in_fd, buff, sizeof(buff));
+        if (read_count > 0) {
+            if (write(out_fd, buff, read_count) != read_count) {
+                LOG_DEBUG("Failed writing destination file, errno = %d", errno);
+                ret = E_ERR_FAILED;
+                break;
+            }
+        } else if (read_count < 0) {
+            LOG_DEBUG("Failed reading source file, errno = %d", errno);
+            ret = E_ERR_FAILED;
+        }
+    } while (read_count > 0);
+
+out:
+    if (in_fd >= 0) {
+        close(in_fd);
+    }
+    if (out_fd >= 0) {
+        if (close(out_fd) < 0) {
+            LOG_DEBUG("Error while closing %s: %d", dst, errno);
+        }
+    }
+    umask(old_umask);
     return ret;
 }

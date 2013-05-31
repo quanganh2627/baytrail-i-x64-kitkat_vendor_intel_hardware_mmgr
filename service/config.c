@@ -71,7 +71,7 @@
 
 /* flashless default params: */
 #define DEF_RUN_FILES_PATH "/config/telephony"
-#define DEF_FW_FILES_PATH "/system/etc/firmware/modem/toApply"
+#define DEF_FW_FILES_PATH "/config/telephony"
 #define DEF_BOOT_FLS "modem.fls"
 #define DEF_INJ_FLS "injectedModem.fls"
 #define DEF_CALIBRATION "calib.nvm"
