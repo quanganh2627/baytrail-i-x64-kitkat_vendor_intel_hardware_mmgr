@@ -419,13 +419,11 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
     }
 
     secur_get_callback(secur, &secur_callback);
-    if (secur_callback != NULL) {
-        if (E_MUP_SUCCEED !=
-            info->mup.config_secur_channel(handle, secur_callback, rnd, len)) {
-            LOG_ERROR("failed to configure secur channel");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    if (E_MUP_SUCCEED !=
+        info->mup.config_secur_channel(handle, secur_callback, rnd, len)) {
+        LOG_ERROR("failed to configure secur channel");
+        ret = E_ERR_FAILED;
+        goto out;
     }
 
     if (E_MUP_SUCCEED == info->mup.update_fw(&params)) {
