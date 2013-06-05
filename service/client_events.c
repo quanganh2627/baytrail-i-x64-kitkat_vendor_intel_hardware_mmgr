@@ -26,6 +26,7 @@
 #include "logs.h"
 #include "modem_events.h"
 #include "modem_specific.h"
+#include "property.h"
 #include "timer_events.h"
 #include "msg_to_data.h"
 #include "tty.h"
@@ -255,7 +256,7 @@ static e_mmgr_errors_t resource_acquire_stop_down(mmgr_data_t *mmgr)
 
     mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
 
-    /* At least one client has acquired the resource and modem shutdown *
+    /* At least one client has acquired the resource and modem shutdown
      * procedure is on going. Stop it */
     mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
     stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
@@ -637,6 +638,7 @@ static e_mmgr_errors_t request_fake_up(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     CHECK_PARAM(mmgr, ret, out);
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
 out:
     return ret;
@@ -646,6 +648,7 @@ static e_mmgr_errors_t request_fake_down(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     CHECK_PARAM(mmgr, ret, out);
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 out:
     return ret;
@@ -655,6 +658,7 @@ static e_mmgr_errors_t request_fake_shtdwn(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     CHECK_PARAM(mmgr, ret, out);
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
 out:
     return ret;
@@ -664,6 +668,7 @@ static e_mmgr_errors_t request_fake_oos(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     CHECK_PARAM(mmgr, ret, out);
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
 out:
     return ret;
@@ -673,6 +678,7 @@ static e_mmgr_errors_t request_fake_cdd(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     CHECK_PARAM(mmgr, ret, out);
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
 out:
     return ret;
@@ -682,6 +688,7 @@ static e_mmgr_errors_t request_fake_ptfrmreboot(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     CHECK_PARAM(mmgr, ret, out);
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_PLATFORM_REBOOT, NULL);
 out:
     return ret;
@@ -691,6 +698,7 @@ static e_mmgr_errors_t request_fake_self_reset(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     CHECK_PARAM(mmgr, ret, out);
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_SELF_RESET, NULL);
 out:
     return ret;
@@ -704,6 +712,7 @@ static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
     char data[1] = "";
 
     CHECK_PARAM(mmgr, ret, out);
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
 
     snprintf(filename, PATH_MAX - 1, "%s/%s",
              mmgr->info.mcdr.data.path, FAKE_CD_FILENAME);
@@ -727,6 +736,7 @@ out:
 
 static e_mmgr_errors_t request_fake_ap_reset(mmgr_data_t *mmgr)
 {
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     return notify_ap_reset(mmgr);
 }
 
@@ -736,6 +746,8 @@ static e_mmgr_errors_t request_fake_error(mmgr_data_t *mmgr)
     mmgr_cli_error_t err = {.id = FAKE_ERROR_ID };
 
     CHECK_PARAM(mmgr, ret, out);
+
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
 
     err.len = strlen(FAKE_ERROR_REASON);
     err.reason = malloc(sizeof(char) * err.len);
@@ -774,6 +786,8 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i, j;
+    bool fake_requests = false;
+    char build_type[PROPERTY_VALUE_MAX];
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -781,8 +795,13 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
 
     /* NB: Never accept client request during MDM_RESET or MDM_CONF_ONGOING
      * event */
-
+    property_get_string(PROPERTY_BUILD_TYPE, build_type);
     mmgr->events.cli_req = E_CLI_REQ_NONE;
+
+    /* Only enable fake requests for eng build */
+    if (strncmp(build_type, FAKE_EVENTS_BUILD_TYPE, PROPERTY_VALUE_MAX) == 0)
+        fake_requests = true;
+
     /* set default behavior */
     for (i = 0; i < E_MMGR_NUM; i++)
         for (j = 0; j < E_MMGR_NUM_REQUESTS; j++)
@@ -796,23 +815,27 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
 
         mmgr->hdler_client[i][E_MMGR_SET_NAME] = request_set_name;
         mmgr->hdler_client[i][E_MMGR_SET_EVENTS] = request_set_events;
-        /* fake requests */
-        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_DOWN] = request_fake_down;
-        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_UP] = request_fake_up;
-        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_MODEM_SHUTDOWN] =
-            request_fake_shtdwn;
-        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_MODEM_OUT_OF_SERVICE] =
-            request_fake_oos;
-        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_CORE_DUMP] = request_fake_cdd;
-        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_PLATFORM_REBOOT] =
-            request_fake_ptfrmreboot;
-        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_CORE_DUMP_COMPLETE] =
-            request_fake_cdd_complete;
-        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_AP_RESET] =
-            request_fake_ap_reset;
-        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_SELF_RESET] =
-            request_fake_self_reset;
-        mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_ERROR] = request_fake_error;
+        if (fake_requests) {
+            /* fake requests */
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_DOWN] = request_fake_down;
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_UP] = request_fake_up;
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_MODEM_SHUTDOWN] =
+                request_fake_shtdwn;
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_MODEM_OUT_OF_SERVICE] =
+                request_fake_oos;
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_CORE_DUMP] =
+                request_fake_cdd;
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_PLATFORM_REBOOT] =
+                request_fake_ptfrmreboot;
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_CORE_DUMP_COMPLETE] =
+                request_fake_cdd_complete;
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_AP_RESET] =
+                request_fake_ap_reset;
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_SELF_RESET] =
+                request_fake_self_reset;
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_ERROR] =
+                request_fake_error;
+        }
     }
 
     /* E_MMGR_RESOURCE_ACQUIRE */

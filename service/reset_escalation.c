@@ -97,7 +97,7 @@ e_mmgr_errors_t recov_start(reset_management_t *reset)
             LOG_DEBUG("Last reset occurred at least %ds ago",
                       reset->config->min_time_issue);
             recov_reinit(reset);
-            set_property(PLATFORM_REBOOT_KEY, reboot_counter);
+            property_set_int(PLATFORM_REBOOT_KEY, reboot_counter);
         }
     }
 
@@ -134,13 +134,13 @@ out:
 int recov_get_reboot(void)
 {
     int reboot_counter;
-    get_property(PLATFORM_REBOOT_KEY, &reboot_counter);
+    property_get_int(PLATFORM_REBOOT_KEY, &reboot_counter);
     return reboot_counter;
 }
 
 void recov_set_reboot(int reboot)
 {
-    set_property(PLATFORM_REBOOT_KEY, reboot);
+    property_set_int(PLATFORM_REBOOT_KEY, reboot);
 }
 
 /**

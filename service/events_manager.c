@@ -110,7 +110,7 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     mmgr->fd_cnx = CLOSED_FD;
     mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
 
-    get_property(TEL_STACK_PROPERTY, &disable_telephony);
+    property_get_int(TEL_STACK_PROPERTY, &disable_telephony);
     if (disable_telephony == 1) {
         LOG_DEBUG("telephony stack is disabled");
         mdm_down(&mmgr->info);

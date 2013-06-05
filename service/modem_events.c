@@ -27,7 +27,6 @@
 #include "logs.h"
 #include "modem_events.h"
 #include "mux.h"
-#include "property.h"
 #include "security.h"
 #include "timer_events.h"
 #include "tty.h"

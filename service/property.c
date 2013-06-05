@@ -16,12 +16,12 @@
  **
  */
 
-#include <cutils/properties.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include "errors.h"
 #include "logs.h"
+#include "property.h"
 
 /**
  * Store the value in an Android property
@@ -33,7 +33,7 @@
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if not
  */
-e_mmgr_errors_t set_property(const char *key, int value)
+e_mmgr_errors_t property_set_int(const char *key, int value)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     char write_value[PROPERTY_VALUE_MAX];
@@ -63,7 +63,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if not
  */
-e_mmgr_errors_t get_property(const char *key, int *value)
+e_mmgr_errors_t property_get_int(const char *key, int *value)
 {
     char read_value[PROPERTY_VALUE_MAX];
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -79,6 +79,37 @@ e_mmgr_errors_t get_property(const char *key, int *value)
     }
 
     LOG_DEBUG("%s: %d", key, *value);
+out:
+    return ret;
+}
+
+/**
+ * Get the value from an Android property
+ * If the key doesn't exist, the default value is returned: ""
+ *
+ * @param [in] key property key
+ * @param [out] value read value
+ *
+ * @return E_OPERATION_BAD_PARAMETER: if key or value is/are NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED if not
+ */
+e_mmgr_errors_t property_get_string(const char *key, char *value)
+{
+    char read_value[PROPERTY_VALUE_MAX];
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int len;
+
+    CHECK_PARAM(key, ret, out);
+    CHECK_PARAM(value, ret, out);
+
+    memset(read_value, 0, PROPERTY_VALUE_MAX);
+    property_get(key, read_value, "");
+    len = strnlen(read_value, PROPERTY_VALUE_MAX - 1);
+    strncpy(value, read_value, len);
+    value[len] = '\0';
+
+    LOG_DEBUG("%s: %s", key, value);
 out:
     return ret;
 }

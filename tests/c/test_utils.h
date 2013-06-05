@@ -60,5 +60,7 @@ int reset_by_client_request(test_data_t *events_data,
 
 int at_self_reset(test_data_t *events_data);
 int at_core_dump(test_data_t *events_data);
+int request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
+                    e_mmgr_events_t answer, bool check_result);
 
 #endif                          /* __MMGR_TEST_UTILS_FILE__ */

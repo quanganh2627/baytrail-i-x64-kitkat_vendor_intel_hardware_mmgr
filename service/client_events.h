@@ -26,6 +26,7 @@
 
 #define FAKE_CD_FILENAME "cd_fake_coredump.tgz"
 #define FAKE_CD_ID 159374682
+#define FAKE_EVENTS_BUILD_TYPE "eng"
 
 e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr);
 e_mmgr_errors_t new_client(mmgr_data_t *mmgr);

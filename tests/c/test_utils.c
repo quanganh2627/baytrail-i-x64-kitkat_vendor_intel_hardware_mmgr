@@ -32,6 +32,7 @@
 #include "client_events.h"
 #include "errors.h"
 #include "file.h"
+#include "property.h"
 #include "test_utils.h"
 #include "tty.h"
 
@@ -585,7 +586,6 @@ int event_without_ack(mmgr_cli_event_t *ev)
     ret = set_and_notify(ev->id, (test_data_t *)ev->context);
 out:
     return ret;
-
 }
 
 /**
@@ -873,6 +873,51 @@ int at_self_reset(test_data_t *test)
      * test */
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
                          TIMEOUT_MODEM_UP_AFTER_RESET);
+out:
+    return ret;
+}
+
+static bool is_fake_events_allowed(void)
+{
+    char build_type[PROPERTY_VALUE_MAX];
+    bool answer = false;
+
+    property_get_string(PROPERTY_BUILD_TYPE, build_type);
+    if (strncmp(build_type, FAKE_EVENTS_BUILD_TYPE, PROPERTY_VALUE_MAX) == 0)
+        answer = true;
+
+    return answer;
+}
+
+int request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
+                    e_mmgr_events_t answer, bool check_result)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    e_err_mmgr_cli_t err = E_ERR_CLI_FAILED;
+    mmgr_cli_requests_t request = {.id = id };
+
+    CHECK_PARAM(test, ret, out);
+
+    test->test_succeed = false;
+    err = mmgr_cli_send_msg(test->lib, &request);
+
+    if (!is_fake_events_allowed()) {
+        if (err == E_ERR_CLI_SUCCEED) {
+            LOG_ERROR("fake request APPROVED in production");
+        } else {
+            LOG_DEBUG("fake request REJECTED in production");
+            ret = E_ERR_SUCCESS;
+        }
+    } else {
+        if (err == E_ERR_CLI_SUCCEED) {
+            ret = wait_for_state(test, answer, false,
+                                 TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+            if (check_result && !test->test_succeed)
+                ret = E_ERR_FAILED;
+        }
+
+    }
 out:
     return ret;
 }
