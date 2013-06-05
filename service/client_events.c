@@ -254,9 +254,9 @@ static e_mmgr_errors_t resource_acquire_stop_down(mmgr_data_t *mmgr)
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
 
     mmgr->request.client->cnx &= ~E_CNX_RESOURCE_RELEASED;
-    
-    /* At least one client has acquired the resource and modem shutdown
-    * procedure is on going. Stop it */
+
+    /* At least one client has acquired the resource and modem shutdown *
+     * procedure is on going. Stop it */
     mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
     stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
     mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;

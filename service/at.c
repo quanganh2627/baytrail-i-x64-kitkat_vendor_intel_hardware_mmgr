@@ -129,9 +129,7 @@ e_mmgr_errors_t send_at_retry(int fd_tty, const char *at_cmd, int at_cmd_size,
 
     CHECK_PARAM(at_cmd, err, out);
 
-
-    /* Send AT until we get a valid response from modem,
-       or after retry retries */
+    /* Send AT until we get a valid response or after retry retries */
     for (; retry >= 0; retry--) {
         err = send_at(fd_tty, at_cmd, at_cmd_size, timeout);
         if ((err == E_ERR_TTY_BAD_FD) || (err == E_ERR_TTY_POLLHUP) ||
