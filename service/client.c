@@ -212,6 +212,8 @@ e_mmgr_errors_t initialize_list(client_list_t *clients, int list_size)
     clients->set_data[E_MMGR_NOTIFY_AP_RESET] = set_msg_ap_reset;
     clients->set_data[E_MMGR_NOTIFY_CORE_DUMP_COMPLETE] = set_msg_core_dump;
     clients->set_data[E_MMGR_NOTIFY_ERROR] = set_msg_error;
+    clients->set_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] =
+        set_msg_modem_fw_result;
 
 out:
     return ret;
