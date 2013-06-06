@@ -43,24 +43,25 @@ typedef struct test_data {
     bool test_succeed;
 } test_data_t;
 
-int modem_state_set(test_data_t *test_data, int state);
-int compare_file_content(const char *path, const char *data, int len);
-int wait_for_state(test_data_t *thread_data, int state, bool wakelock,
-                   int timeout);
-int is_core_dump_found(char *filename, const char *core_dump_dir);
-int cleanup_modemcrash_dir(const char *path);
-int configure_client_library(test_data_t *data);
-int cleanup_client_library(test_data_t *data);
+e_mmgr_errors_t modem_state_set(test_data_t *test_data, int state);
+e_mmgr_errors_t compare_file_content(const char *path, const char *data,
+                                     int len);
+e_mmgr_errors_t wait_for_state(test_data_t *thread_data, int state,
+                               bool wakelock, int timeout);
+e_mmgr_errors_t is_core_dump_found(char *filename, const char *core_dump_dir);
+e_mmgr_errors_t cleanup_modemcrash_dir(const char *path);
+e_mmgr_errors_t configure_client_library(test_data_t *data);
+e_mmgr_errors_t cleanup_client_library(test_data_t *data);
 int event_without_ack(mmgr_cli_event_t *ev);
 
-int reset_by_client_request(test_data_t *events_data,
-                            e_mmgr_requests_t request,
-                            e_mmgr_events_t notification,
-                            e_mmgr_events_t final_state);
+e_mmgr_errors_t reset_by_client_request(test_data_t *events_data,
+                                        e_mmgr_requests_t request,
+                                        e_mmgr_events_t notification,
+                                        e_mmgr_events_t final_state);
 
-int at_self_reset(test_data_t *events_data);
-int at_core_dump(test_data_t *events_data);
-int request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
-                    e_mmgr_events_t answer, bool check_result);
+e_mmgr_errors_t at_self_reset(test_data_t *events_data);
+e_mmgr_errors_t at_core_dump(test_data_t *events_data);
+e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
+                                e_mmgr_events_t answer, bool check_result);
 
 #endif                          /* __MMGR_TEST_UTILS_FILE__ */

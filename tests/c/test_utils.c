@@ -69,9 +69,9 @@ const char *g_mmgr_events[] = {
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if successful
  */
-int modem_state_set(test_data_t *test_data, int state)
+e_mmgr_errors_t modem_state_set(test_data_t *test_data, int state)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(test_data, ret, out);
 
@@ -92,9 +92,9 @@ out:
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static int modem_state_get(test_data_t *test_data, int *state)
+static e_mmgr_errors_t modem_state_get(test_data_t *test_data, int *state)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(test_data, ret, out);
     CHECK_PARAM(state, ret, out);
@@ -120,10 +120,10 @@ out:
  * @return E_ERR_TTY_BAD_FD if a bad file descriptor is provided
  * @return E_ERR_BAD_PARAMETER if command is NULL
  */
-int send_at_cmd(char *path, char *command, int command_size)
+e_mmgr_errors_t send_at_cmd(char *path, char *command, int command_size)
 {
     int fd_tty = CLOSED_FD;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
 
     CHECK_PARAM(command, ret, out);
 
@@ -201,11 +201,11 @@ bool get_wakelock_state(void)
  * @return E_ERR_FAILED otherwise
  * @return E_ERR_BAD_PARAMETER if filename or/and path is/are NULL
  */
-int is_core_dump_found(char *filename, const char *path)
+e_mmgr_errors_t is_core_dump_found(char *filename, const char *path)
 {
     struct dirent **folder_list = NULL;
     struct dirent **files_list = NULL;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     int folders_number = -1;
     int files_number = -1;
     char folder_name[FILENAME_SIZE];
@@ -270,10 +270,10 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-int wait_for_state(test_data_t *test_data, int state, bool wakelock,
-                   int timeout)
+e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
+                               int timeout)
 {
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     int current_state = 0;
     struct timespec ts;
     struct timeval start;
@@ -341,9 +341,10 @@ out:
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS
  */
-static int set_and_notify(e_mmgr_requests_t id, test_data_t *test_data)
+static e_mmgr_errors_t set_and_notify(e_mmgr_requests_t id,
+                                      test_data_t *test_data)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(test_data, ret, out);
 
@@ -368,18 +369,17 @@ out:
  *
  * @param [in] ev current info callback data
  *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
- * @return E_ERR_FAILED if failed to send ACK
- * @return E_ERR_SUCCESS
+ * @return 0 if successful
+ * @return 1 otherwise
  */
 static int event_modem_shutdown(mmgr_cli_event_t *ev)
 {
-    e_err_mmgr_cli_t err;
-    int ret = E_ERR_FAILED;
+    int ret = 1;
+    e_err_mmgr_cli_t err = E_ERR_CLI_FAILED;
     test_data_t *test_data = NULL;
     mmgr_cli_requests_t request = {.id = E_MMGR_ACK_MODEM_SHUTDOWN };
 
-    CHECK_PARAM(ev, ret, out);
+    CHECK_PARAM(ev, err, out);
 
     test_data = (test_data_t *)ev->context;
     if (test_data == NULL)
@@ -387,52 +387,74 @@ static int event_modem_shutdown(mmgr_cli_event_t *ev)
 
     set_and_notify(ev->id, (test_data_t *)ev->context);
     err = mmgr_cli_send_msg(test_data->lib, &request);
-    if (err != E_ERR_CLI_SUCCEED) {
+    if (err == E_ERR_CLI_SUCCEED)
+        ret = 0;
+    else
         LOG_ERROR("Failed to send E_MMGR_ACK_MODEM_SHUTDOWN");
-    } else {
-        ret = E_ERR_SUCCESS;
-    }
 
 out:
     return ret;
 }
 
+/**
+ * callback for event error
+ *
+ * @param [in] ev current info callback data
+ *
+ * @return 0 if successful
+ * @return 1 otherwise
+ */
 static int event_error(mmgr_cli_event_t *ev)
 {
-    int ret = E_ERR_FAILED;
+    int ret = 1;
+    e_mmgr_errors_t err = E_ERR_FAILED;
     test_data_t *data = NULL;
-    mmgr_cli_error_t *err = NULL;
+    mmgr_cli_error_t *cli_err = NULL;
 
-    CHECK_PARAM(ev, ret, out);
+    CHECK_PARAM(ev, err, out);
+
     data = (test_data_t *)ev->context;
     if (data == NULL)
         goto out;
 
     data->test_succeed = false;
 
-    err = (mmgr_cli_error_t *)ev->data;
-    if (err == NULL) {
+    cli_err = (mmgr_cli_error_t *)ev->data;
+    if (cli_err == NULL) {
         LOG_ERROR("empty data");
         goto out;
     }
-    LOG_DEBUG("error {id:%d reason:\"%s\" len:%d}", err->id, err->reason,
-              err->len);
-    if ((err->len == strlen(FAKE_ERROR_REASON)) &&
-        (strncmp(FAKE_ERROR_REASON, err->reason, err->len) == 0))
+    LOG_DEBUG("error {id:%d reason:\"%s\" len:%d}", cli_err->id,
+              cli_err->reason, cli_err->len);
+    if ((cli_err->len == strlen(FAKE_ERROR_REASON))
+        && (strncmp(FAKE_ERROR_REASON, cli_err->reason, cli_err->len) == 0))
         data->test_succeed = true;
 
-    ret = set_and_notify(ev->id, (test_data_t *)ev->context);
+    err = set_and_notify(ev->id, (test_data_t *)ev->context);
+    if (err == E_ERR_SUCCESS)
+        ret = 0;
+
 out:
     return ret;
 }
 
+/**
+ * callback for ap reset
+ *
+ * @param [in] ev current info callback data
+ *
+ * @return 0 if successful
+ * @return 1 otherwise
+ */
 static int event_ap_reset(mmgr_cli_event_t *ev)
 {
-    int ret = E_ERR_FAILED;
+    int ret = 1;
+    e_mmgr_errors_t err = E_ERR_FAILED;
     test_data_t *data = NULL;
     mmgr_cli_ap_reset_t *ap = NULL;
 
-    CHECK_PARAM(ev, ret, out);
+    CHECK_PARAM(ev, err, out);
+
     data = (test_data_t *)ev->context;
     if (data == NULL)
         goto out;
@@ -449,19 +471,32 @@ static int event_ap_reset(mmgr_cli_event_t *ev)
         (strncmp(EXE_NAME, ap->name, ap->len) == 0))
         data->test_succeed = true;
 
-    ret = set_and_notify(ev->id, (test_data_t *)ev->context);
+    err = set_and_notify(ev->id, (test_data_t *)ev->context);
+    if (err == E_ERR_SUCCESS)
+        ret = 0;
+
 out:
     return ret;
 }
 
+/**
+ * callback for core dump
+ *
+ * @param [in] ev current info callback data
+ *
+ * @return 0 if successful
+ * @return 1 otherwise
+ */
 static int event_core_dump(mmgr_cli_event_t *ev)
 {
-    int ret = E_ERR_FAILED;
+    int ret = 1;
+    e_mmgr_errors_t err = E_ERR_FAILED;
     test_data_t *data = NULL;
     mmgr_cli_core_dump_t *cd = NULL;
     char *base_name = NULL;
 
-    CHECK_PARAM(ev, ret, out);
+    CHECK_PARAM(ev, err, out);
+
     data = (test_data_t *)ev->context;
     if (data == NULL)
         goto out;
@@ -498,7 +533,10 @@ static int event_core_dump(mmgr_cli_event_t *ev)
         data->test_succeed = true;
     }
 
-    ret = set_and_notify(ev->id, (test_data_t *)ev->context);
+    err = set_and_notify(ev->id, (test_data_t *)ev->context);
+    if (err == E_ERR_SUCCESS)
+        ret = 0;
+
 out:
     return ret;
 }
@@ -508,17 +546,18 @@ out:
  *
  * @param [in] ev current info callback data
  *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
- * @return E_ERR_FAILED if failed to send ACK
- * @return E_ERR_SUCCESS
+ * @return 0 if successful
+ * @return 1 otherwise
  */
-static int fw_status(mmgr_cli_event_t *ev)
+static int event_fw_status(mmgr_cli_event_t *ev)
 {
-    int ret = E_ERR_FAILED;
+    int ret = 1;
+    e_mmgr_errors_t err = E_ERR_FAILED;
     test_data_t *data = NULL;
     mmgr_cli_fw_update_result_t *fw = NULL;
 
-    CHECK_PARAM(ev, ret, out);
+    CHECK_PARAM(ev, err, out);
+
     data = (test_data_t *)ev->context;
     if (data == NULL)
         goto out;
@@ -529,7 +568,10 @@ static int fw_status(mmgr_cli_event_t *ev)
         goto out;
     }
     LOG_DEBUG("fw id:%d", fw->id);
-    ret = set_and_notify(ev->id, (test_data_t *)ev->context);
+    err = set_and_notify(ev->id, (test_data_t *)ev->context);
+    if (err == E_ERR_SUCCESS)
+        ret = 0;
+
 out:
     return ret;
 }
@@ -539,29 +581,29 @@ out:
  *
  * @param [in] ev current info callback data
  *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
- * @return E_ERR_FAILED if failed to send ACK
- * @return E_ERR_SUCCESS
+ * @return 0 if successful
+ * @return 1 otherwise
  */
 static int event_cold_reset(mmgr_cli_event_t *ev)
 {
-    e_err_mmgr_cli_t err;
-    int ret = E_ERR_FAILED;
+    int ret = 1;
+    e_err_mmgr_cli_t err = E_ERR_CLI_FAILED;
     mmgr_cli_requests_t request = {.id = E_MMGR_ACK_MODEM_COLD_RESET };
     test_data_t *test_data = NULL;
 
-    CHECK_PARAM(ev, ret, out);
+    CHECK_PARAM(ev, err, out);
 
     test_data = (test_data_t *)ev->context;
     if (test_data == NULL)
         goto out;
 
     set_and_notify(ev->id, (test_data_t *)ev->context);
+
     err = mmgr_cli_send_msg(test_data->lib, &request);
     if (err != E_ERR_CLI_SUCCEED) {
         LOG_ERROR("Failed to send E_MMGR_ACK_MODEM_SHUTDOWN");
     } else {
-        ret = E_ERR_SUCCESS;
+        ret = 0;
     }
 
 out:
@@ -573,17 +615,20 @@ out:
  *
  * @param [in] ev current info callback data
  *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
- * @return E_ERR_FAILED if failed to send ACK
- * @return E_ERR_SUCCESS
+ * @return 0 if successful
+ * @return 1 otherwise
  */
 int event_without_ack(mmgr_cli_event_t *ev)
 {
-    int ret = E_ERR_SUCCESS;
+    int ret = 1;
+    e_mmgr_errors_t err;
 
-    CHECK_PARAM(ev, ret, out);
+    CHECK_PARAM(ev, err, out);
 
-    ret = set_and_notify(ev->id, (test_data_t *)ev->context);
+    err = set_and_notify(ev->id, (test_data_t *)ev->context);
+    if (err == E_ERR_SUCCESS)
+        ret = 0;
+
 out:
     return ret;
 }
@@ -596,9 +641,9 @@ out:
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS
  */
-int cleanup_client_library(test_data_t *test_data)
+e_mmgr_errors_t cleanup_client_library(test_data_t *test_data)
 {
-    int ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(test_data, ret, out);
 
@@ -618,6 +663,7 @@ int cleanup_client_library(test_data_t *test_data)
     } else {
         test_data->lib = NULL;
     }
+
 out:
     return ret;
 }
@@ -631,9 +677,9 @@ out:
  * @return E_ERR_FAILED if fails
  * @return E_ERR_SUCCESS if successsful
  */
-int configure_client_library(test_data_t *test_data)
+e_mmgr_errors_t configure_client_library(test_data_t *test_data)
 {
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     e_err_mmgr_cli_t err;
 
     CHECK_PARAM(test_data, ret, out);
@@ -699,7 +745,7 @@ int configure_client_library(test_data_t *test_data)
                                  E_MMGR_NOTIFY_ERROR) != E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, fw_status,
+    if (mmgr_cli_subscribe_event(test_data->lib, event_fw_status,
                                  E_MMGR_RESPONSE_MODEM_FW_RESULT)
         != E_ERR_CLI_SUCCEED)
         goto out;
@@ -730,12 +776,12 @@ out:
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
-int reset_by_client_request(test_data_t *data_test,
-                            e_mmgr_requests_t id,
-                            e_mmgr_events_t notification,
-                            e_mmgr_events_t final_state)
+e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
+                                        e_mmgr_requests_t id,
+                                        e_mmgr_events_t notification,
+                                        e_mmgr_events_t final_state)
 {
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     mmgr_cli_requests_t request = {.id = id };
 
     CHECK_PARAM(data_test, ret, out);
@@ -781,9 +827,9 @@ out:
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
-int at_core_dump(test_data_t *test)
+e_mmgr_errors_t at_core_dump(test_data_t *test)
 {
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     int err;
 
     CHECK_PARAM(test, ret, out);
@@ -836,10 +882,10 @@ out:
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
-int at_self_reset(test_data_t *test)
+e_mmgr_errors_t at_self_reset(test_data_t *test)
 {
-    int ret = E_ERR_FAILED;
-    int err;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    e_mmgr_errors_t err;
 
     CHECK_PARAM(test, ret, out);
 
@@ -889,8 +935,8 @@ static bool is_fake_events_allowed(void)
     return answer;
 }
 
-int request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
-                    e_mmgr_events_t answer, bool check_result)
+e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
+                                e_mmgr_events_t answer, bool check_result)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     e_err_mmgr_cli_t err = E_ERR_CLI_FAILED;

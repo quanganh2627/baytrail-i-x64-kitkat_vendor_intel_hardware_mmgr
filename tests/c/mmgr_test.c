@@ -66,7 +66,7 @@
 
 typedef struct test_case {
     char desc[DESCRIPTION_LEN];
-    int (*func) (test_data_t *data);
+    e_mmgr_errors_t (*func) (test_data_t *data);
     char name[DESCRIPTION_LEN];
 } test_case_t;
 
@@ -80,10 +80,10 @@ typedef struct test_case {
  * @return E_ERR_OUT_OF_SERVICE if modem is out of service
  * @return E_ERR_BAD_PARAMETER if at least one bad parameter is given
  */
-int run_test(test_case_t *test)
+e_mmgr_errors_t run_test(test_case_t *test)
 {
     test_data_t test_data;
-    int ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     int result = 1;
     char *state[] = { "SUCCEED", "FAILED",
         "SUCCEED but modem is OUT due to correct reset escalation behavior"
@@ -126,6 +126,9 @@ int run_test(test_case_t *test)
         break;
     case E_ERR_BAD_PARAMETER:
         LOG_DEBUG("bad param");
+        break;
+    default:
+        LOG_ERROR("bad returned value");
         break;
     }
     printf(PRINT_TEST, "result has", test->desc, state[result]);
@@ -225,7 +228,7 @@ void usage(test_case_t *test, int nb)
  */
 int main(int argc, char *argv[])
 {
-    int err = E_ERR_FAILED;
+    e_mmgr_errors_t err = E_ERR_FAILED;
     int choice;
     int ret = EXIT_SUCCESS;
     int test_id = INVALID_TEST;

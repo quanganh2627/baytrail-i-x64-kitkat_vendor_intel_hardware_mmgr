@@ -21,27 +21,27 @@
 
 #include "test_utils.h"
 
-int modem_self_reset(test_data_t *events_data);
-int reset_with_cd(test_data_t *events_data);
-int modem_restart(test_data_t *events_data);
-int modem_recovery(test_data_t *events_data);
-int turn_off_modem(test_data_t *events_data);
-int turn_on_modem(test_data_t *events_data);
-int full_recovery(test_data_t *events_data);
-int reset_counter(test_data_t *events_data);
-int resource_check(test_data_t *events_data);
-int test_libmmgrcli_api(test_data_t *events_data);
-int resource_acquire(test_data_t *test);
-int resource_release(test_data_t *test);
-int fake_modem_down(test_data_t *test);
-int fake_modem_up(test_data_t *test);
-int fake_modem_shtdwn(test_data_t *test);
-int fake_modem_hs(test_data_t *test);
-int fake_cd(test_data_t *test);
-int fake_cd_complete(test_data_t *test);
-int fake_ap_reset(test_data_t *test);
-int fake_reboot(test_data_t *test);
-int fake_error(test_data_t *test);
-int fake_self_reset(test_data_t *test);
+e_mmgr_errors_t modem_self_reset(test_data_t *events_data);
+e_mmgr_errors_t reset_with_cd(test_data_t *events_data);
+e_mmgr_errors_t modem_restart(test_data_t *events_data);
+e_mmgr_errors_t modem_recovery(test_data_t *events_data);
+e_mmgr_errors_t turn_off_modem(test_data_t *events_data);
+e_mmgr_errors_t turn_on_modem(test_data_t *events_data);
+e_mmgr_errors_t full_recovery(test_data_t *events_data);
+e_mmgr_errors_t reset_counter(test_data_t *events_data);
+e_mmgr_errors_t resource_check(test_data_t *events_data);
+e_mmgr_errors_t test_libmmgrcli_api(test_data_t *events_data);
+e_mmgr_errors_t resource_acquire(test_data_t *test);
+e_mmgr_errors_t resource_release(test_data_t *test);
+e_mmgr_errors_t fake_modem_down(test_data_t *test);
+e_mmgr_errors_t fake_modem_up(test_data_t *test);
+e_mmgr_errors_t fake_modem_shtdwn(test_data_t *test);
+e_mmgr_errors_t fake_modem_hs(test_data_t *test);
+e_mmgr_errors_t fake_cd(test_data_t *test);
+e_mmgr_errors_t fake_cd_complete(test_data_t *test);
+e_mmgr_errors_t fake_ap_reset(test_data_t *test);
+e_mmgr_errors_t fake_reboot(test_data_t *test);
+e_mmgr_errors_t fake_error(test_data_t *test);
+e_mmgr_errors_t fake_self_reset(test_data_t *test);
 
 #endif                          /* __MMGR_TEST_CASES_FILE__ */
