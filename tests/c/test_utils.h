@@ -31,6 +31,13 @@
 #define TIMEOUT_MODEM_DOWN_AFTER_CMD 20
 #define TIMEOUT_MODEM_UP_AFTER_RESET 600
 
+typedef enum e_events {
+    E_EVENTS_NONE = 0x0,
+    E_EVENTS_ERROR_OCCURED = 0x1,
+    E_EVENTS_SUCCEED = 0x1 << 1,
+    E_EVENTS_MODEM_OOS = 0x1 << 2,
+} e_events_t;
+
 typedef struct test_data {
     pthread_mutex_t new_state_read;
     pthread_mutex_t mutex;
@@ -40,10 +47,11 @@ typedef struct test_data {
     int modem_state;
     mmgr_configuration_t config;
     mmgr_cli_handle_t *lib;
-    bool test_succeed;
+    e_events_t events;
 } test_data_t;
 
 e_mmgr_errors_t modem_state_set(test_data_t *test_data, int state);
+e_events_t events_get(test_data_t *test_data);
 e_mmgr_errors_t compare_file_content(const char *path, const char *data,
                                      int len);
 e_mmgr_errors_t wait_for_state(test_data_t *thread_data, int state,

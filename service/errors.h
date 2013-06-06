@@ -29,8 +29,6 @@ typedef enum e_mmgr_errors {
     E_ERR_AT_CMD_RESEND,
     /* Config file errors */
     E_ERR_MISSING_FILE,
-    /* mmgr-test purpose */
-    E_ERR_MODEM_OUT,
     /* Client */
     E_ERR_DISCONNECTED,
     /* General */
