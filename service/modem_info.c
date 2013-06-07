@@ -204,6 +204,8 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, mmgr_configuration_t *config,
 
     tcflush(fd_tty, TCIOFLUSH);
 
+    LOG_DEBUG("Send of %s", AT_XLOG_GET);
+
     ret = write_to_tty(fd_tty, AT_XLOG_GET, strlen(AT_XLOG_GET));
     if (ret != E_ERR_SUCCESS)
         goto out_xlog;
@@ -238,9 +240,9 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, mmgr_configuration_t *config,
         }
     } while (read_size > 0);
 
-    ret = send_at_timeout(fd_tty, AT_XLOG_RESET, strlen(AT_XLOG_RESET),
-                          config->max_retry_time);
     tcflush(fd_tty, TCIFLUSH);
+    ret = send_at_retry(fd_tty, AT_XLOG_RESET, strlen(AT_XLOG_RESET),
+                        config->max_retry, AT_ANSWER_SHORT_TIMEOUT);
 out_xlog:
     return ret;
 }
@@ -258,7 +260,7 @@ out_xlog:
  * @param [in,out] fd_tty modem file descriptor
  * @param [in] config mmgr config
  * @param [in,out] info modem info
- * @param [in] timeout switch to mux timeout
+ * @param [in] retry switch to mux retries
  *
  * @return E_ERR_BAD_PARAMETER if config or info is/are NULL
  * @return E_ERR_TTY_BAD_FD bad file descriptor
@@ -270,36 +272,32 @@ out_xlog:
  * @return E_ERR_SUCCESS
  */
 e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
-                              modem_info_t *info, int timeout)
+                              modem_info_t *info, int retry)
 {
     e_mmgr_errors_t ret = E_ERR_BAD_PARAMETER;
     e_switch_to_mux_states_t state;
     struct timespec current, start;
-    int remaining_time;
 
     CHECK_PARAM(fd_tty, ret, out);
     CHECK_PARAM(config, ret, out);
     CHECK_PARAM(info, ret, out);
 
-    clock_gettime(CLOCK_MONOTONIC, &start);
     for (state = E_MUX_HANDSHAKE; state != E_MUX_DRIVER; /* none */ ) {
-        clock_gettime(CLOCK_MONOTONIC, &current);
-        remaining_time = timeout - (current.tv_sec - start.tv_sec);
-        if (remaining_time <= 0) {
-            LOG_DEBUG("timeout");
+        if (retry < 0) {
+            LOG_DEBUG("No retries left to send command");
             ret = E_ERR_TTY_TIMEOUT;
             goto out;
         }
 
         switch (state) {
         case E_MUX_HANDSHAKE:
-            ret = modem_handshake(*fd_tty, config, remaining_time);
+            ret = modem_handshake(*fd_tty, config, retry);
             break;
         case E_MUX_XLOG:
             ret = run_at_xlog(*fd_tty, config, info);
             break;
         case E_MUX_AT_CMD:
-            ret = send_at_cmux(*fd_tty, config, remaining_time);
+            ret = send_at_cmux(*fd_tty, config, retry);
             break;
         case E_MUX_DRIVER:
             /* nothing to do here */
@@ -313,8 +311,7 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         if (ret == E_ERR_SUCCESS) {
             /* states are ordered. go to next one */
             state++;
-            clock_gettime(CLOCK_MONOTONIC, &start);
-            timeout = config->max_retry_time;
+            retry = config->max_retry;
         } else if ((ret == E_ERR_TTY_BAD_FD) || (ret == E_ERR_AT_CMD_RESEND)) {
             LOG_DEBUG("reopen tty device: %s", config->modem_port);
             close_tty(fd_tty);

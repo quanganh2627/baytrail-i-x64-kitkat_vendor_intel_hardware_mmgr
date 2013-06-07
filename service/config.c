@@ -53,7 +53,7 @@
 #define DEF_MIN_TIME_ISSUE INTEGER(600) /* in seconds */
 #define DEF_DELAY_BEFORE_RESET INTEGER(300)     /* in milliseconds */
 #define DEF_DELAY_BEFORE_REBOOT INTEGER(3)      /* in seconds */
-#define DEF_MAX_RETRY_TIME INTEGER(60)
+#define DEF_MAX_RETRY INTEGER(24)
 #define DEF_MAX_TIMEOUT_ACK_COLD INTEGER(1)     /* in seconds */
 #define DEF_MAX_TIMEOUT_ACK_SHTDWN INTEGER(1)   /* in seconds */
 /* mmgr interface */
@@ -352,8 +352,8 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          DEF_DELAY_BEFORE_RESET,.set = integer},
         {.key = "DelayBeforeReboot",.dest = &params->delay_before_reboot,.def =
          DEF_DELAY_BEFORE_REBOOT,.set = integer},
-        {.key = "MaximumRetryTime",.dest = &params->max_retry_time,.def =
-         DEF_MAX_RETRY_TIME,.set = integer},
+        {.key = "MaximumRetry",.dest = &params->max_retry,.def =
+         DEF_MAX_RETRY,.set = integer},
         {.key = "MaxAckColdReset",.dest = &params->timeout_ack_cold,.def =
          DEF_MAX_TIMEOUT_ACK_COLD,.set = integer},
         {.key = "MaxAckShtdwn",.dest = &params->timeout_ack_shtdwn,.def =
