@@ -184,21 +184,19 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
         }
     }
 
-    if (test->config.nb_platform_reboot > 0) {
-        printf("\nCheck Reboot mechanism\n");
-        property_get_int(PLATFORM_REBOOT_KEY, &reboot);
-        if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    printf("\nCheck Reboot mechanism\n");
+    property_get_int(PLATFORM_REBOOT_KEY, &reboot);
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
 
-        if (reboot >= test->config.nb_platform_reboot) {
-            ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, false,
-                                 TIMEOUT_MODEM_DOWN_AFTER_CMD);
-        } else {
-            ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT, false,
-                                 TIMEOUT_MODEM_DOWN_AFTER_CMD);
-        }
+    if (reboot >= test->config.nb_platform_reboot) {
+        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, false,
+                             TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    } else {
+        ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT, false,
+                             TIMEOUT_MODEM_DOWN_AFTER_CMD);
     }
 
 out:
