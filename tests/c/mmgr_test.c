@@ -264,6 +264,7 @@ int main(int argc, char *argv[])
         {"FAKE REQUEST: platform reboot", fake_reboot, "fake_reboot"},
         {"FAKE REQUEST: modem out of service", fake_modem_hs, "fake_oos"},
         {"FAKE REQUEST: error", fake_error, "fake_error"},
+        {"ENDLESS TEST: start the modem and keep it alive", start_modem, "start_modem"}
     };
 
     nb_tests = sizeof(tests) / sizeof(*tests);

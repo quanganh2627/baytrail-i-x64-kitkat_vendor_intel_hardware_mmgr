@@ -43,5 +43,6 @@ e_mmgr_errors_t fake_ap_reset(test_data_t *test);
 e_mmgr_errors_t fake_reboot(test_data_t *test);
 e_mmgr_errors_t fake_error(test_data_t *test);
 e_mmgr_errors_t fake_self_reset(test_data_t *test);
+e_mmgr_errors_t start_modem(test_data_t *test);
 
 #endif                          /* __MMGR_TEST_CASES_FILE__ */

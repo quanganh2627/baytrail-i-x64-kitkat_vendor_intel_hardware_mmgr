@@ -220,8 +220,32 @@ e_mmgr_errors_t resource_acquire(test_data_t *test)
     if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
         ret = E_ERR_SUCCESS;
 
-    if (test->config.is_flashless)
-        wait_for_state(test, E_MMGR_RESPONSE_MODEM_FW_RESULT, false, 20);
+out:
+    return ret;
+}
+
+/**
+ * Start the modem and never return. This is used to turn on the modem
+ * and keep it alive when no client held the resource
+ *
+ * @param [in] test test data
+ *
+ * @return E_ERR_BAD_PARAMETER if test is NULL
+ * @return E_ERR_FAILED test fails
+ * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t start_modem(test_data_t *test)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
+        ret = E_ERR_SUCCESS;
+
+    pause();
 out:
     return ret;
 }
