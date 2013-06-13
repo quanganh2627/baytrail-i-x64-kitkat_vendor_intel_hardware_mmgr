@@ -43,14 +43,14 @@ typedef struct test_data {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     pthread_mutex_t cond_mutex;
-    int waited_state;
-    int modem_state;
+    e_mmgr_events_t waited_state;
+    e_mmgr_events_t modem_state;
     mmgr_configuration_t config;
     mmgr_cli_handle_t *lib;
     e_events_t events;
 } test_data_t;
 
-e_mmgr_errors_t modem_state_set(test_data_t *test_data, int state);
+e_mmgr_errors_t modem_state_set(test_data_t *test_data, e_mmgr_events_t state);
 e_events_t events_get(test_data_t *test_data);
 e_mmgr_errors_t compare_file_content(const char *path, const char *data,
                                      int len);
@@ -60,7 +60,7 @@ e_mmgr_errors_t is_core_dump_found(char *filename, const char *core_dump_dir);
 e_mmgr_errors_t cleanup_modemcrash_dir(const char *path);
 e_mmgr_errors_t configure_client_library(test_data_t *data);
 e_mmgr_errors_t cleanup_client_library(test_data_t *data);
-int event_without_ack(mmgr_cli_event_t *ev);
+int generic_mmgr_evt(mmgr_cli_event_t *ev);
 
 e_mmgr_errors_t reset_by_client_request(test_data_t *events_data,
                                         e_mmgr_requests_t request,

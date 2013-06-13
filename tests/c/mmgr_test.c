@@ -107,8 +107,8 @@ e_mmgr_errors_t run_test(test_case_t *test)
     CHECK_PARAM(test, ret, out);
 
     test_data.lib = NULL;
-    test_data.waited_state = -1;
-    test_data.modem_state = -1;
+    test_data.waited_state = E_MMGR_NUM_EVENTS;
+    test_data.modem_state = E_MMGR_NUM_EVENTS;
     test_data.events = E_EVENTS_NONE;
     pthread_mutex_init(&test_data.new_state_read, NULL);
     pthread_mutex_init(&test_data.mutex, NULL);

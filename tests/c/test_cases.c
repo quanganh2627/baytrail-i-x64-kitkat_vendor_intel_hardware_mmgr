@@ -502,7 +502,7 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    if (mmgr_cli_subscribe_event(test->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test->lib, generic_mmgr_evt,
                                  E_MMGR_ACK) != E_ERR_CLI_FAILED) {
 
         line = __LINE__;
@@ -525,19 +525,19 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    if (mmgr_cli_subscribe_event(test->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test->lib, generic_mmgr_evt,
                                  E_MMGR_NUM_EVENTS) != E_ERR_CLI_FAILED) {
         line = __LINE__;
         goto out;
     }
 
-    if (mmgr_cli_subscribe_event(NULL, event_without_ack, E_MMGR_ACK)
+    if (mmgr_cli_subscribe_event(NULL, generic_mmgr_evt, E_MMGR_ACK)
         != E_ERR_CLI_BAD_HANDLE) {
         line = __LINE__;
         goto out;
     }
 
-    if (mmgr_cli_subscribe_event(test->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test->lib, generic_mmgr_evt,
                                  E_MMGR_ACK) != E_ERR_CLI_FAILED) {
         line = __LINE__;
         goto out;
