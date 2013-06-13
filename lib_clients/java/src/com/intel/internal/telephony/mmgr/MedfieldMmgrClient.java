@@ -89,6 +89,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     final Lock ackLock = new ReentrantLock();
     final Condition ackSignal = ackLock.newCondition();
     volatile boolean ackSignaled = false;
+    volatile boolean nackSignaled = false;
 
     final Lock statusLock = new ReentrantLock();
     final Condition statusSignal = statusLock.newCondition();
@@ -177,14 +178,26 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                 Log.d(Constants.LOG_TAG, "Waiting for ACK");
                 ret = this.ackSignal.await(timeout, TimeUnit.MILLISECONDS);
                 if (ret) {
-                    Log.d(Constants.LOG_TAG, "ACK signaled");
+                    if (this.nackSignaled) {
+                        Log.d(Constants.LOG_TAG, "NACK signaled");
+                        ret = false;
+                    }
+                    else {
+                        Log.d(Constants.LOG_TAG, "ACK signaled");
+                    }
                 } else {
                     Log.d(Constants.LOG_TAG, "ACK timeout");
                 }
             } else {
-                ret = true;
-                Log.d(Constants.LOG_TAG, "ACK already signaled");
+                if (this.nackSignaled) {
+                    Log.d(Constants.LOG_TAG, "NACK already signaled");
+                }
+                else {
+                    Log.d(Constants.LOG_TAG, "ACK already signaled");
+                    ret = true;
+                }
                 this.ackSignaled = false;
+                this.nackSignaled = false;
             }
         } catch (InterruptedException ex) {
             Log.d(Constants.LOG_TAG, ex.toString());
@@ -227,8 +240,20 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.ackLock.lock();
         try {
             Log.d(Constants.LOG_TAG, "Signaling ACK");
+            this.nackSignaled = false;
             this.ackSignal.signal();
             this.ackSignaled = true;
+        } finally {
+            this.ackLock.unlock();
+        }
+    }
+
+    private void signalNack() {
+        this.ackLock.lock();
+        try {
+            Log.d(Constants.LOG_TAG, "Signaling NACK");
+            this.nackSignaled = true;
+            this.ackSignal.signal();
         } finally {
             this.ackLock.unlock();
         }
@@ -363,6 +388,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
             case MedfieldMmgrClient.NOTIFY_NACK:
                 Log.d(Constants.LOG_TAG, "Received NACK");
+                this.signalNack();
                 break;
 
             default:
