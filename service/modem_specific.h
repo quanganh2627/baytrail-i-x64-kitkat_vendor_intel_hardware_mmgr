@@ -32,8 +32,6 @@ e_mmgr_errors_t mdm_cold_reset(modem_info_t *info);
 e_mmgr_errors_t mdm_down(modem_info_t *info);
 e_mmgr_errors_t mdm_up(modem_info_t *info);
 e_mmgr_errors_t mdm_get_state(int fd_mcd, e_modem_events_type_t *state);
-e_mmgr_errors_t start_hsic(modem_info_t *info);
-e_mmgr_errors_t stop_hsic(modem_info_t *info);
 e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport, bool ch_sw,
                             secur_t *secur, e_modem_fw_error_t *verdict);
 e_mmgr_errors_t set_mcd_poll_states(modem_info_t *info);

@@ -628,14 +628,9 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         } else {
             LOG_DEBUG("Modem is OFF and should not be: powering on modem");
 
-            /* @TODO: workaround since start_hsic in mdm_up does nothing and
-             * stop_hsic makes a restart of hsic. */
-            if (mmgr->info.mdm_link == E_LINK_HSIC) {
-                stop_hsic(&mmgr->info);
-            }
-
             if ((ret = mdm_up(&mmgr->info)) != E_ERR_SUCCESS)
                 goto out;
+
             mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
             ret = set_mcd_poll_states(&mmgr->info);
             set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
