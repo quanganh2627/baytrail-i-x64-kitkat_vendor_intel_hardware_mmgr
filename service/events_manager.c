@@ -86,6 +86,7 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
         close_tty(&mmgr->info.fd_mcd);
     if (mmgr->epollfd != CLOSED_FD)
         close(mmgr->epollfd);
+    secur_stop(&mmgr->secur);
 out:
     return ret;
 }
