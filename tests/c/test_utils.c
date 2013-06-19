@@ -325,20 +325,21 @@ e_mmgr_errors_t is_core_dump_found(char *filename, const char *path)
                 break;
             }
         }
+
+        for (j = 0; j < files_number; j++) {
+            if (files_list[j] != NULL)
+                free(files_list[j]);
+        }
+        if (files_list != NULL)
+            free(files_list);
     }
 
     for (i = 0; i < folders_number; i++) {
         if (folder_list[i] != NULL)
             free(folder_list[i]);
     }
-    for (j = 0; j < files_number; j++) {
-        if (files_list[j] != NULL)
-            free(files_list[j]);
-    }
     if (folder_list != NULL)
         free(folder_list);
-    if (files_list != NULL)
-        free(files_list);
 
     if (ret == E_ERR_SUCCESS)
         strncpy(not, "", sizeof(not));
@@ -593,6 +594,8 @@ static int event_core_dump(mmgr_cli_event_t *ev)
 
     base_name = basename(cd->path);
     if ((is_file_exists(cd->path, 0) == E_ERR_SUCCESS)
+        || (is_core_dump_found(base_name, "/mnt/shell/emulated/0/logs/") ==
+            E_ERR_SUCCESS)
         || (is_core_dump_found(base_name, "/sdcard/") == E_ERR_SUCCESS)) {
         LOG_DEBUG("core dump found");
         events_set(data, E_EVENTS_SUCCEED);
