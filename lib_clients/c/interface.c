@@ -49,7 +49,8 @@ e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
     if (ret != E_ERR_CLI_SUCCEED) {
         LOG_ERROR("request not sent");
     } else {
-        ret = send_msg(p_lib, request);
+        ret = send_msg(p_lib, request, E_SEND_THREADED,
+                       DEF_MMGR_RESPONSIVE_TIMEOUT);
     }
 
     return ret;
@@ -295,6 +296,7 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret;
     mmgr_lib_context_t *p_lib = NULL;
+    int err = 0;
 
     ret = check_state(handle, &p_lib, false);
     if (ret != E_ERR_CLI_SUCCEED)
@@ -306,6 +308,20 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
         ret = E_ERR_CLI_FAILED;
     } else {
         ret = cli_connect(p_lib);
+    }
+
+    if (ret == E_ERR_CLI_SUCCEED) {
+        err = pthread_create(&p_lib->thr_id, NULL, (void *)read_events, p_lib);
+        if (err != 0) {
+            LOG_ERROR("(fd=%d client=%s) failed to create the reader thread. "
+                      "Disconnect the client", p_lib->fd_socket,
+                      p_lib->cli_name);
+            ret = E_ERR_CLI_FAILED;
+        } else {
+            pthread_mutex_lock(&p_lib->mtx);
+            p_lib->connected = E_CNX_CONNECTED;
+            pthread_mutex_unlock(&p_lib->mtx);
+        }
     }
 
 out:
@@ -349,8 +365,7 @@ e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
     mmgr_lib_context_t *p_lib = NULL;
-    mmgr_cli_requests_t request;
-    request.id = E_MMGR_RESOURCE_ACQUIRE;
+    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
 
     ret = check_state(handle, &p_lib, true);
     if (ret != E_ERR_CLI_SUCCEED) {
@@ -363,10 +378,13 @@ e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
                   p_lib->cli_name);
         ret = E_ERR_CLI_ALREADY_LOCK;
     } else {
-        ret = send_msg(p_lib, &request);
-        if ((ret == E_ERR_CLI_SUCCEED) && (p_lib->ack == E_MMGR_ACK))
+        ret = send_msg(p_lib, &request, E_SEND_THREADED,
+                       DEF_MMGR_RESPONSIVE_TIMEOUT);
+        if (ret == E_ERR_CLI_SUCCEED) {
+            pthread_mutex_lock(&p_lib->mtx);
             p_lib->lock = true;
-        else
+            pthread_mutex_unlock(&p_lib->mtx);
+        } else
             ret = E_ERR_FAILED;
     }
 out:
@@ -389,8 +407,7 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
     mmgr_lib_context_t *p_lib = NULL;
-    mmgr_cli_requests_t request;
-    request.id = E_MMGR_RESOURCE_RELEASE;
+    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_RELEASE };
 
     ret = check_state(handle, &p_lib, true);
     if (ret != E_ERR_CLI_SUCCEED) {
@@ -403,10 +420,13 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
                   p_lib->cli_name);
         ret = E_ERR_CLI_ALREADY_UNLOCK;
     } else {
-        ret = send_msg(p_lib, &request);
-        if ((ret == E_ERR_CLI_SUCCEED) && (p_lib->ack == E_MMGR_ACK))
+        ret = send_msg(p_lib, &request, E_SEND_THREADED,
+                       DEF_MMGR_RESPONSIVE_TIMEOUT);
+        if (ret == E_ERR_CLI_SUCCEED) {
+            pthread_mutex_lock(&p_lib->mtx);
             p_lib->lock = false;
-        else
+            pthread_mutex_unlock(&p_lib->mtx);
+        } else
             ret = E_ERR_FAILED;
     }
 out:

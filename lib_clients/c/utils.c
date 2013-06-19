@@ -24,9 +24,10 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include "errors.h"
+#include "tty.h"
 
 #include "utils.h"
-#define DEF_MMGR_RESPONSIVE_TIMEOUT 20
 
 const char *g_mmgr_events[] = {
 #undef X
@@ -104,6 +105,65 @@ static e_err_mmgr_cli_t call_cli_callback(mmgr_lib_context_t *p_lib, msg_t *msg)
 }
 
 /**
+ * Read a message in the socket
+ *
+ * @param[in] p_lib
+ * @param[out] msg. It's user responsability to free this buffer
+ *
+ * @return E_ERR_CLI_FAILED
+ * @return E_ERR_CLI_BAD_CNX_STATE if client is disconnected
+ * @return E_ERR_CLI_SUCCEED
+ */
+static e_err_mmgr_cli_t read_msg(mmgr_lib_context_t *p_lib, msg_t *msg)
+{
+    e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
+    e_mmgr_errors_t err = E_ERR_FAILED;
+
+    CHECK_CLI_PARAM(p_lib, ret, out);
+    CHECK_CLI_PARAM(msg, ret, out);
+
+    memset(msg, 0, sizeof(msg_t));
+
+    /* read msg data */
+    err = get_header(p_lib->fd_socket, &msg->hdr);
+    if (err == E_ERR_DISCONNECTED) {
+        LOG_DEBUG("(fd=%d client=%s) connection closed by MMGR",
+                  p_lib->fd_socket, p_lib->cli_name);
+
+        pthread_mutex_lock(&p_lib->mtx);
+        p_lib->connected = E_CNX_RECONNECT;
+        pthread_mutex_unlock(&p_lib->mtx);
+        ret = E_ERR_CLI_BAD_CNX_STATE;
+    } else {
+        e_mmgr_events_t id = E_MMGR_NUM_EVENTS;
+        size_t size = 0;
+
+        memcpy(&id, &msg->hdr.id, sizeof(e_mmgr_events_t));
+        memcpy(&size, &msg->hdr.len, sizeof(size_t));
+        if (size != 0) {
+            msg->data = calloc(size, sizeof(char));
+            if (msg->data == NULL) {
+                LOG_ERROR("memory allocation fails");
+                goto out;
+            }
+
+            size_t read_size = size;
+            err = read_cnx(p_lib->fd_socket, msg->data, &read_size);
+            if ((err != E_ERR_SUCCESS) || (read_size != size)) {
+                LOG_ERROR("Read error. Size: %d/%d", read_size, size);
+            } else {
+                ret = E_ERR_CLI_SUCCEED;
+            }
+        } else {
+            ret = E_ERR_CLI_SUCCEED;
+        }
+    }
+
+out:
+    return ret;
+}
+
+/**
  * function to handle cnx event
  *
  * @private
@@ -112,54 +172,23 @@ static e_err_mmgr_cli_t call_cli_callback(mmgr_lib_context_t *p_lib, msg_t *msg)
  *
  * @return E_ERR_CLI_BAD_HANDLE if p_lib is invalid
  * @return E_ERR_CLI_FAILED if not connected or invalid request id
+ * @return E_ERR_CLI_BAD_CNX_STATE if client is disconnected
  * @return E_ERR_CLI_SUCCEED
  */
 static e_err_mmgr_cli_t handle_cnx_event(mmgr_lib_context_t *p_lib)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
-    e_mmgr_errors_t err;
     msg_t msg = {.data = NULL };
-    e_mmgr_events_t id;
-    size_t size;
-    size_t read_size;
 
     CHECK_CLI_PARAM(p_lib, ret, out);
 
-    /* read msg data */
-    err = get_header(p_lib->fd_socket, &msg.hdr);
-    if (err == E_ERR_DISCONNECTED) {
-        LOG_DEBUG("(fd=%d client=%s) connection closed by MMGR",
-                  p_lib->fd_socket, p_lib->cli_name);
+    ret = read_msg(p_lib, &msg);
+    if (ret == E_ERR_CLI_SUCCEED)
+        ret = call_cli_callback(p_lib, &msg);
 
-        pthread_mutex_lock(&p_lib->mtx);
-        p_lib->connected = E_CNX_RECONNECT;
-        pthread_mutex_unlock(&p_lib->mtx);
-        goto out;
-    }
-    memcpy(&id, &msg.hdr.id, sizeof(e_mmgr_events_t));
-    memcpy(&size, &msg.hdr.len, sizeof(size_t));
-    read_size = size;
-    if (size != 0) {
-        msg.data = calloc(size, sizeof(char));
-        if (msg.data == NULL) {
-            LOG_ERROR("memory allocation fails");
-            goto out;
-        }
-        if (read_cnx(p_lib->fd_socket, msg.data, &read_size) != E_ERR_SUCCESS) {
-            LOG_ERROR("read fails");
-            goto out;
-        }
-    }
+    delete_msg(&msg);
 
-    if (read_size != size) {
-        LOG_ERROR("Read error. bad size (%d/%d)", read_size, size);
-        goto out;
-    }
-
-    ret = call_cli_callback(p_lib, &msg);
 out:
-    if (msg.data != NULL)
-        free(msg.data);
     return ret;
 }
 
@@ -172,6 +201,7 @@ out:
  * @param [in] rfds read events
  *
  * @return E_ERR_CLI_FAILED
+ * @return E_ERR_CLI_BAD_CNX_STATE
  * @return E_ERR_CLI_SUCCEED
  */
 static e_err_mmgr_cli_t handle_events(mmgr_lib_context_t *p_lib, fd_set *rfds)
@@ -186,6 +216,7 @@ static e_err_mmgr_cli_t handle_events(mmgr_lib_context_t *p_lib, fd_set *rfds)
         read(p_lib->fd_pipe[READ], buffer, PIPE_BUF);
         LOG_DEBUG("(fd=%d client=%s) stopping thread",
                   p_lib->fd_socket, p_lib->cli_name);
+        ret = E_ERR_CLI_BAD_CNX_STATE;
     } else if (FD_ISSET(p_lib->fd_socket, rfds)) {
         ret = handle_cnx_event(p_lib);
     } else {
@@ -211,7 +242,6 @@ static e_err_mmgr_cli_t handle_disconnection(mmgr_lib_context_t *p_lib)
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     cnx_state_t state;
     msg_t msg = {.data = NULL };
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
 
     CHECK_CLI_PARAM(p_lib, ret, out);
 
@@ -225,26 +255,37 @@ static e_err_mmgr_cli_t handle_disconnection(mmgr_lib_context_t *p_lib)
         msg.hdr.id = E_MMGR_EVENT_MODEM_DOWN;
         ret = call_cli_callback(p_lib, &msg);
 
-        pthread_mutex_lock(&p_lib->mtx);
-        shutdown(p_lib->fd_socket, SHUT_RDWR);
-        close(p_lib->fd_socket);
-        pthread_mutex_unlock(&p_lib->mtx);
-
-        LOG_DEBUG("try to reconnect");
-        /* endlessly try to reconnect to MMGR and restore the conect */
-        while (cli_connect(p_lib) != E_ERR_CLI_SUCCEED)
+        LOG_DEBUG("(client=%s) try to reconnect", p_lib->cli_name);
+        do {
+            /* endlessly try to reconnect to MMGR */
             sleep(1);
-        if (p_lib->lock)
-            send_msg(p_lib, &request);
-        ret = E_ERR_CLI_SUCCEED;
 
+            pthread_mutex_lock(&p_lib->mtx);
+            if (p_lib->fd_socket != CLOSED_FD)
+                close_cnx(&p_lib->fd_socket);
+            pthread_mutex_unlock(&p_lib->mtx);
+
+            ret = cli_connect(p_lib);
+        } while (ret != E_ERR_CLI_SUCCEED);
+
+        if (p_lib->lock) {
+            mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+            /* restore the context */
+            do {
+                ret = send_msg(p_lib, &request, E_SEND_SINGLE,
+                               DEF_MMGR_RESPONSIVE_TIMEOUT);
+            } while (ret != E_ERR_CLI_SUCCEED);
+            LOG_DEBUG("(client=%s) context restored", p_lib->cli_name);
+        }
+
+        pthread_mutex_lock(&p_lib->mtx);
+        p_lib->connected = E_CNX_CONNECTED;
+        pthread_mutex_unlock(&p_lib->mtx);
     } else {
         pthread_mutex_lock(&p_lib->mtx);
-        shutdown(p_lib->fd_socket, SHUT_RDWR);
-        close(p_lib->fd_socket);
+        close_cnx(&p_lib->fd_socket);
         close(p_lib->fd_pipe[READ]);
         close(p_lib->fd_pipe[WRITE]);
-        p_lib->fd_socket = CLOSED_FD;
         p_lib->fd_pipe[READ] = CLOSED_FD;
         p_lib->fd_pipe[WRITE] = CLOSED_FD;
         pthread_mutex_unlock(&p_lib->mtx);
@@ -288,7 +329,7 @@ out:
  * @private
  *
  * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
- * @return E_ERR_CLI_FAILED
+ * @return E_ERR_CLI_FAILED if timeout (20s) or MMGR not responsive
  * @return E_ERR_CLI_SUCCEED
  */
 static e_err_mmgr_cli_t register_client(mmgr_lib_context_t *p_lib)
@@ -296,14 +337,10 @@ static e_err_mmgr_cli_t register_client(mmgr_lib_context_t *p_lib)
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     int i;
     mmgr_cli_requests_t request[2];
-    bool state = false;
-    e_mmgr_events_t ack = E_MMGR_NUM_EVENTS;
+    int timeout = DEF_MMGR_RESPONSIVE_TIMEOUT;
+    struct timespec start, ts;
 
     CHECK_CLI_PARAM(p_lib, ret, out);
-
-    is_connected(p_lib, &state);
-    if (state)
-        goto out;
 
     request[0].id = E_MMGR_SET_NAME;
     request[0].len = strnlen(p_lib->cli_name, CLIENT_NAME_LEN);
@@ -313,27 +350,22 @@ static e_err_mmgr_cli_t register_client(mmgr_lib_context_t *p_lib)
     request[1].len = sizeof(uint32_t);
     request[1].data = &p_lib->events;
 
+    clock_gettime(CLOCK_REALTIME, &start);
     for (i = 0; i < 2; i++) {
-        if ((ret = send_msg(p_lib, &request[i])) != E_ERR_CLI_SUCCEED)
+        if ((ret = send_msg(p_lib, &request[i], E_SEND_SINGLE, timeout)) !=
+            E_ERR_CLI_SUCCEED)
             break;
 
-        ack = get_ack(p_lib);
-        if (ack != E_MMGR_ACK)
-            break;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        timeout = DEF_MMGR_RESPONSIVE_TIMEOUT - (ts.tv_sec - start.tv_sec);
     }
 
-    if (ack == E_MMGR_ACK) {
+    if (ret == E_ERR_CLI_SUCCEED) {
         LOG_DEBUG("(fd=%d client=%s) connected successfully",
                   p_lib->fd_socket, p_lib->cli_name);
-        ret = E_ERR_CLI_SUCCEED;
-
-        pthread_mutex_lock(&p_lib->mtx);
-        p_lib->connected = E_CNX_CONNECTED;
-        pthread_mutex_unlock(&p_lib->mtx);
     } else {
         LOG_ERROR("(fd=%d client=%s) failed to connect",
                   p_lib->fd_socket, p_lib->cli_name);
-        ret = E_ERR_CLI_FAILED;
     }
 out:
     return ret;
@@ -382,26 +414,29 @@ out:
 }
 
 /**
- * send an mmgr request
+ * send an mmgr request. This function uses the reader thread to wait for MMGR's
+ * answer or wait for an event on the link. It depends of the choosen method.
  *
  * @param [in] p_lib library handle
  * @param [in] request request to send to the mmgr
+ * @param [in] method. if this function is called under the reader thread, you
+ *        should use the E_SEND_SINGLE, E_SEND_THREADED should be used otherwise
+ * @param [in] timeout (in seconds)
  *
  * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
  * @return E_ERR_CLI_FAILED if not connected or invalid request id
- * @return E_ERR_CLI_SUCCEED
+ * @return E_ERR_CLI_SUCCEED if message accepted (ACK received)
  */
 e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
-                          const mmgr_cli_requests_t *request)
+                          const mmgr_cli_requests_t *request,
+                          e_send_method_t method, int timeout)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
+    e_mmgr_errors_t err = E_ERR_SUCCESS;
     msg_t msg = {.data = NULL };
-    size_t size;
+    size_t size = 0;
     struct timespec start, ts;
-    int err;
-    int timeout = DEF_MMGR_RESPONSIVE_TIMEOUT;
     int sleep_duration = 1;
-    e_mmgr_events_t ack = E_MMGR_NUM_REQUESTS;
 
     if (request == NULL) {
         LOG_ERROR("request is NULL");
@@ -413,11 +448,13 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
         goto out;
     }
 
-    p_lib->set_msg[request->id] (&msg, (void *)request);
+    if (timeout <= 0)
+        goto out;
 
     set_ack(p_lib, E_MMGR_NUM_EVENTS);
-    clock_gettime(CLOCK_REALTIME, &start);
+    p_lib->set_msg[request->id] (&msg, (void *)request);
 
+    clock_gettime(CLOCK_REALTIME, &start);
     /* The loop ends after MMGR approval or timeout */
     while (true) {
         /* Lock the mutex before sending the request. Otherwise, the answer can
@@ -425,33 +462,41 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
         pthread_mutex_lock(&p_lib->mtx_signal);
 
         size = SIZE_HEADER + msg.hdr.len;
-        if (write_cnx(p_lib->fd_socket, msg.data, &size) != E_ERR_SUCCESS) {
+        err = write_cnx(p_lib->fd_socket, msg.data, &size);
+        if ((err != E_ERR_SUCCESS) || (size != (SIZE_HEADER + msg.hdr.len))) {
+            LOG_ERROR("write failed");
             break;
         }
-        if (size == (SIZE_HEADER + msg.hdr.len)) {
-            LOG_DEBUG("(fd=%d client=%s) request (%s) sent successfully."
-                      " Waiting for answer", p_lib->fd_socket, p_lib->cli_name,
-                      g_mmgr_requests[request->id]);
 
+        LOG_DEBUG("(fd=%d client=%s) request (%s) sent successfully."
+                  " Waiting for answer", p_lib->fd_socket, p_lib->cli_name,
+                  g_mmgr_requests[request->id]);
+
+        if (method == E_SEND_SINGLE) {
+            err = wait_for_tty_event(p_lib->fd_socket, timeout * 1000);
+            if (err == E_ERR_TTY_TIMEOUT) {
+                break;
+            }
+            msg_t answer;
+            memset(&answer, 0, sizeof(msg_t));
+            if (read_msg(p_lib, &answer) == E_ERR_CLI_SUCCEED)
+                set_ack(p_lib, answer.hdr.id);
+            delete_msg(&answer);
+        } else {
             clock_gettime(CLOCK_REALTIME, &ts);
             ts.tv_sec += timeout;
-            err = pthread_cond_timedwait(&p_lib->cond, &p_lib->mtx_signal, &ts);
-            if (err == ETIMEDOUT) {
-                /* This happens if MMGR is not responsive or if the client's
-                 * callback takes too much time. Indeed, the callback is called
-                 * by the consumer thread. @TODO: perhaps we should call the
-                 * callback with a different thread to avoid this */
-                LOG_DEBUG("(fd=%d client=%s) timeout for request (%s)",
-                          p_lib->fd_socket, p_lib->cli_name,
-                          g_mmgr_requests[request->id]);
-                break;          /* timeout expired */
+            if (pthread_cond_timedwait(&p_lib->cond, &p_lib->mtx_signal,
+                                       &ts) == ETIMEDOUT) {
+                err = E_ERR_TTY_TIMEOUT;
+                break;
             } else {
-                ack = get_ack(p_lib);
-                if (ack == E_MMGR_ACK) {
-                    ret = E_ERR_CLI_SUCCEED;
-                    break;
-                }
+                err = E_ERR_SUCCESS;
             }
+        }
+
+        if (get_ack(p_lib) == E_MMGR_ACK) {
+            ret = E_ERR_CLI_SUCCEED;
+            break;
         }
         pthread_mutex_unlock(&p_lib->mtx_signal);
 
@@ -463,6 +508,16 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
             break;              /* timeout expired */
     }
 out:
+    if (err == E_ERR_TTY_TIMEOUT) {
+        /* This happens if: MMGR is not responsive OR if client's callback
+         * takes too much time (E_SEND_THREAD only). Indeed, the callback is
+         * called by the consumer thread. */
+        LOG_DEBUG("(fd=%d client=%s) timeout for request (%s)",
+                  p_lib->fd_socket, p_lib->cli_name,
+                  g_mmgr_requests[request->id]);
+        ret = E_ERR_CLI_FAILED;
+    }
+
     /* when we break the do{}while loop, the mutex is not ALWAYS unlocked. To
      * be safe, try to lock it before unlocking it */
     pthread_mutex_trylock(&p_lib->mtx_signal);
@@ -501,9 +556,9 @@ e_err_mmgr_cli_t read_events(mmgr_lib_context_t *p_lib)
             LOG_ERROR("select failed (%s)", strerror(errno));
             break;
         }
-        ret = handle_events(p_lib, &rfds);
 
-        if (ret == E_ERR_CLI_FAILED)
+        ret = handle_events(p_lib, &rfds);
+        if (ret == E_ERR_CLI_BAD_CNX_STATE)
             ret = handle_disconnection(p_lib);
 
     } while (ret != E_ERR_CLI_FAILED);
@@ -524,8 +579,8 @@ out:
  */
 e_err_mmgr_cli_t cli_connect(mmgr_lib_context_t *p_lib)
 {
-    int fd = CLOSED_FD;
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
+    int fd = CLOSED_FD;
 
     fd = socket_local_client(MMGR_SOCKET_NAME,
                              ANDROID_SOCKET_NAMESPACE_RESERVED, SOCK_STREAM);
@@ -536,16 +591,7 @@ e_err_mmgr_cli_t cli_connect(mmgr_lib_context_t *p_lib)
 
     pthread_mutex_lock(&p_lib->mtx);
     p_lib->fd_socket = fd;
-    p_lib->connected = E_CNX_DISCONNECTED;
-    p_lib->lock = false;
     pthread_mutex_unlock(&p_lib->mtx);
-
-    if (pthread_create(&p_lib->thr_id, NULL, (void *)read_events, p_lib) != 0) {
-        LOG_ERROR("(fd=%d client=%s) failed to launch read_events. Disconnect "
-                  "the client", fd, p_lib->cli_name);
-        cli_disconnect(p_lib);
-        goto out;
-    }
 
     ret = register_client(p_lib);
 
@@ -566,16 +612,14 @@ e_err_mmgr_cli_t cli_disconnect(mmgr_lib_context_t *p_lib)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     bool connected = false;
-    char msg[PIPE_BUF];
+    char msg = 0;
     ssize_t size;
-
-    memset(msg, 0, sizeof(msg));
 
     is_connected(p_lib, &connected);
     if (connected) {
         LOG_DEBUG("(fd=%d client=%s) writing signal", p_lib->fd_socket,
                   p_lib->cli_name);
-        if ((size = write(p_lib->fd_pipe[WRITE], msg, sizeof(msg))) < -1) {
+        if ((size = write(p_lib->fd_pipe[WRITE], &msg, sizeof(msg))) < -1) {
             LOG_ERROR("(fd=%d client=%s) write failed (%s)",
                       p_lib->fd_socket, p_lib->cli_name, strerror(errno));
         }

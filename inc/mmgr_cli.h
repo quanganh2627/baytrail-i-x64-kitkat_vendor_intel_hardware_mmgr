@@ -25,12 +25,18 @@ extern "C" {
 
 #include "mmgr.h"
 
+#define MMGR_CLI_ERR\
+    X(SUCCEED),\
+    X(FAILED),\
+    X(ALREADY_LOCK),\
+    X(ALREADY_UNLOCK),\
+    X(BAD_HANDLE),\
+    X(BAD_CNX_STATE)
+
     typedef enum e_err_mmgr_cli {
-        E_ERR_CLI_SUCCEED,
-        E_ERR_CLI_FAILED,
-        E_ERR_CLI_ALREADY_LOCK,
-        E_ERR_CLI_ALREADY_UNLOCK,
-        E_ERR_CLI_BAD_HANDLE,
+#undef X
+#define X(a) E_ERR_CLI_##a
+        MMGR_CLI_ERR
     } e_err_mmgr_cli_t;
 
     typedef struct mmgr_cli_event {

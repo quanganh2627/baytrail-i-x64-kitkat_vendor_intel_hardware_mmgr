@@ -272,7 +272,7 @@ static e_mmgr_errors_t send_ack(test_data_t *test_data, e_mmgr_events_t evt_id)
             ret = E_ERR_SUCCESS;
         } else {
             LOG_ERROR("Failed to send (%s) message",
-                    g_mmgr_requests[request.id]);
+                      g_mmgr_requests[request.id]);
             events_set(test_data, E_EVENTS_ERROR_OCCURED);
         }
     }

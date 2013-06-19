@@ -13,7 +13,8 @@ LOCAL_SRC_FILES := \
     utils.c \
     ../../service/client_cnx.c \
     ../../service/data_to_msg.c \
-    ../../service/msg_to_data.c
+    ../../service/msg_to_data.c \
+    ../../service/tty.c
 LOCAL_SYSTEM_SHARED_LIBRARIES := libcutils libc
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -Wall -Wvla -DDEBUG_MMGR_CLI

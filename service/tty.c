@@ -71,7 +71,7 @@ out:
  * wait for an event on tty
  *
  * @param [in] fd file descriptor
- * @param [in] timeout timeout
+ * @param [in] timeout timeout (in milliseconds)
  *
  * @return E_ERR_TTY_ERROR if an unexpected event occurs or poll failed
  * @return E_ERR_TTY_TIMEOUT if any event occurs

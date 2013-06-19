@@ -285,6 +285,7 @@ static e_mmgr_errors_t request_resource_release_mdm_off(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->request.client->cnx |= E_CNX_RESOURCE_RELEASED;
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
 out:
     return ret;
 }
