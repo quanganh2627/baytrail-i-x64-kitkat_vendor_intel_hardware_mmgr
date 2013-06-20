@@ -472,6 +472,7 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file,
         {"Calibration", config->run_cal, DEF_CALIBRATION, string},
         {"Static", config->run_stat, DEF_STATIC, string},
         {"Dynamic", config->run_dyn, DEF_DYNAMIC, string},
+        {"RndCert", config->run_rnd_cert, DEF_RND_CERT, string},
     };
 
     set_param_t bckup[] = {
@@ -502,6 +503,7 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file,
     set_full_path(config->run_path, config->run_cal);
     set_full_path(config->run_path, config->run_stat);
     set_full_path(config->run_path, config->run_dyn);
+    set_full_path(config->run_path, config->run_rnd_cert);
 
     set_full_path(config->bkup_path, config->bkup_cal);
     set_full_path(config->bkup_path, config->bkup_stat);

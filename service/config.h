@@ -83,6 +83,7 @@ typedef struct flashless_config {
     char run_cal[MAX_SIZE_CONF_VAL];
     char run_stat[MAX_SIZE_CONF_VAL];
     char run_dyn[MAX_SIZE_CONF_VAL];
+    char run_rnd_cert[MAX_SIZE_CONF_VAL];
 } flashless_config_t;
 
 e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *parameters,
