@@ -73,6 +73,7 @@ typedef struct mmgr_lib_context {
     pthread_mutex_t mtx_signal;
     pthread_cond_t cond;
     e_mmgr_events_t ack;
+    pid_t tid;
 } mmgr_lib_context_t;
 
 #define INIT_CHECK 0xCE5A12BB

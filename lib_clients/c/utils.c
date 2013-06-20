@@ -79,6 +79,8 @@ static e_err_mmgr_cli_t call_cli_callback(mmgr_lib_context_t *p_lib, msg_t *msg)
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     mmgr_cli_event_t event = {.context = p_lib->cli_ctx };
     e_mmgr_events_t id;
+    struct timespec start, end;
+    int err = 1;
 
     memcpy(&id, &msg->hdr.id, sizeof(e_mmgr_events_t));
 
@@ -90,12 +92,44 @@ static e_err_mmgr_cli_t call_cli_callback(mmgr_lib_context_t *p_lib, msg_t *msg)
         } else if (p_lib->func[id] != NULL) {
             event.id = id;
             p_lib->set_data[id] (msg, &event);
-            p_lib->func[id] (&event);
+
+            pthread_mutex_lock(&p_lib->mtx);
+            p_lib->tid = gettid();
+            pthread_mutex_unlock(&p_lib->mtx);
+
+            clock_gettime(CLOCK_BOOTTIME, &start);
+            err = p_lib->func[id] (&event);
+            clock_gettime(CLOCK_BOOTTIME, &end);
+
+            LOG_VERBOSE("(fd=%d client=%s) callback for event (%s) "
+                        "handled in %ld ms",
+                        p_lib->fd_socket, p_lib->cli_name, g_mmgr_events[id],
+                        ((end.tv_sec - start.tv_sec) * 1000) +
+                        ((end.tv_nsec - start.tv_nsec) / 1000000));
+
             p_lib->free_data[id] (&event);
             ret = E_ERR_CLI_SUCCEED;
         } else {
             LOG_ERROR("(fd=%d client=%s) func is NULL",
                       p_lib->fd_socket, p_lib->cli_name);
+        }
+
+        if ((err == 0) && ((id == E_MMGR_NOTIFY_MODEM_COLD_RESET) ||
+                           (id == E_MMGR_NOTIFY_MODEM_SHUTDOWN))) {
+            mmgr_cli_requests_t request;
+            memset(&request, 0, sizeof(request));
+            if (id == E_MMGR_NOTIFY_MODEM_COLD_RESET)
+                request.id = E_MMGR_ACK_MODEM_COLD_RESET;
+            else
+                request.id = E_MMGR_ACK_MODEM_SHUTDOWN;
+
+            msg_t msg_sent;
+            memset(&msg_sent, 0, sizeof(msg_t));
+
+            p_lib->set_msg[request.id] (&msg_sent, (void *)&request);
+            size_t size = SIZE_HEADER + msg_sent.hdr.len;
+            err = write_cnx(p_lib->fd_socket, msg_sent.data, &size);
+            delete_msg(&msg_sent);
         }
     } else {
         LOG_DEBUG("(fd=%d client=%s) unkwnown event received (0x%.2X)",
@@ -379,7 +413,7 @@ out:
  * @param [in] connected check if client is connected or not
  *
  * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
- * @return E_ERR_CLI_FAILED if bad data state
+ * @return E_ERR_CLI_BAD_CNX_STATE if bad cnx state
  * @return E_ERR_CLI_SUCCEED
  */
 e_err_mmgr_cli_t check_state(mmgr_cli_handle_t *handle,
@@ -404,7 +438,7 @@ e_err_mmgr_cli_t check_state(mmgr_cli_handle_t *handle,
 
     is_connected(*p_lib, &state);
     if (state != connected) {
-        ret = E_ERR_CLI_FAILED;
+        ret = E_ERR_CLI_BAD_CNX_STATE;
         LOG_ERROR("(fd=%d client=%s) WRONG STATE: client is %s instead of %s",
                   (*p_lib)->fd_socket, (*p_lib)->cli_name,
                   state_str[state], state_str[connected]);
@@ -424,7 +458,10 @@ out:
  * @param [in] timeout (in seconds)
  *
  * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
- * @return E_ERR_CLI_FAILED if not connected or invalid request id
+ * @return E_ERR_CLI_TIMEOUT if MMGR is not responsive or after a timeout of
+ *         20s
+ * @return E_ERR_CLI_REJECTED if this function is called under the callback
+ * @return E_ERR_CLI_FAILED if request is NULL or invalid request id, timeout
  * @return E_ERR_CLI_SUCCEED if message accepted (ACK received)
  */
 e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
@@ -515,7 +552,7 @@ out:
         LOG_DEBUG("(fd=%d client=%s) timeout for request (%s)",
                   p_lib->fd_socket, p_lib->cli_name,
                   g_mmgr_requests[request->id]);
-        ret = E_ERR_CLI_FAILED;
+        ret = E_ERR_CLI_TIMEOUT;
     }
 
     /* when we break the do{}while loop, the mutex is not ALWAYS unlocked. To

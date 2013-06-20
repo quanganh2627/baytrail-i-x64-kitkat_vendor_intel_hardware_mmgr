@@ -488,14 +488,20 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    mmgr_cli_connect(hdle);
-
-    if (mmgr_cli_delete_handle(hdle) != E_ERR_CLI_FAILED) {
+    if (mmgr_cli_connect(hdle) != E_ERR_CLI_SUCCEED) {
         line = __LINE__;
         goto out;
     }
 
-    mmgr_cli_disconnect(hdle);
+    if (mmgr_cli_delete_handle(hdle) != E_ERR_CLI_BAD_CNX_STATE) {
+        line = __LINE__;
+        goto out;
+    }
+
+    if (mmgr_cli_disconnect(hdle) != E_ERR_CLI_SUCCEED) {
+        line = __LINE__;
+        goto out;
+    }
 
     if (mmgr_cli_delete_handle(hdle) != E_ERR_CLI_SUCCEED) {
         line = __LINE__;
@@ -503,7 +509,7 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
     }
 
     if (mmgr_cli_subscribe_event(test->lib, generic_mmgr_evt,
-                                 E_MMGR_ACK) != E_ERR_CLI_FAILED) {
+                                 E_MMGR_ACK) != E_ERR_CLI_BAD_CNX_STATE) {
 
         line = __LINE__;
         goto out;
@@ -514,12 +520,31 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
+    /* overwrites MODEM_DOWN event to test the bad callback function */
+    if (mmgr_cli_unsubscribe_event(test->lib, E_MMGR_EVENT_MODEM_DOWN)
+        != E_ERR_CLI_SUCCEED) {
+        line = __LINE__;
+        goto out;
+    }
+    if (mmgr_cli_subscribe_event(test->lib, bad_callback,
+                                 E_MMGR_EVENT_MODEM_DOWN) !=
+        E_ERR_CLI_SUCCEED) {
+        line = __LINE__;
+        goto out;
+    }
+
     if (mmgr_cli_disconnect(NULL) != E_ERR_CLI_BAD_HANDLE) {
         line = __LINE__;
         goto out;
     }
 
     if (mmgr_cli_subscribe_event(test->lib, NULL, E_MMGR_ACK)
+        != E_ERR_CLI_FAILED) {
+        line = __LINE__;
+        goto out;
+    }
+
+    if (mmgr_cli_subscribe_event(test->lib, NULL, E_MMGR_NACK)
         != E_ERR_CLI_FAILED) {
         line = __LINE__;
         goto out;
@@ -538,7 +563,8 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
     }
 
     if (mmgr_cli_subscribe_event(test->lib, generic_mmgr_evt,
-                                 E_MMGR_ACK) != E_ERR_CLI_FAILED) {
+                                 E_MMGR_NOTIFY_MODEM_COLD_RESET) !=
+        E_ERR_CLI_FAILED) {
         line = __LINE__;
         goto out;
     }
@@ -547,6 +573,12 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         line = __LINE__;
         goto out;
     }
+
+    if (mmgr_cli_unsubscribe_event(test->lib, E_MMGR_NACK) != E_ERR_CLI_FAILED) {
+        line = __LINE__;
+        goto out;
+    }
+
     if (mmgr_cli_unsubscribe_event(test->lib, E_MMGR_NUM_EVENTS)
         != E_ERR_CLI_FAILED) {
         line = __LINE__;
@@ -558,12 +590,12 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    if (mmgr_cli_lock(test->lib) != E_ERR_CLI_FAILED) {
+    if (mmgr_cli_lock(test->lib) != E_ERR_CLI_BAD_CNX_STATE) {
         line = __LINE__;
         goto out;
     }
 
-    if (mmgr_cli_unlock(test->lib) != E_ERR_CLI_FAILED) {
+    if (mmgr_cli_unlock(test->lib) != E_ERR_CLI_BAD_CNX_STATE) {
         line = __LINE__;
         goto out;
     }
@@ -626,6 +658,17 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         line = __LINE__;
         goto out;
     }
+
+    /* request MODEM_RESTART to check bad callback function */
+    modem_state_set(test, E_MMGR_NUM_EVENTS);
+    request.id = E_MMGR_REQUEST_MODEM_RESTART;
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        line = __LINE__;
+        goto out;
+    }
+
+    wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+                   TIMEOUT_MODEM_UP_AFTER_RESET);
 
     ret = E_ERR_SUCCESS;
 

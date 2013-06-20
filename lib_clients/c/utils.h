@@ -37,4 +37,6 @@ e_err_mmgr_cli_t read_events(mmgr_lib_context_t *p_lib);
 e_err_mmgr_cli_t cli_connect(mmgr_lib_context_t *p_lib);
 e_err_mmgr_cli_t cli_disconnect(mmgr_lib_context_t *p_lib);
 
+e_mmgr_events_t is_request_rejected(mmgr_lib_context_t *p_lib);
+
 #endif                          /* __MMGR_CLI_UTILS_H__ */
