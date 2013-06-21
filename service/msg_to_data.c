@@ -382,6 +382,50 @@ out:
 }
 
 /**
+ * set client structure for RESPONSE_MODEM_FW_RESULT message
+ *
+ * @param [in,out] msg data received
+ * @param [in] request data to provide to MMGR client
+ *
+ * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    size_t len;
+    mmgr_cli_fw_update_result_t *result = NULL;
+    uint32_t tmp = 0;
+    char *msg_data = NULL;
+
+    CHECK_PARAM(msg, ret, out);
+    CHECK_PARAM(request, ret, out);
+
+    memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
+    if (len != sizeof(e_modem_fw_error_t)) {
+        LOG_ERROR("bad message size");
+        goto out;
+    }
+
+    /* the buffer will be freed by the matching freed function */
+    result = malloc(sizeof(mmgr_cli_fw_update_result_t));
+    if (result == NULL) {
+        LOG_ERROR("memory allocation fails");
+        goto out;
+    }
+
+    msg_data = msg->data;
+    deserialize_uint32(&msg_data, &tmp);
+    memcpy(&result->id, &tmp, sizeof(e_modem_fw_error_t));
+    ret = E_ERR_SUCCESS;
+
+out:
+    request->data = result;
+    return ret;
+}
+
+/**
  * free client structure for message with one element structure
  *
  * @param [in] request data to provide to MMGR client

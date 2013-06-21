@@ -259,6 +259,40 @@ out:
 }
 
 /**
+ * handle E_MMGR_RESPONSE_MODEM_FW_RESULT message allocation
+ *
+ * @param [in,out] msg data to send
+ * @param [in] data data to send
+ *
+ * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t set_msg_modem_fw_result(msg_t *msg, mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    uint32_t tmp;
+    size_t size;
+    mmgr_cli_fw_update_result_t *result = request->data;
+    char *msg_data = NULL;
+
+    CHECK_PARAM(msg, ret, out);
+    CHECK_PARAM(request, ret, out);
+
+    size = sizeof(uint32_t);
+    ret = prepare_msg(msg, &msg_data, E_MMGR_RESPONSE_MODEM_FW_RESULT, &size);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    memcpy(&tmp, &result->id, sizeof(e_modem_fw_error_t));
+    serialize_uint32(&msg_data, tmp);
+    ret = E_ERR_SUCCESS;
+
+out:
+    return ret;
+}
+
+/**
  * handle E_MMGR_NOTIFY_CORE_DUMP_COMPLETE message allocation
  *
  * @param [in,out] msg data to send

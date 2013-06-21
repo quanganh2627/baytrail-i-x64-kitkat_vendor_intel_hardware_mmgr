@@ -399,9 +399,9 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
     size_t size;
     struct timespec start, ts;
     int err;
-    int timeout;
+    int timeout = DEF_MMGR_RESPONSIVE_TIMEOUT;
     int sleep_duration = 1;
-    e_mmgr_events_t ack;
+    e_mmgr_events_t ack = E_MMGR_NUM_REQUESTS;
 
     if (request == NULL) {
         LOG_ERROR("request is NULL");
@@ -418,25 +418,14 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
     set_ack(p_lib, E_MMGR_NUM_EVENTS);
     clock_gettime(CLOCK_REALTIME, &start);
 
-    do {
-        size = SIZE_HEADER + msg.hdr.len;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        timeout = DEF_MMGR_RESPONSIVE_TIMEOUT - (ts.tv_sec - start.tv_sec);
-        if (timeout <= 0)
-            break;
-
-        ack = get_ack(p_lib);
-        if (ack == E_MMGR_NACK) {
-            if (timeout > ++sleep_duration)
-                sleep(sleep_duration);
-            else
-                break;
-        }
+    /* The loop ends after MMGR approval or timeout */
+    while (true) {
         /* Lock the mutex before sending the request. Otherwise, the answer can
          * be handled before waiting for the signal */
         pthread_mutex_lock(&p_lib->mtx_signal);
+
+        size = SIZE_HEADER + msg.hdr.len;
         if (write_cnx(p_lib->fd_socket, msg.data, &size) != E_ERR_SUCCESS) {
-            pthread_mutex_unlock(&p_lib->mtx_signal);
             break;
         }
         if (size == (SIZE_HEADER + msg.hdr.len)) {
@@ -444,9 +433,9 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
                       " Waiting for answer", p_lib->fd_socket, p_lib->cli_name,
                       g_mmgr_requests[request->id]);
 
+            clock_gettime(CLOCK_REALTIME, &ts);
             ts.tv_sec += timeout;
             err = pthread_cond_timedwait(&p_lib->cond, &p_lib->mtx_signal, &ts);
-            pthread_mutex_unlock(&p_lib->mtx_signal);
             if (err == ETIMEDOUT) {
                 /* This happens if MMGR is not responsive or if the client's
                  * callback takes too much time. Indeed, the callback is called
@@ -455,13 +444,29 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
                 LOG_DEBUG("(fd=%d client=%s) timeout for request (%s)",
                           p_lib->fd_socket, p_lib->cli_name,
                           g_mmgr_requests[request->id]);
+                break;          /* timeout expired */
             } else {
-                ret = E_ERR_CLI_SUCCEED;
+                ack = get_ack(p_lib);
+                if (ack == E_MMGR_ACK) {
+                    ret = E_ERR_CLI_SUCCEED;
+                    break;
+                }
             }
         }
-        ack = get_ack(p_lib);
-    } while (ack != E_MMGR_ACK);
+        pthread_mutex_unlock(&p_lib->mtx_signal);
+
+        clock_gettime(CLOCK_REALTIME, &ts);
+        timeout = DEF_MMGR_RESPONSIVE_TIMEOUT - (ts.tv_sec - start.tv_sec);
+        if ((timeout > 0) && (++sleep_duration <= timeout))
+            sleep(sleep_duration);
+        else
+            break;              /* timeout expired */
+    }
 out:
+    /* when we break the do{}while loop, the mutex is not ALWAYS unlocked. To
+     * be safe, try to lock it before unlocking it */
+    pthread_mutex_trylock(&p_lib->mtx_signal);
+    pthread_mutex_unlock(&p_lib->mtx_signal);
     delete_msg(&msg);
     return ret;
 }

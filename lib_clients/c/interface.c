@@ -140,6 +140,9 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->set_data[E_MMGR_NOTIFY_ERROR] = set_data_error;
     p_lib->free_data[E_MMGR_NOTIFY_ERROR] = free_data_error;
 
+    p_lib->set_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] = set_data_fw_result;
+    p_lib->free_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] = free_one_element_struct;
+
     *handle = (mmgr_cli_handle_t *)p_lib;
     LOG_DEBUG("handle created successfully");
 out:

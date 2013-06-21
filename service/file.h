@@ -34,4 +34,6 @@ e_mmgr_errors_t write_to_file(char *path, unsigned long mode, char *value,
                               size_t size);
 e_mmgr_errors_t is_file_exists(const char *path, unsigned long rights);
 
+e_mmgr_errors_t copy_file(const char *src, const char *dst, mode_t dst_mode);
+
 #endif                          /* __MMGR_FILE_HEADER__ */
