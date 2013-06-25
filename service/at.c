@@ -118,7 +118,7 @@ out:
  *
  * @return E_ERR_SUCCESS command sends and 'OK' received
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
- * @return E_ERR_AT_CMD_RESEND generic failure. Command to resend
+ * @return E_ERR_FAILED failed to send command after all retries
  * @return E_ERR_TTY_BAD_FD bad file descriptor
  * @return E_ERR_BAD_PARAMETER if at_cmd is NULL
  */
@@ -137,8 +137,10 @@ e_mmgr_errors_t send_at_retry(int fd_tty, const char *at_cmd, int at_cmd_size,
             break;
     }
 
-    if (err == E_ERR_AT_CMD_RESEND)
+    if (err == E_ERR_AT_CMD_RESEND) {
         LOG_ERROR("Invalid or no response from modem");
+        err = E_ERR_FAILED;
+    }
 
 out:
     return err;

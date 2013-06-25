@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
@@ -277,18 +278,13 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
     e_mmgr_errors_t ret = E_ERR_BAD_PARAMETER;
     e_switch_to_mux_states_t state;
     struct timespec current, start;
+    bool retry_bad_fd_done = false;
 
     CHECK_PARAM(fd_tty, ret, out);
     CHECK_PARAM(config, ret, out);
     CHECK_PARAM(info, ret, out);
 
     for (state = E_MUX_HANDSHAKE; state != E_MUX_DRIVER; /* none */ ) {
-        if (retry < 0) {
-            LOG_DEBUG("No retries left to send command");
-            ret = E_ERR_TTY_TIMEOUT;
-            goto out;
-        }
-
         switch (state) {
         case E_MUX_HANDSHAKE:
             ret = modem_handshake(*fd_tty, config, retry);
@@ -311,9 +307,9 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         if (ret == E_ERR_SUCCESS) {
             /* states are ordered. go to next one */
             state++;
-            retry = config->max_retry;
-        } else if ((ret == E_ERR_TTY_BAD_FD) || (ret == E_ERR_AT_CMD_RESEND)) {
+        } else if ((ret == E_ERR_TTY_BAD_FD) && (retry_bad_fd_done == false)) {
             LOG_DEBUG("reopen tty device: %s", config->modem_port);
+            retry_bad_fd_done = true;
             close_tty(fd_tty);
             if ((ret = open_tty(config->modem_port, fd_tty)) != E_ERR_SUCCESS)
                 goto out;
