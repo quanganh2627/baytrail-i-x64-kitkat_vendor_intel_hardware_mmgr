@@ -393,8 +393,8 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     } else if (mmgr->reset.state == E_OPERATION_WAIT)
         goto out;
 
-    /* Clear all events */
-    mmgr->info.polled_states = 0;
+    /* Keep only CORE DUMP state */
+    mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
     set_mcd_poll_states(&mmgr->info);
     stop_all_timers(&mmgr->timer);
 
