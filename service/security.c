@@ -21,11 +21,237 @@
 #include "security.h"
 #include "tty.h"
 #include <dlfcn.h>
+#include <resolv.h>
 
 #define AT_SEC_RETRY 4
 #define AT_SIZE 1024
 #define SECUR_LIB "libdx_cc7.so"
 #define SECUR_CALLBACK "secure_channel_callback"
+
+/* @TODO: avoid this dupplication */
+#define SECURE_CH_DATA_FREE_RETURN_DATA   0
+
+#define MSG_TYPE_INDX 0
+#define MSG_LEN_INDX 2
+#define MSG_DATA_INDX 4
+#define AT_SECUR "xsecchannel"
+#define MSG_START_STR "+"AT_SECUR":"
+#define MSG_ANSWER_START "+"AT_SECUR"="
+#define MAX_TLV_LEN 2*1024
+
+/**
+ * read the message provided by the modem
+ *
+ * @param [in] fd file descriptor
+ * @param [out] received buffer containing the read data. should be freed by the
+ *              user (even if function failed)
+ * @param [out] send_id send message id
+ * @param [out] req_id request id
+ * @param [out] len received length
+ *
+ * @return E_ERR_BAD_PARAMETER
+ * @return E_ERR_FAILED
+ * @return E_ERR_SUCCESS
+ */
+static e_mmgr_errors_t read_msg(int fd, char **received, int *send_id,
+                                int *req_id, int *len)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    int read_size;
+    int remain = 0;
+    int tmp = 0;
+    char buffer[AT_SIZE + 1];
+    char *data = NULL;
+    int header_len = 0;
+    int data_len = 0;
+
+    CHECK_PARAM(received, ret, out);
+    CHECK_PARAM(send_id, ret, out);
+    CHECK_PARAM(req_id, ret, out);
+    CHECK_PARAM(len, ret, out);
+
+    do {
+        read_size = AT_SIZE;
+        ret = read_from_tty(fd, buffer, &read_size, AT_READ_MAX_RETRIES);
+        if ((read_size <= 0) || (ret != E_ERR_SUCCESS))
+            goto out;
+        buffer[read_size] = '\0';
+        /* extract data +XSECCHANNEL: receiver/sender ID, request ID, length,
+         * data */
+        data = strcasestr(buffer, MSG_START_STR);
+    } while (data == NULL);
+    LOG_DEBUG("Received: %s", data);
+
+    ret = E_ERR_FAILED;
+    /* extract sender, request IDs and length. If the pattern is not present in
+     * the chuck it will fail. But this should not happen as we should receive
+     * it in one chunck */
+    data += strlen(MSG_START_STR);
+    if (sscanf(data, "%d,%d,%d,", send_id, req_id, len) != 3)
+        goto out;
+
+    if (*len > MAX_TLV_LEN) {
+        LOG_ERROR("TLV size is too high");
+        goto out;
+    }
+
+    /* extract the data. it begins with " */
+    data = strstr(data, "\"");
+    if (!data)
+        goto out;
+    /* remove " character */
+    data++;
+
+    /* add +3 (\r, \n, and ") in case we haven't read everything yet */
+    *received = malloc(*len + 3);
+    if (!*received) {
+        LOG_ERROR("memory allocation failed");
+        goto out;
+    }
+
+    header_len = data - buffer;
+    if (header_len > read_size)
+        goto out;
+
+    data_len = read_size - header_len;
+    if (data_len < 0)
+        goto out;
+    /* remove useless received data */
+    if (data_len > *len)
+        data_len = *len;
+
+    memcpy(*received, data, data_len);
+
+    if (data_len != *len) {
+        remain = *len - data_len + 2;
+        tmp = remain;
+        ret = read_from_tty(fd, *received + data_len, &tmp,
+                            AT_READ_MAX_RETRIES);
+        if ((ret != E_ERR_SUCCESS) || (tmp != remain))
+            goto out;
+    }
+
+    memset(*received + *len, '\0', 1);
+    ret = E_ERR_SUCCESS;
+
+out:
+    return ret;
+}
+
+/**
+ * decode a message received by the modem
+ *
+ * @param [in] received data to decode
+ * @param [in] rec_len size of received buffer
+ * @param [out] type message type
+ * @param [out] length length of the converted data
+ * @param [out] conv converted data. should be freed by the user
+*
+ * @return E_ERR_BAD_PARAMETER
+ * @return E_ERR_FAILED
+ * @return E_ERR_SUCCESS
+ */
+static e_mmgr_errors_t decode_data(char *received, int rec_len, uint32_t *type,
+                                   uint32_t *length, uint8_t **conv)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    uint8_t *tmp = NULL;
+    int len = 0;
+
+    CHECK_PARAM(received, ret, out);
+    CHECK_PARAM(type, ret, out);
+    CHECK_PARAM(length, ret, out);
+    CHECK_PARAM(conv, ret, out);
+
+    *conv = NULL;
+    tmp = calloc(rec_len, sizeof(uint8_t));
+    if (!tmp)
+        goto out;
+
+    if ((len = b64_pton(received, tmp, rec_len)) < 0)
+        goto out;
+
+    /* extract type and length */
+    memcpy(length, &len, sizeof(*length));
+    memset(type, 0, sizeof(*type));
+    memcpy(type, &tmp[MSG_TYPE_INDX], 2);
+
+    *conv = malloc(sizeof(uint8_t) * *length);
+    if (*conv) {
+        memcpy(*conv, tmp, *length);
+        ret = E_ERR_SUCCESS;
+    }
+
+out:
+    if (ret != E_ERR_SUCCESS)
+        LOG_ERROR("operation failed");
+    if (tmp)
+        free(tmp);
+    return ret;
+}
+
+/**
+ * encode a message received by the modem
+ *
+ * @param [in] send_id message id
+ * @param [in] req_id request id
+ * @param [in] src data received by the secur lib
+ * @param [in] src_len src length
+ * @param [out] send message encoded. should be freed by the user
+ * @param [out] send_len message length
+ *
+ * @return E_ERR_BAD_PARAMETER
+ * @return E_ERR_FAILED
+ * @return E_ERR_SUCCESS
+ */
+static e_mmgr_errors_t encode_data(int send_id, int req_id, const uint8_t *src,
+                                   uint32_t src_len, char **send, int *send_len)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    char *conv = NULL;
+    size_t data_len = 0;
+    int conv_len = 0;
+
+    CHECK_PARAM(src, ret, out);
+    CHECK_PARAM(send, ret, out);
+
+    if (src_len <= 0)
+        goto out;
+
+    *send = NULL;
+    data_len = src_len * sizeof(char);
+    conv_len = data_len * 4 / 3 + 4;
+
+    conv = calloc(conv_len, sizeof(char));
+    if (!conv)
+        goto out;
+
+    /* convert data */
+    conv_len = b64_ntop(src, data_len, conv, conv_len);
+    if (conv_len < 0) {
+        LOG_ERROR("conversion has failed");
+        goto out;
+    }
+
+    /* send_id / req_id are on 16 bits they should not use more than 5 bytes
+     * conv_len will not be more than 12 bytes */
+    *send_len = conv_len + (5 * 2) + 12 +
+        (sizeof(char) * (10 + strlen(MSG_ANSWER_START)));
+    *send = malloc(sizeof(char) * *send_len);
+    if (!*send)
+        goto out;
+
+    *send_len = snprintf(*send, *send_len, "at%s%d,%d,%d,\"%s\"\r\n",
+                         MSG_ANSWER_START, send_id, req_id, conv_len, conv);
+    ret = E_ERR_SUCCESS;
+
+out:
+    if (conv)
+        free(conv);
+    if (ret != E_ERR_SUCCESS)
+        LOG_ERROR("operation failed");
+    return ret;
+}
 
 /**
  * Handle secur event type
@@ -39,62 +265,60 @@
 e_mmgr_errors_t secur_event(secur_t *secur)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    char buffer[AT_SIZE];
-    int read_size = 0;
-    uint32_t data_size = 0;
-    uint8_t *data = NULL;
-    uint8_t *p = NULL;
+    char *received = NULL;
+    char *send = NULL;
+    int rec_len = 0;
+    int send_len = 0;
+    uint8_t *conv = NULL;
+    uint8_t *p_conv = NULL;
     uint32_t type = 0;
-    int header_size = 0;
+    uint32_t length = 0;
+    int send_id = 0;
+    int req_id = 0;
+    int err = 0;
 
     CHECK_PARAM(secur, ret, out);
 
     if (!secur->enable)
         goto out;
 
-    for (;;) {
-        read_size = AT_SIZE;
-        memset(buffer, 0, AT_SIZE);
-        ret = read_from_tty(secur->fd, buffer, &read_size, AT_READ_MAX_RETRIES);
-        if (read_size <= 0)
-            break;
-        if (ret != E_ERR_SUCCESS)
-            goto out;
-
-        data = realloc(data, data_size + read_size);
-        if (data == NULL) {
-            LOG_ERROR("memory allocation failed");
-            goto out;
-        }
-
-        p = data + data_size;
-        memcpy(p, buffer, (read_size > AT_SIZE ? AT_SIZE : read_size));
-        /* truncate buffer in case where read_size > AT_SIZE if this case
-         * happens, will be debugged easier with holes in data */
-        data_size += read_size;
+    ret = read_msg(secur->fd, &received, &send_id, &req_id, &rec_len);
+    if ((ret != E_ERR_SUCCESS) || (received == NULL)) {
+        ret = E_ERR_FAILED;
+        goto out;
     }
 
-    /* extract data +xsecchannel: receiver/sender ID, request ID, length, data */
-    p = (uint8_t *)strstr("+xsecchannel:", buffer);
-    if (p == NULL)
+    ret = decode_data(received, rec_len, &type, &length, &conv);
+    if ((ret != E_ERR_SUCCESS) || (conv == NULL)) {
+        ret = E_ERR_FAILED;
         goto out;
-    p = (uint8_t *)strstr(",", (char *)p);
-    if (p == NULL)
+    }
+
+    /* the secure library will overwrite the pointer. Save the pointer to be
+     * able to free the memory */
+    p_conv = conv;
+    if ((err = secur->callback(&type, &length, &conv)) < 0) {
+        LOG_ERROR("secur channel failed with err=%d", err);
+        ret = E_ERR_FAILED;
         goto out;
-    p++;
-    header_size = p - data;
-    data_size -= header_size;
+    }
 
-    secur->callback(&type, &data_size, &p);
+    ret = encode_data(send_id, req_id, conv, length, &send, &send_len);
+    if (ret == E_ERR_SUCCESS)
+        ret = send_at_retry(secur->fd, send, send_len, AT_SEC_RETRY,
+                            AT_ANSWER_SHORT_TIMEOUT);
 
-    /* @TODO: check if the reply is well formated currently, the received
-     * header is kept and the data to send overwrites the receive data */
-    send_at_retry(secur->fd, (char *)data, data_size + header_size,
-                  AT_SEC_RETRY, AT_ANSWER_SHORT_TIMEOUT);
+    /* free memory allocation on secure lib side */
+    type = SECURE_CH_DATA_FREE_RETURN_DATA;
+    secur->callback(&type, NULL, NULL);
 
 out:
-    if (data != NULL)
-        free(data);
+    if (received != NULL)
+        free(received);
+    if (p_conv != NULL)
+        free(p_conv);
+    if (send)
+        free(send);
     return ret;
 }
 
@@ -136,13 +360,17 @@ out:
 e_mmgr_errors_t secur_start(secur_t *secur)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    const char at_cmd[] = "AT+XSECCHANNEL?\r";
+    const char at_cmd[] = "at+" AT_SECUR "?\r";
 
     CHECK_PARAM(secur, ret, out);
 
-    if (secur->enable)
-        ret = send_at_retry(secur->fd, at_cmd, strlen(at_cmd),
-                            AT_SEC_RETRY, AT_ANSWER_SHORT_TIMEOUT);
+    if (secur->enable) {
+        LOG_DEBUG("Send of: %s", at_cmd);
+        /* The modem doesn't answer OK to this AT command. That's why this
+         * function is used */
+        ret = write_to_tty(secur->fd, at_cmd, strlen(at_cmd));
+    }
+
 out:
     return ret;
 }
@@ -212,6 +440,7 @@ e_mmgr_errors_t secur_init(secur_t *secur, mmgr_configuration_t *config)
     } else {
         secur->hdle = NULL;
     }
+
 out:
     return ret;
 }

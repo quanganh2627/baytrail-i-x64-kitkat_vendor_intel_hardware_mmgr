@@ -61,6 +61,50 @@ const char *g_mmgr_events[] = {
 };
 
 /**
+ * Update events variable
+ *
+ * @param [in,out] test_data thread handler
+ * @param [in] state new test state
+ *
+ * @return E_ERR_BAD_PARAMETER if test_data is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t events_set(test_data_t *test_data, e_events_t state)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(test_data, ret, out);
+
+    pthread_mutex_lock(&test_data->mutex);
+    test_data->events |= state;
+    pthread_mutex_unlock(&test_data->mutex);
+
+out:
+    return ret;
+}
+
+/**
+ * Get events variable
+ *
+ * @param [in,out] test_data thread handler
+ *
+ * @return e_events_t
+ */
+e_events_t events_get(test_data_t *test_data)
+{
+    e_events_t ev = E_EVENTS_NONE;
+
+    if (test_data == NULL) {
+        ev = E_EVENTS_ERROR_OCCURED;
+    } else {
+        pthread_mutex_lock(&test_data->mutex);
+        ev = test_data->events;
+        pthread_mutex_unlock(&test_data->mutex);
+    }
+    return ev;
+}
+
+/**
  * Update modem_state variable
  *
  * @param [in,out] test_data thread handler
@@ -69,7 +113,7 @@ const char *g_mmgr_events[] = {
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_state_set(test_data_t *test_data, int state)
+e_mmgr_errors_t modem_state_set(test_data_t *test_data, e_mmgr_events_t state)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -92,7 +136,8 @@ out:
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t modem_state_get(test_data_t *test_data, int *state)
+static e_mmgr_errors_t modem_state_get(test_data_t *test_data,
+                                       e_mmgr_events_t *state)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -191,6 +236,52 @@ bool get_wakelock_state(void)
 }
 
 /**
+ * This function sends the ACK to MMGR
+ *
+ * @param [in] test_data
+ * @param [in] evt_id
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ * @return E_ERR_BAD_PARAMETER if filename or/and path is/are NULL
+ */
+static e_mmgr_errors_t send_ack(test_data_t *test_data, e_mmgr_events_t evt_id)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_NUM_REQUESTS };
+    e_err_mmgr_cli_t err = E_ERR_CLI_FAILED;
+
+    CHECK_PARAM(test_data, ret, out);
+
+    switch (evt_id) {
+    case E_MMGR_NOTIFY_MODEM_COLD_RESET:
+        request.id = E_MMGR_ACK_MODEM_COLD_RESET;
+        break;
+    case E_MMGR_ACK_MODEM_SHUTDOWN:
+        request.id = E_MMGR_ACK_MODEM_SHUTDOWN;
+        break;
+    default:
+        break;
+    }
+
+    if (request.id != E_MMGR_NUM_REQUESTS) {
+        err = mmgr_cli_send_msg(test_data->lib, &request);
+        if (err == E_ERR_CLI_SUCCEED) {
+            LOG_DEBUG("message (%s) sent succesfuly",
+                      g_mmgr_requests[request.id]);
+            ret = E_ERR_SUCCESS;
+        } else {
+            LOG_ERROR("Failed to send (%s) message",
+                    g_mmgr_requests[request.id]);
+            events_set(test_data, E_EVENTS_ERROR_OCCURED);
+        }
+    }
+
+out:
+    return ret;
+}
+
+/**
  * This function will extract the last core dump archived logged in aplog
  * and check if the archive exist.
  *
@@ -234,20 +325,21 @@ e_mmgr_errors_t is_core_dump_found(char *filename, const char *path)
                 break;
             }
         }
+
+        for (j = 0; j < files_number; j++) {
+            if (files_list[j] != NULL)
+                free(files_list[j]);
+        }
+        if (files_list != NULL)
+            free(files_list);
     }
 
     for (i = 0; i < folders_number; i++) {
         if (folder_list[i] != NULL)
             free(folder_list[i]);
     }
-    for (j = 0; j < files_number; j++) {
-        if (files_list[j] != NULL)
-            free(files_list[j]);
-    }
     if (folder_list != NULL)
         free(folder_list);
-    if (files_list != NULL)
-        free(files_list);
 
     if (ret == E_ERR_SUCCESS)
         strncpy(not, "", sizeof(not));
@@ -266,21 +358,21 @@ out:
  * @param [in] timeout timeout (in second)
  *
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
- * @return E_ERR_MODEM_OUT if modem is OUT
- * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_SUCCESS if state reached
  * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
                                int timeout)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    int current_state = 0;
+    e_mmgr_events_t current_state = E_MMGR_NUM_EVENTS;
     struct timespec ts;
     struct timeval start;
     struct timeval current;
     int remaining;
     char *state_str[] = { "not ", "" };
     bool wake_state;
+    int err = 0;
 
     CHECK_PARAM(test_data, ret, out);
 
@@ -302,7 +394,8 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
             ts.tv_sec += 1;
 
         pthread_mutex_lock(&test_data->cond_mutex);
-        pthread_cond_timedwait(&test_data->cond, &test_data->cond_mutex, &ts);
+        err = pthread_cond_timedwait(&test_data->cond, &test_data->cond_mutex,
+                                     &ts);
         pthread_mutex_unlock(&test_data->cond_mutex);
 
         modem_state_get(test_data, &current_state);
@@ -310,6 +403,12 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
         /* ack new modem state by releasing the new_state_read mutex */
         pthread_mutex_trylock(&test_data->new_state_read);
         pthread_mutex_unlock(&test_data->new_state_read);
+
+        /* @TODO: The cold reset or modem shutdown acceptance message is sent
+         * by the main thread. It could be a good idea to create a task thread
+         * to send those requests if we encounter a delay or deadlock issue */
+        if (err != ETIMEDOUT)
+            send_ack(test_data, current_state);
 
         if (current_state == test_data->waited_state) {
             LOG_DEBUG("state reached (%s)", g_mmgr_events[current_state]);
@@ -324,8 +423,9 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
             }
         } else if ((current_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
                    (current_state == E_MMGR_NOTIFY_PLATFORM_REBOOT)) {
-            LOG_DEBUG("modem is out of service");
-            ret = E_ERR_MODEM_OUT;
+            LOG_DEBUG("modem state: %s", g_mmgr_events[current_state]);
+            events_set(test_data, E_EVENTS_MODEM_OOS);
+            break;
         }
     } while ((ret == E_ERR_FAILED) && (remaining > 1));
 out:
@@ -341,7 +441,7 @@ out:
  * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS
  */
-static e_mmgr_errors_t set_and_notify(e_mmgr_requests_t id,
+static e_mmgr_errors_t set_and_notify(e_mmgr_events_t id,
                                       test_data_t *test_data)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -352,46 +452,14 @@ static e_mmgr_errors_t set_and_notify(e_mmgr_requests_t id,
      * wait_for_state function */
     pthread_mutex_lock(&test_data->new_state_read);
 
-    pthread_mutex_lock(&test_data->mutex);
-    test_data->modem_state = id;
+    modem_state_set(test_data, id);
+
     pthread_mutex_lock(&test_data->cond_mutex);
     pthread_cond_signal(&test_data->cond);
     pthread_mutex_unlock(&test_data->cond_mutex);
-    pthread_mutex_unlock(&test_data->mutex);
-    if (id < E_MMGR_NUM_REQUESTS)
+
+    if (id < E_MMGR_NUM_EVENTS)
         LOG_DEBUG("current state: %s", g_mmgr_events[id]);
-out:
-    return ret;
-}
-
-/**
- * callback for modem shutdown event
- *
- * @param [in] ev current info callback data
- *
- * @return 0 if successful
- * @return 1 otherwise
- */
-static int event_modem_shutdown(mmgr_cli_event_t *ev)
-{
-    int ret = 1;
-    e_err_mmgr_cli_t err = E_ERR_CLI_FAILED;
-    test_data_t *test_data = NULL;
-    mmgr_cli_requests_t request = {.id = E_MMGR_ACK_MODEM_SHUTDOWN };
-
-    CHECK_PARAM(ev, err, out);
-
-    test_data = (test_data_t *)ev->context;
-    if (test_data == NULL)
-        goto out;
-
-    set_and_notify(ev->id, (test_data_t *)ev->context);
-    err = mmgr_cli_send_msg(test_data->lib, &request);
-    if (err == E_ERR_CLI_SUCCEED)
-        ret = 0;
-    else
-        LOG_ERROR("Failed to send E_MMGR_ACK_MODEM_SHUTDOWN");
-
 out:
     return ret;
 }
@@ -417,8 +485,6 @@ static int event_error(mmgr_cli_event_t *ev)
     if (data == NULL)
         goto out;
 
-    data->test_succeed = false;
-
     cli_err = (mmgr_cli_error_t *)ev->data;
     if (cli_err == NULL) {
         LOG_ERROR("empty data");
@@ -428,13 +494,15 @@ static int event_error(mmgr_cli_event_t *ev)
               cli_err->reason, cli_err->len);
     if ((cli_err->len == strlen(FAKE_ERROR_REASON))
         && (strncmp(FAKE_ERROR_REASON, cli_err->reason, cli_err->len) == 0))
-        data->test_succeed = true;
+        events_set(data, E_EVENTS_SUCCEED);
 
     err = set_and_notify(ev->id, (test_data_t *)ev->context);
     if (err == E_ERR_SUCCESS)
         ret = 0;
 
 out:
+    if (ret == 1)
+        events_set(data, E_EVENTS_ERROR_OCCURED);
     return ret;
 }
 
@@ -459,8 +527,6 @@ static int event_ap_reset(mmgr_cli_event_t *ev)
     if (data == NULL)
         goto out;
 
-    data->test_succeed = false;
-
     ap = (mmgr_cli_ap_reset_t *)ev->data;
     if (ap == NULL) {
         LOG_ERROR("empty data");
@@ -469,13 +535,15 @@ static int event_ap_reset(mmgr_cli_event_t *ev)
     LOG_DEBUG("AP reset asked by: %s (len: %d)", ap->name, ap->len);
     if ((ap->len == strlen(EXE_NAME)) &&
         (strncmp(EXE_NAME, ap->name, ap->len) == 0))
-        data->test_succeed = true;
+        events_set(data, E_EVENTS_SUCCEED);
 
     err = set_and_notify(ev->id, (test_data_t *)ev->context);
     if (err == E_ERR_SUCCESS)
         ret = 0;
 
 out:
+    if (ret == 1)
+        events_set(data, E_EVENTS_ERROR_OCCURED);
     return ret;
 }
 
@@ -500,8 +568,6 @@ static int event_core_dump(mmgr_cli_event_t *ev)
     data = (test_data_t *)ev->context;
     if (data == NULL)
         goto out;
-
-    data->test_succeed = false;
 
     cd = (mmgr_cli_core_dump_t *)ev->data;
     if (cd == NULL) {
@@ -528,9 +594,11 @@ static int event_core_dump(mmgr_cli_event_t *ev)
 
     base_name = basename(cd->path);
     if ((is_file_exists(cd->path, 0) == E_ERR_SUCCESS)
+        || (is_core_dump_found(base_name, "/mnt/shell/emulated/0/logs/") ==
+            E_ERR_SUCCESS)
         || (is_core_dump_found(base_name, "/sdcard/") == E_ERR_SUCCESS)) {
         LOG_DEBUG("core dump found");
-        data->test_succeed = true;
+        events_set(data, E_EVENTS_SUCCEED);
     }
 
     err = set_and_notify(ev->id, (test_data_t *)ev->context);
@@ -538,6 +606,8 @@ static int event_core_dump(mmgr_cli_event_t *ev)
         ret = 0;
 
 out:
+    if (ret == 1)
+        events_set(data, E_EVENTS_ERROR_OCCURED);
     return ret;
 }
 
@@ -573,40 +643,8 @@ static int event_fw_status(mmgr_cli_event_t *ev)
         ret = 0;
 
 out:
-    return ret;
-}
-
-/**
- * callback for cold reset modem event
- *
- * @param [in] ev current info callback data
- *
- * @return 0 if successful
- * @return 1 otherwise
- */
-static int event_cold_reset(mmgr_cli_event_t *ev)
-{
-    int ret = 1;
-    e_err_mmgr_cli_t err = E_ERR_CLI_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_ACK_MODEM_COLD_RESET };
-    test_data_t *test_data = NULL;
-
-    CHECK_PARAM(ev, err, out);
-
-    test_data = (test_data_t *)ev->context;
-    if (test_data == NULL)
-        goto out;
-
-    set_and_notify(ev->id, (test_data_t *)ev->context);
-
-    err = mmgr_cli_send_msg(test_data->lib, &request);
-    if (err != E_ERR_CLI_SUCCEED) {
-        LOG_ERROR("Failed to send E_MMGR_ACK_MODEM_SHUTDOWN");
-    } else {
-        ret = 0;
-    }
-
-out:
+    if (ret == 1)
+        events_set(data, E_EVENTS_ERROR_OCCURED);
     return ret;
 }
 
@@ -618,18 +656,25 @@ out:
  * @return 0 if successful
  * @return 1 otherwise
  */
-int event_without_ack(mmgr_cli_event_t *ev)
+int generic_mmgr_evt(mmgr_cli_event_t *ev)
 {
     int ret = 1;
     e_mmgr_errors_t err;
+    test_data_t *test_data = NULL;
 
     CHECK_PARAM(ev, err, out);
+
+    test_data = (test_data_t *)ev->context;
+    if (test_data == NULL)
+        goto out;
 
     err = set_and_notify(ev->id, (test_data_t *)ev->context);
     if (err == E_ERR_SUCCESS)
         ret = 0;
 
 out:
+    if (ret == 1)
+        events_set(test_data, E_EVENTS_ERROR_OCCURED);
     return ret;
 }
 
@@ -691,39 +736,39 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
         goto out;
     }
 
-    if (mmgr_cli_subscribe_event(test_data->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_EVENT_MODEM_DOWN) != E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_EVENT_MODEM_UP) != E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) !=
         E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_NOTIFY_MODEM_WARM_RESET) !=
         E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_NOTIFY_CORE_DUMP) != E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, event_cold_reset,
+    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_NOTIFY_MODEM_COLD_RESET) !=
         E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, event_modem_shutdown,
+    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_NOTIFY_MODEM_SHUTDOWN) !=
         E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_NOTIFY_PLATFORM_REBOOT) !=
         E_ERR_CLI_SUCCEED)
         goto out;
@@ -737,7 +782,7 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
                                  E_MMGR_NOTIFY_AP_RESET) != E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_NOTIFY_SELF_RESET) != E_ERR_CLI_SUCCEED)
         goto out;
 
@@ -772,7 +817,6 @@ out:
  * @param [in] final_state final state expected
  *
  * @return E_ERR_BAD_PARAMETER if test is NULL
- * @return E_ERR_MODEM_OUT if modem is OUT
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
@@ -823,7 +867,6 @@ out:
  * @param [in] test test data
  *
  * @return E_ERR_BAD_PARAMETER if test is NULL
- * @return E_ERR_MODEM_OUT if modem is OUT
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
@@ -878,7 +921,6 @@ out:
  * @param [in] test test data
  *
  * @return E_ERR_BAD_PARAMETER if test is NULL
- * @return E_ERR_MODEM_OUT if modem is OUT
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
@@ -944,7 +986,6 @@ e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
 
     CHECK_PARAM(test, ret, out);
 
-    test->test_succeed = false;
     err = mmgr_cli_send_msg(test->lib, &request);
 
     if (!is_fake_events_allowed()) {
@@ -959,7 +1000,7 @@ e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
             ret = wait_for_state(test, answer, false,
                                  TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
-            if (check_result && !test->test_succeed)
+            if (check_result && (events_get(test) != E_EVENTS_SUCCEED))
                 ret = E_ERR_FAILED;
         }
 

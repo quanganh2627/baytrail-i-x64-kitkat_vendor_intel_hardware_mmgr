@@ -52,23 +52,35 @@
 "long option name:\n"
 
 #define PRINT_TEST \
-"\n*************** Test %s ***************\n" \
-"(Name: %s) %s\n" \
+"\n******************************************\n"\
+"Name: %s\n"\
+"State: %s\n"\
 "********************************************\n\n"
 
 #define INVALID_CHOICE \
-"\n***********************************\n" \
-"**     Invalid test choice       **\n" \
+"\n***********************************\n"\
+"**     Invalid test choice       **\n"\
 "***********************************\n"
 
 #define DESCRIPTION_LEN 70
 #define INVALID_TEST    -2
+
+#define TEST_RESULT \
+    X(SUCCEED),\
+    X(FAILED),\
+    X(INCONCLUSIVE)
 
 typedef struct test_case {
     char desc[DESCRIPTION_LEN];
     e_mmgr_errors_t (*func) (test_data_t *data);
     char name[DESCRIPTION_LEN];
 } test_case_t;
+
+enum {
+#undef X
+#define X(a) E_TEST_##a
+    TEST_RESULT
+};
 
 /**
  * Run selected test
@@ -84,16 +96,20 @@ e_mmgr_errors_t run_test(test_case_t *test)
 {
     test_data_t test_data;
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    int result = 1;
-    char *state[] = { "SUCCEED", "FAILED",
-        "SUCCEED but modem is OUT due to correct reset escalation behavior"
+    int result = E_TEST_FAILED;;
+    e_events_t ev = E_EVENTS_NONE;
+    char *state[] = {
+#undef X
+#define X(a) #a
+        TEST_RESULT
     };
 
     CHECK_PARAM(test, ret, out);
 
     test_data.lib = NULL;
-    test_data.waited_state = -1;
-    test_data.modem_state = -1;
+    test_data.waited_state = E_MMGR_NUM_EVENTS;
+    test_data.modem_state = E_MMGR_NUM_EVENTS;
+    test_data.events = E_EVENTS_NONE;
     pthread_mutex_init(&test_data.new_state_read, NULL);
     pthread_mutex_init(&test_data.mutex, NULL);
     pthread_mutex_init(&test_data.cond_mutex, NULL);
@@ -111,27 +127,36 @@ e_mmgr_errors_t run_test(test_case_t *test)
         goto out;
     }
 
-    printf(PRINT_TEST, "started", test->desc, "");
+    printf(PRINT_TEST, test->desc, "started");
 
     ret = test->func(&test_data);
-    switch (ret) {
-    case E_ERR_SUCCESS:
-        result = 0;
-        break;
-    case E_ERR_FAILED:
-        result = 1;
-        break;
-    case E_ERR_MODEM_OUT:
-        result = 2;
-        break;
-    case E_ERR_BAD_PARAMETER:
-        LOG_DEBUG("bad param");
-        break;
-    default:
-        LOG_ERROR("bad returned value");
-        break;
+    ev = events_get(&test_data);
+    if (ev & E_EVENTS_ERROR_OCCURED) {
+        LOG_DEBUG("An error occured during the test");
+        result = E_TEST_FAILED;
+    } else {
+        switch (ret) {
+        case E_ERR_SUCCESS:
+            result = E_TEST_SUCCEED;
+            break;
+        case E_ERR_FAILED:
+            if (ev & E_EVENTS_MODEM_OOS) {
+                result = E_TEST_INCONCLUSIVE;
+            } else {
+                result = E_TEST_FAILED;
+            }
+            break;
+        case E_ERR_BAD_PARAMETER:
+            result = E_TEST_FAILED;
+            LOG_DEBUG("bad parameter");
+            break;
+        default:
+            result = E_TEST_FAILED;
+            LOG_ERROR("bad returned value");
+            break;
+        }
     }
-    printf(PRINT_TEST, "result has", test->desc, state[result]);
+    printf(PRINT_TEST, test->desc, state[result]);
 
     ret = cleanup_client_library(&test_data);
     if (ret != E_ERR_SUCCESS)
@@ -264,6 +289,7 @@ int main(int argc, char *argv[])
         {"FAKE REQUEST: platform reboot", fake_reboot, "fake_reboot"},
         {"FAKE REQUEST: modem out of service", fake_modem_hs, "fake_oos"},
         {"FAKE REQUEST: error", fake_error, "fake_error"},
+        {"ENDLESS TEST: start the modem and keep it alive", start_modem, "start_modem"}
     };
 
     nb_tests = sizeof(tests) / sizeof(*tests);

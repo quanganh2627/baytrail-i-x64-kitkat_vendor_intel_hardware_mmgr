@@ -67,7 +67,7 @@ e_mmgr_errors_t reset_with_cd(test_data_t *test)
     CHECK_PARAM(test, ret, out);
 
     ret = at_core_dump(test);
-    if (!test->test_succeed)
+    if (events_get(test) != E_EVENTS_SUCCEED)
         ret = E_ERR_FAILED;
 
 out:
@@ -93,7 +93,7 @@ e_mmgr_errors_t modem_recovery(test_data_t *test)
     ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RECOVERY,
                                   E_MMGR_NUM_EVENTS, E_MMGR_EVENT_MODEM_UP);
 
-    if (!test->test_succeed)
+    if (events_get(test) != E_EVENTS_SUCCEED)
         ret = E_ERR_FAILED;
 
 out:
@@ -119,7 +119,7 @@ e_mmgr_errors_t modem_restart(test_data_t *test)
     ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RESTART,
                                   E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                   E_MMGR_EVENT_MODEM_UP);
-    if (!test->test_succeed)
+    if (events_get(test) != E_EVENTS_SUCCEED)
         ret = E_ERR_FAILED;
 
 out:
@@ -153,47 +153,50 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
 
     for (i = 1; i <= test->config.nb_warm_reset; i++) {
         printf("\nCheck #%d WARM reset\n", i);
-        test->test_succeed = false;
+        pthread_mutex_lock(&test->mutex);
+        test->events &= ~E_EVENTS_SUCCEED;
+        pthread_mutex_unlock(&test->mutex);
         ret = reset_by_client_request(test,
                                       E_MMGR_REQUEST_MODEM_RECOVERY,
                                       E_MMGR_NOTIFY_MODEM_WARM_RESET,
                                       E_MMGR_EVENT_MODEM_UP);
-        if ((ret != E_ERR_SUCCESS) || (!test->test_succeed))
+        if ((ret != E_ERR_SUCCESS) || (events_get(test) != E_EVENTS_SUCCEED)) {
+            ret = E_ERR_FAILED;
             goto out;
+        }
     }
     if (test->config.nb_cold_reset > 0) {
 
         for (i = 1; i <= test->config.nb_cold_reset; i++) {
             printf("\nCheck #%d COLD reset\n", i);
-            test->test_succeed = false;
+            pthread_mutex_lock(&test->mutex);
+            test->events &= ~E_EVENTS_SUCCEED;
+            pthread_mutex_unlock(&test->mutex);
             ret = reset_by_client_request(test,
                                           E_MMGR_REQUEST_MODEM_RECOVERY,
                                           E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                           E_MMGR_EVENT_MODEM_UP);
-            if ((ret != E_ERR_SUCCESS) && (!test->test_succeed))
+            if ((ret != E_ERR_SUCCESS)
+                || (events_get(test) != E_EVENTS_SUCCEED)) {
+                ret = E_ERR_FAILED;
                 goto out;
+            }
         }
     }
 
-    if (test->config.nb_platform_reboot > 0) {
-        printf("\nCheck Reboot mechanism\n");
-        property_get_int(PLATFORM_REBOOT_KEY, &reboot);
-        if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    printf("\nCheck Reboot mechanism\n");
+    property_get_int(PLATFORM_REBOOT_KEY, &reboot);
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
 
-        if (reboot >= test->config.nb_platform_reboot) {
-            ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, false,
-                                 TIMEOUT_MODEM_DOWN_AFTER_CMD);
-            if (ret == E_ERR_MODEM_OUT)
-                ret = E_ERR_SUCCESS;
-        } else {
-            ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT, false,
-                                 TIMEOUT_MODEM_DOWN_AFTER_CMD);
-            if (ret == E_ERR_MODEM_OUT)
-                ret = E_ERR_SUCCESS;
-        }
+    if (reboot >= test->config.nb_platform_reboot) {
+        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, false,
+                             TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    } else {
+        ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT, false,
+                             TIMEOUT_MODEM_DOWN_AFTER_CMD);
     }
 
 out:
@@ -220,8 +223,32 @@ e_mmgr_errors_t resource_acquire(test_data_t *test)
     if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
         ret = E_ERR_SUCCESS;
 
-    if (test->config.is_flashless)
-        wait_for_state(test, E_MMGR_RESPONSE_MODEM_FW_RESULT, false, 20);
+out:
+    return ret;
+}
+
+/**
+ * Start the modem and never return. This is used to turn on the modem
+ * and keep it alive when no client held the resource
+ *
+ * @param [in] test test data
+ *
+ * @return E_ERR_BAD_PARAMETER if test is NULL
+ * @return E_ERR_FAILED test fails
+ * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t start_modem(test_data_t *test)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+
+    CHECK_PARAM(test, ret, out);
+
+    if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
+        ret = E_ERR_SUCCESS;
+
+    pause();
 out:
     return ret;
 }
@@ -475,7 +502,7 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    if (mmgr_cli_subscribe_event(test->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test->lib, generic_mmgr_evt,
                                  E_MMGR_ACK) != E_ERR_CLI_FAILED) {
 
         line = __LINE__;
@@ -498,19 +525,19 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    if (mmgr_cli_subscribe_event(test->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test->lib, generic_mmgr_evt,
                                  E_MMGR_NUM_EVENTS) != E_ERR_CLI_FAILED) {
         line = __LINE__;
         goto out;
     }
 
-    if (mmgr_cli_subscribe_event(NULL, event_without_ack, E_MMGR_ACK)
+    if (mmgr_cli_subscribe_event(NULL, generic_mmgr_evt, E_MMGR_ACK)
         != E_ERR_CLI_BAD_HANDLE) {
         line = __LINE__;
         goto out;
     }
 
-    if (mmgr_cli_subscribe_event(test->lib, event_without_ack,
+    if (mmgr_cli_subscribe_event(test->lib, generic_mmgr_evt,
                                  E_MMGR_ACK) != E_ERR_CLI_FAILED) {
         line = __LINE__;
         goto out;

@@ -40,6 +40,12 @@
 #define WAIT_FOR_WARM_BOOT_TIMEOUT 30000
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 
+static inline void mdm_close_fds(mmgr_data_t *mmgr)
+{
+    secur_stop(&mmgr->secur);
+    close_tty(&mmgr->fd_tty);
+}
+
 /**
  * do flashing modem procedure
  *
@@ -314,7 +320,6 @@ out:
 e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    int err;
     int fd = CLOSED_FD;
 
     CHECK_PARAM(mmgr, ret, out);
@@ -331,8 +336,8 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
         mdm_cmd.param = MDM_CTRL_STATE_WARM_BOOT;
         modem_info_t *info = &mmgr->info;
 
-        err = send_at_retry(fd, POWER_OFF_MODEM, strlen(POWER_OFF_MODEM),
-                            AT_CFUN_RETRY, AT_ANSWER_NO_TIMEOUT);
+        send_at_retry(fd, POWER_OFF_MODEM, strlen(POWER_OFF_MODEM),
+                      AT_CFUN_RETRY, AT_ANSWER_NO_TIMEOUT);
 
         LOG_DEBUG("Waiting for MDM_CTRL_STATE_WARM_BOOT");
 
@@ -347,7 +352,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
     inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
 
-    close_tty(&mmgr->fd_tty);
+    mdm_close_fds(mmgr);
     ret = mdm_down(&mmgr->info);
 out:
     return ret;
@@ -380,7 +385,7 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr->hdler_pre_mdm[level], ret, out);
     mmgr->hdler_pre_mdm[level] (mmgr);
     if (mmgr->reset.state == E_OPERATION_SKIP) {
-        close_tty(&mmgr->fd_tty);
+        mdm_close_fds(mmgr);
         goto out_mdm_ev;
     } else if (mmgr->reset.state == E_OPERATION_WAIT)
         goto out;
@@ -391,8 +396,7 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     stop_all_timers(&mmgr->timer);
 
     /* initialize modules */
-    close_tty(&mmgr->fd_tty);
-    secur_stop(&mmgr->secur);
+    mdm_close_fds(mmgr);
     mdm_prepare(&mmgr->info);
 
     /* restart modem */
@@ -525,7 +529,7 @@ e_mmgr_errors_t modem_event(mmgr_data_t *mmgr)
     if (mmgr->fd_tty != CLOSED_FD) {
         mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
         inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-        close_tty(&mmgr->fd_tty);
+        mdm_close_fds(mmgr);
     }
 
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
@@ -605,7 +609,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
             mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
-            close_tty(&mmgr->fd_tty);
+            mdm_close_fds(mmgr);
         }
 
         mmgr->events.link_state |= E_MDM_LINK_CORE_DUMP_READY;
@@ -680,7 +684,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
             mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
-            close_tty(&mmgr->fd_tty);
+            mdm_close_fds(mmgr);
         }
 
         mmgr->events.link_state |= E_MDM_LINK_CORE_DUMP_READ_READY;

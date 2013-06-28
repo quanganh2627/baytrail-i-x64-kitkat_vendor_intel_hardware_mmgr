@@ -31,19 +31,27 @@
 #define TIMEOUT_MODEM_DOWN_AFTER_CMD 20
 #define TIMEOUT_MODEM_UP_AFTER_RESET 600
 
+typedef enum e_events {
+    E_EVENTS_NONE = 0x0,
+    E_EVENTS_ERROR_OCCURED = 0x1,
+    E_EVENTS_SUCCEED = 0x1 << 1,
+    E_EVENTS_MODEM_OOS = 0x1 << 2,
+} e_events_t;
+
 typedef struct test_data {
     pthread_mutex_t new_state_read;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     pthread_mutex_t cond_mutex;
-    int waited_state;
-    int modem_state;
+    e_mmgr_events_t waited_state;
+    e_mmgr_events_t modem_state;
     mmgr_configuration_t config;
     mmgr_cli_handle_t *lib;
-    bool test_succeed;
+    e_events_t events;
 } test_data_t;
 
-e_mmgr_errors_t modem_state_set(test_data_t *test_data, int state);
+e_mmgr_errors_t modem_state_set(test_data_t *test_data, e_mmgr_events_t state);
+e_events_t events_get(test_data_t *test_data);
 e_mmgr_errors_t compare_file_content(const char *path, const char *data,
                                      int len);
 e_mmgr_errors_t wait_for_state(test_data_t *thread_data, int state,
@@ -52,7 +60,7 @@ e_mmgr_errors_t is_core_dump_found(char *filename, const char *core_dump_dir);
 e_mmgr_errors_t cleanup_modemcrash_dir(const char *path);
 e_mmgr_errors_t configure_client_library(test_data_t *data);
 e_mmgr_errors_t cleanup_client_library(test_data_t *data);
-int event_without_ack(mmgr_cli_event_t *ev);
+int generic_mmgr_evt(mmgr_cli_event_t *ev);
 
 e_mmgr_errors_t reset_by_client_request(test_data_t *events_data,
                                         e_mmgr_requests_t request,
