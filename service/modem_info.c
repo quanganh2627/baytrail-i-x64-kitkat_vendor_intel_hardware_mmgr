@@ -248,6 +248,23 @@ out_xlog:
     return ret;
 }
 
+#include "property.h"
+void disable_logs(int fd)
+{
+    const char at_cmd[] = "AT+XSYSTRACE=0\r\n";
+    const char key[] = "persist.service.mmgr.log";
+    int value = 0;
+    char hw_type[PROPERTY_VALUE_MAX] = { '\0' };
+
+    property_get_string("ro.hardware", hw_type);
+    if (strncmp(hw_type, "saltbay", PROPERTY_VALUE_MAX) == 0) {
+        property_get_int(key, &value);
+        if (value == 0)
+            send_at_retry(fd, at_cmd, strlen(at_cmd), 1,
+                          AT_ANSWER_SHORT_TIMEOUT);
+    }
+}
+
 /**
  * Activate the MUX
  *
@@ -291,6 +308,7 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
             break;
         case E_MUX_XLOG:
             ret = run_at_xlog(*fd_tty, config, info);
+            disable_logs(*fd_tty);
             break;
         case E_MUX_AT_CMD:
             ret = send_at_cmux(*fd_tty, config, retry);
