@@ -315,6 +315,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
 
     for (;;) {
         if (mmgr->events.cli_req & E_CLI_REQ_OFF) {
+            reset_shutdown_ack(&mmgr->clients);
             modem_shutdown(mmgr);
             set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
             mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
