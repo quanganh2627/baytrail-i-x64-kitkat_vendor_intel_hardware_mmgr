@@ -323,9 +323,8 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
     struct timespec ts;
     struct timeval start;
     struct timeval current;
-    int remaining;
+    int remaining = 0;
     char *state_str[] = { "not ", "" };
-    bool wake_state;
 
     CHECK_PARAM(test_data, ret, out);
 
@@ -344,6 +343,10 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
         ts.tv_nsec = current.tv_usec * 1000;
         remaining = timeout - (current.tv_sec - start.tv_sec);
         if (remaining > 0)
+            /* A timeout of 1s is used here to save time in several UCs:
+             *  - if modem is OOS or plateform is shutdown
+             *  - if we have already reached the state
+             */
             ts.tv_sec += 1;
 
         pthread_mutex_lock(&test_data->cond_mutex);
@@ -355,25 +358,33 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
         /* ack new modem state by releasing the new_state_read mutex */
         pthread_mutex_trylock(&test_data->new_state_read);
         pthread_mutex_unlock(&test_data->new_state_read);
-
-        if (current_state == test_data->waited_state) {
-            LOG_DEBUG("state reached (%s)", g_mmgr_events[current_state]);
-            wake_state = get_wakelock_state();
-            if (wake_state != wakelock)
-                LOG_ERROR("*** wakelock is %sset and should be %sset ***",
-                          state_str[wake_state], state_str[wakelock]);
-            else {
-                LOG_DEBUG("wakelock has reached correct state: %sset",
-                          state_str[wake_state]);
-                ret = E_ERR_SUCCESS;
-            }
-        } else if ((current_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-                   (current_state == E_MMGR_NOTIFY_PLATFORM_REBOOT)) {
+        if ((current_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+            (current_state == E_MMGR_NOTIFY_PLATFORM_REBOOT)) {
             LOG_DEBUG("modem state: %s", g_mmgr_events[current_state]);
             events_set(test_data, E_EVENTS_MODEM_OOS);
             break;
         }
-    } while ((ret == E_ERR_FAILED) && (remaining > 1));
+    } while ((remaining > 1) && (current_state != test_data->waited_state));
+
+    if (current_state == test_data->waited_state) {
+        LOG_DEBUG("state reached (%s)", g_mmgr_events[current_state]);
+        bool wake_state = false;
+        for (remaining = 0; remaining < 10; remaining++) {
+            wake_state = get_wakelock_state();
+            if (wake_state != wakelock) {
+                usleep(500 * 1000);
+            } else {
+                LOG_DEBUG("wakelock has reached correct state: %sset",
+                          state_str[wake_state]);
+                ret = E_ERR_SUCCESS;
+                break;
+            }
+        }
+        if (ret != E_ERR_SUCCESS)
+            LOG_ERROR("*** wakelock is %sset and should be %sset ***",
+                      state_str[wake_state], state_str[wakelock]);
+    }
+
 out:
     return ret;
 }
