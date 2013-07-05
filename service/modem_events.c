@@ -36,6 +36,9 @@
 
 #define READ_SIZE 64
 
+#define ERROR_ID   1
+#define ERROR_REASON "IPC error"
+
 #define AT_CFUN_RETRY 0
 #define WAIT_FOR_WARM_BOOT_TIMEOUT 30000
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
@@ -390,8 +393,8 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     } else if (mmgr->reset.state == E_OPERATION_WAIT)
         goto out;
 
-    /* Clear all events */
-    mmgr->info.polled_states = 0;
+    /* Keep only CORE DUMP state */
+    mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
     set_mcd_poll_states(&mmgr->info);
     stop_all_timers(&mmgr->timer);
 
@@ -531,6 +534,14 @@ e_mmgr_errors_t modem_event(mmgr_data_t *mmgr)
         inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
         mdm_close_fds(mmgr);
     }
+
+    /* send error notification with reason message */
+      if (mmgr->info.mdm_link == E_LINK_HSI) {
+          mmgr_cli_error_t err = {.id = ERROR_ID };
+          err.len = strlen(ERROR_REASON);
+          err.reason = (char *)ERROR_REASON;
+          inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+      }
 
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 out:

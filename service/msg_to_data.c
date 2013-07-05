@@ -206,7 +206,7 @@ e_mmgr_errors_t set_data_hw_id(msg_t *msg, mmgr_cli_event_t *request)
     memcpy(&hw->len, &msg->hdr.len, sizeof(size_t));
 
     /* the buffer will be freed by the matching freed function */
-    hw->id = malloc(hw->len * sizeof(char));
+    hw->id = malloc((hw->len + 1) * sizeof(char));
     if (hw->id == NULL) {
         LOG_ERROR("memory allocation fails");
         goto out;
@@ -249,7 +249,7 @@ e_mmgr_errors_t set_data_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
     memcpy(&ap->len, &msg->hdr.len, sizeof(size_t));
 
     /* the buffer will be freed by the matching freed function */
-    ap->name = malloc(ap->len * sizeof(char));
+    ap->name = malloc((ap->len + 1) * sizeof(char));
     if (ap->name == NULL) {
         LOG_ERROR("memory allocation failed");
         goto out;
@@ -309,7 +309,7 @@ e_mmgr_errors_t set_data_core_dump(msg_t *msg, mmgr_cli_event_t *request)
     }
 
     /* the buffer will be freed by the matching freed function */
-    cd->path = malloc(cd->len * sizeof(char));
+    cd->path = malloc((cd->len + 1) * sizeof(char));
     if ((cd == NULL) || (cd->path == NULL)) {
         LOG_ERROR("memory allocation failed");
         goto out;
@@ -366,7 +366,7 @@ e_mmgr_errors_t set_data_error(msg_t *msg, mmgr_cli_event_t *request)
     }
 
     /* the buffer will be freed by the matching freed function */
-    err->reason = malloc(err->len * sizeof(char));
+    err->reason = malloc((err->len + 1) * sizeof(char));
     if ((err == NULL) || (err->reason == NULL)) {
         LOG_ERROR("memory allocation failed");
         goto out;
