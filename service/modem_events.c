@@ -754,7 +754,10 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     bus_read_events(&mmgr->events.bus_events);
-    bus_handle_events(&mmgr->events.bus_events);
+    if (bus_handle_events(&mmgr->events.bus_events) != E_ERR_SUCCESS) {
+        LOG_INFO("bus_handle_events undefined event");
+        goto out;
+    }
     if ((get_bus_state(&mmgr->events.bus_events) & MDM_BB_READY) &&
         (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
         LOG_DEBUG("ready to configure modem");
