@@ -158,9 +158,35 @@ static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
 
         /* inform client that connection has succeed */
         inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
+
         /* client is registered and accepted. So, MMGR should provide the
          * current modem status if client has subsribed to it */
-        inform_client(mmgr->request.client, mmgr->client_notification, NULL);
+        e_mmgr_events_t notification = E_MMGR_NUM_EVENTS;
+        switch (mmgr->state) {
+        case E_MMGR_MDM_OOS:
+            notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
+            break;
+        case E_MMGR_MDM_CONF_ONGOING:
+        case E_MMGR_MDM_RESET:
+        case E_MMGR_MDM_OFF:
+            notification = E_MMGR_EVENT_MODEM_DOWN;
+            break;
+        case E_MMGR_MDM_UP:
+            notification = E_MMGR_EVENT_MODEM_UP;
+            break;
+        case E_MMGR_MDM_CORE_DUMP:
+            notification = E_MMGR_NOTIFY_CORE_DUMP;
+            break;
+        case E_MMGR_WAIT_COLD_ACK:
+            notification = E_MMGR_NOTIFY_MODEM_COLD_RESET;
+            break;
+        case E_MMGR_WAIT_SHT_ACK:
+            notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
+            break;
+        case E_MMGR_NUM:
+            break;
+        }
+        inform_client(mmgr->request.client, notification, NULL);
     } else {
         LOG_ERROR("bad filter size");
         inform_client(mmgr->request.client, E_MMGR_NACK, NULL);
@@ -260,8 +286,7 @@ static e_mmgr_errors_t resource_acquire_stop_down(mmgr_data_t *mmgr)
      * procedure is on going. Stop it */
     mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
     stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-    mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
-    inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
+    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
     set_mmgr_state(mmgr, E_MMGR_MDM_UP);
 
 out:
@@ -311,12 +336,11 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
     mmgr->request.client->cnx |= E_CNX_RESOURCE_RELEASED;
     if (check_resource_released(&mmgr->clients, true) == E_ERR_SUCCESS) {
         LOG_INFO("notify clients that modem will be shutdown");
-        mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
         inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
         /* if we have a current modem start procedure, stop all its timers */
         stop_all_timers(&mmgr->timer);
         start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-        set_mmgr_state(mmgr, E_MMGR_WAIT_CLI_ACK);
+        set_mmgr_state(mmgr, E_MMGR_WAIT_SHT_ACK);
     }
 out:
     return ret;
@@ -400,7 +424,7 @@ out:
 }
 
 /**
- * handle request ACK_COLD_RESET if state is WAIT_CLI_ACK
+ * handle request ACK_COLD_RESET if state is WAIT_COLD_ACK
  *
  * @private
  *
@@ -415,20 +439,19 @@ static e_mmgr_errors_t request_ack_cold_reset(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->client_notification == E_MMGR_NOTIFY_MODEM_COLD_RESET) {
-        mmgr->request.client->cnx |= E_CNX_COLD_RESET;
-        if (check_cold_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
-            LOG_DEBUG("All clients agreed cold reset");
-            mmgr->events.cli_req = E_CLI_REQ_RESET;
-            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-        }
+    mmgr->request.client->cnx |= E_CNX_COLD_RESET;
+    if (check_cold_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
+        LOG_DEBUG("All clients agreed cold reset");
+        mmgr->events.cli_req = E_CLI_REQ_RESET;
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
+
 out:
     return ret;
 }
 
 /**
- * handle request ACK_MODEM_SHUTDOWN if state is WAIT_CLI_ACK
+ * handle request ACK_MODEM_SHUTDOWN if state is WAIT_SHT_ACK
  *
  * @private
  *
@@ -443,15 +466,14 @@ static e_mmgr_errors_t request_ack_modem_shutdown(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->client_notification == E_MMGR_NOTIFY_MODEM_SHUTDOWN) {
-        mmgr->request.client->cnx |= E_CNX_MODEM_SHUTDOWN;
-        if (check_shutdown_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
-            LOG_DEBUG("All clients agreed modem shutdown");
-            mmgr->events.cli_req = E_CLI_REQ_OFF;
-            stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-        }
+    mmgr->request.client->cnx |= E_CNX_MODEM_SHUTDOWN;
+    if (check_shutdown_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
+        LOG_DEBUG("All clients agreed modem shutdown");
+        mmgr->events.cli_req = E_CLI_REQ_OFF;
+        stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
+
 out:
     return ret;
 }
@@ -474,10 +496,9 @@ static e_mmgr_errors_t request_force_modem_shutdown(mmgr_data_t *mmgr)
 
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
 
-    mmgr->client_notification = E_MMGR_NOTIFY_MODEM_SHUTDOWN;
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
     start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-    set_mmgr_state(mmgr, E_MMGR_WAIT_CLI_ACK);
+    set_mmgr_state(mmgr, E_MMGR_WAIT_SHT_ACK);
 out:
     return ret;
 }
@@ -840,14 +861,18 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
         resource_acquire_wakeup_modem;
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_RESOURCE_ACQUIRE] =
         resource_acquire;
-    mmgr->hdler_client[E_MMGR_WAIT_CLI_ACK][E_MMGR_RESOURCE_ACQUIRE] =
+    mmgr->hdler_client[E_MMGR_WAIT_COLD_ACK][E_MMGR_RESOURCE_ACQUIRE] =
+        resource_acquire;
+    mmgr->hdler_client[E_MMGR_WAIT_SHT_ACK][E_MMGR_RESOURCE_ACQUIRE] =
         resource_acquire_stop_down;
 
     /* E_MMGR_RESOURCE_RELEASE */
     mmgr->hdler_client[E_MMGR_MDM_OFF][E_MMGR_RESOURCE_RELEASE] =
         request_resource_release_mdm_off;
-    mmgr->hdler_client[E_MMGR_WAIT_CLI_ACK][E_MMGR_RESOURCE_RELEASE] =
+    mmgr->hdler_client[E_MMGR_WAIT_SHT_ACK][E_MMGR_RESOURCE_RELEASE] =
         request_resource_release_mdm_off;
+    mmgr->hdler_client[E_MMGR_WAIT_COLD_ACK][E_MMGR_RESOURCE_RELEASE] =
+        request_resource_release;
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_RESOURCE_RELEASE] =
         request_resource_release;
 
@@ -864,11 +889,11 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
         request_force_modem_shutdown;
 
     /* E_MMGR_ACK_MODEM_COLD_RESET */
-    mmgr->hdler_client[E_MMGR_WAIT_CLI_ACK][E_MMGR_ACK_MODEM_COLD_RESET] =
+    mmgr->hdler_client[E_MMGR_WAIT_COLD_ACK][E_MMGR_ACK_MODEM_COLD_RESET] =
         request_ack_cold_reset;
 
     /* E_MMGR_ACK_MODEM_SHUTDOWN */
-    mmgr->hdler_client[E_MMGR_WAIT_CLI_ACK][E_MMGR_ACK_MODEM_SHUTDOWN] =
+    mmgr->hdler_client[E_MMGR_WAIT_SHT_ACK][E_MMGR_ACK_MODEM_SHUTDOWN] =
         request_ack_modem_shutdown;
 
     /* flashing API: */

@@ -23,7 +23,7 @@
 #include "bus_events.h"
 
 e_mmgr_errors_t modem_events_init(mmgr_data_t *mmgr);
-e_mmgr_errors_t modem_event(mmgr_data_t *mmgr);
+e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr);
 e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr);
 e_mmgr_errors_t bus_events(mmgr_data_t *mmgr);
 e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr);

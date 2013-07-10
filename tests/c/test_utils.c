@@ -931,12 +931,12 @@ e_mmgr_errors_t at_self_reset(test_data_t *test)
         LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET, true,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, true,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, true,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET, true,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;

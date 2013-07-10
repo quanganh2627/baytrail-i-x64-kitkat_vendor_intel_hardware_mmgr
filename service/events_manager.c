@@ -109,13 +109,11 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
 
     mmgr->fd_tty = CLOSED_FD;
     mmgr->fd_cnx = CLOSED_FD;
-    mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
 
     property_get_int(TEL_STACK_PROPERTY, &disable_telephony);
     if (disable_telephony == 1) {
         LOG_DEBUG("telephony stack is disabled");
         mdm_down(&mmgr->info);
-        mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
         set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
     } else
         set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
@@ -180,7 +178,7 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
 
     /* configure events handlers */
-    mmgr->hdler_events[E_EVENT_MODEM] = modem_event;
+    mmgr->hdler_events[E_EVENT_IPC] = ipc_event;
     mmgr->hdler_events[E_EVENT_MCD] = modem_control_event;
     mmgr->hdler_events[E_EVENT_BUS] = bus_events;
     mmgr->hdler_events[E_EVENT_NEW_CLIENT] = new_client;
@@ -275,7 +273,7 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
         if (fd == mmgr->fd_cnx) {
             mmgr->events.state = E_EVENT_NEW_CLIENT;
         } else if (fd == mmgr->fd_tty) {
-            mmgr->events.state = E_EVENT_MODEM;
+            mmgr->events.state = E_EVENT_IPC;
         } else if (fd == mmgr->info.fd_mcd) {
             mmgr->events.state = E_EVENT_MCD;
         } else if (fd == mmgr->events.bus_events.wd_fd) {

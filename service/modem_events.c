@@ -96,7 +96,8 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
                            &result);
         if (result.id == E_MODEM_FW_BAD_FAMILY) {
             modem_shutdown(mmgr);
-            mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
+            inform_all_clients(&mmgr->clients,
+                               E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
             broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
         } else if (result.id == E_MODEM_FW_SUCCEED) {
 
@@ -119,6 +120,7 @@ static void read_core_dump(mmgr_data_t *mmgr)
 {
     if (!mmgr->info.mcdr.enabled)
         goto out;
+
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
@@ -186,8 +188,10 @@ static e_mmgr_errors_t pre_mdm_warm_reset(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
+    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_WARM_RESET, NULL);
     broadcast_msg(E_MSG_INTENT_MODEM_WARM_RESET);
+
     set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
 
     if (!(mmgr->info.ev & E_EV_CONF_FAILED) &&
@@ -227,10 +231,10 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
             mmgr->reset.wait_operation = false;
             mmgr->reset.state = E_OPERATION_WAIT;
 
-            mmgr->client_notification = E_MMGR_NOTIFY_MODEM_COLD_RESET;
-            inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
-            set_mmgr_state(mmgr, E_MMGR_WAIT_CLI_ACK);
-
+            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+            inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
+                               NULL);
+            set_mmgr_state(mmgr, E_MMGR_WAIT_COLD_ACK);
             start_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
         } else {
             mmgr->reset.wait_operation = true;
@@ -275,11 +279,11 @@ static e_mmgr_errors_t pre_platform_reboot(mmgr_data_t *mmgr)
     } else {
         recov_set_reboot(++reboot_counter);
 
-        mmgr->client_notification = E_MMGR_NOTIFY_PLATFORM_REBOOT;
-        inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
+        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_PLATFORM_REBOOT, NULL);
         broadcast_msg(E_MSG_INTENT_PLATFORM_REBOOT);
+
         sleep(mmgr->config.delay_before_reboot);
-        set_mmgr_state(mmgr, E_MMGR_WAIT_CLI_ACK);
+        set_mmgr_state(mmgr, E_MMGR_WAIT_SHT_ACK);
     }
 out:
     return ret;
@@ -301,9 +305,9 @@ static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     LOG_INFO("MODEM OUT OF SERVICE");
-    mmgr->client_notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
-    inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
+    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
     broadcast_msg(E_MSG_INTENT_MODEM_OUT_OF_SERVICE);
+
     set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
     mmgr->reset.state = E_OPERATION_CONTINUE;
 
@@ -352,8 +356,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
         close_tty(&fd);
     }
 
-    mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-    inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
+    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
     mdm_close_fds(mmgr);
     ret = mdm_down(&mmgr->info);
@@ -376,11 +379,6 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     e_escalation_level_t level;
 
     CHECK_PARAM(mmgr, ret, out);
-
-    if (mmgr->client_notification != E_MMGR_EVENT_MODEM_DOWN) {
-        mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-        inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-    }
 
     /* Do pre-process operation */
     recov_start(&mmgr->reset);
@@ -487,7 +485,7 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
             mmgr->info.ev &= ~E_EV_CORE_DUMP;
         }
         LOG_VERBOSE("Switch to MUX succeed");
-        mmgr->client_notification = E_MMGR_EVENT_MODEM_UP;
+        inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
     } else {
         LOG_ERROR("MUX INIT FAILED. reason=%d", ret);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
@@ -497,7 +495,6 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     mmgr->info.ev = E_EV_NONE;
     set_mmgr_state(mmgr, E_MMGR_MDM_UP);
     update_modem_tty(mmgr);
-    inform_all_clients(&mmgr->clients, mmgr->client_notification, NULL);
 
     return ret;
 out:
@@ -506,16 +503,7 @@ out:
     return ret;
 }
 
-/**
- * handle modem event
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if config or events is/are NULL
- * @return E_ERR_TTY_BAD_FD failed to open tty. perform a modem reset
- * @return E_ERR_SUCCESS if successful
- */
-e_mmgr_errors_t modem_event(mmgr_data_t *mmgr)
+static e_mmgr_errors_t cleanup_ipc_event(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     size_t data_size = READ_SIZE;
@@ -529,11 +517,30 @@ e_mmgr_errors_t modem_event(mmgr_data_t *mmgr)
         read_size = read(mmgr->fd_tty, data, data_size);
     } while (read_size > 0);
 
-    if (mmgr->fd_tty != CLOSED_FD) {
-        mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
-        inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-        mdm_close_fds(mmgr);
-    }
+    mdm_close_fds(mmgr);
+
+out:
+    return ret;
+}
+
+/**
+ * handle ipc events
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if config or events is/are NULL
+ * @return E_ERR_TTY_BAD_FD failed to open tty. perform a modem reset
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    cleanup_ipc_event(mmgr);
+
+    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
     /* send error notification with reason message */
       if (mmgr->info.mdm_link == E_LINK_HSI) {
@@ -617,9 +624,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         set_mmgr_state(mmgr, E_MMGR_MDM_CORE_DUMP);
 
         if (mmgr->fd_tty != CLOSED_FD) {
-            mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-
             mdm_close_fds(mmgr);
         }
 
@@ -650,11 +655,12 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
             set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
         }
     } else {
-        if (state & E_EV_MODEM_SELF_RESET)
+        if (state & E_EV_MODEM_SELF_RESET) {
+            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
             inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_SELF_RESET, NULL);
-
-        /* Signal a Modem Event */
-        ret = modem_event(mmgr);
+        }
+        cleanup_ipc_event(mmgr);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
 out:
@@ -692,9 +698,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
                (mmgr->state == E_MMGR_MDM_CORE_DUMP)) {
         LOG_DEBUG("ready to read a core dump");
         if (mmgr->fd_tty != CLOSED_FD) {
-            mmgr->client_notification = E_MMGR_EVENT_MODEM_DOWN;
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-
             mdm_close_fds(mmgr);
         }
 
