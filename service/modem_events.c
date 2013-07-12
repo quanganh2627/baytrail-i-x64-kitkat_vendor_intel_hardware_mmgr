@@ -109,7 +109,10 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
             }
         }
 
-        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+        if (ret == E_ERR_SUCCESS)
+            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+        else
+            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
 out:
@@ -608,14 +611,14 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         }
 
     } else if (state & E_EV_IPC_READY) {
-
         LOG_DEBUG("current state: E_EV_IPC_READY");
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
 
         mmgr->events.link_state |= E_MDM_LINK_IPC_READY;
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
-        if (mmgr->events.link_state & E_MDM_LINK_BB_READY) {
+        if ((mmgr->events.link_state & E_MDM_LINK_BB_READY) &&
+            (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
             if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS)
                 ret = launch_secur(mmgr);
         }
