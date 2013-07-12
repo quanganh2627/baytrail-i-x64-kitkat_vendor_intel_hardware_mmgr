@@ -535,6 +535,7 @@ static int event_core_dump(mmgr_cli_event_t *ev)
     switch (cd->state) {
     case E_CD_FAILED:
         LOG_ERROR("core dump not retrieved");
+        set_and_notify(ev->id, (test_data_t *)ev->context);
         goto out;
         break;
     case E_CD_SUCCEED_WITHOUT_PANIC_ID:
