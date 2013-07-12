@@ -55,13 +55,14 @@ out:
 }
 
 /**
- * Check all clients acknowledgement
+ * Check all clients acknowledgement registered to the event
  *
  * @private
  *
  * @param [in] clients list of clients
  * @param [in] filter specify which element to check
- * @param [in] msg message to display
+ * @param [in] ev user should be registered to this event. If not,
+ *             MMGR will take into account its ACK.
  * @param [in] listing enable or not displaying
  *
  * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
@@ -70,20 +71,27 @@ out:
  */
 static inline e_mmgr_errors_t check_all_clients_ack(client_list_t *clients,
                                                     e_cnx_requests_t filter,
-                                                    char *msg, bool listing)
+                                                    e_mmgr_events_t ev,
+                                                    bool listing)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i;
 
     CHECK_PARAM(clients, ret, out);
 
+    if (ev > E_MMGR_NUM_EVENTS) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD) {
-            if ((clients->list[i].cnx & filter) != filter) {
+            if ((clients->list[i].subscription & (0x1 << ev)) &&
+                ((clients->list[i].cnx & filter) != filter)) {
                 ret = E_ERR_FAILED;
                 if (listing) {
-                    LOG_DEBUG("client (%s) did not %s",
-                              clients->list[i].name, msg);
+                    LOG_DEBUG("client (%s) did not ack to %s",
+                              clients->list[i].name, g_mmgr_events[ev]);
                 } else {
                     break;
                 }
@@ -488,7 +496,8 @@ out:
  */
 e_mmgr_errors_t check_cold_ack(client_list_t *clients, bool listing)
 {
-    return check_all_clients_ack(clients, E_CNX_COLD_RESET, "ack", listing);
+    return check_all_clients_ack(clients, E_CNX_COLD_RESET,
+                                 E_MMGR_NOTIFY_MODEM_COLD_RESET, listing);
 }
 
 /**
@@ -503,7 +512,8 @@ e_mmgr_errors_t check_cold_ack(client_list_t *clients, bool listing)
  */
 e_mmgr_errors_t check_shutdown_ack(client_list_t *clients, bool listing)
 {
-    return check_all_clients_ack(clients, E_CNX_MODEM_SHUTDOWN, "ack", listing);
+    return check_all_clients_ack(clients, E_CNX_MODEM_SHUTDOWN,
+                                 E_MMGR_NOTIFY_MODEM_SHUTDOWN, listing);
 }
 
 /**
@@ -518,8 +528,27 @@ e_mmgr_errors_t check_shutdown_ack(client_list_t *clients, bool listing)
  */
 e_mmgr_errors_t check_resource_released(client_list_t *clients, bool listing)
 {
-    return check_all_clients_ack(clients, E_CNX_RESOURCE_RELEASED,
-                                 "release", listing);
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    int i;
+
+    CHECK_PARAM(clients, ret, out);
+
+    for (i = 0; i < clients->list_size; i++) {
+        if (clients->list[i].fd != CLOSED_FD) {
+            if ((clients->list[i].cnx & E_CNX_RESOURCE_RELEASED)
+                != E_CNX_RESOURCE_RELEASED) {
+                ret = E_ERR_FAILED;
+                if (listing) {
+                    LOG_DEBUG("client (%s) did not release",
+                              clients->list[i].name);
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+out:
+    return ret;
 }
 
 /**

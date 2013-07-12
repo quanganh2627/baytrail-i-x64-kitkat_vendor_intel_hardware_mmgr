@@ -61,6 +61,7 @@ e_mmgr_errors_t cleanup_modemcrash_dir(const char *path);
 e_mmgr_errors_t configure_client_library(test_data_t *data);
 e_mmgr_errors_t cleanup_client_library(test_data_t *data);
 int generic_mmgr_evt(mmgr_cli_event_t *ev);
+int bad_callback(mmgr_cli_event_t *ev);
 
 e_mmgr_errors_t reset_by_client_request(test_data_t *events_data,
                                         e_mmgr_requests_t request,

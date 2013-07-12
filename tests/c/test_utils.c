@@ -236,52 +236,6 @@ bool get_wakelock_state(void)
 }
 
 /**
- * This function sends the ACK to MMGR
- *
- * @param [in] test_data
- * @param [in] evt_id
- *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- * @return E_ERR_BAD_PARAMETER if filename or/and path is/are NULL
- */
-static e_mmgr_errors_t send_ack(test_data_t *test_data, e_mmgr_events_t evt_id)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_NUM_REQUESTS };
-    e_err_mmgr_cli_t err = E_ERR_CLI_FAILED;
-
-    CHECK_PARAM(test_data, ret, out);
-
-    switch (evt_id) {
-    case E_MMGR_NOTIFY_MODEM_COLD_RESET:
-        request.id = E_MMGR_ACK_MODEM_COLD_RESET;
-        break;
-    case E_MMGR_ACK_MODEM_SHUTDOWN:
-        request.id = E_MMGR_ACK_MODEM_SHUTDOWN;
-        break;
-    default:
-        break;
-    }
-
-    if (request.id != E_MMGR_NUM_REQUESTS) {
-        err = mmgr_cli_send_msg(test_data->lib, &request);
-        if (err == E_ERR_CLI_SUCCEED) {
-            LOG_DEBUG("message (%s) sent succesfuly",
-                      g_mmgr_requests[request.id]);
-            ret = E_ERR_SUCCESS;
-        } else {
-            LOG_ERROR("Failed to send (%s) message",
-                    g_mmgr_requests[request.id]);
-            events_set(test_data, E_EVENTS_ERROR_OCCURED);
-        }
-    }
-
-out:
-    return ret;
-}
-
-/**
  * This function will extract the last core dump archived logged in aplog
  * and check if the archive exist.
  *
@@ -372,7 +326,6 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
     int remaining;
     char *state_str[] = { "not ", "" };
     bool wake_state;
-    int err = 0;
 
     CHECK_PARAM(test_data, ret, out);
 
@@ -394,8 +347,7 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
             ts.tv_sec += 1;
 
         pthread_mutex_lock(&test_data->cond_mutex);
-        err = pthread_cond_timedwait(&test_data->cond, &test_data->cond_mutex,
-                                     &ts);
+        pthread_cond_timedwait(&test_data->cond, &test_data->cond_mutex, &ts);
         pthread_mutex_unlock(&test_data->cond_mutex);
 
         modem_state_get(test_data, &current_state);
@@ -403,12 +355,6 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
         /* ack new modem state by releasing the new_state_read mutex */
         pthread_mutex_trylock(&test_data->new_state_read);
         pthread_mutex_unlock(&test_data->new_state_read);
-
-        /* @TODO: The cold reset or modem shutdown acceptance message is sent
-         * by the main thread. It could be a good idea to create a task thread
-         * to send those requests if we encounter a delay or deadlock issue */
-        if (err != ETIMEDOUT)
-            send_ack(test_data, current_state);
 
         if (current_state == test_data->waited_state) {
             LOG_DEBUG("state reached (%s)", g_mmgr_events[current_state]);
@@ -671,6 +617,44 @@ int generic_mmgr_evt(mmgr_cli_event_t *ev)
     err = set_and_notify(ev->id, (test_data_t *)ev->context);
     if (err == E_ERR_SUCCESS)
         ret = 0;
+
+out:
+    if (ret == 1)
+        events_set(test_data, E_EVENTS_ERROR_OCCURED);
+    return ret;
+}
+
+/**
+ * buggy callback function. This function tries to send a message to MMGR.
+ * this is forbidden by the API. The purpose of this test is to check that the
+ * library rejects this call
+ *
+ * @param [in] ev current info callback data
+ *
+ * @return 0 if successful
+ * @return 1 otherwise
+ */
+int bad_callback(mmgr_cli_event_t *ev)
+{
+    int ret = 1;
+    test_data_t *test_data = NULL;
+    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN };
+
+    if (ev == NULL) {
+        LOG_ERROR("ev is NULL");
+        goto out;
+    }
+
+    test_data = (test_data_t *)ev->context;
+    if (test_data == NULL)
+        goto out;
+
+    if (mmgr_cli_send_msg(test_data->lib, &request) != E_ERR_CLI_REJECTED)
+        events_set(test_data, E_EVENTS_ERROR_OCCURED);
+    else {
+        ret = 0;
+        LOG_DEBUG("request correctly rejected");
+    }
 
 out:
     if (ret == 1)

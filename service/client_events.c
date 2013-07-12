@@ -285,6 +285,7 @@ static e_mmgr_errors_t request_resource_release_mdm_off(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     mmgr->request.client->cnx |= E_CNX_RESOURCE_RELEASED;
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
 out:
     return ret;
 }
@@ -414,8 +415,6 @@ static e_mmgr_errors_t request_ack_cold_reset(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
-
     if (mmgr->client_notification == E_MMGR_NOTIFY_MODEM_COLD_RESET) {
         mmgr->request.client->cnx |= E_CNX_COLD_RESET;
         if (check_cold_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
@@ -443,8 +442,6 @@ static e_mmgr_errors_t request_ack_modem_shutdown(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-
-    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
 
     if (mmgr->client_notification == E_MMGR_NOTIFY_MODEM_SHUTDOWN) {
         mmgr->request.client->cnx |= E_CNX_MODEM_SHUTDOWN;

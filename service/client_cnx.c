@@ -121,6 +121,7 @@ e_mmgr_errors_t write_cnx(int fd, void *data, size_t *len)
         LOG_ERROR("send fails (%s)", strerror(errno));
         ret = E_ERR_FAILED;
     }
+
 out:
     return ret;
 }

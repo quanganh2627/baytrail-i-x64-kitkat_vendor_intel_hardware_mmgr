@@ -25,12 +25,20 @@ extern "C" {
 
 #include "mmgr.h"
 
+#define MMGR_CLI_ERR\
+    X(SUCCEED),\
+    X(FAILED),\
+    X(ALREADY_LOCK),\
+    X(ALREADY_UNLOCK),\
+    X(BAD_HANDLE),\
+    X(TIMEOUT),\
+    X(REJECTED),\
+    X(BAD_CNX_STATE)
+
     typedef enum e_err_mmgr_cli {
-        E_ERR_CLI_SUCCEED,
-        E_ERR_CLI_FAILED,
-        E_ERR_CLI_ALREADY_LOCK,
-        E_ERR_CLI_ALREADY_UNLOCK,
-        E_ERR_CLI_BAD_HANDLE,
+#undef X
+#define X(a) E_ERR_CLI_##a
+        MMGR_CLI_ERR
     } e_err_mmgr_cli_t;
 
     typedef struct mmgr_cli_event {
@@ -72,15 +80,20 @@ extern "C" {
      *
      * @param [in, out] handle library handle
      *
-     * @return E_ERR_CLI_BAD_HANDLE if handle is invalid or handle already deleted
-     * @return E_ERR_CLI_FAILED if client is connected
+     * @return E_ERR_CLI_BAD_HANDLE if handle is invalid or handle already
+     *         deleted
+     * @return E_ERR_CLI_BAD_CNX_STATE if client is connected
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_delete_handle(mmgr_cli_handle_t *handle);
 
     /**
      * Subscribe to an event. This function shall only be invoked on a valid
-     * unconnected handle.
+     * unconnected handle. Clients must not block the callback. Callback must
+     * be used only for a short processing time, otherwise we do not guarantee
+     * the responsiveness of the library and events should be received with
+     * delay. Also, in the callback function, the client should send no message
+     * to the MMGR. This has to be done in another thread/context.
      * NB: users can't subscribe to ACK or NACK events.
      *
      * @param [in,out] handle library handle
@@ -88,8 +101,9 @@ extern "C" {
      * @param [in] id event to subscribe to
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if connected or event already configured or func is
-     *                          NULL or unknown/invalid event
+     * @return E_ERR_CLI_BAD_CNX_STATE if connected
+     * @return E_ERR_CLI_FAILED event already configured or func is NULL or
+     *         unknown/invalid event
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
@@ -105,7 +119,8 @@ extern "C" {
      * @param [in] id event to unsubscribe to
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if connected or unknown/invalid event
+     * @return E_ERR_CLI_BAD_CNX_STATE if connected
+     * @return E_ERR_CLI_FAILED unknown/invalid event
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_unsubscribe_event(mmgr_cli_handle_t *handle,
@@ -120,7 +135,10 @@ extern "C" {
      * @param [in] handle library handle
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if already connected or timeout raised
+     * @return E_ERR_CLI_BAD_CNX_STATE if connected
+     * @return E_ERR_CLI_TIMEOUT if MMGR is not responsive or after a timeout of
+     *         20s
+     * @return E_ERR_CLI_FAILED internal error
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle);
@@ -131,49 +149,66 @@ extern "C" {
      * @param [in] handle library handle
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if already disconnected
+     * @return E_ERR_CLI_BAD_CNX_STATE if already disconnected
+     * @return E_ERR_CLI_FAILED internal error
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_disconnect(mmgr_cli_handle_t *handle);
 
     /**
-     * Acquire the modem resource. This will start the modem if needed.
-     * This function returns when acquire request is accepted by MMGR (but not handled yet).
-     * It could fail if MMGR is not responsive or after a timeout of 20s.
+     * Acquire the modem resource. This will start the modem if the modem is
+     * currently down. This function returns when acquire request is parsed and
+     * queueud by MMGR (but not processed yet). It could return an error
+     * (see error description below). The lock is kept until explicit client
+     * disconnection or request.
      *
      * @param [in] handle library handle
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if not connected or timeout raised
+     * @return E_ERR_CLI_TIMEOUT if MMGR is not responsive or after a timeout of
+     *         20s
+     * @return E_ERR_CLI_REJECTED if this function is called under the callback
+     * @return E_ERR_CLI_BAD_CNX_STATE if not connected
+     * @return E_ERR_CLI_FAILED internal error
      * @return E_ERR_CLI_ALREADY_LOCK if the modem resource is already acquired
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle);
 
     /**
-     * Release the modem resource. This can stop the modem if no one else holds the resource.
-     * This function returns when release request is accepted by MMGR (but not handled yet).
-     * It could fail if MMGR is not responsive or after a timeout of 20s.
+     * Release the modem resource. This function returns when release request is
+     * parsed and queueud by MMGR (but not processed yet). This will stop the
+     * modem if no client hold the resource. It could return an error
+     * (see error description below).
      *
      * @param [in] handle library handle
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if not connected
+     * @return E_ERR_CLI_TIMEOUT if MMGR is not responsive or after a timeout of
+     *         20s
+     * @return E_ERR_CLI_REJECTED if this function is called under the callback
+     * @return E_ERR_CLI_BAD_CNX_STATE if not connected
+     * @return E_ERR_CLI_FAILED internal error
      * @return E_ERR_CLI_ALREADY_UNLOCK if already unlocked
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle);
 
     /**
-     * Send a request to MMGR.
-     * This function returns when the request is sent successfully,
-     * or fail on error, or fail after a timeout of 20s.
+     * Send a request to MMGR. This function returns when request is parsed and
+     * queueud by MMGR (but not processed yet). It could return an error if MMGR
+     * is not responsive or after a timeout of 20s.
      *
      * @param [in] handle library handle
      * @param [in] request request to send to the mmgr
      *
      * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
-     * @return E_ERR_CLI_FAILED if not connected or invalid request id
+     * @return E_ERR_CLI_TIMEOUT if MMGR is not responsive or after a timeout of
+     *         20s
+     * @return E_ERR_CLI_REJECTED if this function is called under the callback
+     * @return E_ERR_CLI_BAD_CNX_STATE if not connected
+     * @return E_ERR_CLI_FAILED internal error
+     * @return E_ERR_CLI_FAILED if request is NULL or invalid request id
      * @return E_ERR_CLI_SUCCEED
      */
     e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,

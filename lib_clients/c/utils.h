@@ -20,14 +20,23 @@
 #define __MMGR_CLI_UTILS_H__
 
 #include "common.h"
+#define DEF_MMGR_RESPONSIVE_TIMEOUT 20  /* in seconds */
+
+typedef enum e_send_method {
+    E_SEND_SINGLE,
+    E_SEND_THREADED,
+} e_send_method_t;
 
 e_err_mmgr_cli_t check_state(mmgr_cli_handle_t *handle,
                              mmgr_lib_context_t **p_lib, bool connected);
 e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
-                          const mmgr_cli_requests_t *request);
+                          const mmgr_cli_requests_t *request,
+                          e_send_method_t method, int timeout);
 e_err_mmgr_cli_t read_events(mmgr_lib_context_t *p_lib);
 
 e_err_mmgr_cli_t cli_connect(mmgr_lib_context_t *p_lib);
 e_err_mmgr_cli_t cli_disconnect(mmgr_lib_context_t *p_lib);
+
+e_mmgr_events_t is_request_rejected(mmgr_lib_context_t *p_lib);
 
 #endif                          /* __MMGR_CLI_UTILS_H__ */

@@ -155,7 +155,6 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         check_shutdown_ack(&mmgr->clients, true);
         mmgr->events.cli_req = E_CLI_REQ_OFF;
         stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-        reset_shutdown_ack(&mmgr->clients);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
