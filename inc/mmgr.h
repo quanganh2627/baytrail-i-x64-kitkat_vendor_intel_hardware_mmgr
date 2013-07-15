@@ -127,9 +127,20 @@ typedef struct mmgr_cli_core_dump {
     size_t reason_len;
 } mmgr_cli_core_dump_t;
 
+typedef struct mmgr_cli_recovery_cause {
+    size_t len;
+    char *cause;                // Maximum string length is 512 bytes
+} mmgr_cli_recovery_cause_t;
+
+/* Note: 'recovery_causes' array (if present) is used to describe why
+ *       client 'name' requested a modem recovery procedure.
+ */
 typedef struct mmgr_cli_ap_reset {
     size_t len;
     char *name;
+    size_t num_causes;
+    /* Size of 'recovery_causes' array is given in 'num_causes' */
+    mmgr_cli_recovery_cause_t *recovery_causes;
 } mmgr_cli_ap_reset_t;
 
 typedef struct mmgr_cli_error {

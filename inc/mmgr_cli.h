@@ -48,11 +48,25 @@ extern "C" {
         void *context;
     } mmgr_cli_event_t;
 
+    /* For requests where id == REQUEST_MODEM_RECOVERY, data can point to an
+     * array of up to 5 mmgr_cli_recovery_cause_t structures (for X entries,
+     * len should be 'X * sizeof(mmgr_cli_recovery_cause_t)'. */
     typedef struct mmgr_cli_request {
         e_mmgr_requests_t id;
         size_t len;
         void *data;
     } mmgr_cli_requests_t;
+
+    /**
+     * Macro to be used to initialize client requests before sending to MMGR.
+     * Useful to guarantee backwards-compatibility of client => MMGR API.
+     *
+     * @param [in, out] request to be initialized.
+     * @param [in] id of the given request.
+     */
+#define MMGR_CLI_INIT_REQUEST(request, req_id) \
+    do { memset(&(request), 0, sizeof(request)); \
+         request.id = (req_id); } while (0)
 
     typedef int (*event_handler) (mmgr_cli_event_t *);
 
