@@ -32,8 +32,11 @@ e_mmgr_errors_t mdm_cold_reset(modem_info_t *info);
 e_mmgr_errors_t mdm_down(modem_info_t *info);
 e_mmgr_errors_t mdm_up(modem_info_t *info);
 e_mmgr_errors_t mdm_get_state(int fd_mcd, e_modem_events_type_t *state);
-e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport, bool ch_sw,
-                            secur_t *secur, e_modem_fw_error_t *verdict);
+e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
+                               secur_t *secur, e_modem_fw_error_t *verdict);
+e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
+                                e_modem_nvm_error_t *verdict,
+                                int *sub_error_code);
 e_mmgr_errors_t set_mcd_poll_states(modem_info_t *info);
 e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode);
 
@@ -46,6 +49,6 @@ e_mmgr_errors_t mdm_set_cd_ipc_pm(modem_info_t *info, bool state);
 e_mmgr_errors_t mdm_set_ipc_pm(modem_info_t *info, bool state);
 e_mmgr_errors_t mdm_get_ipc_pm(modem_info_t *info, bool *state);
 
-void mup_log(const char *msg, size_t msg_len);
+void mup_log(const char *msg, ...);
 
 #endif                          /* __MMGR_MODEM_SPECIFIC_HEADER__ */

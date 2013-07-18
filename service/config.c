@@ -68,6 +68,8 @@
 #define DEF_MCDR_PID "0x0020"
 #define DEF_MCDR_VID "0x1519"
 #define DEF_MCDR_PROTOCOL "YMODEM"
+/* nvm custom default values */
+#define DEF_NVM_CUSTO_DLC "/dev/gsmtty11"
 
 /* flashless default params: */
 #define DEF_RUN_FILES_PATH "/config/telephony"
@@ -77,6 +79,7 @@
 #define DEF_CALIBRATION "calib.nvm"
 #define DEF_STATIC "static.nvm"
 #define DEF_DYNAMIC "dynamic.nvm"
+#define DEF_NVM_PATCH "patch_nvm.tlv"
 #define DEF_RND_CERT "RND_CERT"
 #define DEF_MCDR_LINK_LAYER "uart"
 
@@ -387,6 +390,11 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
         {"SecurDlc", &params->secur_dlc, DEF_SECUR_DLC, string},
     };
 
+    set_param_t nvm_custo[] = {
+        {.key = "NvmCustoDLC",.dest = &params->nvm_custo_dlc,.def =
+         DEF_NVM_CUSTO_DLC,.set = string},
+    };
+
     LOG_DEBUG("filename: %s", config_file);
     if (access(config_file, F_OK) != 0) {
         LOG_ERROR("config file is missing. Keeping default values");
@@ -405,6 +413,8 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
           sizeof(interface) / sizeof(*interface));
     parse(fd, "MCDR", mcdr, sizeof(mcdr) / sizeof(*mcdr));
     parse(fd, "SECURITY", secur, sizeof(secur) / sizeof(*secur));
+    parse(fd, "MODEM_NVM_CUSTO", nvm_custo,
+          sizeof(nvm_custo) / sizeof(*nvm_custo));
 
 out:
     return ret;
@@ -473,6 +483,7 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file,
         {"Static", config->run_stat, DEF_STATIC, string},
         {"Dynamic", config->run_dyn, DEF_DYNAMIC, string},
         {"RndCert", config->run_rnd_cert, DEF_RND_CERT, string},
+        {"NvmPatch", config->nvm_patch, DEF_NVM_PATCH, string},
     };
 
     set_param_t bckup[] = {
@@ -504,7 +515,7 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file,
     set_full_path(config->run_path, config->run_stat);
     set_full_path(config->run_path, config->run_dyn);
     set_full_path(config->run_path, config->run_rnd_cert);
-
+    set_full_path(config->run_path, config->nvm_patch);
     set_full_path(config->bkup_path, config->bkup_cal);
     set_full_path(config->bkup_path, config->bkup_stat);
     set_full_path(config->bkup_path, config->bkup_rnd_cert);

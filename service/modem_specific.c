@@ -34,6 +34,8 @@
 #define MUP_FUNC_OPEN "mup_open_device"
 #define MUP_FUNC_TOGGLE_HSI_FLASHING_MODE "mup_toggle_hsi_flashing_mode"
 #define MUP_FUNC_UP_FW "mup_update_fw"
+#define MUP_FUNC_UP_NVM "mup_update_nvm"
+#define MUP_FUNC_READ_NVM_ID "mup_get_nvm_id"
 #define MUP_FUNC_DISPOSE "mup_dispose"
 #define MUP_FUNC_FW_VERSION "mup_check_fw_version"
 #define MUP_FUNC_CONFIG_SECUR "mup_configure_secur_channel"
@@ -122,13 +124,25 @@ out:
  * callback to handle aplog messages
  *
  * @param [in] msg message to display
- * @param [in] msg_len unused
+ * @param [in] args variable arguments list
  *
  */
-void mup_log(const char *msg, size_t msg_len)
+void mup_log(const char *msg, ...)
 {
-    (void)msg_len;              /* unused */
-    LOG_DEBUG("%s", msg);
+    char buff[256] = { '\0' };
+    va_list ap;
+
+    if (msg != NULL) {
+        va_start(ap, msg);
+
+        vsnprintf(buff, sizeof(buff), msg, ap);
+
+        buff[sizeof(buff) - 1] = '\0';
+
+        LOG_DEBUG("%s", buff);
+
+        va_end(ap);
+    }
 }
 
 /**
@@ -304,6 +318,8 @@ e_mmgr_errors_t mdm_specific_init(modem_info_t *info)
         info->mup.toggle_hsi_flashing_mode = dlsym(info->mup.hdle,
                                                    MUP_FUNC_TOGGLE_HSI_FLASHING_MODE);
         info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
+        info->mup.update_nvm = dlsym(info->mup.hdle, MUP_FUNC_UP_NVM);
+        info->mup.read_nvm_id = dlsym(info->mup.hdle, MUP_FUNC_READ_NVM_ID);
         info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
         info->mup.config_secur_channel =
             dlsym(info->mup.hdle, MUP_FUNC_CONFIG_SECUR);
@@ -354,8 +370,8 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info is empty
  */
-e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport, bool ch_sw,
-                            secur_t *secur, e_modem_fw_error_t *verdict)
+e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
+                               secur_t *secur, e_modem_fw_error_t *verdict)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mup_interface_t *handle = NULL;
@@ -415,6 +431,67 @@ e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport, bool ch_sw,
         LOG_ERROR("modem firmware update failed");
         restore_nvm(info);
         ret = E_ERR_FAILED;
+    }
+
+    if (E_MUP_SUCCEED != info->mup.dispose(handle)) {
+        ret = E_ERR_FAILED;
+        LOG_ERROR("modem updater disposal fails");
+    }
+
+out:
+    return ret;
+}
+
+/**
+ * flash modem nvm
+ *
+ * @param[in] info modem info
+ * @param[in] comport modem communication port for flashing
+ * @param[out] verdict provides modem nvm update status
+ *
+ * @return E_ERR_FAILED if operation fails
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_BAD_PARAMETER if info, comport or verdict is null
+ */
+e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
+                                e_modem_nvm_error_t *verdict,
+                                int *sub_error_code)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    mup_interface_t *handle = NULL;
+    e_mup_err_t mup_ret = E_MUP_SUCCEED;
+
+    CHECK_PARAM(info, ret, out);
+    CHECK_PARAM(comport, ret, out);
+    CHECK_PARAM(verdict, ret, out);
+    CHECK_PARAM(sub_error_code, ret, out);
+
+    if (E_MUP_SUCCEED != info->mup.initialize(&handle, mup_log)) {
+        ret = E_ERR_FAILED;
+        LOG_ERROR("modem updater initialization failed");
+        goto out;
+    }
+
+    mup_nvm_update_params_t params = {
+        .handle = handle,
+        .mdm_com_port = comport,
+        .nvm_file_path = info->fl_conf.nvm_patch,
+        .nvm_file_path_len = strnlen(info->fl_conf.nvm_patch,
+                                     MAX_SIZE_CONF_VAL),
+    };
+
+    if ((mup_ret = info->mup.update_nvm(&params)) != E_MUP_SUCCEED) {
+        ret = E_ERR_FAILED;
+        *verdict = E_MODEM_NVM_FAIL;
+        *sub_error_code = mup_ret;
+        LOG_ERROR("modem nvm update failed with error %d", mup_ret);
+    } else {
+        if (unlink(info->fl_conf.nvm_patch) != 0) {
+            LOG_ERROR("couldn't delete %s: %s", info->fl_conf.nvm_patch,
+                      strerror(errno));
+        }
+        /* for now consider a success even if nvm patch not deleted */
+        *verdict = E_MODEM_NVM_SUCCEED;
     }
 
     if (E_MUP_SUCCEED != info->mup.dispose(handle)) {
