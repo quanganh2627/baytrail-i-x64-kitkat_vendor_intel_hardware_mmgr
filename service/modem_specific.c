@@ -50,6 +50,74 @@
 #define UART_PM_ON "auto"
 #define UART_PM_OFF "on"
 
+#define BACKUP ".bkup"
+
+/**
+ * This function will backup the nvm files. Existing files will be overwrite.
+ *
+ * @param info
+ *
+ * @return E_ERR_BAD_PARAMETER
+ * @return E_ERR_SUCCESS
+ */
+static e_mmgr_errors_t backup_nvm(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    char dynamic[PATH_MAX] = { '\0' };
+    char stat[PATH_MAX] = { '\0' };
+
+    CHECK_PARAM(info, ret, out);
+
+    snprintf(dynamic, PATH_MAX, "%s%s", info->fl_conf.run_dyn, BACKUP);
+    snprintf(stat, PATH_MAX, "%s%s", info->fl_conf.run_stat, BACKUP);
+
+    unlink(dynamic);
+    unlink(stat);
+
+    copy_file(info->fl_conf.run_dyn, dynamic, FLS_FILE_PERMISSION);
+    copy_file(info->fl_conf.run_stat, stat, FLS_FILE_PERMISSION);
+
+out:
+    return ret;
+}
+
+/**
+ * This function will restore the backup nvm files. If those files doesn't exist,
+ * regen_fls will create blank ones
+ *
+ * @param info
+ *
+ * @return E_ERR_BAD_PARAMETER
+ * @return E_ERR_SUCCESS
+ */
+static e_mmgr_errors_t restore_nvm(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    char dynamic[PATH_MAX] = { '\0' };
+    char stat[PATH_MAX] = { '\0' };
+
+    CHECK_PARAM(info, ret, out);
+
+    snprintf(dynamic, PATH_MAX, "%s%s", info->fl_conf.run_dyn, BACKUP);
+    snprintf(stat, PATH_MAX, "%s%s", info->fl_conf.run_stat, BACKUP);
+
+    unlink(info->fl_conf.run_dyn);
+    unlink(info->fl_conf.run_stat);
+
+    if (is_file_exists(dynamic, 0) == E_ERR_SUCCESS) {
+        ret = copy_file(dynamic, info->fl_conf.run_dyn, FLS_FILE_PERMISSION);
+        unlink(dynamic);
+    }
+
+    if (is_file_exists(stat, 0) == E_ERR_SUCCESS) {
+        ret = copy_file(stat, info->fl_conf.run_stat, FLS_FILE_PERMISSION);
+        unlink(stat);
+    }
+
+out:
+    return ret;
+}
+
 /**
  * callback to handle aplog messages
  *
@@ -340,11 +408,13 @@ e_mmgr_errors_t flash_modem(modem_info_t *info, char *comport, bool ch_sw,
         }
     }
 
-    if (E_MUP_SUCCEED != info->mup.update_fw(&params)) {
-        ret = E_ERR_FAILED;
-        LOG_ERROR("modem firmware update failed");
-    } else {
+    if (E_MUP_SUCCEED == info->mup.update_fw(&params)) {
         *verdict = E_MODEM_FW_SUCCEED;
+        backup_nvm(info);
+    } else {
+        LOG_ERROR("modem firmware update failed");
+        restore_nvm(info);
+        ret = E_ERR_FAILED;
     }
 
     if (E_MUP_SUCCEED != info->mup.dispose(handle)) {

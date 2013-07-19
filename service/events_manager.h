@@ -30,7 +30,7 @@
 #include "security.h"
 
 #define EVENTS \
-    X(MODEM), \
+    X(IPC), \
     X(NEW_CLIENT), \
     X(CLIENT), \
     X(TIMEOUT), \
@@ -49,7 +49,8 @@
 #define MMGR_STATE\
     X(MDM_OFF),\
     X(MDM_RESET),\
-    X(WAIT_CLI_ACK),\
+    X(WAIT_COLD_ACK),\
+    X(WAIT_SHT_ACK),\
     X(MDM_CONF_ONGOING),\
     X(MDM_CORE_DUMP),\
     X(MDM_UP),\
@@ -112,7 +113,6 @@ typedef struct mmgr_data {
     int fd_tty;
     int fd_cnx;
     e_mmgr_state_t state;
-    e_mmgr_events_t client_notification;
     mmgr_configuration_t config;
     reset_management_t reset;
     client_list_t clients;

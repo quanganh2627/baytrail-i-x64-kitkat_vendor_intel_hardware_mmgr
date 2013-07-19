@@ -447,6 +447,16 @@ e_mmgr_errors_t inform_all_clients(client_list_t *clients,
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i;
+    static bool down_state = false;
+
+    if (state == E_MMGR_EVENT_MODEM_DOWN) {
+        if (down_state)
+            goto out;
+        else
+            down_state = true;
+    } else if (state == E_MMGR_EVENT_MODEM_UP) {
+        down_state = false;
+    }
 
     CHECK_PARAM(clients, ret, out);
     /* do not check data because it can be NULL on purpose */
