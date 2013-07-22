@@ -411,13 +411,17 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
         goto out;
     }
 
+    char *rnd = NULL;
+    size_t len = 0;
+    if (E_ERR_SUCCESS == is_file_exists(info->fl_conf.run_rnd_cert, 0)) {
+        rnd = info->fl_conf.run_rnd_cert;
+        len = strnlen(info->fl_conf.run_rnd_cert, MAX_SIZE_CONF_VAL);
+    }
+
     secur_get_callback(secur, &secur_callback);
     if (secur_callback != NULL) {
         if (E_MUP_SUCCEED !=
-            info->mup.config_secur_channel(handle, secur_callback,
-                                           info->fl_conf.run_rnd_cert,
-                                           strnlen(info->fl_conf.run_rnd_cert,
-                                                   MAX_SIZE_CONF_VAL))) {
+            info->mup.config_secur_channel(handle, secur_callback, rnd, len)) {
             LOG_ERROR("failed to configure secur channel");
             ret = E_ERR_FAILED;
             goto out;
