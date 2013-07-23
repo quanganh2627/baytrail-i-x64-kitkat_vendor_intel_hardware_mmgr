@@ -39,6 +39,7 @@ typedef struct core_dump_thread {
 #define MCDR_GET_CORE_DUMP "mcdr_get_core_dump"
 #define MCDR_CLEANUP "mcdr_cleanup"
 #define MCDR_GET_STATE "mcdr_get_state"
+#define MCDR_GET_REASON "mcdr_get_reason"
 
 /**
  * initialize core dump. If the libmcdr is available, mcdr will be enabled
@@ -77,6 +78,7 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
             mcdr->read = dlsym(mcdr->lib, MCDR_GET_CORE_DUMP);
             mcdr->cleanup = dlsym(mcdr->lib, MCDR_CLEANUP);
             mcdr->get_state = dlsym(mcdr->lib, MCDR_GET_STATE);
+            mcdr->get_reason = dlsym(mcdr->lib, MCDR_GET_REASON);
 
             p = (char *)dlerror();
             if (p != NULL) {
@@ -119,12 +121,13 @@ static void thread_core_dump(core_dump_thread_t *cd_reader)
  * Start core dump reader program.
  *
  * @param [in] mcdr mcdr config
+ * @param [out] state
  *
  * @return E_ERR_BAD_PARAMETER if mcdr is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
+e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr, e_core_dump_state_t *state)
 {
     int err;
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -132,24 +135,24 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
     struct timeval tp;
     struct timeval tp_end;
     core_dump_thread_t cd_reader;
-    mcdr_status_t status;
 
     CHECK_PARAM(mcdr, ret, out);
+    CHECK_PARAM(state, ret, out);
 
     /* initialize thread structure */
-    mcdr->state = E_CD_FAILED;
     pthread_mutex_init(&cd_reader.mutex, NULL);
     pthread_cond_init(&cd_reader.cond, NULL);
     cd_reader.mcdr = mcdr;
     cd_reader.thread_id = -1;
+    *state = E_CD_OTHER;
 
     /* Start core dump reader */
-    LOG_DEBUG("launch core dump reader");
+    LOG_DEBUG("starting MCDR");
     err = pthread_create(&cd_reader.thread_id, NULL, (void *)thread_core_dump,
                          (void *)&cd_reader);
     if (err != 0) {
-        LOG_ERROR("Start core dump reader FAILED");
-        return E_ERR_FAILED;
+        LOG_ERROR("Failed to launch MCDR");
+        goto out;
     }
 
     /* The core dump read operation can't exceed two minutes. The thread will
@@ -168,35 +171,50 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr)
     pthread_mutex_unlock(&cd_reader.mutex);
 
     if (err == ETIMEDOUT) {
-        status = mcdr->get_state();
-        LOG_ERROR("Timeout. mcdr_status = %d", status);
-        if (status == MCDR_ARCHIVE_IN_PROGRESS) {
+        if (MCDR_ARCHIVE_IN_PROGRESS == mcdr->get_state()) {
             LOG_DEBUG("Archiving still on-going");
             /* @TODO: perhaps a timeout can be usefull to prevent infinite
              * archiving process */
         } else {
             LOG_ERROR("Core dump retrieval takes too much time. Aborting");
             mcdr->cleanup();
+            *state = E_CD_TIMEOUT;
         }
     }
 
     if (cd_reader.thread_id != -1) {
         /* The thread exit normally. Join it */
-        err = pthread_join(cd_reader.thread_id, NULL);
-        if (err != 0) {
-            LOG_DEBUG("ERROR during thread_join");
-        } else {
-            if (mcdr->data.state == MCDR_SUCCEED) {
-                gettimeofday(&tp_end, NULL);
-                LOG_VERBOSE("Succeed (in %lus.) name:%s", tp_end.tv_sec -
-                            tp.tv_sec, mcdr->data.coredump_file);
-                ret = E_ERR_SUCCESS;
-                mcdr->state = E_CD_SUCCEED_WITHOUT_PANIC_ID;
-            } else {
-                LOG_ERROR("Failed with error %d", mcdr->data.state);
-            }
+        if (pthread_join(cd_reader.thread_id, NULL) != 0)
+            LOG_ERROR("failed to join the thread");
+    }
+
+    if (*state != E_CD_TIMEOUT) {
+        switch (mcdr->get_state()) {
+        case MCDR_SUCCEED:
+            gettimeofday(&tp_end, NULL);
+            LOG_VERBOSE("Succeed (in %lus.) name:%s", tp_end.tv_sec -
+                        tp.tv_sec, mcdr->data.coredump_file);
+            *state = E_CD_SUCCEED;
+            ret = E_ERR_SUCCESS;
+            break;
+
+        case MCDR_FS_ERROR:
+        case MCDR_INIT_ERROR:
+        case MCDR_IO_ERROR:
+            *state = E_CD_LINK_ERROR;
+            break;
+
+        case MCDR_START_PROT_ERR:
+        case MCDR_PROT_ERROR:
+            *state = E_CD_PROTOCOL_ERROR;
+            break;
+
+        default:
+            /* nothing to do */
+            break;
         }
     }
+
 out:
     return ret;
 }

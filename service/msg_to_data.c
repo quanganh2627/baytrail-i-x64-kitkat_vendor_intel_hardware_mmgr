@@ -299,24 +299,36 @@ e_mmgr_errors_t set_data_core_dump(msg_t *msg, mmgr_cli_event_t *request)
     }
     msg_data = msg->data;
     deserialize_uint32(&msg_data, &tmp);
-    memcpy(&cd->state, &tmp, sizeof(e_core_dump_state_t));
-    deserialize_int(&msg_data, &cd->panic_id);
-    deserialize_size_t(&msg_data, &cd->len);
+    memcpy(&cd->state, &tmp, sizeof(cd->state));
+    deserialize_size_t(&msg_data, &cd->path_len);
+    deserialize_size_t(&msg_data, &cd->reason_len);
 
-    if (cd->len != (msg->hdr.len - (msg_data - msg->data))) {
+    if ((cd->path_len + cd->reason_len) !=
+        (msg->hdr.len - (msg_data - msg->data))) {
         LOG_ERROR("bad string length");
         goto out;
     }
 
     /* the buffer will be freed by the matching freed function */
-    cd->path = malloc((cd->len + 1) * sizeof(char));
-    if ((cd == NULL) || (cd->path == NULL)) {
+    cd->path = malloc((cd->path_len + 1) * sizeof(char));
+    if (cd->path == NULL) {
         LOG_ERROR("memory allocation failed");
         goto out;
     }
+    memcpy(cd->path, msg_data, cd->path_len);
+    memset(cd->path + cd->path_len, '\0', sizeof(char));
 
-    memcpy(cd->path, msg_data, cd->len);
-    memset(cd->path + cd->len, '\0', sizeof(char));
+    if (cd->reason_len > 0) {
+        cd->reason = malloc((cd->reason_len + 1) * sizeof(char));
+        if (cd->path == NULL) {
+            LOG_ERROR("memory allocation failed");
+            goto out;
+        }
+        memcpy(cd->reason, msg_data + cd->path_len, cd->reason_len);
+        memset(cd->reason + cd->reason_len, '\0', sizeof(char));
+    } else
+        cd->reason = NULL;
+
     ret = E_ERR_SUCCESS;
 
 out:
@@ -501,6 +513,8 @@ e_mmgr_errors_t free_data_core_dump(mmgr_cli_event_t *request)
     if (cd != NULL) {
         if (cd->path != NULL)
             free(cd->path);
+        if (cd->reason != NULL)
+            free(cd->reason);
         free(cd);
         ret = E_ERR_SUCCESS;
     } else {

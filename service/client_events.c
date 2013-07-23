@@ -737,17 +737,13 @@ static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
     write_to_file(filename, OPEN_MODE_RW_UGO, data, 0);
 
     cd.state = E_CD_SUCCEED;
-    cd.panic_id = FAKE_CD_ID;
-    cd.len = strnlen(filename, PATH_MAX);
+    cd.path = filename;
+    cd.path_len = strnlen(filename, PATH_MAX);
+    cd.reason = FAKE_CD_REASON;
+    cd.reason_len = strlen(FAKE_CD_REASON);
 
-    cd.path = malloc(sizeof(char) * cd.len);
-    if (cd.path == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-    memcpy(cd.path, filename, cd.len);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, &cd);
-    free(cd.path);
+
 out:
     return ret;
 }
