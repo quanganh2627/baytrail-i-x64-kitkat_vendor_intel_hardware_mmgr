@@ -144,12 +144,14 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.sendRequest(new MmgrRegisterNameRequest(clientName));
 
         if (!this.waitForAck(this.connectTimeoutMs)) {
+            this.stop();
             throw new MmgrClientException("MMGR name subscribtion failed.");
         }
 
         this.sendRequest(new MmgrRegisterEventsRequest(this.subscribedEvents));
 
         if (!this.waitForAck(this.connectTimeoutMs)) {
+            this.stop();
             throw new MmgrClientException("MMGR events subscribtion failed.");
         }
         Log.d(Constants.LOG_TAG, "Client ready.");
