@@ -23,10 +23,18 @@
 #include <stdbool.h>
 #include "mmgr.h"
 
+#define MUP_STATE\
+    X(SUCCEED),\
+    X(BAD_PARAMETER),\
+    X(FAILED),\
+    X(FW_OUTDATED),\
+    X(FW_CORRUPTED),\
+    X(FW_RESTRICTED)
+
 typedef enum e_mup_err {
-    E_MUP_BAD_PARAMETER,
-    E_MUP_FAILED,
-    E_MUP_SUCCEED
+#undef X
+#define X(a) E_MUP_##a
+    MUP_STATE
 } e_mup_err_t;
 
 #ifdef __cplusplus

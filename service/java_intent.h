@@ -29,7 +29,11 @@
     X(MODEM_COLD_RESET), \
     X(MODEM_UNSOLICITED_RESET), \
     X(MODEM_NOT_RESPONSIVE), \
+    /* flashless specific errors */ \
     X(MODEM_FW_BAD_FAMILY), \
+    X(MODEM_FW_OUTDATED), \
+    X(MODEM_FW_SECURITY_CORRUPTED), \
+    X(MODEM_FW_RESTRICTED), \
     X(MSG_NUM)
 
 #define ACTION_INTENTS \

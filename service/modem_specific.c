@@ -84,6 +84,39 @@ out:
 }
 
 /**
+ * This function will restore the mode fw and all parameters (RnD, NVM)
+ *
+ * @param info
+ *
+ * @return E_ERR_BAD_PARAMETER
+ * @return E_ERR_SUCCESS
+ */
+e_mmgr_errors_t restore_run(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    unlink(info->fl_conf.run_boot_fls);
+    unlink(info->fl_conf.run_cal);
+    unlink(info->fl_conf.run_dyn);
+    unlink(info->fl_conf.run_stat);
+    unlink(info->fl_conf.run_rnd_cert);
+
+    copy_file(info->fl_conf.bkup_cal, info->fl_conf.run_cal,
+              FLS_FILE_PERMISSION);
+    copy_file(info->fl_conf.bkup_stat, info->fl_conf.run_stat,
+              FLS_FILE_PERMISSION);
+    copy_file(info->fl_conf.bkup_rnd_cert, info->fl_conf.run_rnd_cert,
+              FLS_FILE_PERMISSION);
+    copy_file(info->fl_conf.bkup_boot_fls, info->fl_conf.run_boot_fls,
+              FLS_FILE_PERMISSION);
+
+out:
+    return ret;
+}
+
+/**
  * This function will restore the backup nvm files. If those files doesn't exist,
  * regen_fls will create blank ones
  *
@@ -373,7 +406,7 @@ out:
 e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
                                secur_t *secur, e_modem_fw_error_t *verdict)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     mup_interface_t *handle = NULL;
     secur_callback_fptr_t secur_callback = NULL;
 
@@ -381,7 +414,6 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
     CHECK_PARAM(secur, ret, out);
 
     if (E_MUP_SUCCEED != info->mup.initialize(&handle, mup_log)) {
-        ret = E_ERR_FAILED;
         LOG_ERROR("modem updater initialization failed");
         goto out;
     }
@@ -390,7 +422,6 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
     if (info->mup.check_fw_version(info->fl_conf.run_inj_fls, "XMM7160") !=
         E_MUP_SUCCEED) {
         LOG_ERROR("Bad modem family. Shutdown the modem");
-        ret = E_ERR_FAILED;
         *verdict = E_MODEM_FW_BAD_FAMILY;
         goto out;
     }
@@ -406,7 +437,6 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
     };
 
     if (E_MUP_SUCCEED != info->mup.open_device(&params)) {
-        ret = E_ERR_FAILED;
         LOG_ERROR("failed to open device");
         goto out;
     }
@@ -421,23 +451,41 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
     secur_get_callback(secur, &secur_callback);
     if (E_MUP_SUCCEED !=
         info->mup.config_secur_channel(handle, secur_callback, rnd, len)) {
-        LOG_ERROR("failed to configure secur channel");
-        ret = E_ERR_FAILED;
+        LOG_ERROR("failed to configure the secured channel");
         goto out;
     }
 
-    if (E_MUP_SUCCEED == info->mup.update_fw(&params)) {
+    e_mup_err_t err = info->mup.update_fw(&params);
+    const char *verdict_str[] = {
+#undef X
+#define X(a) #a
+        MUP_STATE
+    };
+    LOG_DEBUG("verdict: %s", verdict_str[err]);
+
+    switch (err) {
+    case E_MUP_FW_RESTRICTED:
+    case E_MUP_SUCCEED:
         *verdict = E_MODEM_FW_SUCCEED;
         backup_nvm(info);
-    } else {
-        LOG_ERROR("modem firmware update failed");
+        ret = E_ERR_SUCCESS;
+        break;
+    case E_MUP_FAILED:
         restore_nvm(info);
-        ret = E_ERR_FAILED;
+        break;
+    case E_MUP_FW_OUTDATED:
+        *verdict = E_MODEM_FW_OUTDATED;
+        break;
+    case E_MUP_FW_CORRUPTED:
+        *verdict = E_MODEM_FW_SECURITY_CORRUPTED;
+        break;
+    case E_MUP_BAD_PARAMETER:
+        ret = E_ERR_BAD_PARAMETER;
     }
 
     if (E_MUP_SUCCEED != info->mup.dispose(handle)) {
-        ret = E_ERR_FAILED;
         LOG_ERROR("modem updater disposal fails");
+        ret = E_ERR_FAILED;
     }
 
 out:

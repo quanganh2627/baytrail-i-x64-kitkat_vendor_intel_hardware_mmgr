@@ -61,9 +61,9 @@ static inline void mdm_close_fds(mmgr_data_t *mmgr)
  */
 static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    mmgr_cli_fw_update_result_t fw_result = {.id = E_MODEM_FW_ERROR_UNSPECIFIED
-    };
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mmgr_cli_fw_update_result_t fw_result = {.id =
+            E_MODEM_FW_ERROR_UNSPECIFIED };
     char *flashing_interface = NULL;
     bool ch_hw_sw = true;
     bool pm_state = false;
@@ -87,36 +87,60 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         if (pm_state)
             mdm_set_ipc_pm(&mmgr->info, false);
 
-        ret = flash_modem_fw(&mmgr->info, flashing_interface, ch_hw_sw,
-                             &mmgr->secur, &fw_result.id);
+        flash_modem_fw(&mmgr->info, flashing_interface, ch_hw_sw,
+                       &mmgr->secur, &fw_result.id);
 
         toggle_flashing_mode(&mmgr->info, false);
-
         if (pm_state)
             mdm_set_ipc_pm(&mmgr->info, true);
 
         inform_all_clients(&mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
                            &fw_result);
 
-        if (fw_result.id == E_MODEM_FW_BAD_FAMILY) {
+        switch (fw_result.id) {
+        case E_MODEM_FW_BAD_FAMILY:
             modem_shutdown(mmgr);
             inform_all_clients(&mmgr->clients,
                                E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
             broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
-        } else if (fw_result.id == E_MODEM_FW_SUCCEED) {
+            set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
+            break;
 
-            /* @TODO: fix that into flash_modem_fw/modem_specific */
+        case E_MODEM_FW_SUCCEED:
+            /* @TODO: fix that into flash_modem/modem_specific */
             if (mmgr->info.mdm_link == E_LINK_HSIC) {
-                /* @TODO: wait for ttyACM0 to appear after flash */
+                /* @TODO: wait for IPC to appear after flash */
                 sleep(4);
                 start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
             }
-        }
-
-        if (ret == E_ERR_SUCCESS)
             start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-        else
+            ret = E_ERR_SUCCESS;
+            break;
+
+        case E_MODEM_FW_SW_CORRUPTED:
+            restore_run(&mmgr->info);
             set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+            break;
+
+        case E_MODEM_FW_ERROR_UNSPECIFIED:
+        case E_MODEM_FW_READY_TIMEOUT:
+            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+            break;
+
+        case E_MODEM_FW_OUTDATED:
+            broadcast_msg(E_MSG_INTENT_MODEM_FW_OUTDATED);
+            set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
+            break;
+
+        case E_MODEM_FW_SECURITY_CORRUPTED:
+            broadcast_msg(E_MSG_INTENT_MODEM_FW_SECURITY_CORRUPTED);
+            set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
+            break;
+
+        case E_MODEM_FW_NUM:
+            /* nothing to do */
+            break;
+        }
     }
 
 out:
