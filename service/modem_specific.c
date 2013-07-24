@@ -42,8 +42,6 @@
 #define MUP_FUNC_CONFIG_SECUR "mup_configure_secur_channel"
 #define MUP_FUNC_GEN_FLS "mup_gen_fls"
 
-#define HSIC_ENABLE_PATH HSIC_PATH"/hsic_enable"
-
 #define BACKUP ".bkup"
 
 /**
@@ -410,39 +408,45 @@ out:
 /**
  * start hsic link
  *
+ * @param[in] info modem info
+ *
  * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-static e_mmgr_errors_t start_hsic(void)
+static e_mmgr_errors_t start_hsic(modem_info_t *info)
 {
-    return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "1", 1);
+    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "1", 1);
 }
 
 /**
  * stop hsic link
  *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static e_mmgr_errors_t stop_hsic(void)
-{
-    return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "0", 1);
-}
-
-/**
- * restart hsic link
+ * @param[in] info modem info
  *
  * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-static e_mmgr_errors_t restart_hsic(void)
+static e_mmgr_errors_t stop_hsic(modem_info_t *info)
+{
+    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "0", 1);
+}
+
+/**
+ * restart hsic link
+ *
+ * @param[in] info modem info
+ *
+ * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+static e_mmgr_errors_t restart_hsic(modem_info_t *info)
 {
     /* When the HSIC is already UP, writing 1 resets the hsic, It's what we
      * want here. This function only exists for "readability" purpose. */
-    return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "1", 1);
+    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "1", 1);
 }
 
 /**
@@ -554,7 +558,7 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
     CHECK_PARAM(info, ret, out);
 
     if (info->mdm_link == E_LINK_HSIC)
-        stop_hsic();
+        stop_hsic(info);
 
     if (ioctl(info->fd_mcd, MDM_CTRL_POWER_OFF) == -1) {
         ret = E_ERR_FAILED;
@@ -589,7 +593,7 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
 
     if (info->mdm_link == E_LINK_HSIC)
-        start_hsic();
+        start_hsic(info);
 
     if (info->is_flashless) {
         if (state & MDM_CTRL_STATE_OFF) {
@@ -608,7 +612,7 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     if (ret == E_ERR_SUCCESS)
         LOG_DEBUG("Modem successfully POWERED-UP");
     else if (info->mdm_link == E_LINK_HSIC)
-        stop_hsic();
+        stop_hsic(info);
 
 out:
     return ret;
@@ -774,7 +778,7 @@ e_mmgr_errors_t mdm_prepare_link(modem_info_t *info)
 
     /* restart hsic if the modem is hsic */
     if (info->mdm_link == E_LINK_HSIC)
-        restart_hsic();
+        restart_hsic(info);
 out:
     return ret;
 }

@@ -79,6 +79,8 @@ typedef struct modem_info {
     bool is_flashless;
     e_link_type_t mdm_link;     /* modem link */
     e_link_type_t cd_link;      /* core dump link */
+    char *hsic_pm_path;
+    char *hsic_enable_path;
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,

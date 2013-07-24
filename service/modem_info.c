@@ -106,6 +106,9 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
     if (ret != E_ERR_SUCCESS)
         goto out;
 
+    info->hsic_pm_path = (char *)config->hsic_pm_path;
+    info->hsic_enable_path = (char *)config->hsic_enable_path;
+
     info->fd_mcd = open(MBD_DEV, O_RDWR);
     if (info->fd_mcd == -1) {
         LOG_DEBUG("failed to open Modem Control Driver interface: %s",

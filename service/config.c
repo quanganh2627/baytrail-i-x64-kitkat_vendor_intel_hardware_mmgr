@@ -31,6 +31,8 @@
 #define DEF_WAITLOOP_TTY_NAME  "/dev/gsmtty15"
 #define DEF_LINK_LAYER "hsi"
 #define DEF_DELAY_BEFORE_AT INTEGER(3456)
+#define DEF_HSIC_ENABLE_PATH "/sys/devices/pci0000:00/0000:00:10.0/hsic_enable"
+#define DEF_HSIC_PM_PATH "/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable"
 /* 27.010 5.7.2 max frame size */
 #define GPP_MAX_FRAME_SIZE INTEGER(32768)
 /* modem max frame size */
@@ -333,6 +335,10 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          .def = DEF_FLASH_PID,.set = string},
         {.key = "FlashVid",.dest = &params->flash_vid,
          .def = DEF_FLASH_VID,.set = string},
+        {.key = "HSICEnablePath",.dest = &params->hsic_enable_path,
+         .def = DEF_HSIC_ENABLE_PATH,.set = string},
+        {.key = "HSICPmPath",.dest = &params->hsic_pm_path,
+         .def = DEF_HSIC_PM_PATH,.set = string},
     };
 
     set_param_t recov[] = {
@@ -441,7 +447,7 @@ static e_mmgr_errors_t set_full_path(char *path, char *full_path)
 
     strncpy(tmp, full_path, MAX_SIZE_CONF_VAL);
     snprintf(full_path, MAX_SIZE_CONF_VAL, "%s/%s", path, tmp);
-    memset(full_path, MAX_SIZE_CONF_VAL, '\0');
+    full_path[MAX_SIZE_CONF_VAL - 1] = '\0';
 
 out:
     return ret;
