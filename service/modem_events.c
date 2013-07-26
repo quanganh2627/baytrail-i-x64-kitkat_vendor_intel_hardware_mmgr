@@ -63,8 +63,8 @@ static inline void mdm_close_fds(mmgr_data_t *mmgr)
 static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_fw_update_result_t fw_result = {.id =
-            E_MODEM_FW_ERROR_UNSPECIFIED };
+    mmgr_cli_fw_update_result_t fw_result = {.id = E_MODEM_FW_ERROR_UNSPECIFIED
+    };
     char *flashing_interface = NULL;
     bool ch_hw_sw = true;
 
@@ -613,12 +613,12 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
     inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
     /* send error notification with reason message */
-      if (mmgr->info.mdm_link == E_LINK_HSI) {
-          mmgr_cli_error_t err = {.id = ERROR_ID };
-          err.len = strlen(ERROR_REASON);
-          err.reason = (char *)ERROR_REASON;
-          inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-      }
+    if (mmgr->info.mdm_link == E_LINK_HSI) {
+        mmgr_cli_error_t err = {.id = ERROR_ID };
+        err.len = strlen(ERROR_REASON);
+        err.reason = (char *)ERROR_REASON;
+        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+    }
 
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 out:

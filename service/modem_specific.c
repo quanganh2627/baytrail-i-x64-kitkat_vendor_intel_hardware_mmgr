@@ -734,8 +734,7 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
                 (info->fl_conf.bkup_rnd_cert, info->fl_conf.run_rnd_cert,
                  FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
                 /* This is not a blocking error case because this can happen in
-                 * production when no R&D exist yet. Just raise a
-                 * warning. */
+                 * production when no R&D exist yet. Just raise a warning. */
                 LOG_INFO("No R&D cert could be restored from %s,"
                          " R&D cert must be provisioned",
                          info->fl_conf.bkup_rnd_cert);

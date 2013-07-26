@@ -343,9 +343,10 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
         ts.tv_nsec = current.tv_usec * 1000;
         remaining = timeout - (current.tv_sec - start.tv_sec);
         if (remaining > 0)
-            /* A timeout of 1s is used here to save time in several UCs:
-             *  - if modem is OOS or plateform is shutdown
-             *  - if we have already reached the state
+            /*
+             * A timeout of 1s is used here to save time in several UCs:
+             * - if modem is OOS or plateform is shutdown
+             * - if we have already reached the state
              */
             ts.tv_sec += 1;
 
