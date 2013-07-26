@@ -68,6 +68,8 @@ typedef struct mmgr_configuration {
     char mcdr_vid[MAX_SIZE_CONF_VAL];
     char mcdr_protocol[MAX_SIZE_CONF_VAL];
     char mcdr_link_layer[MAX_SIZE_CONF_VAL];
+    /* modem nvm custo */
+    char nvm_custo_dlc[MAX_SIZE_CONF_VAL];
 } mmgr_configuration_t;
 
 typedef struct flashless_config {
@@ -84,6 +86,7 @@ typedef struct flashless_config {
     char run_stat[MAX_SIZE_CONF_VAL];
     char run_dyn[MAX_SIZE_CONF_VAL];
     char run_rnd_cert[MAX_SIZE_CONF_VAL];
+    char nvm_patch[MAX_SIZE_CONF_VAL];
 } flashless_config_t;
 
 e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *parameters,

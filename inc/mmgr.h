@@ -78,6 +78,7 @@
     /* flashing notifications */ \
     X(RESPONSE_MODEM_HW_ID),\
     X(RESPONSE_MODEM_FW_RESULT),\
+    X(RESPONSE_MODEM_NVM_RESULT),\
     X(RESPONSE_FUSE_INFO),\
     X(NUM_EVENTS)
 
@@ -142,9 +143,27 @@ typedef enum e_modem_fw_error {
     FW_ERROR
 } e_modem_fw_error_t;
 
+#define NVM_ERROR \
+    X(SUCCEED), \
+    X(NO_NVM_PATCH), \
+    X(ERROR_UNSPECIFIED),\
+    X(FAIL), \
+    X(NUM)
+
+typedef enum e_modem_nvm_error {
+#undef X
+#define X(a) E_MODEM_NVM_##a
+    NVM_ERROR
+} e_modem_nvm_error_t;
+
 typedef struct mmgr_cli_fw_update_result {
     e_modem_fw_error_t id;
 } mmgr_cli_fw_update_result_t;
+
+typedef struct mmgr_cli_nvm_update_result {
+    e_modem_nvm_error_t id;
+    int sub_error_code;
+} mmgr_cli_nvm_update_result_t;
 
 typedef struct mmgr_cli_fuse_info {
     char id[FUSE_LEN];

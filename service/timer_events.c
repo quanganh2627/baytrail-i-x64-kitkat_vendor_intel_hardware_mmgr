@@ -174,6 +174,13 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
+    if ((mmgr->timer.type & (0x01 << E_TIMER_REBOOT_MODEM_DELAY)) &&
+        ((current.tv_sec - mmgr->timer.start[E_TIMER_REBOOT_MODEM_DELAY].tv_sec)
+         > 2)) {
+        stop_timer(&mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+    }
+
 out:
     return ret;
 }
@@ -204,6 +211,8 @@ e_mmgr_errors_t timer_init(mmgr_timer_t *timer, mmgr_configuration_t *config)
         (config->modem_reset_delay * 1000) / STEPS;
     timer->timeout[E_TIMER_WAIT_FOR_BUS_READY] =
         (config->modem_reset_delay * 1000) / STEPS;
+    timer->timeout[E_TIMER_REBOOT_MODEM_DELAY] =
+        (((int)(config->modem_reset_delay / 2)) * 1000) / STEPS;
 out:
     return ret;
 }
