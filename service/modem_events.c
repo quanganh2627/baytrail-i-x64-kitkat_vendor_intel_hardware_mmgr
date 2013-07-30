@@ -731,6 +731,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
     } else if (state & E_EV_CORE_DUMP) {
         LOG_DEBUG("current state: E_EV_CORE_DUMP");
         set_mmgr_state(mmgr, E_MMGR_MDM_CORE_DUMP);
+        stop_all_timers(&mmgr->timer);
 
         if (mmgr->fd_tty != CLOSED_FD) {
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
