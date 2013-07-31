@@ -167,7 +167,7 @@ e_mmgr_errors_t copy_file(const char *src, const char *dst, mode_t dst_mode)
     CHECK_PARAM(src, ret, out);
     CHECK_PARAM(dst, ret, out);
 
-    old_umask = umask(~dst_mode);
+    old_umask = umask(~dst_mode & 0777);
 
     in_fd = open(src, O_RDONLY);
     if (in_fd < 0) {
@@ -206,6 +206,6 @@ out:
             LOG_DEBUG("Error while closing %s: %d", dst, errno);
         }
     }
-    umask(old_umask);
+    umask(old_umask & 0777);
     return ret;
 }
