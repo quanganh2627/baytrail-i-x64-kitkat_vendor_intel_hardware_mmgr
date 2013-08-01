@@ -275,29 +275,27 @@ e_mmgr_errors_t open_tty(const char *tty_name, int *fd)
         *fd = open(tty_name, O_RDWR);
         if (*fd > 0) {
             break;
+        } else if ((errno == ENOENT) || (errno == EAGAIN) ||
+                   (errno == EACCES)) {
+            sleep(1);
+            LOG_DEBUG("retry to open %s due to (%s) failure",
+                      tty_name, strerror(errno));
         } else {
-            if ((errno == EAGAIN) || (errno == EACCES)) {
-                sleep(1);
-                LOG_DEBUG("retry to open %s due to (%s) failure",
-                          tty_name, strerror(errno));
-            } else {
-                break;
-            }
+            break;
         }
     }
 
     if (*fd < 0) {
         LOG_ERROR("open of %s failed (%s)", tty_name, strerror(errno));
+    } else if (set_termio(*fd) != E_ERR_SUCCESS) {
+        LOG_ERROR("Failed to set discipline");
+        close(*fd);
+        *fd = CLOSED_FD;
     } else {
-        if (set_termio(*fd) != E_ERR_SUCCESS) {
-            LOG_ERROR("Failed to set discipline");
-            close(*fd);
-            *fd = CLOSED_FD;
-        } else {
-            ret = E_ERR_SUCCESS;
-            LOG_DEBUG("done");
-        }
+        ret = E_ERR_SUCCESS;
+        LOG_DEBUG("done");
     }
+
 out:
     return ret;
 }
