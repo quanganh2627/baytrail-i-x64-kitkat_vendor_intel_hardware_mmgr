@@ -67,6 +67,7 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
         mcdr->lib = dlopen(MCDR_LIBRARY_NAME, RTLD_LAZY);
         if (mcdr->lib == NULL) {
             mcdr->enabled = false;
+            dlerror();
         } else {
             mcdr->enabled = true;
             mcdr->data.baudrate = config->mcdr_baudrate;

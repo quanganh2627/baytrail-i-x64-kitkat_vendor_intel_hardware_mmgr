@@ -343,6 +343,7 @@ e_mmgr_errors_t mdm_specific_init(modem_info_t *info)
         if (info->mup.hdle == NULL) {
             LOG_ERROR("failed to open library");
             ret = E_ERR_FAILED;
+            dlerror();
             goto out;
         }
 
