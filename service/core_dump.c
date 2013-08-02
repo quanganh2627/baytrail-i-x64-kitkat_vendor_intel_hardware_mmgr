@@ -33,7 +33,7 @@ typedef struct core_dump_thread {
 /* Core dump reader configuration filename */
 #define MCDR_CONFIG_FILE "/system/etc/telephony/mcdr.conf"
 /* the recovery time must not exceed */
-#define CORE_DUMP_RECOVERY_MAX_TIME 600
+#define CORE_DUMP_RECOVERY_MAX_TIME 1200
 #define MCDR_LIBRARY_NAME "libmcdr.so"
 
 #define MCDR_GET_CORE_DUMP "mcdr_get_core_dump"
