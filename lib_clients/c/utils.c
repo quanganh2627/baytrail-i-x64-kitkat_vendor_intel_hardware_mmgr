@@ -123,13 +123,8 @@ static e_err_mmgr_cli_t call_cli_callback(mmgr_lib_context_t *p_lib, msg_t *msg)
             else
                 request.id = E_MMGR_ACK_MODEM_SHUTDOWN;
 
-            msg_t msg_sent;
-            memset(&msg_sent, 0, sizeof(msg_t));
-
-            p_lib->set_msg[request.id] (&msg_sent, (void *)&request);
-            size_t size = SIZE_HEADER + msg_sent.hdr.len;
-            err = write_cnx(p_lib->fd_socket, msg_sent.data, &size);
-            delete_msg(&msg_sent);
+            send_msg(p_lib, &request, E_SEND_SINGLE,
+                     DEF_MMGR_RESPONSIVE_TIMEOUT);
         }
     } else {
         LOG_DEBUG("(fd=%d client=%s) unkwnown event received (0x%.2X)",
@@ -486,7 +481,7 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
     }
 
     if (timeout <= 0)
-        goto out;
+        goto timeout;
 
     set_ack(p_lib, E_MMGR_NUM_EVENTS);
     p_lib->set_msg[request->id] (&msg, (void *)request);
@@ -505,9 +500,18 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
             break;
         }
 
-        LOG_DEBUG("(fd=%d client=%s) request (%s) sent successfully."
-                  " Waiting for answer", p_lib->fd_socket, p_lib->cli_name,
+        LOG_DEBUG("(fd=%d client=%s) request (%s) sent successfully",
+                  p_lib->fd_socket, p_lib->cli_name,
                   g_mmgr_requests[request->id]);
+
+        if ((request->id == E_MMGR_ACK_MODEM_COLD_RESET) ||
+            (request->id == E_MMGR_ACK_MODEM_SHUTDOWN)) {
+            ret = E_ERR_CLI_SUCCEED;
+            break;
+        }
+
+        LOG_DEBUG("(fd=%d client=%s) Waiting for answer", p_lib->fd_socket,
+                  p_lib->cli_name);
 
         if (method == E_SEND_SINGLE) {
             err = wait_for_tty_event(p_lib->fd_socket, timeout * 1000);
@@ -544,7 +548,8 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
         else
             break;              /* timeout expired */
     }
-out:
+
+timeout:
     if (err == E_ERR_TTY_TIMEOUT) {
         /* This happens if: MMGR is not responsive OR if client's callback
          * takes too much time (E_SEND_THREAD only). Indeed, the callback is
@@ -555,6 +560,7 @@ out:
         ret = E_ERR_CLI_TIMEOUT;
     }
 
+out:
     /* when we break the do{}while loop, the mutex is not ALWAYS unlocked. To
      * be safe, try to lock it before unlocking it */
     pthread_mutex_trylock(&p_lib->mtx_signal);

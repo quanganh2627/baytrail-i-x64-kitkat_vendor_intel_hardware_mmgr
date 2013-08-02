@@ -164,6 +164,9 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         LOG_DEBUG("IPC READY not received. force modem reset");
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        mmgr_cli_fw_update_result_t result = {.id = E_MODEM_FW_READY_TIMEOUT };
+        inform_all_clients(&mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
+                           &result);
     }
 
     if ((mmgr->timer.type & (0x01 << E_TIMER_WAIT_FOR_BUS_READY)) &&

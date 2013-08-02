@@ -491,6 +491,7 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file,
         {"Calibration", config->bkup_cal, DEF_CALIBRATION, string},
         {"Static", config->bkup_stat, DEF_STATIC, string},
         {"RndCert", config->bkup_rnd_cert, DEF_RND_CERT, string},
+        {"BootFls", config->bkup_boot_fls, DEF_BOOT_FLS, string},
     };
 
     LOG_DEBUG("filename: %s", config_file);

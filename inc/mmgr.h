@@ -129,7 +129,7 @@ typedef struct mmgr_cli_error {
 
 #define FW_ERROR \
     X(SUCCEED),\
-    X(TOO_OLD),\
+    X(OUTDATED),\
     X(READY_TIMEOUT),\
     X(SECURITY_CORRUPTED),\
     X(SW_CORRUPTED),\
