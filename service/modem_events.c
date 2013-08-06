@@ -558,7 +558,6 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
             mmgr->info.ev &= ~E_EV_CORE_DUMP;
         }
         LOG_VERBOSE("Switch to MUX succeed");
-        inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
     } else {
         LOG_ERROR("MUX INIT FAILED. reason=%d", ret);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
