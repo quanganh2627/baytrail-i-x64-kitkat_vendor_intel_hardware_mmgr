@@ -31,6 +31,7 @@
 #include "timer_events.h"
 #include "tty.h"
 #include "mmgr.h"
+#include "link_pm.h"
 
 /* AT command to shutdown modem */
 #define POWER_OFF_MODEM "AT+CFUN=0\r"
@@ -66,7 +67,6 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
             E_MODEM_FW_ERROR_UNSPECIFIED };
     char *flashing_interface = NULL;
     bool ch_hw_sw = true;
-    bool pm_state = false;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -83,16 +83,13 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         }
 
         toggle_flashing_mode(&mmgr->info, true);
-        mdm_get_ipc_pm(&mmgr->info, &pm_state);
-        if (pm_state)
-            mdm_set_ipc_pm(&mmgr->info, false);
+        pm_on_mdm_flash(&mmgr->info);
 
         flash_modem_fw(&mmgr->info, flashing_interface, ch_hw_sw,
                        &mmgr->secur, &fw_result.id);
 
         toggle_flashing_mode(&mmgr->info, false);
-        if (pm_state)
-            mdm_set_ipc_pm(&mmgr->info, true);
+        /* the IPC power management will be enabled when the modem is UP */
 
         inform_all_clients(&mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
                            &fw_result);
@@ -197,9 +194,10 @@ static void read_core_dump(mmgr_data_t *mmgr)
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
-    mdm_set_cd_ipc_pm(&mmgr->info, false);
+    pm_on_mdm_cd(&mmgr->info);
     retrieve_core_dump(&mmgr->info.mcdr);
-    mdm_set_cd_ipc_pm(&mmgr->info, true);
+    pm_on_mdm_cd_complete(&mmgr->info);
+
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
 
     mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
@@ -645,6 +643,26 @@ out:
     return ret;
 }
 
+static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS) {
+        if (do_nvm_customization(mmgr) == E_ERR_SUCCESS) {
+            start_timer(&mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
+        } else {
+            ret = launch_secur(mmgr);
+            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
+            pm_on_mdm_up(&mmgr->info);
+        }
+    }
+
+out:
+    return ret;
+}
+
 /**
  * handle modem control event
  *
@@ -688,15 +706,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         set_mcd_poll_states(&mmgr->info);
         if ((mmgr->events.link_state & E_MDM_LINK_BB_READY) &&
             (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
-            if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS) {
-                if (do_nvm_customization(mmgr) == E_ERR_SUCCESS) {
-                    start_timer(&mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
-                } else {
-                    ret = launch_secur(mmgr);
-                    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP,
-                                       NULL);
-                }
-            }
+            ret = do_configure(mmgr);
         }
     } else if (state & E_EV_CORE_DUMP) {
         LOG_DEBUG("current state: E_EV_CORE_DUMP");
@@ -764,15 +774,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
         if (mmgr->events.link_state & E_MDM_LINK_IPC_READY) {
-            if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS) {
-                if (do_nvm_customization(mmgr) == E_ERR_SUCCESS) {
-                    start_timer(&mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
-                } else {
-                    ret = launch_secur(mmgr);
-                    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP,
-                                       NULL);
-                }
-            }
+            ret = do_configure(mmgr);
         }
     } else if ((get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) &&
                (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {

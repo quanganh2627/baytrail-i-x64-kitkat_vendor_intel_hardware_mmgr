@@ -21,6 +21,7 @@
 #include "timer_events.h"
 #include "file.h"
 #include "modem_update.h"
+#include "link_pm.h"
 
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -41,16 +42,7 @@
 #define MUP_FUNC_CONFIG_SECUR "mup_configure_secur_channel"
 #define MUP_FUNC_GEN_FLS "mup_gen_fls"
 
-#define UART_PM "/sys/devices/pci0000:00/0000:00:05.1/power/control"
-#define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0"
 #define HSIC_ENABLE_PATH HSIC_PATH"/hsic_enable"
-#define HSIC_PM HSIC_PATH"/L2_autosuspend_enable"
-#define PM_CMD_SIZE 6
-
-#define HSIC_PM_ON "1"
-#define HSIC_PM_OFF "0"
-#define UART_PM_ON "auto"
-#define UART_PM_OFF "on"
 
 #define BACKUP ".bkup"
 
@@ -176,151 +168,6 @@ void mup_log(const char *msg, ...)
 
         va_end(ap);
     }
-}
-
-/**
- * This function sets the IPC power management
- *
- * @param [in] link type of link
- * @param [in] state (true: power management is enabled)
- *
- * @return E_ERR_FAILED if it fails
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
- */
-static e_mmgr_errors_t set_ipc_pm(e_link_type_t link, bool state)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    char *hsic_cmd[] = { HSIC_PM_OFF, HSIC_PM_ON };
-    char *uart_cmd[] = { UART_PM_OFF, UART_PM_ON };
-    char *path = NULL;
-    char *cmd = NULL;
-
-    switch (link) {
-    case E_LINK_HSI:
-        /* Nothing to do */
-        ret = E_ERR_FAILED;
-        break;
-    case E_LINK_HSIC:
-        path = HSIC_PM;
-        cmd = hsic_cmd[state];
-        break;
-    case E_LINK_UART:
-        path = UART_PM;
-        cmd = uart_cmd[state];
-        break;
-    }
-    if (path && cmd)
-        ret = write_to_file(path, SYSFS_OPEN_MODE, cmd, strlen(cmd));
-    return ret;
-}
-
-/**
- * This function gets the IPC power management
- *
- * @param [in] link type of link
- * @param [out] state (true: power management is enabled)
- *
- * @return E_ERR_FAILED if it fails
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
- */
-static e_mmgr_errors_t get_ipc_pm(e_link_type_t link, bool *state)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    char *path = NULL;
-    char *cmd = NULL;
-    char data[PM_CMD_SIZE] = { '\0' };
-    size_t size = PM_CMD_SIZE;
-
-    CHECK_PARAM(state, ret, out);
-
-    switch (link) {
-    case E_LINK_HSI:
-        /* Nothing to do */
-        break;
-    case E_LINK_HSIC:
-        path = HSIC_PM;
-        cmd = HSIC_PM_ON;
-        break;
-    case E_LINK_UART:
-        path = UART_PM;
-        cmd = UART_PM_ON;
-        break;
-    }
-    if (path && cmd) {
-        read_file(path, OPEN_MODE_RW_UGO, data, &size);
-
-        if (strncmp(cmd, data, strlen(cmd)) == 0)
-            *state = true;
-        else
-            *state = false;
-
-        ret = E_ERR_SUCCESS;
-    }
-
-out:
-    return ret;
-}
-
-/**
- * This function controls the core dump IPC power management
- *
- * @param [in] info modem info
- * @param [in] state (true: power management is enabled)
- *
- * @return E_ERR_FAILED if it fails
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
- */
-e_mmgr_errors_t mdm_set_cd_ipc_pm(modem_info_t *info, bool state)
-{
-    return set_ipc_pm(info->cd_link, state);
-}
-
-/**
- * This function controls the modem IPC power management
- *
- * @param [in] info modem info
- * @param [in] state (true: power management is enabled)
- *
- * @return E_ERR_FAILED if it fails
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
- */
-e_mmgr_errors_t mdm_set_ipc_pm(modem_info_t *info, bool state)
-{
-    return set_ipc_pm(info->mdm_link, state);
-}
-
-/**
- * This function get the core dump IPC power management state
- *
- * @param [in] info modem info
- * @param [out] state (true: power management is enabled)
- *
- * @return E_ERR_FAILED if it fails
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
- */
-e_mmgr_errors_t mdm_get_cd_ipc_pm(modem_info_t *info, bool *state)
-{
-    return get_ipc_pm(info->cd_link, state);
-}
-
-/**
- * This function get the modem IPC power management state
- *
- * @param [in] info modem info
- * @param [out] state (true: power management is enabled)
- *
- * @return E_ERR_FAILED if it fails
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
- */
-e_mmgr_errors_t mdm_get_ipc_pm(modem_info_t *info, bool *state)
-{
-    return get_ipc_pm(info->mdm_link, state);
 }
 
 /**
@@ -710,6 +557,9 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
         LOG_INFO("MODEM ELECTRICALLY SHUTDOWN");
         ret = E_ERR_SUCCESS;
     }
+
+    pm_on_mdm_oos(info);
+
 out:
     return ret;
 }
