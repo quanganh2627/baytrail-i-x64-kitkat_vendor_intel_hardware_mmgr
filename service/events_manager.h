@@ -50,12 +50,13 @@
 #define MMGR_STATE\
     X(MDM_OFF),\
     X(MDM_RESET),\
-    X(WAIT_COLD_ACK),\
-    X(WAIT_SHT_ACK),\
+    X(MDM_START),\
     X(MDM_CONF_ONGOING),\
-    X(MDM_CORE_DUMP),\
     X(MDM_UP),\
     X(MDM_OOS),\
+    X(WAIT_COLD_ACK),\
+    X(WAIT_SHT_ACK),\
+    X(MDM_CORE_DUMP),\
     X(NUM)
 
 typedef enum e_timer_type {

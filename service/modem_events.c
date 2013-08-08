@@ -309,7 +309,10 @@ static e_mmgr_errors_t pre_mdm_warm_reset(mmgr_data_t *mmgr)
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_WARM_RESET, NULL);
     broadcast_msg(E_MSG_INTENT_MODEM_WARM_RESET);
 
-    set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+    if (mmgr->info.mdm_link == E_LINK_HSIC)
+        set_mmgr_state(mmgr, E_MMGR_MDM_START);
+    else
+        set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
 
     if (!(mmgr->info.ev & E_EV_CONF_FAILED) &&
         ((mmgr->info.ev & E_EV_MODEM_SELF_RESET))) {
@@ -358,7 +361,10 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
             broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
             reset_cold_ack(&mmgr->clients);
             mmgr->request.accept_request = false;
-            set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+            if (mmgr->info.mdm_link == E_LINK_HSIC)
+                set_mmgr_state(mmgr, E_MMGR_MDM_START);
+            else
+                set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
 
             stop_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
         }
@@ -754,7 +760,10 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
 
             mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
             ret = set_mcd_poll_states(&mmgr->info);
-            set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+            if (mmgr->info.mdm_link == E_LINK_HSIC)
+                set_mmgr_state(mmgr, E_MMGR_MDM_START);
+            else
+                set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
         }
     } else {
         if (state & E_EV_MODEM_SELF_RESET) {
@@ -795,13 +804,16 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
             ret = do_configure(mmgr);
         }
     } else if ((get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) &&
-               (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
+               (mmgr->state == E_MMGR_MDM_START)) {
         LOG_DEBUG("ready to flash modem");
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
         if (mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) {
             ret = do_flash(mmgr);
+            if (ret != E_ERR_FAILED) {
+                set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+            }
         }
     } else if ((get_bus_state(&mmgr->events.bus_events) & MDM_CD_READY) &&
                (mmgr->state == E_MMGR_MDM_CORE_DUMP)) {
