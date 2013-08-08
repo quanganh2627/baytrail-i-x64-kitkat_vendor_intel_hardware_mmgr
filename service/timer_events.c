@@ -17,6 +17,7 @@
  */
 
 #include "events_manager.h"
+#include "modem_specific.h"
 #include "file.h"
 #include "logs.h"
 #include "timer_events.h"
@@ -162,6 +163,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         ((current.tv_sec - mmgr->timer.start[E_TIMER_WAIT_FOR_IPC_READY].tv_sec)
          > mmgr->config.modem_reset_delay)) {
         LOG_DEBUG("IPC READY not received. force modem reset");
+        restore_nvm(&mmgr->info);
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         mmgr_cli_fw_update_result_t result = {.id = E_MODEM_FW_READY_TIMEOUT };
