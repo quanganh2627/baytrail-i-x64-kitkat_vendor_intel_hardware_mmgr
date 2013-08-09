@@ -75,6 +75,7 @@ typedef enum e_client_req {
     E_CLI_REQ_NONE = 0x0,
     E_CLI_REQ_RESET = 0x1 << 1,
     E_CLI_REQ_OFF = 0x1 << 2,
+    E_CLI_REQ_PROD = 0x1 << 3,
 } e_client_req_t;
 
 typedef enum e_mmgr_state {

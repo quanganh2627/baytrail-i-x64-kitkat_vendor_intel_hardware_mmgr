@@ -74,6 +74,36 @@ out:
 }
 
 /**
+ * This function will backup the production nvm files.
+ * Existing files will be overwritten.
+ *
+ * @param info
+ *
+ * @return E_ERR_BAD_PARAMETER
+ * @return E_ERR_SUCCESS
+ */
+e_mmgr_errors_t backup_prod_nvm(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    if (copy_file
+        (info->fl_conf.run_cal, info->fl_conf.bkup_cal,
+         FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+    if (copy_file
+        (info->fl_conf.run_stat, info->fl_conf.bkup_stat,
+         FLS_FILE_PERMISSION) != E_ERR_SUCCESS)
+        ret = E_ERR_FAILED;
+
+out:
+    return ret;
+}
+
+/**
  * This function will restore the mode fw and all parameters (RnD, NVM)
  *
  * @param info
