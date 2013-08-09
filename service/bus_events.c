@@ -133,7 +133,7 @@ int bus_read_events(bus_ev_t *bus_events)
  */
 e_mmgr_errors_t bus_handle_events(bus_ev_t *bus_events)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     int i;
 
     for (i = 0; i < bus_events->cli_ctx.i; i++) {
@@ -147,6 +147,7 @@ e_mmgr_errors_t bus_handle_events(bus_ev_t *bus_events)
                 bus_events->mdm_state |= MDM_FLASH_READY;
                 strncpy(bus_events->modem_flash_path,
                         bus_events->cli_ctx.evs[i].path, PATH_MAX);
+                ret = E_ERR_SUCCESS;
                 LOG_DEBUG("+Modem flash is READY");
             } else if (is_pid_and_vid(bus_events->cli_ctx.evs[i].path,
                                       bus_events->modem_bb_pid,
@@ -154,6 +155,7 @@ e_mmgr_errors_t bus_handle_events(bus_ev_t *bus_events)
                 bus_events->mdm_state |= MDM_BB_READY;
                 strncpy(bus_events->modem_bb_path,
                         bus_events->cli_ctx.evs[i].path, PATH_MAX);
+                ret = E_ERR_SUCCESS;
                 LOG_DEBUG("+Modem base band READY");
             } else if (is_pid_and_vid(bus_events->cli_ctx.evs[i].path,
                                       bus_events->mcdr_bb_pid,
@@ -161,6 +163,7 @@ e_mmgr_errors_t bus_handle_events(bus_ev_t *bus_events)
                 bus_events->mdm_state |= MDM_CD_READY;
                 strncpy(bus_events->modem_cd_path,
                         bus_events->cli_ctx.evs[i].path, PATH_MAX);
+                ret = E_ERR_SUCCESS;
                 LOG_DEBUG("+Modem core dump READY");
             }
         } else if (bus_events->cli_ctx.evs[i].event == EV_DELETED) {
@@ -169,18 +172,21 @@ e_mmgr_errors_t bus_handle_events(bus_ev_t *bus_events)
                         bus_events->cli_ctx.evs[i].path, PATH_MAX) == 0) {
                 bus_events->mdm_state &= ~MDM_FLASH_READY;
                 bus_events->modem_flash_path[0] = '\0';
+                ret = E_ERR_SUCCESS;
                 LOG_DEBUG("-Modem flash not READY");
             } else if (strncmp(bus_events->modem_bb_path,
                                bus_events->cli_ctx.evs[i].path,
                                PATH_MAX) == 0) {
                 bus_events->mdm_state &= ~MDM_BB_READY;
                 bus_events->modem_bb_path[0] = '\0';
+                ret = E_ERR_SUCCESS;
                 LOG_DEBUG("-Modem base band not READY");
             } else if (strncmp(bus_events->modem_cd_path,
                                bus_events->cli_ctx.evs[i].path,
                                PATH_MAX) == 0) {
                 bus_events->mdm_state &= ~MDM_CD_READY;
                 bus_events->modem_cd_path[0] = '\0';
+                ret = E_ERR_SUCCESS;
                 LOG_DEBUG("-Modem core dump not READY");
             }
         }

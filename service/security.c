@@ -425,6 +425,7 @@ e_mmgr_errors_t secur_init(secur_t *secur, mmgr_configuration_t *config)
         if (secur->hdle == NULL) {
             LOG_ERROR("failed to open library");
             ret = E_ERR_FAILED;
+            dlerror();
             goto out;
         }
 
