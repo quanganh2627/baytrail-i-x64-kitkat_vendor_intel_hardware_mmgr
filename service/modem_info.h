@@ -71,7 +71,6 @@ typedef enum e_link_type {
 
 typedef struct modem_info {
     mup_op_t mup;
-    e_modem_events_type_t ev;
     mcdr_lib_t mcdr;
     int fd_mcd;
     int polled_states;

@@ -25,7 +25,6 @@
 #include "modem_specific.h"
 
 #define RECOV_LEVEL \
-    X(MODEM_WARM_RESET),\
     X(MODEM_COLD_RESET),\
     X(PLATFORM_REBOOT),\
     X(MODEM_OUT_OF_SERVICE),\

@@ -496,30 +496,6 @@ out:
 }
 
 /**
- * Perform a modem warm reset
- *
- * @param [in] info modem info structure
- *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t mdm_warm_reset(modem_info_t *info)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(info, ret, out);
-
-    LOG_INFO("MODEM WARM RESET");
-    if (ioctl(info->fd_mcd, MDM_CTRL_WARM_RESET) == -1) {
-        ret = E_ERR_FAILED;
-        LOG_DEBUG("couldn't reset modem: %s", strerror(errno));
-    }
-out:
-    return ret;
-}
-
-/**
  * Perform a modem cold reset (modem cold boot)
  *
  * @param [in] info modem info structure
@@ -787,14 +763,12 @@ out:
  * This function is used to configure modem events after modem restart
  *
  * @param [in,out] info modem info context
- * @param [in] subscribe_cd_ev boolean to define if we should subscribe to
- * core dump event or not
  *
  * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  **/
-e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info, bool subscribe_cd_ev)
+e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -805,8 +779,7 @@ e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info, bool subscribe_cd_ev)
     else
         info->polled_states = MDM_CTRL_STATE_IPC_READY;
 
-    if (subscribe_cd_ev)
-        info->polled_states |= MDM_CTRL_STATE_COREDUMP;
+    info->polled_states |= MDM_CTRL_STATE_COREDUMP;
     ret = set_mcd_poll_states(info);
 out:
     return ret;

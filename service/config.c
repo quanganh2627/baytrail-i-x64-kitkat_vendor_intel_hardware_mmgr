@@ -47,7 +47,6 @@
 
 /* Modem recovery */
 #define DEF_MODEM_RESET_ENABLE INTEGER(true)
-#define DEF_NB_WARM_RESET INTEGER(5)
 #define DEF_NB_COLD_RESET INTEGER(1)
 #define DEF_NB_PLATFORM_REBOOT INTEGER(1)
 #define DEF_MODEM_RESET_DELAY INTEGER(5)        /* in seconds */
@@ -344,8 +343,6 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
     set_param_t recov[] = {
         {.key = "ModemResetEnable",.dest = &params->modem_reset_enable,.def =
          DEF_MODEM_RESET_ENABLE,.set = boolean},
-        {.key = "MaxModemWarmReset",.dest = &params->nb_warm_reset,.def =
-         DEF_NB_WARM_RESET,.set = integer},
         {.key = "MaxModemColdReset",.dest = &params->nb_cold_reset,.def =
          DEF_NB_COLD_RESET,.set = integer},
         {.key = "MaxPlatformReboot",.dest = &params->nb_platform_reboot,.def =

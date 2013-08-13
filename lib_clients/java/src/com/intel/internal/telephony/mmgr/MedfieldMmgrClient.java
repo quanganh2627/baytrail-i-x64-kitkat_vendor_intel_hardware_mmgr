@@ -70,14 +70,13 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     public final static int STATUS_MODEM_UP = 1;
     public final static int STATUS_MODEM_OUT_OF_SERVICE = 2;
 
-    public final static int NOTIFY_MODEM_WARM_RESET = 3;
-    public final static int NOTIFY_MODEM_COLD_RESET = 4;
-    public final static int NOTIFY_MODEM_SHUTDOWN = 5;
-    public final static int NOTIFY_PLATFORM_REBOOT = 6;
-    public final static int NOTIFY_MODEM_CORE_DUMP = 7;
+    public final static int NOTIFY_MODEM_COLD_RESET = 3;
+    public final static int NOTIFY_MODEM_SHUTDOWN = 4;
+    public final static int NOTIFY_PLATFORM_REBOOT = 5;
+    public final static int NOTIFY_MODEM_CORE_DUMP = 6;
 
-    public final static int NOTIFY_ACK = 8;
-    public final static int NOTIFY_NACK = 9;
+    public final static int NOTIFY_ACK = 7;
+    public final static int NOTIFY_NACK = 8;
 
     public LocalSocket clientSocket = null;
     public Handler handler = null;
@@ -369,12 +368,6 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                 Log.i(Constants.LOG_TAG,
                         "Modem notification = NOTIFY_MODEM_SHUTDOWN");
                 notification = ModemNotification.SHUTDOWN;
-                break;
-
-            case MedfieldMmgrClient.NOTIFY_MODEM_WARM_RESET:
-                Log.i(Constants.LOG_TAG,
-                        "Modem notification = NOTIFY_MODEM_WARM_RESET");
-                notification = ModemNotification.WARM_RESET;
                 break;
 
             case MedfieldMmgrClient.NOTIFY_PLATFORM_REBOOT:

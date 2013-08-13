@@ -747,11 +747,6 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
         goto out;
 
     if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
-                                 E_MMGR_NOTIFY_MODEM_WARM_RESET) !=
-        E_ERR_CLI_SUCCEED)
-        goto out;
-
-    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_NOTIFY_CORE_DUMP) != E_ERR_CLI_SUCCEED)
         goto out;
 

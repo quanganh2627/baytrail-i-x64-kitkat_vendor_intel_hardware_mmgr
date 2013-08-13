@@ -20,13 +20,12 @@ package com.intel.internal.telephony;
 
 public enum ModemNotification {
     NONE(0),
-    WARM_RESET(1),
-    COLD_RESET(2),
-    SHUTDOWN(4),
-    PLATFORM_REBOOT(8),
-    CORE_DUMP(16),
-    ACK(32),
-    NACK(64),
+    COLD_RESET(1),
+    SHUTDOWN(2),
+    PLATFORM_REBOOT(4),
+    CORE_DUMP(8),
+    ACK(16),
+    NACK(32),
     ALL(0xFFFFFFFF);
 
     private int value;

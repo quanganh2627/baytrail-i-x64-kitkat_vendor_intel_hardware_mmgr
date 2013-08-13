@@ -158,7 +158,7 @@ e_mmgr_errors_t recov_reinit(reset_management_t *reset)
     CHECK_PARAM(reset, ret, out);
 
     reset->level.counter = 0;
-    reset->level.id = E_EL_MODEM_WARM_RESET;
+    reset->level.id = E_EL_MODEM_COLD_RESET;
     if (reset->process[reset->level.id].retry_allowed <= 0)
         recov_next(reset);
 
@@ -268,34 +268,26 @@ e_mmgr_errors_t recov_init(const mmgr_configuration_t *config,
     reset->modem_restart = E_FORCE_RESET_DISABLED;
     if (config->modem_reset_enable) {
         /* initialize some data */
-        reset->level.id = E_EL_MODEM_WARM_RESET;
+        reset->level.id = E_EL_MODEM_COLD_RESET;
         reset->level.counter = 0;
         reset->wait_operation = true;
         reset->state = E_OPERATION_CONTINUE;
         gettimeofday(&reset->last_reset_time, NULL);
 
         /* structure initialization: */
-        p_process = &reset->process[E_EL_MODEM_WARM_RESET];
-        if (!config->is_flashless)
-            p_process->retry_allowed = config->nb_warm_reset;
-
-        if (config->nb_cold_reset > 0) {
-            p_process->next_level = E_EL_MODEM_COLD_RESET;
-            p_process = &reset->process[E_EL_MODEM_COLD_RESET];
+        p_process = &reset->process[E_EL_MODEM_COLD_RESET];
+        if (config->nb_cold_reset > 0)
             p_process->retry_allowed = config->nb_cold_reset;
-        }
 
         if (config->nb_platform_reboot > 0) {
             p_process->next_level = E_EL_PLATFORM_REBOOT;
             p_process = &reset->process[E_EL_PLATFORM_REBOOT];
             p_process->retry_allowed = config->nb_platform_reboot;
         }
-        p_process->next_level = E_EL_MODEM_OUT_OF_SERVICE;
     }
 
     p_process = &reset->process[E_EL_MODEM_OUT_OF_SERVICE];
     p_process->retry_allowed = -1;
-    p_process->next_level = E_EL_MODEM_OUT_OF_SERVICE;
 
 out:
     return ret;

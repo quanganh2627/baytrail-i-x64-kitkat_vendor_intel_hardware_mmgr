@@ -60,9 +60,6 @@ public class MmgrHelper {
                 .getValue()) != 0) {
             ret |= (1 << MedfieldMmgrClient.NOTIFY_PLATFORM_REBOOT);
         }
-        if ((notification.getValue() & ModemNotification.WARM_RESET.getValue()) != 0) {
-            ret |= (1 << MedfieldMmgrClient.NOTIFY_MODEM_WARM_RESET);
-        }
         // by default we want to subscribe to ACK and NACK
         ret |= (1 << MedfieldMmgrClient.NOTIFY_ACK);
         ret |= (1 << MedfieldMmgrClient.NOTIFY_NACK);
