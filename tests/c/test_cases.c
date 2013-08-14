@@ -178,11 +178,15 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
     }
 
     if (reboot >= test->config.nb_platform_reboot) {
-        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, false,
+        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE,
                              TIMEOUT_MODEM_DOWN_AFTER_CMD);
     } else {
-        ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT, false,
+        ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT,
                              TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    }
+
+    if (ret == E_ERR_SUCCESS) {
+        ret = check_wakelock(false);
     }
 
 out:
@@ -348,7 +352,7 @@ e_mmgr_errors_t turn_on_modem(test_data_t *test)
 
     CHECK_PARAM(test, ret, out);
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is up");
@@ -361,8 +365,12 @@ e_mmgr_errors_t turn_on_modem(test_data_t *test)
     if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
         ret = E_ERR_FAILED;
     } else {
-        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                              TIMEOUT_MODEM_UP_AFTER_RESET);
+    }
+
+    if (ret == E_ERR_SUCCESS) {
+        ret = check_wakelock(false);
     }
 
 out:
@@ -390,7 +398,7 @@ e_mmgr_errors_t resource_check(test_data_t *test)
          "resource...\n"
          "*************************************************************\n");
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
@@ -408,11 +416,11 @@ e_mmgr_errors_t resource_check(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN, false, 5);
+    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN, 5);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
     request.id = E_MMGR_RESOURCE_ACQUIRE;
@@ -421,8 +429,12 @@ e_mmgr_errors_t resource_check(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+    if (ret == E_ERR_SUCCESS) {
+        ret = check_wakelock(false);
+    }
 
 out:
     return ret;
@@ -653,8 +665,7 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
-                   TIMEOUT_MODEM_UP_AFTER_RESET);
+    wait_for_state(test, E_MMGR_EVENT_MODEM_UP, TIMEOUT_MODEM_UP_AFTER_RESET);
 
     ret = E_ERR_SUCCESS;
 

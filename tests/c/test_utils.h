@@ -55,7 +55,7 @@ e_events_t events_get(test_data_t *test_data);
 e_mmgr_errors_t compare_file_content(const char *path, const char *data,
                                      int len);
 e_mmgr_errors_t wait_for_state(test_data_t *thread_data, int state,
-                               bool wakelock, int timeout);
+                               int timeout);
 e_mmgr_errors_t is_core_dump_found(char *filename, const char *core_dump_dir);
 e_mmgr_errors_t cleanup_modemcrash_dir(const char *path);
 e_mmgr_errors_t configure_client_library(test_data_t *data);
@@ -72,5 +72,6 @@ e_mmgr_errors_t at_self_reset(test_data_t *events_data);
 e_mmgr_errors_t at_core_dump(test_data_t *events_data);
 e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
                                 e_mmgr_events_t answer, bool check_result);
+e_mmgr_errors_t check_wakelock(bool state);
 
 #endif                          /* __MMGR_TEST_UTILS_FILE__ */

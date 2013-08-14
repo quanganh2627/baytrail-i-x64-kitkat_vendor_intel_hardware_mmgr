@@ -304,6 +304,41 @@ out:
 }
 
 /**
+ * Check if wakelock state was reached
+ *
+ * @param [in] wakelock wakelock state to reach
+ *
+ * @return E_ERR_SUCCESS if state reached
+ * @return E_ERR_FAILED otherwise
+ */
+
+e_mmgr_errors_t check_wakelock(bool state)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    bool wake_state = false;
+    int remaining = 0;
+    char *state_str[] = { "not ", "" };
+
+    for (remaining = 0; remaining < 10; remaining++) {
+        wake_state = get_wakelock_state();
+        if (wake_state != state) {
+            usleep(500 * 1000);
+        } else {
+            LOG_DEBUG("wakelock has reached correct state: %sset",
+                      state_str[wake_state]);
+            ret = E_ERR_SUCCESS;
+            break;
+        }
+    }
+    if (ret != E_ERR_SUCCESS)
+        LOG_ERROR("*** wakelock is %sset and should be %sset ***",
+                  state_str[wake_state], state_str[state]);
+
+    return ret;
+
+}
+
+/**
  * Wait for modem state with timeout
  *
  * @param [in] test_data test_data
@@ -315,8 +350,7 @@ out:
  * @return E_ERR_SUCCESS if state reached
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
-                               int timeout)
+e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, int timeout)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     e_mmgr_events_t current_state = E_MMGR_NUM_EVENTS;
@@ -324,7 +358,6 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
     struct timeval start;
     struct timeval current;
     int remaining = 0;
-    char *state_str[] = { "not ", "" };
 
     CHECK_PARAM(test_data, ret, out);
 
@@ -359,7 +392,12 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
         /* ack new modem state by releasing the new_state_read mutex */
         pthread_mutex_trylock(&test_data->new_state_read);
         pthread_mutex_unlock(&test_data->new_state_read);
-        if ((current_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+        if (current_state == test_data->waited_state) {
+            LOG_DEBUG("modem state: %s", g_mmgr_events[current_state]);
+            ret = E_ERR_SUCCESS;
+            break;
+        }
+        else if ((current_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
             (current_state == E_MMGR_NOTIFY_PLATFORM_REBOOT)) {
             LOG_DEBUG("modem state: %s", g_mmgr_events[current_state]);
             events_set(test_data, E_EVENTS_MODEM_OOS);
@@ -367,26 +405,8 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
         }
     } while ((remaining > 1) && (current_state != test_data->waited_state));
 
-    if (current_state == test_data->waited_state) {
-        LOG_DEBUG("state reached (%s)", g_mmgr_events[current_state]);
-        bool wake_state = false;
-        for (remaining = 0; remaining < 10; remaining++) {
-            wake_state = get_wakelock_state();
-            if (wake_state != wakelock) {
-                usleep(500 * 1000);
-            } else {
-                LOG_DEBUG("wakelock has reached correct state: %sset",
-                          state_str[wake_state]);
-                ret = E_ERR_SUCCESS;
-                break;
-            }
-        }
-        if (ret != E_ERR_SUCCESS)
-            LOG_ERROR("*** wakelock is %sset and should be %sset ***",
-                      state_str[wake_state], state_str[wakelock]);
-    }
-
 out:
+
     return ret;
 }
 
@@ -823,7 +843,7 @@ e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
     CHECK_PARAM(data_test, ret, out);
 
     /* Wait modem up */
-    ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_UP, false,
+    ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is down");
@@ -836,7 +856,7 @@ e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
     }
 
     if (notification != E_MMGR_NUM_EVENTS) {
-        ret = wait_for_state(data_test, notification, true,
+        ret = wait_for_state(data_test, notification,
                              TIMEOUT_MODEM_DOWN_AFTER_CMD);
         if (ret != E_ERR_SUCCESS)
             goto out;
@@ -844,10 +864,10 @@ e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
 
     /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds to end the
      * test */
-    ret = wait_for_state(data_test, final_state, false,
-                         TIMEOUT_MODEM_UP_AFTER_RESET);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
+    ret = wait_for_state(data_test, final_state, TIMEOUT_MODEM_UP_AFTER_RESET);
+    if (ret == E_ERR_SUCCESS) {
+        ret = check_wakelock(false);
+    }
 
 out:
     return ret;
@@ -870,7 +890,7 @@ e_mmgr_errors_t at_core_dump(test_data_t *test)
     CHECK_PARAM(test, ret, out);
 
     /* Wait modem up */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is down");
@@ -884,25 +904,29 @@ e_mmgr_errors_t at_core_dump(test_data_t *test)
         LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, true,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP, true,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, true,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
                          TIMEOUT_MODEM_UP_AFTER_RESET);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
     /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds to end the
      * test */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+    if (ret == E_ERR_SUCCESS) {
+        ret = check_wakelock(false);
+    }
 out:
     return ret;
 }
@@ -924,7 +948,7 @@ e_mmgr_errors_t at_self_reset(test_data_t *test)
     CHECK_PARAM(test, ret, out);
 
     /* Wait modem up */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is down");
@@ -939,20 +963,24 @@ e_mmgr_errors_t at_self_reset(test_data_t *test)
         LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, true,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET, true,
+    ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
     /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds to end the
      * test */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_UP_AFTER_RESET);
+
+    if (ret == E_ERR_SUCCESS) {
+        ret = check_wakelock(false);
+    }
 out:
     return ret;
 }
@@ -989,11 +1017,14 @@ e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
         }
     } else {
         if (err == E_ERR_CLI_SUCCEED) {
-            ret = wait_for_state(test, answer, false,
-                                 TIMEOUT_MODEM_DOWN_AFTER_CMD);
+            ret = wait_for_state(test, answer, TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
             if (check_result && (events_get(test) != E_EVENTS_SUCCEED))
                 ret = E_ERR_FAILED;
+
+            if (ret == E_ERR_SUCCESS) {
+                ret = check_wakelock(false);
+            }
         }
 
     }
