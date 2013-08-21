@@ -23,6 +23,8 @@
 #include "modem_update.h"
 
 #define HANDSHAKE_AFTER_CD_RETRIES_COUNT 12
+#define CORE_DUMP_READY_TIMEOUT 10      /* 10 seconds for modem to re-enumerate
+                                         * in flashing mode */
 #define MBD_DEV "/dev/mdm_ctrl"
 #define FLASHLESS_CFG "/etc/telephony/flashless.conf"
 

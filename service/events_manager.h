@@ -45,6 +45,7 @@
     X(WAIT_FOR_IPC_READY), \
     X(WAIT_FOR_BUS_READY), \
     X(REBOOT_MODEM_DELAY), \
+    X(WAIT_CORE_DUMP_READY), \
     X(NUM)
 
 #define MMGR_STATE\

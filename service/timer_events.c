@@ -21,6 +21,7 @@
 #include "file.h"
 #include "logs.h"
 #include "timer_events.h"
+#include "modem_info.h"
 
 static const char *g_type_str[] = {
 #undef X
@@ -117,6 +118,10 @@ e_mmgr_errors_t stop_timer(mmgr_timer_t *timer, e_timer_type_t type)
             (min > timer->timeout[E_TIMER_WAIT_FOR_BUS_READY]))
             min = timer->timeout[E_TIMER_WAIT_FOR_BUS_READY];
 
+        if ((timer->type & (0x01 << E_TIMER_WAIT_CORE_DUMP_READY)) &&
+            (min > timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY]))
+            min = timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY];
+
         timer->cur_timeout = min;
         LOG_DEBUG("update timeout: %dms", timer->cur_timeout);
     }
@@ -137,6 +142,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
 {
     struct timespec current;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    mmgr_cli_core_dump_t cd = {.state = E_CD_SUCCEED};
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -186,6 +192,20 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
+    if ((mmgr->timer.type & (0x01 << E_TIMER_WAIT_CORE_DUMP_READY)) &&
+        ((current.tv_sec -
+          mmgr->timer.start[E_TIMER_WAIT_CORE_DUMP_READY].tv_sec)
+         > CORE_DUMP_READY_TIMEOUT)) {
+        LOG_DEBUG("Timeout while waiting for core dump IPC. Force modem reset");
+        stop_timer(&mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        cd.state = E_CD_LINK_ERROR;
+        cd.reason = "Modem re-enumeration fail.";
+        cd.reason_len = strlen(cd.reason);
+        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+                                   &cd);
+    }
+
 out:
     return ret;
 }
@@ -218,6 +238,8 @@ e_mmgr_errors_t timer_init(mmgr_timer_t *timer, mmgr_configuration_t *config)
         (config->modem_reset_delay * 1000) / STEPS;
     timer->timeout[E_TIMER_REBOOT_MODEM_DELAY] =
         (((int)(config->modem_reset_delay / 2)) * 1000) / STEPS;
+    timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY] =
+        (CORE_DUMP_READY_TIMEOUT * 1000) / STEPS;
 out:
     return ret;
 }
