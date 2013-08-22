@@ -39,13 +39,16 @@ LOCAL_LDLIBS += $(MY_LDLIBS)
 LOCAL_REQUIRED_MODULES := \
     libmmgrcli \
     com.intel.internal.telephony.MmgrClient.xml \
-    com.intel.internal.telephony.MmgrClient
+    com.intel.internal.telephony.MmgrClient \
+    mmgr_$(TARGET_BOARD_PLATFORM)_xml \
+
 ifneq (, $(findstring "$(TARGET_BUILD_VARIANT)", "eng" "userdebug"))
 LOCAL_REQUIRED_MODULES += \
     libmcdr \
     mmgr-test \
     MMGR_test \
-    nvm_client
+    nvm_client \
+
 endif
 include $(BUILD_EXECUTABLE)
 
