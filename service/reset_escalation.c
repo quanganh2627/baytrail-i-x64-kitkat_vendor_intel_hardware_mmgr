@@ -265,13 +265,12 @@ e_mmgr_errors_t recov_init(const mmgr_configuration_t *config,
     }
 
     /* always configure routines to handle FORCE user requests */
-
+    reset->modem_restart = E_FORCE_RESET_DISABLED;
     if (config->modem_reset_enable) {
         /* initialize some data */
         reset->level.id = E_EL_MODEM_WARM_RESET;
         reset->level.counter = 0;
         reset->wait_operation = true;
-        reset->modem_restart = E_FORCE_RESET_DISABLED;
         reset->state = E_OPERATION_CONTINUE;
         gettimeofday(&reset->last_reset_time, NULL);
 
