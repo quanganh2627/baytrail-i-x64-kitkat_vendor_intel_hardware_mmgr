@@ -20,11 +20,10 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/sendfile.h>
 #include "errors.h"
 #include "file.h"
 #include "logs.h"
-
-#define FILE_COPY_BUFFER_SIZE   4096
 
 /**
  * read a string from a file
@@ -159,15 +158,15 @@ e_mmgr_errors_t copy_file(const char *src, const char *dst, mode_t dst_mode)
 {
     int in_fd = -1;
     int out_fd = -1;
-    char buff[FILE_COPY_BUFFER_SIZE];
-    ssize_t read_count = 0;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mode_t old_umask = 0;
+    struct stat sb;
+    off_t offset = 0;
 
     CHECK_PARAM(src, ret, out);
     CHECK_PARAM(dst, ret, out);
 
-    old_umask = umask(~dst_mode);
+    old_umask = umask(~dst_mode & 0777);
 
     in_fd = open(src, O_RDONLY);
     if (in_fd < 0) {
@@ -183,19 +182,16 @@ e_mmgr_errors_t copy_file(const char *src, const char *dst, mode_t dst_mode)
         goto out;
     }
 
-    do {
-        read_count = read(in_fd, buff, sizeof(buff));
-        if (read_count > 0) {
-            if (write(out_fd, buff, read_count) != read_count) {
-                LOG_DEBUG("Failed writing destination file, errno = %d", errno);
-                ret = E_ERR_FAILED;
-                break;
-            }
-        } else if (read_count < 0) {
-            LOG_DEBUG("Failed reading source file, errno = %d", errno);
-            ret = E_ERR_FAILED;
-        }
-    } while (read_count > 0);
+    if (fstat(in_fd, &sb) == -1) {
+        ret = E_ERR_FAILED;
+        LOG_ERROR("Failed obtaining file status");
+        goto out;
+    }
+
+    if (sendfile(out_fd, in_fd, &offset, sb.st_size) == -1) {
+        ret = E_ERR_FAILED;
+        LOG_ERROR("Copying file failed, errno = %d", errno);
+    }
 
 out:
     if (in_fd >= 0) {
@@ -203,9 +199,10 @@ out:
     }
     if (out_fd >= 0) {
         if (close(out_fd) < 0) {
-            LOG_DEBUG("Error while closing %s: %d", dst, errno);
+            LOG_ERROR("Error while closing %s: %d", dst, errno);
+            ret = E_ERR_FAILED;
         }
     }
-    umask(old_umask);
+    umask(old_umask & 0777);
     return ret;
 }

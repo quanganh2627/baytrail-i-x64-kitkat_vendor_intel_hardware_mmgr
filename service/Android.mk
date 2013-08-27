@@ -49,8 +49,7 @@ LOCAL_SRC_FILES:= \
     reset_escalation.c
 
 LOCAL_MODULE_TAGS := optional
-LOCAL_STATIC_LIBRARIES := libcutils libc
-LOCAL_SHARED_LIBRARIES := libglib-2.0 liblog libcutils libdl libusbhost
+LOCAL_SHARED_LIBRARIES := libglib-2.0 liblog libcutils libdl libusbhost libc
 LOCAL_LDLIBS += -lpthread
 #############################################
 # module depedency rules

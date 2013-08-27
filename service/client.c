@@ -395,7 +395,7 @@ e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
     size_t write_size;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_cli_event_t event = {.id = state,.data = data };
-    msg_t msg;
+    msg_t msg = {.data = NULL };
 
     CHECK_PARAM(client, ret, out);
     /* do not check data because it can be NULL on purpose */
