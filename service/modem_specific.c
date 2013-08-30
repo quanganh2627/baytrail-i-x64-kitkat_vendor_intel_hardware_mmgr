@@ -54,7 +54,7 @@
  * @return E_ERR_BAD_PARAMETER
  * @return E_ERR_SUCCESS
  */
-static e_mmgr_errors_t backup_nvm(modem_info_t *info)
+e_mmgr_errors_t backup_nvm(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char dynamic[PATH_MAX] = { '\0' };
@@ -117,7 +117,7 @@ out:
  * @return E_ERR_BAD_PARAMETER
  * @return E_ERR_SUCCESS
  */
-static e_mmgr_errors_t restore_nvm(modem_info_t *info)
+e_mmgr_errors_t restore_nvm(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char dynamic[PATH_MAX] = { '\0' };
@@ -130,6 +130,7 @@ static e_mmgr_errors_t restore_nvm(modem_info_t *info)
 
     unlink(info->fl_conf.run_dyn);
     unlink(info->fl_conf.run_stat);
+    unlink(info->fl_conf.run_cal);
 
     if (is_file_exists(dynamic, 0) == E_ERR_SUCCESS) {
         ret = copy_file(dynamic, info->fl_conf.run_dyn, FLS_FILE_PERMISSION);
@@ -139,6 +140,12 @@ static e_mmgr_errors_t restore_nvm(modem_info_t *info)
     if (is_file_exists(stat, 0) == E_ERR_SUCCESS) {
         ret = copy_file(stat, info->fl_conf.run_stat, FLS_FILE_PERMISSION);
         unlink(stat);
+    }
+
+    if (is_file_exists(info->fl_conf.bkup_cal, 0) == E_ERR_SUCCESS) {
+        ret =
+            copy_file(info->fl_conf.bkup_cal, info->fl_conf.run_cal,
+                      FLS_FILE_PERMISSION);
     }
 
 out:
@@ -315,7 +322,6 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
     case E_MUP_FW_RESTRICTED:
     case E_MUP_SUCCEED:
         *verdict = E_MODEM_FW_SUCCEED;
-        backup_nvm(info);
         ret = E_ERR_SUCCESS;
         break;
     case E_MUP_FAILED:
@@ -734,8 +740,7 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
                 (info->fl_conf.bkup_rnd_cert, info->fl_conf.run_rnd_cert,
                  FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
                 /* This is not a blocking error case because this can happen in
-                 * production when no R&D exist yet. Just raise a
-                 * warning. */
+                 * production when no R&D exist yet. Just raise a warning. */
                 LOG_INFO("No R&D cert could be restored from %s,"
                          " R&D cert must be provisioned",
                          info->fl_conf.bkup_rnd_cert);

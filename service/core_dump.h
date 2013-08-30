@@ -30,12 +30,12 @@ typedef struct mcdr_lib {
     void (*read) (mcdr_data_t *);
     void (*cleanup) (void);
     mcdr_status_t (*get_state) (void);
-    e_core_dump_state_t state;
-    int panic_id;
+    char *(*get_reason) (void);
 } mcdr_lib_t;
 
 e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
                                mcdr_lib_t *mcdr);
-e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr);
+e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr,
+                                   e_core_dump_state_t *state);
 
 #endif                          /* __CORE_DUMP_HEADER__ */

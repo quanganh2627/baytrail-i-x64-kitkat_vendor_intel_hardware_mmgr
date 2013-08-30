@@ -82,12 +82,6 @@
     X(RESPONSE_FUSE_INFO),\
     X(NUM_EVENTS)
 
-#define CORE_DUMP_STATE \
-    X(SUCCEED),\
-    X(SUCCEED_WITHOUT_PANIC_ID),\
-    X(FAILED),\
-    X(FAILED_WITH_PANIC_ID)
-
 typedef enum e_mmgr_requests {
 #undef X
 #define X(a) E_MMGR_##a
@@ -100,6 +94,21 @@ typedef enum e_mmgr_events {
     MMGR_EVENTS
 } e_mmgr_events_t;
 
+#define CORE_DUMP_STATE\
+    X(SUCCEED),\
+    /* core dump retrieval takes too much time. The operation has been */\
+    /* aborted by MMGR */\
+    X(TIMEOUT),\
+    /* MMGR is not able to open the fd (HSIC enumeration issue, device not */\
+    /* available, etc) */\
+    X(LINK_ERROR),\
+    /* A protocol error happened during the core dump retrieval (PING not */\
+    /* received, bad message, etc) */\
+    X(PROTOCOL_ERROR),\
+    X(SELF_RESET),\
+    /* generic failure */\
+    X(OTHER)
+
 typedef enum e_core_dump_state {
 #undef X
 #define X(a) E_CD_##a
@@ -108,14 +117,30 @@ typedef enum e_core_dump_state {
 
 typedef struct mmgr_cli_core_dump {
     e_core_dump_state_t state;
-    int panic_id;
-    size_t len;
+
+    /* only set if E_CD_SUCCEED */
     char *path;
+    size_t path_len;
+
+    /* only if not E_CD_SUCCEED */
+    char *reason;
+    size_t reason_len;
 } mmgr_cli_core_dump_t;
 
+typedef struct mmgr_cli_recovery_cause {
+    size_t len;
+    char *cause;                // Maximum string length is 512 bytes
+} mmgr_cli_recovery_cause_t;
+
+/* Note: 'recovery_causes' array (if present) is used to describe why
+ *       client 'name' requested a modem recovery procedure.
+ */
 typedef struct mmgr_cli_ap_reset {
     size_t len;
     char *name;
+    size_t num_causes;
+    /* Size of 'recovery_causes' array is given in 'num_causes' */
+    mmgr_cli_recovery_cause_t *recovery_causes;
 } mmgr_cli_ap_reset_t;
 
 typedef struct mmgr_cli_error {

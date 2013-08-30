@@ -313,17 +313,22 @@ e_mmgr_errors_t set_msg_core_dump(msg_t *msg, mmgr_cli_event_t *request)
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
 
-    /* this structure is composed of 4 elements: 3 integers and a string */
-    size = 3 * sizeof(uint32_t) + sizeof(char) * cd->len;
+    /* this structure is composed of 5 elements: 3 integers and two string */
+    size = 3 * sizeof(uint32_t) +
+        sizeof(char) * (cd->path_len + cd->reason_len);
     ret = prepare_msg(msg, &msg_data, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, &size);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    memcpy(&tmp, &cd->state, sizeof(e_core_dump_state_t));
+    memcpy(&tmp, &cd->state, sizeof(cd->state));
     serialize_uint32(&msg_data, tmp);
-    serialize_int(&msg_data, cd->panic_id);
-    serialize_size_t(&msg_data, cd->len);
-    memcpy(msg_data, cd->path, sizeof(char) * cd->len);
+    serialize_size_t(&msg_data, cd->path_len);
+    serialize_size_t(&msg_data, cd->reason_len);
+    memcpy(msg_data, cd->path, sizeof(char) * cd->path_len);
+    if (cd->reason_len > 0)
+        memcpy(msg_data + cd->path_len, cd->reason,
+               sizeof(char) * cd->reason_len);
+
     ret = E_ERR_SUCCESS;
 
 out:

@@ -166,6 +166,7 @@ static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
         case E_MMGR_MDM_OOS:
             notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
             break;
+        case E_MMGR_MDM_START:
         case E_MMGR_MDM_CONF_ONGOING:
         case E_MMGR_MDM_RESET:
         case E_MMGR_MDM_OFF:
@@ -225,7 +226,10 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     set_mcd_poll_states(&mmgr->info);
 
     if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
-        set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+        if (mmgr->info.mdm_link == E_LINK_HSIC)
+            set_mmgr_state(mmgr, E_MMGR_MDM_START);
+        else
+            set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
         mmgr->events.cli_req = E_CLI_REQ_NONE;
         recov_reinit(&mmgr->reset);
         if (!mmgr->config.is_flashless)
@@ -737,17 +741,13 @@ static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
     write_to_file(filename, OPEN_MODE_RW_UGO, data, 0);
 
     cd.state = E_CD_SUCCEED;
-    cd.panic_id = FAKE_CD_ID;
-    cd.len = strnlen(filename, PATH_MAX);
+    cd.path = filename;
+    cd.path_len = strnlen(filename, PATH_MAX);
+    cd.reason = FAKE_CD_REASON;
+    cd.reason_len = strlen(FAKE_CD_REASON);
 
-    cd.path = malloc(sizeof(char) * cd.len);
-    if (cd.path == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-    memcpy(cd.path, filename, cd.len);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, &cd);
-    free(cd.path);
+
 out:
     return ret;
 }
@@ -826,9 +826,11 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
             mmgr->hdler_client[i][j] = client_nack;
 
     /* A client is ALWAYS able to establish a connection, except during
-     * MDM_RESET and MDM_CONF_ONGOING. fake commands shall be accepted too */
+     * MDM_RESET, MDM_CONF_ONGOING and MDM_START. fake commands shall be
+     * accepted too */
     for (i = 0; i < E_MMGR_NUM; i++) {
-        if ((i == E_MMGR_MDM_RESET) || (i == E_MMGR_MDM_CONF_ONGOING))
+        if ((i == E_MMGR_MDM_RESET) || (i == E_MMGR_MDM_CONF_ONGOING)
+            || (i == E_MMGR_MDM_START))
             continue;
 
         mmgr->hdler_client[i][E_MMGR_SET_NAME] = request_set_name;

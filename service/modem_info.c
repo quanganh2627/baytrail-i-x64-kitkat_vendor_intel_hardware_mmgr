@@ -119,65 +119,6 @@ out:
 }
 
 /**
- * get_panic_id: get the panic_id from the xlog
- *
- * @param [in] xlog modem answer of an xlog command
- * @param [in,out] info modem info
- *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if xlog or/and info is/are NULL
- * @return E_ERR_FAILED otherwise
- */
-static e_mmgr_errors_t get_panic_id(char *xlog, modem_info_t *info)
-{
-    const char class_pattern[] = "Trap Class:";
-    const char id_pattern[] = "Identification:";
-    int class;
-    char *end_ptr = NULL;
-    char *p_str = NULL;
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(xlog, ret, out);
-    CHECK_PARAM(info, ret, out);
-
-    /* looking for class pattern */
-    p_str = strstr(xlog, class_pattern);
-    if (p_str == NULL)
-        goto out;
-
-    p_str = strstr(p_str + strlen(class_pattern), "0x");
-    if (p_str == NULL)
-        goto out;
-
-    class = strtol(p_str, &end_ptr, 16);
-    if (p_str == end_ptr)
-        goto out;
-
-    if ((class == 0xAAAA) || (class == 0xBBBB) || (class == 0xCCCC)) {
-        /* the panic id is extracted only if class id is equal to 0xAAAA or
-         * 0xBBBB or OxCCCC */
-
-        /* looking for panic id */
-        p_str = strstr(xlog, id_pattern);
-        if (p_str == NULL)
-            goto out;
-
-        info->mcdr.panic_id = strtol(p_str, &end_ptr, 10);
-        if (p_str == end_ptr)
-            goto out;
-
-        LOG_DEBUG("panic id: %d", info->mcdr.panic_id);
-        if (info->mcdr.state == E_CD_SUCCEED_WITHOUT_PANIC_ID)
-            info->mcdr.state = E_CD_SUCCEED;
-        else
-            info->mcdr.state = E_CD_FAILED_WITH_PANIC_ID;
-        ret = E_ERR_SUCCESS;
-    }
-out:
-    return ret;
-}
-
-/**
  * Log the self reset reason
  *
  * @param [in] fd_tty tty file descriptor
@@ -234,10 +175,6 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, mmgr_configuration_t *config,
                 *p = ' ';
             /* to improve display, do not use LOG_DEBUG macro here */
             LOGD("%s", data);
-            if (info->ev & E_EV_CORE_DUMP) {
-                if ((ret = get_panic_id(data, info)) == E_ERR_BAD_PARAMETER)
-                    goto out_xlog;
-            }
         }
     } while (read_size > 0);
 

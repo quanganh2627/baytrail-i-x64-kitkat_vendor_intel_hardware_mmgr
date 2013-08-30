@@ -343,9 +343,10 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, bool wakelock,
         ts.tv_nsec = current.tv_usec * 1000;
         remaining = timeout - (current.tv_sec - start.tv_sec);
         if (remaining > 0)
-            /* A timeout of 1s is used here to save time in several UCs:
-             *  - if modem is OOS or plateform is shutdown
-             *  - if we have already reached the state
+            /*
+             * A timeout of 1s is used here to save time in several UCs:
+             * - if modem is OOS or plateform is shutdown
+             * - if we have already reached the state
              */
             ts.tv_sec += 1;
 
@@ -518,7 +519,11 @@ static int event_core_dump(mmgr_cli_event_t *ev)
     e_mmgr_errors_t err = E_ERR_FAILED;
     test_data_t *data = NULL;
     mmgr_cli_core_dump_t *cd = NULL;
-    char *base_name = NULL;
+    const char *cd_state[] = {
+#undef X
+#define X(a) #a
+        CORE_DUMP_STATE
+    };
 
     CHECK_PARAM(ev, err, out);
 
@@ -527,45 +532,41 @@ static int event_core_dump(mmgr_cli_event_t *ev)
         goto out;
 
     cd = (mmgr_cli_core_dump_t *)ev->data;
-    if (cd == NULL) {
+    if ((cd == NULL) || (cd->path == NULL)) {
         LOG_ERROR("empty data");
         goto out;
     }
 
-    switch (cd->state) {
-    case E_CD_FAILED:
-        LOG_ERROR("core dump not retrieved");
-        set_and_notify(ev->id, (test_data_t *)ev->context);
-        goto out;
-        break;
-    case E_CD_SUCCEED_WITHOUT_PANIC_ID:
-        LOG_DEBUG("No panid id");
-        break;
-    case E_CD_SUCCEED:
-        LOG_DEBUG("panic id: %d", cd->panic_id);
-        break;
-    case E_CD_FAILED_WITH_PANIC_ID:
-        LOG_DEBUG("failed to retrieve core dump. panic id: %d", cd->panic_id);
-        break;
-    }
-    LOG_DEBUG("core dump path: %s", cd->path);
+    LOG_DEBUG("state: %s", cd_state[cd->state]);
 
-    base_name = basename(cd->path);
-    if ((is_file_exists(cd->path, 0) == E_ERR_SUCCESS)
-        || (is_core_dump_found(base_name, "/mnt/shell/emulated/0/logs/") ==
-            E_ERR_SUCCESS)
-        || (is_core_dump_found(base_name, "/sdcard/") == E_ERR_SUCCESS)) {
-        LOG_DEBUG("core dump found");
-        events_set(data, E_EVENTS_SUCCEED);
-    }
+    if (cd->state == E_CD_SUCCEED) {
+        if ((err = is_file_exists(cd->path, 0)) != E_ERR_SUCCESS) {
+            char *base_name = basename(cd->path);
+            size_t i;
+            char *folders[] = { "/mnt/shell/emulated/0/logs/", "/sdcard/" };
+            for (i = 0; i < (sizeof(folders) / sizeof(*folders)); i++) {
+                LOG_DEBUG("look at: %s", folders[i]);
+                if ((err = is_core_dump_found(base_name,
+                                              folders[i])) == E_ERR_SUCCESS)
+                    break;
+            }
+        }
 
-    err = set_and_notify(ev->id, (test_data_t *)ev->context);
-    if (err == E_ERR_SUCCESS)
-        ret = 0;
+        if (err == E_ERR_SUCCESS) {
+            LOG_DEBUG("core dump (%s) found", cd->path);
+            ret = 0;
+        } else
+            LOG_ERROR("core dump (%s) NOT found", cd->path);
+    } else
+        LOG_ERROR("core dump retrieval has failed with reason: (%s)",
+                  cd->reason);
 
 out:
+    set_and_notify(ev->id, (test_data_t *)ev->context);
     if (ret == 1)
         events_set(data, E_EVENTS_ERROR_OCCURED);
+    else
+        events_set(data, E_EVENTS_SUCCEED);
     return ret;
 }
 
