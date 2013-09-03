@@ -1,20 +1,6 @@
-#############################################
-# MODEM MANAGER daemon
-#############################################
 LOCAL_PATH:= $(call my-dir)
 
-include $(CLEAR_VARS)
-LOCAL_MODULE := mmgr
-LOCAL_CFLAGS += -Wall -Wvla -DLIBUSBHOST
-
-# Extract commit id
-COMMIT_ID := $(shell git --git-dir=$(LOCAL_PATH)/../.git \
-        --work-tree=$(LOCAL_PATH) log --oneline -n1 \
-        | sed 's:\s\{1,\}:\\ :g')
-
-LOCAL_CFLAGS += -DGIT_COMMIT_ID=\"$(COMMIT_ID)\"
-
-LOCAL_C_INCLUDES += \
+MY_INCLUDES := \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
     ../inc \
@@ -22,37 +8,34 @@ LOCAL_C_INCLUDES += \
     $(call include-path-for, libusb) \
     $(call include-path-for, libtcs) \
 
-LOCAL_SRC_FILES:= \
-    at.c \
-    client.c \
-    client_events.c \
-    client_cnx.c \
-    core_dump.c \
-    data_to_msg.c \
-    events_manager.c \
-    file.c \
-    java_intent.c \
-    msg_to_data.c \
-    modem_events.c \
-    modem_info.c \
-    modem_manager.c  \
-    modem_specific.c \
-    bus_events.c \
-    link/pm.c \
-    link/ctrl.c \
-    mux.c \
-    property.c \
-    security.c \
-    tty.c \
-    timer_events.c \
-    reset_escalation.c
+MY_SRC_FILES := $(call all-c-files-under, .)
 
+# Extract commit id
+COMMIT_ID := $(shell git --git-dir=$(LOCAL_PATH)/../.git \
+        --work-tree=$(LOCAL_PATH) log --oneline -n1 \
+        | sed 's:\s\{1,\}:\\ :g')
+
+MY_C_FLAGS := -Wall -Werror -Wvla -DLIBUSBHOST -DGIT_COMMIT_ID=\"$(COMMIT_ID)\"
+
+MY_SHARED_LIBS := libc libcutils libdl libusbhost liblog libtcs
+MY_LDLIBS := -lpthread
+
+#############################################
+# MODEM MANAGER daemon
+#############################################
+include $(CLEAR_VARS)
+LOCAL_MODULE := mmgr
 LOCAL_MODULE_TAGS := optional
-LOCAL_SHARED_LIBRARIES := liblog libcutils libdl libusbhost libc libtcs
-LOCAL_LDLIBS += -lpthread
-#############################################
+
+LOCAL_C_INCLUDES := $(MY_INCLUDES)
+LOCAL_SRC_FILES :=  $(MY_SRC_FILES)
+LOCAL_CFLAGS += $(MY_C_FLAGS)
+
+LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS)
+LOCAL_LDLIBS += $(MY_LDLIBS)
+#-------------------------------------------
 # module depedency rules
-#############################################
+#-------------------------------------------
 LOCAL_REQUIRED_MODULES := \
     libmmgrcli \
     com.intel.internal.telephony.MmgrClient.xml \
@@ -64,8 +47,24 @@ LOCAL_REQUIRED_MODULES += \
     MMGR_test \
     nvm_client
 endif
-#uncomment this to enable gcov
-#LOCAL_CFLAGS += -fprofile-arcs -ftest-coverage -DGOCV_MMGR
-#LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage -lgcov
 include $(BUILD_EXECUTABLE)
 
+#############################################
+# MODEM MANAGER daemon - GCOV
+#############################################
+ifeq ($(mmgr_gcov), true)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := mmgr-gcov
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_C_INCLUDES := $(MY_INCLUDES)
+LOCAL_SRC_FILES :=  $(MY_SRC_FILES)
+LOCAL_CFLAGS += $(MY_C_FLAGS) -fprofile-arcs -ftest-coverage -DGOCV_MMGR
+
+LOCAL_LDLIBS += $(MY_LDLIBS)
+LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage -lgcov
+LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS)
+include $(BUILD_EXECUTABLE)
+
+endif
