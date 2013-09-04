@@ -80,6 +80,7 @@ typedef struct modem_info {
     char mdm_custo_dlc[PATH_MAX];
     char shtdwn_dlc[PATH_MAX];
     mux_t mux;
+    char mdm_name[NAME];
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,

@@ -213,8 +213,8 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
 
     /* @TODO retrieve modem version via SFI table and remove this static value
     **/
-    if (info->mup.check_fw_version(info->fl_conf.run.mdm_inj_fw, "XMM7160") !=
-        E_MUP_SUCCEED) {
+    if (info->mup.check_fw_version(info->fl_conf.run.mdm_inj_fw,
+                                   info->mdm_name) != E_MUP_SUCCEED) {
         LOG_ERROR("Bad modem family. Shutdown the modem");
         *verdict = E_MODEM_FW_BAD_FAMILY;
         goto out;
@@ -226,9 +226,9 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
         .channel_hw_sw    = ch_sw,
         .fw_file_path     = info->fl_conf.run.mdm_inj_fw,
         .fw_file_path_len = strnlen(info->fl_conf.run.mdm_inj_fw,
-                                    MAX_SIZE_CONF_VAL),
+                                    sizeof(info->fl_conf.run.mdm_inj_fw)),
         /* for flashless modem, this should be false */
-        .erase_all        = false,
+        .erase_all        = false
     };
 
     if (E_MUP_SUCCEED != info->mup.open_device(&params)) {
@@ -240,7 +240,7 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
     size_t len = 0;
     if (E_ERR_SUCCESS == is_file_exists(info->fl_conf.run.rnd, 0)) {
         rnd = info->fl_conf.run.rnd;
-        len = strnlen(info->fl_conf.run.rnd, MAX_SIZE_CONF_VAL);
+        len = strnlen(info->fl_conf.run.rnd, sizeof(info->fl_conf.run.rnd));
     }
 
     secur_callback = secure_get_callback(sec_hdle);
@@ -320,7 +320,7 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
         .mdm_com_port      = comport,
         .nvm_file_path     = info->fl_conf.run.nvm_tlv,
         .nvm_file_path_len = strnlen(info->fl_conf.run.nvm_tlv,
-                                     MAX_SIZE_CONF_VAL),
+                                     sizeof(info->fl_conf.run.nvm_tlv)),
     };
 
     if ((mup_ret = info->mup.update_nvm(&params)) != E_MUP_SUCCEED) {
