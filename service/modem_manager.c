@@ -47,7 +47,7 @@ mmgr_data_t *g_mmgr = NULL;
  */
 static void cleanup(void)
 {
-    events_cleanup(g_mmgr);
+    events_dispose(g_mmgr);
     recov_dispose(g_mmgr->reset);
     timer_dispose(g_mmgr->timer);
     secure_stop(g_mmgr->secure);

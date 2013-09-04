@@ -113,7 +113,7 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->config.is_flashless) {
+    if (mmgr->info.is_flashless) {
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
 
@@ -224,16 +224,15 @@ static e_mmgr_errors_t do_nvm_customization(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->config.is_flashless) {
+    if (mmgr->info.is_flashless) {
         LOG_DEBUG("checking for nvm patch existence at %s",
                   mmgr->info.fl_conf.run.nvm_tlv);
 
         if (is_file_exists(mmgr->info.fl_conf.run.nvm_tlv,
                            0) == E_ERR_SUCCESS) {
             LOG_DEBUG("nvm patch found");
-            ret =
-                flash_modem_nvm(&mmgr->info, mmgr->config.nvm_custo_dlc,
-                                &nvm_result.id, &nvm_result.sub_error_code);
+            ret = flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc,
+                                  &nvm_result.id, &nvm_result.sub_error_code);
         } else {
             ret = E_ERR_FAILED;
             nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
@@ -267,8 +266,9 @@ static void read_core_dump(mmgr_data_t *mmgr)
     mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
     set_mcd_poll_states(&mmgr->info);
 
-    if (!mmgr->config.is_flashless)
+    if (!mmgr->info.is_flashless)
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+
     if (mmgr->info.mdm_link == E_LINK_HSIC) {
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state = E_MDM_LINK_NONE;
@@ -439,7 +439,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     mmgr->info.polled_states = 0;
     ret = set_mcd_poll_states(&mmgr->info);
 
-    open_tty(mmgr->config.shtdwn_dlc, &fd);
+    open_tty(mmgr->info.shtdwn_dlc, &fd);
     if (fd < 0) {
         LOG_ERROR("operation FAILED");
     } else {
@@ -537,7 +537,7 @@ out_mdm_ev:
     recov_done(mmgr->reset);
 
     mdm_subscribe_start_ev(&mmgr->info);
-    if (!mmgr->config.is_flashless)
+    if (!mmgr->info.is_flashless)
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     if (mmgr->info.mdm_link == E_LINK_HSIC) {
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
@@ -561,7 +561,7 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-    ret = open_tty(mmgr->config.modem_port, &mmgr->fd_tty);
+    ret = open_tty(mmgr->info.mdm_ipc_path, &mmgr->fd_tty);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("open fails");
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);

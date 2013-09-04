@@ -65,7 +65,7 @@ static e_mmgr_errors_t security_event(mmgr_data_t *mmgr)
  * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_SUCCESS
  */
-e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
+e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 

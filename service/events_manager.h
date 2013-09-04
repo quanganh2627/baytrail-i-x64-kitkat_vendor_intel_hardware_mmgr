@@ -112,7 +112,7 @@ typedef struct mmgr_data {
 } mmgr_data_t;
 
 e_mmgr_errors_t events_manager(mmgr_data_t *mmgr);
-e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr);
+e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr);
 e_mmgr_errors_t events_init(mmgr_data_t *mmgr);
 inline void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state);
 
