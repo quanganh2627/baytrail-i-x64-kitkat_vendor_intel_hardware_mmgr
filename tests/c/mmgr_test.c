@@ -25,6 +25,7 @@
 #include "errors.h"
 #include "test_cases.h"
 #include "mmgr.h"
+#include "tcs.h"
 
 #define MIN_MMGR_VERSION  "3.2.1"
 #define CAUTION_MESSAGE   "\n\n" \
@@ -83,6 +84,39 @@ enum {
 };
 
 /**
+ * This function initialize all MMGR modules.
+ * It reads the current platform configuration via TCS
+ *
+ * @param [in, out] mmgr
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED if failed
+ */
+static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
+{
+    tcs_handle_t *h = NULL;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    h = tcs_init();
+    if (h) {
+        tcs_cfg_t *tcs_cfg = tcs_get_config(h);
+        if (cfg) {
+            cfg->cold_reset = tcs_cfg->mmgr.recov.cold_reset;
+            cfg->reboot = tcs_cfg->mmgr.recov.reboot;
+            cfg->reset_escalation = tcs_cfg->mmgr.recov.reset_delay;
+            strncpy(cfg->shtdwn_dlc, tcs_cfg->mmgr.com.ch.shutdown.device,
+                    sizeof(cfg->shtdwn_dlc));
+
+            ret = E_ERR_SUCCESS;
+        }
+    }
+
+    if (h && tcs_dispose(h))
+        ret = E_ERR_FAILED;
+    return ret;
+}
+
+/**
  * Run selected test
  *
  * @param [in,out] test test data
@@ -115,9 +149,8 @@ e_mmgr_errors_t run_test(test_case_t *test)
     pthread_mutex_init(&test_data.cond_mutex, NULL);
     pthread_cond_init(&test_data.cond, NULL);
 
-    if ((ret = mmgr_configure(&test_data.config, DEFAULT_MMGR_CONFIG_FILE))
-        == E_ERR_BAD_PARAMETER) {
-        LOG_ERROR("initialization failed");
+    if (E_ERR_SUCCESS != mmgr_test_init(&test_data.cfg)) {
+        LOG_ERROR("failed to read platform configuration");
         goto out;
     }
 

@@ -21,10 +21,10 @@
 
 #include <pthread.h>
 #include <stdbool.h>
-#include "config.h"
 #include "logs.h"
 #include "mmgr.h"
 #include "mmgr_cli.h"
+#include "tcs_mmgr.h"
 
 #define EXE_NAME MODULE_NAME "-test"
 #define FILENAME_SIZE 256
@@ -38,6 +38,13 @@ typedef enum e_events {
         E_EVENTS_MODEM_OOS = 0x1 << 2,
 } e_events_t;
 
+typedef struct test_cfg {
+    int cold_reset;
+    int reboot;
+    int reset_escalation;
+    char shtdwn_dlc[PATH_MAX];
+} test_cfg_t;
+
 typedef struct test_data {
     pthread_mutex_t new_state_read;
     pthread_mutex_t mutex;
@@ -45,9 +52,9 @@ typedef struct test_data {
     pthread_mutex_t cond_mutex;
     e_mmgr_events_t waited_state;
     e_mmgr_events_t modem_state;
-    mmgr_configuration_t config;
     mmgr_cli_handle_t *lib;
     e_events_t events;
+    test_cfg_t cfg;
 } test_data_t;
 
 e_mmgr_errors_t modem_state_set(test_data_t *test_data, e_mmgr_events_t state);

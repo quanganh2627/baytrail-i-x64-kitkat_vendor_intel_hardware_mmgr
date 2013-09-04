@@ -904,8 +904,7 @@ e_mmgr_errors_t at_core_dump(test_data_t *test)
         goto out;
     }
 
-    err = send_at_cmd(test->config.shtdwn_dlc, AT_CORE_DUMP,
-                      strlen(AT_CORE_DUMP));
+    err = send_at_cmd(test->cfg.shtdwn_dlc, AT_CORE_DUMP, strlen(AT_CORE_DUMP));
     if ((err != E_ERR_TTY_POLLHUP) && (err != E_ERR_SUCCESS)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
@@ -962,7 +961,7 @@ e_mmgr_errors_t at_self_reset(test_data_t *test)
     }
 
     /* Send reset command to modem */
-    err = send_at_cmd(test->config.shtdwn_dlc, AT_SELF_RESET,
+    err = send_at_cmd(test->cfg.shtdwn_dlc, AT_SELF_RESET,
                       strlen(AT_SELF_RESET));
     if ((err != E_ERR_TTY_POLLHUP) && (err != E_ERR_SUCCESS)) {
         ret = E_ERR_FAILED;
