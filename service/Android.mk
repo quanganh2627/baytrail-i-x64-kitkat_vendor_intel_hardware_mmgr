@@ -21,7 +21,8 @@ LOCAL_C_INCLUDES += \
     vendor/intel/external/glib \
     vendor/intel/external/glib/android \
     vendor/intel/external/glib/glib \
-    $(call include-path-for, libusb)
+    $(call include-path-for, libusb) \
+    $(call include-path-for, libtcs) \
 
 LOCAL_SRC_FILES:= \
     at.c \
@@ -49,7 +50,7 @@ LOCAL_SRC_FILES:= \
     reset_escalation.c
 
 LOCAL_MODULE_TAGS := optional
-LOCAL_SHARED_LIBRARIES := libglib-2.0 liblog libcutils libdl libusbhost libc
+LOCAL_SHARED_LIBRARIES := libglib-2.0 liblog libcutils libdl libusbhost libc libtcs
 LOCAL_LDLIBS += -lpthread
 #############################################
 # module depedency rules

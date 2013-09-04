@@ -21,6 +21,7 @@
 #include "config.h"
 #include "core_dump.h"
 #include "modem_update.h"
+#include "tcs_mmgr.h"
 
 #define HANDSHAKE_AFTER_CD_RETRIES_COUNT 12
 #define CORE_DUMP_READY_TIMEOUT 10      /* 10 seconds for modem to re-enumerate
@@ -65,12 +66,6 @@ typedef struct mup_op {
                            const char *certificate, const char *secur);
 } mup_op_t;
 
-typedef enum e_link_type {
-    E_LINK_UART,
-    E_LINK_HSI,
-    E_LINK_HSIC,
-} e_link_type_t;
-
 typedef struct modem_info {
     mup_op_t mup;
     mcdr_lib_t mcdr;
@@ -78,8 +73,8 @@ typedef struct modem_info {
     int polled_states;
     flashless_config_t fl_conf;
     bool is_flashless;
-    e_link_type_t mdm_link;     /* modem link */
-    e_link_type_t cd_link;      /* core dump link */
+    e_link_t mdm_link;          /* modem link */
+    e_link_t cd_link;           /* core dump link */
     char *hsic_pm_path;
     char *hsic_enable_path;
 } modem_info_t;

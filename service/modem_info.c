@@ -51,7 +51,7 @@ typedef enum e_switch_to_mux_states {
     E_MUX_DRIVER,
 } e_switch_to_mux_states_t;
 
-static e_mmgr_errors_t mdm_get_link_type(const char *type, e_link_type_t *link)
+static e_mmgr_errors_t mdm_get_link_type(const char *type, e_link_t *link)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 

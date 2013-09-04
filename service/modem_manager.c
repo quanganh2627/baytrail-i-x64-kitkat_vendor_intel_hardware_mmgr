@@ -24,6 +24,7 @@
 #include "config.h"
 #include "file.h"
 #include "events_manager.h"
+#include "tcs.h"
 
 #define USAGE \
     "Start "MODULE_NAME " Daemon.\n" \
@@ -98,6 +99,39 @@ end_set_signal_handler:
 }
 
 /**
+ * This function initialize all MMGR modules.
+ * It reads the current platform configuration via TCS
+ *
+ * @param [in, out] mmgr
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED if failed
+ */
+static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
+{
+    tcs_handle_t *h = NULL;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    h = tcs_init();
+    if (h) {
+        if (tcs_print(h)) {
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        /* @TODO: extract all parameters */
+    } else {
+        LOG_ERROR("Failed to init TCS");
+        ret = E_ERR_FAILED;
+    }
+
+out:
+    if (h && tcs_dispose(h))
+        ret = E_ERR_FAILED;
+    return ret;
+}
+
+/**
  * Modem Manager main function
  *
  * @param [in] argc number of arguments
@@ -157,6 +191,11 @@ int main(int argc, char *argv[])
 
     if (atexit(cleanup) != 0) {
         LOG_ERROR("Exit configuration failed. Exit");
+        ret = EXIT_FAILURE;
+        goto out;
+    }
+
+    if (E_ERR_SUCCESS != mmgr_init(&mmgr)) {
         ret = EXIT_FAILURE;
         goto out;
     }

@@ -41,7 +41,7 @@
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
  */
-static e_mmgr_errors_t pm_set_state(modem_info_t *info, e_link_type_t link,
+static e_mmgr_errors_t pm_set_state(modem_info_t *info, e_link_t link,
                                     bool state)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -62,6 +62,10 @@ static e_mmgr_errors_t pm_set_state(modem_info_t *info, e_link_type_t link,
     case E_LINK_UART:
         path = UART_PM;
         cmd = uart_cmd[state];
+        break;
+    default:
+        LOG_ERROR("type %d not handled", link);
+        ret = E_ERR_FAILED;
         break;
     }
     if (path && cmd)
@@ -93,6 +97,10 @@ e_mmgr_errors_t pm_on_mdm_flash(modem_info_t *info)
     case E_LINK_UART:
         /* Nothing to do */
         break;
+    default:
+        LOG_ERROR("type %d not handled", info->mdm_link);
+        ret = E_ERR_FAILED;
+        break;
     }
 
 out:
@@ -122,6 +130,10 @@ e_mmgr_errors_t pm_on_mdm_up(modem_info_t *info)
         break;
     case E_LINK_UART:
         /* Nothing to do */
+        break;
+    default:
+        LOG_ERROR("type %d not handled", info->mdm_link);
+        ret = E_ERR_FAILED;
         break;
     }
 
@@ -153,6 +165,10 @@ e_mmgr_errors_t pm_on_mdm_oos(modem_info_t *info)
     case E_LINK_UART:
         /* Nothing to do */
         break;
+    default:
+        LOG_ERROR("type %d not handled", info->mdm_link);
+        ret = E_ERR_FAILED;
+        break;
     }
 
 out:
@@ -183,6 +199,10 @@ e_mmgr_errors_t pm_on_mdm_cd(modem_info_t *info)
     case E_LINK_UART:
         pm_set_state(info, info->cd_link, false);
         break;
+    default:
+        LOG_ERROR("type %d not handled", info->cd_link);
+        ret = E_ERR_FAILED;
+        break;
     }
 
 out:
@@ -212,6 +232,10 @@ e_mmgr_errors_t pm_on_mdm_cd_complete(modem_info_t *info)
         break;
     case E_LINK_UART:
         pm_set_state(info, info->cd_link, true);
+        break;
+    default:
+        LOG_ERROR("type %d not handled", info->cd_link);
+        ret = E_ERR_FAILED;
         break;
     }
 
