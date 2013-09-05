@@ -24,6 +24,7 @@
 #include "config.h"
 #include "file.h"
 #include "events_manager.h"
+#include "modem_events.h"
 #include "modem_info.h"
 #include "timer_events.h"
 
@@ -168,6 +169,12 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
                                              &cfg->mmgr.mdm_link,
                                              &cfg->mmgr.flash, &mmgr->info)) {
             LOG_ERROR("Failed to configure the modem info module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        if (E_ERR_SUCCESS != modem_events_init(mmgr)) {
+            LOG_ERROR("Failed to configure modem events module");
             ret = E_ERR_FAILED;
             goto out;
         }

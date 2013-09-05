@@ -163,11 +163,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    if ((ret = modem_events_init(mmgr)) != E_ERR_SUCCESS) {
-        LOG_ERROR("unable to configure modem events handler");
-        goto out;
-    }
-
     if (mmgr->info.mdm_link == E_LINK_HSIC) {
         if ((ret =
                  bus_events_init(&mmgr->events.bus_events, mmgr->config.bb_pid,
