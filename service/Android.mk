@@ -18,9 +18,6 @@ LOCAL_C_INCLUDES += \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
     ../inc \
-    vendor/intel/external/glib \
-    vendor/intel/external/glib/android \
-    vendor/intel/external/glib/glib \
     $(call include-path-for, libusb) \
     $(call include-path-for, libtcs) \
 
@@ -29,7 +26,6 @@ LOCAL_SRC_FILES:= \
     client.c \
     client_events.c \
     client_cnx.c \
-    config.c \
     core_dump.c \
     data_to_msg.c \
     events_manager.c \
@@ -50,7 +46,7 @@ LOCAL_SRC_FILES:= \
     reset_escalation.c
 
 LOCAL_MODULE_TAGS := optional
-LOCAL_SHARED_LIBRARIES := libglib-2.0 liblog libcutils libdl libusbhost libc libtcs
+LOCAL_SHARED_LIBRARIES := liblog libcutils libdl libusbhost libc libtcs
 LOCAL_LDLIBS += -lpthread
 #############################################
 # module depedency rules

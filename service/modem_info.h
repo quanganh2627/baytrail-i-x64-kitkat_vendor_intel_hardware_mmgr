@@ -18,7 +18,6 @@
 
 #include <stdbool.h>
 #include <time.h>
-#include "config.h"
 #include "modem_update.h"
 #include "tcs_config.h"
 #include "tcs_mmgr.h"
