@@ -46,6 +46,8 @@ static void cleanup(void)
     events_cleanup(g_mmgr);
     recov_dispose(g_mmgr->reset);
     timer_dispose(g_mmgr->timer);
+    secure_stop(g_mmgr->secure);
+    secure_dispose(g_mmgr->secure);
     LOG_VERBOSE("Exiting");
 }
 
@@ -139,6 +141,14 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
                                  &mmgr->clients);
         if (!mmgr->timer) {
             LOG_ERROR("Failed to configure timer module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->secure = secure_init(cfg->mdm_info.secured,
+                                   &cfg->mmgr.com.ch.secured);
+        if (!mmgr->secure) {
+            LOG_ERROR("Failed to configure the security module");
             ret = E_ERR_FAILED;
             goto out;
         }

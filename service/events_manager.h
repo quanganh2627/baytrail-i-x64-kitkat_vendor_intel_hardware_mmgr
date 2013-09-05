@@ -102,7 +102,7 @@ typedef struct mmgr_data {
     modem_info_t info;
     mmgr_events_t events;
     current_request_t request;
-    secur_t secur;
+    secure_handle_t *secure;
     /* functions handlers: */
     event_hdler_t hdler_client[E_MMGR_NUM][E_MMGR_NUM_REQUESTS];
     event_hdler_t hdler_pre_mdm[E_EL_NUMBER_OF];

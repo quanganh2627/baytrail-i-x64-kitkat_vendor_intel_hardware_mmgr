@@ -53,7 +53,7 @@ inline void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state)
 
 static e_mmgr_errors_t security_event(mmgr_data_t *mmgr)
 {
-    return secur_event(&mmgr->secur);
+    return secure_event(mmgr->secure);
 }
 
 /**
@@ -72,7 +72,6 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
 
     free(mmgr->events.ev);
     close_all_clients(&mmgr->clients);
-    secur_dispose(&mmgr->secur);
     write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
     if (mmgr->info.mcdr.lib != NULL)
@@ -87,7 +86,6 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
         close_tty(&mmgr->info.fd_mcd);
     if (mmgr->epollfd != CLOSED_FD)
         close(mmgr->epollfd);
-    secur_stop(&mmgr->secur);
 out:
     return ret;
 }
@@ -173,10 +171,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
 
     ret = set_mcd_poll_states(&mmgr->info);
     LOG_DEBUG("MCD driver added to poll list");
-
-    ret = secur_init(&mmgr->secur, &mmgr->config);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
 
     if ((ret = client_events_init(mmgr)) != E_ERR_SUCCESS) {
         LOG_ERROR("unable to configure client events handlers");
@@ -272,7 +266,7 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
             mmgr->events.state = E_EVENT_MCD;
         else if (fd == mmgr->events.bus_events.wd_fd)
             mmgr->events.state = E_EVENT_BUS;
-        else if (fd == mmgr->secur.fd)
+        else if (fd == secure_get_fd(mmgr->secure))
             mmgr->events.state = E_EVENT_SECUR;
         else
             mmgr->events.state = E_EVENT_CLIENT;

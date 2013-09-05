@@ -48,7 +48,7 @@ static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 
 static inline void mdm_close_fds(mmgr_data_t *mmgr)
 {
-    secur_stop(&mmgr->secur);
+    secure_stop(mmgr->secure);
     close_tty(&mmgr->fd_tty);
 }
 
@@ -129,7 +129,7 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         pm_on_mdm_flash(&mmgr->info);
 
         flash_modem_fw(&mmgr->info, flashing_interface, ch_hw_sw,
-                       &mmgr->secur, &fw_result.id);
+                       mmgr->secure, &fw_result.id);
 
         toggle_flashing_mode(&mmgr->info, false);
         /* the IPC power management will be enabled when the modem is UP */
@@ -643,12 +643,12 @@ static e_mmgr_errors_t launch_secur(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if ((ret = secur_register(&mmgr->secur, &fd) != E_ERR_SUCCESS))
+    if ((ret = secure_register(mmgr->secure, &fd) != E_ERR_SUCCESS))
         goto out;
 
     if (fd != CLOSED_FD) {
         add_fd_ev(mmgr->epollfd, fd, EPOLLIN);
-        ret = secur_start(&mmgr->secur);
+        ret = secure_start(mmgr->secure);
     }
 out:
     return ret;
