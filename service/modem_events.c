@@ -156,9 +156,9 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
             if (mmgr->info.mdm_link == E_LINK_HSIC) {
                 /* @TODO: wait for IPC to appear after flash */
                 sleep(4);
-                start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+                timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
             }
-            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+            timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
             ret = E_ERR_SUCCESS;
             break;
 
@@ -253,7 +253,7 @@ static void read_core_dump(mmgr_data_t *mmgr)
     if (!mmgr->info.mcdr.enabled)
         goto out;
 
-    stop_timer(&mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
+    timer_stop(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
 
     retrieve_core_dump(&mmgr->info.mcdr, &state);
     pm_on_mdm_cd_complete(&mmgr->info);
@@ -266,9 +266,9 @@ static void read_core_dump(mmgr_data_t *mmgr)
     set_mcd_poll_states(&mmgr->info);
 
     if (!mmgr->config.is_flashless)
-        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+        timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     if (mmgr->info.mdm_link == E_LINK_HSIC) {
-        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+        timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state = E_MDM_LINK_NONE;
     }
 
@@ -335,7 +335,7 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
             inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                NULL);
             set_mmgr_state(mmgr, E_MMGR_WAIT_COLD_ACK);
-            start_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
+            timer_start(mmgr->timer, E_TIMER_COLD_RESET_ACK);
         } else {
             wait_operation = true;
             recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
@@ -348,7 +348,7 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
             else
                 set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
 
-            stop_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
+            timer_stop(mmgr->timer, E_TIMER_COLD_RESET_ACK);
         }
     }
 
@@ -500,7 +500,7 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     /* Keep only CORE DUMP state */
     mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
     set_mcd_poll_states(&mmgr->info);
-    stop_all_timers(&mmgr->timer);
+    timer_stop_all(mmgr->timer);
 
     /* initialize modules */
     mdm_close_fds(mmgr);
@@ -536,9 +536,9 @@ out_mdm_ev:
 
     mdm_subscribe_start_ev(&mmgr->info);
     if (!mmgr->config.is_flashless)
-        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+        timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     if (mmgr->info.mdm_link == E_LINK_HSIC) {
-        start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+        timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state = E_MDM_LINK_NONE;
     }
 
@@ -662,7 +662,7 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
 
     if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS) {
         if (do_nvm_customization(mmgr) == E_ERR_SUCCESS) {
-            start_timer(&mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
+            timer_start(mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
         } else {
             ret = launch_secur(mmgr);
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
@@ -707,7 +707,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
             ret = do_flash(mmgr);
     } else if (state & E_EV_IPC_READY) {
         LOG_DEBUG("current state: E_EV_IPC_READY");
-        stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+        timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         mmgr->events.link_state |= E_MDM_LINK_IPC_READY;
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
@@ -717,7 +717,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
     } else if (state & E_EV_CORE_DUMP) {
         LOG_DEBUG("current state: E_EV_CORE_DUMP");
         set_mmgr_state(mmgr, E_MMGR_MDM_CORE_DUMP);
-        stop_all_timers(&mmgr->timer);
+        timer_stop_all(mmgr->timer);
 
         if (mmgr->fd_tty != CLOSED_FD) {
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
@@ -731,7 +731,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         set_mcd_poll_states(&mmgr->info);
 
         LOG_DEBUG("start timer for core dump ready");
-        start_timer(&mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
+        timer_start(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
 
         inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
         broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
@@ -791,7 +791,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
     if ((get_bus_state(&mmgr->events.bus_events) & MDM_BB_READY) &&
         (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
         LOG_DEBUG("ready to configure modem");
-        stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+        timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
         if (mmgr->events.link_state & E_MDM_LINK_IPC_READY)
@@ -799,7 +799,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
     } else if ((get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) &&
                (mmgr->state == E_MMGR_MDM_START)) {
         LOG_DEBUG("ready to flash modem");
-        stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+        timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
         if (mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) {

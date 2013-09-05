@@ -137,11 +137,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    if (timer_init(&mmgr->timer, &mmgr->config) != E_ERR_SUCCESS) {
-        LOG_ERROR("Failed to configure timer");
-        goto out;
-    }
-
     if ((ret = initialize_list(&mmgr->clients,
                                mmgr->config.max_clients)) != E_ERR_SUCCESS) {
         LOG_ERROR("Client list initialisation failed");
@@ -183,15 +178,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    /* configure events handlers */
-    mmgr->hdler_events[E_EVENT_IPC] = ipc_event;
-    mmgr->hdler_events[E_EVENT_MCD] = modem_control_event;
-    mmgr->hdler_events[E_EVENT_BUS] = bus_events;
-    mmgr->hdler_events[E_EVENT_NEW_CLIENT] = new_client;
-    mmgr->hdler_events[E_EVENT_CLIENT] = known_client;
-    mmgr->hdler_events[E_EVENT_SECUR] = security_event;
-    mmgr->hdler_events[E_EVENT_TIMEOUT] = timer_event;
-
     if ((ret = client_events_init(mmgr)) != E_ERR_SUCCESS) {
         LOG_ERROR("unable to configure client events handlers");
         goto out;
@@ -228,7 +214,7 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
             mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
             mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
         } else if (!mmgr->config.is_flashless) {
-            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+            timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         }
     } else {
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
@@ -262,7 +248,7 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
             LOG_INFO("%s STATE: waiting for a new event", MODULE_NAME);
             mmgr->events.nfds = epoll_wait(mmgr->epollfd, mmgr->events.ev,
                                            mmgr->config.max_clients + 1,
-                                           mmgr->timer.cur_timeout);
+                                           timer_get_timeout(mmgr->timer));
             if (mmgr->events.nfds == -1) {
                 if ((errno == EBADF) || (errno == EINVAL)) {
                     LOG_ERROR("Bad configuration");
@@ -345,11 +331,44 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
         }
 
         LOG_DEBUG("event type: %s", events_str[mmgr->events.state]);
-        if (mmgr->hdler_events[mmgr->events.state] != NULL) {
-            if ((ret = mmgr->hdler_events[mmgr->events.state] (mmgr))
-                == E_ERR_BAD_PARAMETER)
-                goto out;
+        switch (mmgr->events.state) {
+        case E_EVENT_IPC:
+            ret = ipc_event(mmgr);
+            break;
+        case E_EVENT_MCD:
+            ret = modem_control_event(mmgr);
+            break;
+        case E_EVENT_BUS:
+            ret = bus_events(mmgr);
+            break;
+        case E_EVENT_NEW_CLIENT:
+            ret = new_client(mmgr);
+            break;
+        case E_EVENT_CLIENT:
+            ret = known_client(mmgr);
+            break;
+        case E_EVENT_SECUR:
+            ret = security_event(mmgr);
+            break;
+        case E_EVENT_TIMEOUT: {
+            bool reset = false;
+            bool mdm_off = false;
+            bool cd_ipc = false;
+            ret = timer_event(mmgr->timer, &reset, &mdm_off, &cd_ipc);
+            if (reset)
+                set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+            if (mdm_off)
+                mmgr->events.cli_req = E_CLI_REQ_OFF;
+            if (cd_ipc)
+                /* @TODO: replace when control link module is created */
+                mdm_prepare_link(&mmgr->info);
+
+            break;
         }
+        }
+
+        if (ret == E_ERR_BAD_PARAMETER)
+            goto out;
     }
 out:
     /* if the wakelock is set here, it will be removed by events_cleanup

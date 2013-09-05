@@ -24,6 +24,7 @@
 #include "config.h"
 #include "file.h"
 #include "events_manager.h"
+#include "timer_events.h"
 #include "tcs.h"
 
 #define USAGE \
@@ -44,6 +45,7 @@ static void cleanup(void)
 {
     events_cleanup(g_mmgr);
     recov_dispose(g_mmgr->reset);
+    timer_dispose(g_mmgr->timer);
     LOG_VERBOSE("Exiting");
 }
 
@@ -129,6 +131,14 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
         mmgr->reset = recov_init(&cfg->mmgr.recov);
         if (!mmgr->reset) {
             LOG_ERROR("Failed to configure modem recovery module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->timer = timer_init(&cfg->mmgr.recov, &cfg->mmgr.timings,
+                                 &mmgr->clients);
+        if (!mmgr->timer) {
+            LOG_ERROR("Failed to configure timer module");
             ret = E_ERR_FAILED;
             goto out;
         }

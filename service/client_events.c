@@ -216,11 +216,11 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         mmgr->events.cli_req = E_CLI_REQ_NONE;
         recov_reinit(mmgr->reset);
         if (!mmgr->config.is_flashless)
-            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+            timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         /* if the modem is hsic, add wait_for_bus_ready */
         /* @TODO: push that into modem_specific */
         if (mmgr->info.mdm_link == E_LINK_HSIC)
-            start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+            timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     }
 out:
     return ret;
@@ -272,7 +272,7 @@ static e_mmgr_errors_t resource_acquire_stop_down(mmgr_data_t *mmgr)
     /* At least one client has acquired the resource and modem shutdown
      * procedure is on going. Stop it */
     mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
-    stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+    timer_stop(mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
     inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
     set_mmgr_state(mmgr, E_MMGR_MDM_UP);
 
@@ -325,8 +325,8 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
         LOG_INFO("notify clients that modem will be shutdown");
         inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
         /* if we have a current modem start procedure, stop all its timers */
-        stop_all_timers(&mmgr->timer);
-        start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+        timer_stop_all(mmgr->timer);
+        timer_start(mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
         set_mmgr_state(mmgr, E_MMGR_WAIT_SHT_ACK);
     }
 out:
@@ -512,7 +512,7 @@ static e_mmgr_errors_t request_ack_modem_shutdown(mmgr_data_t *mmgr)
     if (check_shutdown_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
         LOG_DEBUG("All clients agreed modem shutdown");
         mmgr->events.cli_req = E_CLI_REQ_OFF;
-        stop_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+        timer_stop(mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
@@ -539,7 +539,7 @@ static e_mmgr_errors_t request_force_modem_shutdown(mmgr_data_t *mmgr)
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
 
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
-    start_timer(&mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
+    timer_start(mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
     set_mmgr_state(mmgr, E_MMGR_WAIT_SHT_ACK);
 out:
     return ret;

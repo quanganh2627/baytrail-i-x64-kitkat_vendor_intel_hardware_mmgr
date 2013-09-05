@@ -28,6 +28,7 @@
 #include "bus_events.h"
 #include "reset_escalation.h"
 #include "security.h"
+#include "timer_events.h"
 
 #define EVENTS \
     X(IPC), \
@@ -37,16 +38,6 @@
     X(MCD), \
     X(BUS), \
     X(SECUR), \
-    X(NUM)
-
-#define TIMER \
-    X(COLD_RESET_ACK), \
-    X(MODEM_SHUTDOWN_ACK), \
-    X(WAIT_FOR_IPC_READY), \
-    X(WAIT_FOR_BUS_READY), \
-    X(REBOOT_MODEM_DELAY), \
-    X(WAIT_CORE_DUMP_READY), \
-    X(NUM)
 
 #define MMGR_STATE \
     X(MDM_OFF), \
@@ -59,12 +50,6 @@
     X(WAIT_SHT_ACK), \
     X(MDM_CORE_DUMP), \
     X(NUM)
-
-typedef enum e_timer_type {
-#undef X
-#define X(a) E_TIMER_ ## a
-    TIMER
-} e_timer_type_t;
 
 typedef enum e_events_type {
 #undef X
@@ -84,13 +69,6 @@ typedef enum e_mmgr_state {
 #define X(a) E_MMGR_ ## a
     MMGR_STATE
 } e_mmgr_state_t;
-
-typedef struct mmgr_timer {
-    uint8_t type;
-    int cur_timeout;
-    int timeout[E_TIMER_NUM];
-    struct timespec start[E_TIMER_NUM];
-} mmgr_timer_t;
 
 typedef struct mmgr_events {
     int nfds;
@@ -120,13 +98,12 @@ typedef struct mmgr_data {
     mmgr_configuration_t config;
     reset_handle_t *reset;
     client_list_t clients;
-    mmgr_timer_t timer;
+    timer_handle_t *timer;
     modem_info_t info;
     mmgr_events_t events;
     current_request_t request;
     secur_t secur;
     /* functions handlers: */
-    event_hdler_t hdler_events[E_EVENT_NUM];
     event_hdler_t hdler_client[E_MMGR_NUM][E_MMGR_NUM_REQUESTS];
     event_hdler_t hdler_pre_mdm[E_EL_NUMBER_OF];
     reset_mdm_op_t hdler_mdm[E_EL_NUMBER_OF];
