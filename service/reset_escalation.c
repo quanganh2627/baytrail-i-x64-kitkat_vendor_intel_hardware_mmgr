@@ -46,8 +46,8 @@ typedef struct reset_management {
     e_reset_operation_state_t state;
     reset_operation_t process[E_EL_NUMBER_OF];
     struct timeval last_reset_time;
-    const mmgr_configuration_t *config;
     e_force_operation_t op;
+    int reset_delay;
 } reset_management_t;
 
 /**
@@ -113,11 +113,11 @@ e_mmgr_errors_t recov_start(reset_handle_t *h)
          * recovery variable to default. */
         if (reset->level.id != E_EL_MODEM_OUT_OF_SERVICE) {
             if (current_time.tv_sec - reset->last_reset_time.tv_sec
-                > reset->config->min_time_issue) {
+                > reset->reset_delay) {
                 /* The modem behavior was correct during at least
                  * min_time_issue, so we can reset the reboot counter */
                 LOG_DEBUG("Last reset occurred at least %ds ago",
-                          reset->config->min_time_issue);
+                          reset->reset_delay);
                 recov_reinit(h);
                 property_set_int(PLATFORM_REBOOT_KEY, reboot_counter);
             }
@@ -245,10 +245,10 @@ e_mmgr_errors_t recov_done(reset_handle_t *h)
     if (reset->level.id >= E_EL_NUMBER_OF)
         goto out;
 
-    if (reset->op != E_FORCE_NO_COUNT) {
-        reset->level.counter++;
+    if (reset->op == E_FORCE_NO_COUNT)
         reset->op = E_FORCE_NONE;
-    }
+    else
+        reset->level.counter++;
 
     process = &reset->process[reset->level.id];
 
@@ -271,7 +271,7 @@ out:
  * @return a valid pointer to reset module
  * @return NULL otherwise
  */
-reset_handle_t *recov_init(const mmgr_configuration_t *config)
+reset_handle_t *recov_init(const mmgr_recovery_t *recov)
 {
     int i = 0;
     reset_operation_t *p_process = NULL;
@@ -282,14 +282,14 @@ reset_handle_t *recov_init(const mmgr_configuration_t *config)
         goto out;
     }
 
-    if (!config) {
-        LOG_ERROR("config is NULL");
+    if (!recov) {
+        LOG_ERROR("recov is NULL");
         recov_dispose((reset_handle_t *)reset);
         reset = NULL;
         goto out;
     }
 
-    reset->config = config;
+    reset->reset_delay = recov->reset_delay;
 
     /* initialize structure */
     for (i = 0; i < E_EL_NUMBER_OF; i++) {
@@ -299,7 +299,7 @@ reset_handle_t *recov_init(const mmgr_configuration_t *config)
 
     /* always configure routines to handle FORCE user requests */
     reset->op = E_FORCE_NONE;
-    if (config->modem_reset_enable) {
+    if (recov->enable) {
         /* initialize some data */
         reset->level.id = E_EL_MODEM_COLD_RESET;
         reset->level.counter = 0;
@@ -308,13 +308,13 @@ reset_handle_t *recov_init(const mmgr_configuration_t *config)
 
         /* structure initialization: */
         p_process = &reset->process[E_EL_MODEM_COLD_RESET];
-        if (config->nb_cold_reset > 0)
-            p_process->retry_allowed = config->nb_cold_reset;
+        if (recov->cold_reset > 0)
+            p_process->retry_allowed = recov->cold_reset;
 
-        if (config->nb_platform_reboot > 0) {
+        if (recov->reboot > 0) {
             p_process->next_level = E_EL_PLATFORM_REBOOT;
             p_process = &reset->process[E_EL_PLATFORM_REBOOT];
-            p_process->retry_allowed = config->nb_platform_reboot;
+            p_process->retry_allowed = recov->reboot;
         }
     }
 

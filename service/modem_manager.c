@@ -119,7 +119,19 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
             goto out;
         }
 
-        /* @TODO: extract all parameters */
+        tcs_cfg_t *cfg = tcs_get_config(h);
+        if (!cfg) {
+            LOG_ERROR("Failed to get current configuration");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->reset = recov_init(&cfg->mmgr.recov);
+        if (!mmgr->reset) {
+            LOG_ERROR("Failed to configure modem recovery module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
     } else {
         LOG_ERROR("Failed to init TCS");
         ret = E_ERR_FAILED;
@@ -203,13 +215,6 @@ int main(int argc, char *argv[])
     if ((err = mmgr_configure(&mmgr.config, conf_file))
         == E_ERR_BAD_PARAMETER) {
         LOG_ERROR("Initialization failed (reason=%d). Exit", err);
-        ret = EXIT_FAILURE;
-        goto out;
-    }
-
-    mmgr.reset = recov_init(&mmgr.config);
-    if (!mmgr.reset) {
-        LOG_ERROR("Reset escalation init failed");
         ret = EXIT_FAILURE;
         goto out;
     }

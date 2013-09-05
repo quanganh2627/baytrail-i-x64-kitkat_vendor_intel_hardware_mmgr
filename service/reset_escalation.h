@@ -20,9 +20,9 @@
 #define __MMGR_RESET_ESCALATION_HEADER__
 
 #include <time.h>
-#include "config.h"
 #include "errors.h"
 #include "modem_info.h"
+#include "tcs_mmgr.h"
 
 #define RECOV_LEVEL \
     X(UNKNOWN), \
@@ -56,7 +56,7 @@ typedef enum e_force_operation {
     E_FORCE_OOS,
 } e_force_operation_t;
 
-reset_handle_t *recov_init(const mmgr_configuration_t *p);
+reset_handle_t *recov_init(const mmgr_recovery_t *recov);
 e_mmgr_errors_t recov_dispose(reset_handle_t *h);
 
 e_mmgr_errors_t recov_do_reset(reset_handle_t *h);
