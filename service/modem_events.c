@@ -225,9 +225,10 @@ static e_mmgr_errors_t do_nvm_customization(mmgr_data_t *mmgr)
 
     if (mmgr->config.is_flashless) {
         LOG_DEBUG("checking for nvm patch existence at %s",
-                  mmgr->info.fl_conf.nvm_patch);
+                  mmgr->info.fl_conf.run.nvm_tlv);
 
-        if (is_file_exists(mmgr->info.fl_conf.nvm_patch, 0) == E_ERR_SUCCESS) {
+        if (is_file_exists(mmgr->info.fl_conf.run.nvm_tlv,
+                           0) == E_ERR_SUCCESS) {
             LOG_DEBUG("nvm patch found");
             ret =
                 flash_modem_nvm(&mmgr->info, mmgr->config.nvm_custo_dlc,
@@ -236,7 +237,7 @@ static e_mmgr_errors_t do_nvm_customization(mmgr_data_t *mmgr)
             ret = E_ERR_FAILED;
             nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
             LOG_DEBUG("no nvm patch found at %s; skipping nvm update",
-                      mmgr->info.fl_conf.nvm_patch);
+                      mmgr->info.fl_conf.run.nvm_tlv);
         }
         inform_all_clients(&mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,
                            &nvm_result);
@@ -565,8 +566,8 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         goto out;
     }
-    ret = switch_to_mux(&mmgr->fd_tty, &mmgr->config, &mmgr->info,
-                        mmgr->config.max_retry);
+
+    ret = switch_to_mux(&mmgr->fd_tty, &mmgr->info);
     if (ret == E_ERR_SUCCESS) {
         LOG_VERBOSE("Switch to MUX succeed");
     } else {

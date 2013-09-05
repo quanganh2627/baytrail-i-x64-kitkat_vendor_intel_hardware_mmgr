@@ -57,7 +57,7 @@ e_mmgr_errors_t backup_prod_nvm(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    ret = copy_file(info->fl_conf.run_cal, info->fl_conf.bkup_cal,
+    ret = copy_file(info->fl_conf.run.nvm_cal, info->fl_conf.bkup.nvm_cal,
                     FLS_FILE_PERMISSION);
 
 out:
@@ -141,6 +141,28 @@ out:
     return ret;
 }
 
+/**
+ * This function disposes the modem specific module
+ *
+ * @param [in] info
+ *
+ * @return E_ERR_BAD_PARAMETER one parameter is NULL
+ * @return E_ERR_FAILED if mcdr init fails
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t mdm_specific_dispose(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    if (info->mup.hdle != NULL)
+        dlclose(info->mup.hdle);
+
+out:
+    return ret;
+}
+
 e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -188,7 +210,7 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
 
     /* @TODO retrieve modem version via SFI table and remove this static value
     **/
-    if (info->mup.check_fw_version(info->fl_conf.run_inj_fls, "XMM7160") !=
+    if (info->mup.check_fw_version(info->fl_conf.run.mdm_inj_fw, "XMM7160") !=
         E_MUP_SUCCEED) {
         LOG_ERROR("Bad modem family. Shutdown the modem");
         *verdict = E_MODEM_FW_BAD_FAMILY;
@@ -199,8 +221,8 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
         .handle           = handle,
         .mdm_com_port     = comport,
         .channel_hw_sw    = ch_sw,
-        .fw_file_path     = info->fl_conf.run_inj_fls,
-        .fw_file_path_len = strnlen(info->fl_conf.run_inj_fls,
+        .fw_file_path     = info->fl_conf.run.mdm_inj_fw,
+        .fw_file_path_len = strnlen(info->fl_conf.run.mdm_inj_fw,
                                     MAX_SIZE_CONF_VAL),
         /* for flashless modem, this should be false */
         .erase_all        = false,
@@ -213,9 +235,9 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
 
     char *rnd = NULL;
     size_t len = 0;
-    if (E_ERR_SUCCESS == is_file_exists(info->fl_conf.run_rnd_cert, 0)) {
-        rnd = info->fl_conf.run_rnd_cert;
-        len = strnlen(info->fl_conf.run_rnd_cert, MAX_SIZE_CONF_VAL);
+    if (E_ERR_SUCCESS == is_file_exists(info->fl_conf.run.rnd, 0)) {
+        rnd = info->fl_conf.run.rnd;
+        len = strnlen(info->fl_conf.run.rnd, MAX_SIZE_CONF_VAL);
     }
 
     secur_callback = secure_get_callback(sec_hdle);
@@ -293,8 +315,8 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
     mup_nvm_update_params_t params = {
         .handle            = handle,
         .mdm_com_port      = comport,
-        .nvm_file_path     = info->fl_conf.nvm_patch,
-        .nvm_file_path_len = strnlen(info->fl_conf.nvm_patch,
+        .nvm_file_path     = info->fl_conf.run.nvm_tlv,
+        .nvm_file_path_len = strnlen(info->fl_conf.run.nvm_tlv,
                                      MAX_SIZE_CONF_VAL),
     };
 
@@ -304,8 +326,8 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
         *sub_error_code = mup_ret;
         LOG_ERROR("modem nvm update failed with error %d", mup_ret);
     } else {
-        if (unlink(info->fl_conf.nvm_patch) != 0)
-            LOG_ERROR("couldn't delete %s: %s", info->fl_conf.nvm_patch,
+        if (unlink(info->fl_conf.run.nvm_tlv) != 0)
+            LOG_ERROR("couldn't delete %s: %s", info->fl_conf.run.nvm_tlv,
                       strerror(errno));
         /* for now consider a success even if nvm patch not deleted */
         *verdict = E_MODEM_NVM_SUCCEED;
@@ -381,25 +403,24 @@ static e_mmgr_errors_t regen_fls(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    if ((ret =
-             is_file_exists(info->fl_conf.run_boot_fls, 0)) != E_ERR_SUCCESS) {
-        LOG_ERROR("fls file (%s) is missing", info->fl_conf.run_boot_fls);
+    if ((ret = is_file_exists(info->fl_conf.run.mdm_fw, 0)) != E_ERR_SUCCESS) {
+        LOG_ERROR("fls file (%s) is missing", info->fl_conf.run.mdm_fw);
         goto out;
     }
 
-    remove(info->fl_conf.run_inj_fls);
+    remove(info->fl_conf.run.mdm_inj_fw);
     LOG_DEBUG("trying to package fls file");
 
     /* @TODO: add certificate and secur files */
-    mup_err = info->mup.gen_fls(info->fl_conf.run_boot_fls,
-                                info->fl_conf.run_inj_fls,
-                                info->fl_conf.run_path, no_file, no_file);
+    mup_err = info->mup.gen_fls(info->fl_conf.run.mdm_fw,
+                                info->fl_conf.run.mdm_inj_fw,
+                                info->fl_conf.run.path, no_file, no_file);
 
     if (mup_err == E_MUP_SUCCEED) {
-        ret = is_file_exists(info->fl_conf.run_inj_fls, 0);
+        ret = is_file_exists(info->fl_conf.run.mdm_inj_fw, 0);
         if (ret == E_ERR_SUCCESS)
             LOG_INFO("fls file created successfully (%s)",
-                     info->fl_conf.run_inj_fls);
+                     info->fl_conf.run.mdm_inj_fw);
         else
             LOG_ERROR("failed to create fls file");
     } else {
@@ -613,18 +634,18 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
 
     if (info->is_flashless) {
         /* Restore calibration file from backup if missing */
-        if (is_file_exists(info->fl_conf.run_cal, 0) != E_ERR_SUCCESS) {
-            if (copy_file(info->fl_conf.bkup_cal, info->fl_conf.run_cal,
+        if (is_file_exists(info->fl_conf.run.nvm_cal, 0) != E_ERR_SUCCESS) {
+            if (copy_file(info->fl_conf.bkup.nvm_cal, info->fl_conf.run.nvm_cal,
                           FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
                 /* This is not a blocking error case because this can happen in
                  * production when first calib is about to be done. Just raise a
                  * warning. */
                 LOG_INFO("No calib could be restored from %s,"
                          " device must be re-calibrated",
-                         info->fl_conf.bkup_cal);
+                         info->fl_conf.bkup.nvm_cal);
             } else {
                 LOG_INFO("Calibration file restored from %s",
-                         info->fl_conf.bkup_cal);
+                         info->fl_conf.bkup.nvm_cal);
             }
         }
         /* re-generates the fls through nvm injection lib if the modem is

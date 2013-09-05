@@ -75,14 +75,10 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
     close_all_clients(&mmgr->clients);
     write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
-    if (mmgr->info.mup.hdle != NULL)
-        dlclose(mmgr->info.mup.hdle);
     if (mmgr->fd_tty != CLOSED_FD)
         close_tty(&mmgr->fd_tty);
     if (mmgr->fd_cnx != CLOSED_FD)
         close_cnx(&mmgr->fd_cnx);
-    if (mmgr->info.fd_mcd != CLOSED_FD)
-        close_tty(&mmgr->info.fd_mcd);
     if (mmgr->epollfd != CLOSED_FD)
         close(mmgr->epollfd);
 out:
@@ -139,15 +135,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         LOG_ERROR("Client list initialisation failed");
         goto out;
     }
-
-    if ((ret = modem_info_init(&mmgr->config, &mmgr->info))
-        != E_ERR_SUCCESS) {
-        LOG_ERROR("Modem info initialization failed");
-        goto out;
-    }
-
-    if ((ret = mdm_specific_init(&mmgr->info)) != E_ERR_SUCCESS)
-        goto out;
 
     if ((ret = mdm_prepare(&mmgr->info)) != E_ERR_SUCCESS)
         goto out;

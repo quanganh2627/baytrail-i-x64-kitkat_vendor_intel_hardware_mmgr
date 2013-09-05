@@ -29,6 +29,7 @@
 #include "errors.h"
 #include "logs.h"
 #include "modem_info.h"
+#include "modem_specific.h"
 #include "reset_escalation.h"
 #include "mux.h"
 #include "tty.h"
@@ -51,60 +52,74 @@ typedef enum e_switch_to_mux_states {
     E_MUX_DRIVER,
 } e_switch_to_mux_states_t;
 
-static e_mmgr_errors_t mdm_get_link_type(const char *type, e_link_t *link)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(type, ret, out);
-    CHECK_PARAM(link, ret, out);
-
-    if (strcmp(type, "hsic") == 0)
-        *link = E_LINK_HSIC;
-    else if (strcmp(type, "hsi") == 0)
-        *link = E_LINK_HSI;
-    else if (strcmp(type, "uart") == 0)
-        *link = E_LINK_UART;
-    else
-        ret = E_ERR_FAILED;
-
-out:
-    return ret;
-}
-
 /**
  * initialize modem info structure and mcdr
  *
- * @param [in] config mmgr config
+ * @param [in] mdm_info mmgr config
+ * @param [in] com
+ * @param [in] mdm_link
+ ** @param [in] flash
  * @param [in,out] info modem info
  *
- * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_BAD_PARAMETER one parameter is NULL
  * @return E_ERR_FAILED if mcdr init fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
-                                modem_info_t *info)
+e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
+                                mmgr_mdm_link_t *mdm_link,
+                                mmgr_flashless_t *flash, modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
+    CHECK_PARAM(mdm_info, ret, out);
+    CHECK_PARAM(com, ret, out);
+    CHECK_PARAM(mdm_link, ret, out);
     CHECK_PARAM(info, ret, out);
 
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
-    info->is_flashless = config->is_flashless;
+    info->is_flashless = mdm_info->flashless;
+    info->mux = com->mux;
 
-    if (config->is_flashless)
-        modem_info_flashless_config(FLASHLESS_CFG, &info->fl_conf);
-
-    if ((ret = mdm_get_link_type(config->link_layer, &info->mdm_link))
-        != E_ERR_SUCCESS)
+    info->cd_link = mdm_info->ipc_cd;
+    info->mdm_link = mdm_info->ipc_mdm;
+    switch (mdm_link->baseband.type) {
+    case E_LINK_HSI:
+        strncpy(info->mdm_ipc_path, mdm_link->baseband.hsi.device,
+                sizeof(info->mdm_ipc_path));
+        break;
+    case E_LINK_HSIC:
+        strncpy(info->mdm_ipc_path, mdm_link->baseband.hsic.device,
+                sizeof(info->mdm_ipc_path));
+        break;
+    default:
+        LOG_ERROR("type not handled");
+        ret = E_ERR_FAILED;
         goto out;
+    }
 
-    if ((ret = mdm_get_link_type(config->mcdr_link_layer, &info->cd_link))
-        != E_ERR_SUCCESS)
+    /* @TODO: if not DLC, this code should be updated */
+    strncpy(info->sanity_check_dlc, com->ch.sanity_check.device,
+            sizeof(info->sanity_check_dlc) - 1);
+    strncpy(info->mdm_custo_dlc, com->ch.mdm_custo.device,
+            sizeof(info->mdm_custo_dlc) - 1);
+    strncpy(info->shtdwn_dlc, com->ch.shutdown.device,
+            sizeof(info->shtdwn_dlc) - 1);
+
+    if (!strncmp(info->sanity_check_dlc, "", sizeof(info->sanity_check_dlc)) ||
+        !strncmp(info->mdm_custo_dlc, "", sizeof(info->mdm_custo_dlc)) ||
+        !strncmp(info->shtdwn_dlc, "", sizeof(info->shtdwn_dlc))) {
+        LOG_ERROR("empty DLC");
+        ret = E_ERR_FAILED;
         goto out;
+    }
 
-    info->hsic_pm_path = (char *)config->hsic_pm_path;
-    info->hsic_enable_path = (char *)config->hsic_enable_path;
+    /* @TODO: this should be part of the link module */
+    strncpy(info->hsic_pm_path, mdm_link->power.device,
+            sizeof(info->hsic_pm_path) - 1);
+    strncpy(info->hsic_enable_path, mdm_link->ctrl.device,
+            sizeof(info->hsic_enable_path) - 1);
 
+    info->fl_conf = *flash;
     info->fd_mcd = open(MBD_DEV, O_RDWR);
     if (info->fd_mcd == -1) {
         LOG_DEBUG("failed to open Modem Control Driver interface: %s",
@@ -113,6 +128,33 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
         goto out;
     }
 
+    ret = mdm_specific_init(info);
+out:
+    return ret;
+}
+
+/**
+ * This functions disposes the modem info module
+ * @TODO: update this module to use getters/setters
+ *
+ * @param [in] info
+ *
+ * @return E_ERR_BAD_PARAMETER one parameter is NULL
+ * @return E_ERR_FAILED if mcdr init fails
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t modem_info_dispose(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    if (info->fd_mcd != CLOSED_FD) {
+        close(info->fd_mcd);
+        info->fd_mcd = CLOSED_FD;
+    }
+
+    ret = mdm_specific_dispose(info);
 out:
     return ret;
 }
@@ -121,10 +163,8 @@ out:
  * Log the self reset reason
  *
  * @param [in] fd_tty tty file descriptor
- * @param [in] config mmgr config
- * @param [in,out] info modem info
+ * @param [in] max_retry
  *
- * @return E_ERR_BAD_PARAMETER if config or info is/are NULL
  * @return E_ERR_TTY_BAD_FD
  * @return E_ERR_TTY_POLLHUP if a pollhup occurs
  * @return E_ERR_TTY_ERROR error during write
@@ -132,20 +172,16 @@ out:
  * @return E_ERR_AT_CMD_RESEND generic failure
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t run_at_xlog(int fd_tty, mmgr_configuration_t *config,
-                                   modem_info_t *info)
+static e_mmgr_errors_t run_at_xlog(int fd_tty, int max_retry)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char data[AT_ANSWER_SIZE + 1];
     int read_size = 0;
     char *p = NULL;
 
-    CHECK_PARAM(config, ret, out_xlog);
-    CHECK_PARAM(info, ret, out_xlog);
-
     tcflush(fd_tty, TCIOFLUSH);
 
-    LOG_DEBUG("Send of %s", AT_XLOG_GET);
+    LOG_DEBUG("Sending %s", AT_XLOG_GET);
 
     ret = write_to_tty(fd_tty, AT_XLOG_GET, strlen(AT_XLOG_GET));
     if (ret != E_ERR_SUCCESS)
@@ -179,7 +215,7 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, mmgr_configuration_t *config,
 
     tcflush(fd_tty, TCIFLUSH);
     ret = send_at_retry(fd_tty, AT_XLOG_RESET, strlen(AT_XLOG_RESET),
-                        config->max_retry, AT_ANSWER_SHORT_TIMEOUT);
+                        max_retry, AT_ANSWER_SHORT_TIMEOUT);
 out_xlog:
     return ret;
 }
@@ -195,11 +231,9 @@ out_xlog:
  *      5. Wait creation of all MUX tty ports
  *
  * @param [in,out] fd_tty modem file descriptor
- * @param [in] config mmgr config
- * @param [in,out] info modem info
- * @param [in] retry switch to mux retries
+ * @param [in] info modem information
  *
- * @return E_ERR_BAD_PARAMETER if config or info is/are NULL
+ * @return E_ERR_BAD_PARAMETER if parameters are NULL
  * @return E_ERR_TTY_BAD_FD bad file descriptor
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_AT_CMD_RESEND  generic failure
@@ -208,8 +242,7 @@ out_xlog:
  * @return E_ERR_TTY_TIMEOUT no response from modem
  * @return E_ERR_SUCCESS
  */
-e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
-                              modem_info_t *info, int retry)
+e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_BAD_PARAMETER;
     e_switch_to_mux_states_t state;
@@ -217,19 +250,18 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
     bool retry_bad_fd_done = false;
 
     CHECK_PARAM(fd_tty, ret, out);
-    CHECK_PARAM(config, ret, out);
     CHECK_PARAM(info, ret, out);
 
     for (state = E_MUX_HANDSHAKE; state != E_MUX_DRIVER; /* none */) {
         switch (state) {
         case E_MUX_HANDSHAKE:
-            ret = modem_handshake(*fd_tty, config, retry);
+            ret = modem_handshake(*fd_tty, info->mux.retry);
             break;
         case E_MUX_XLOG:
-            ret = run_at_xlog(*fd_tty, config, info);
+            ret = run_at_xlog(*fd_tty, info->mux.retry);
             break;
         case E_MUX_AT_CMD:
-            ret = send_at_cmux(*fd_tty, config, retry);
+            ret = send_at_cmux(*fd_tty, &info->mux);
             break;
         case E_MUX_DRIVER:
             /* nothing to do here */
@@ -244,10 +276,10 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
             /* states are ordered. go to next one */
             state++;
         } else if ((ret == E_ERR_TTY_BAD_FD) && (retry_bad_fd_done == false)) {
-            LOG_DEBUG("reopen tty device: %s", config->modem_port);
+            LOG_DEBUG("reopening tty device: %s", info->mdm_ipc_path);
             retry_bad_fd_done = true;
             close_tty(fd_tty);
-            if ((ret = open_tty(config->modem_port, fd_tty)) != E_ERR_SUCCESS)
+            if ((ret = open_tty(info->mdm_ipc_path, fd_tty)) != E_ERR_SUCCESS)
                 goto out;
         } else {
             ret = E_ERR_FAILED;
@@ -255,21 +287,21 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
         }
     }
 
-    ret = configure_cmux_driver(*fd_tty, config->max_frame_size);
+    ret = configure_cmux_driver(*fd_tty, info->mux.frame_size);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
     /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients
      * (this guarantees that the MUX control channel has been established with
      * the modem). Will retry for up to MAX_TIME_DELAY seconds. */
-    LOG_DEBUG("looking for TTY %s", config->waitloop_tty_name);
+    LOG_DEBUG("looking for TTY %s", info->sanity_check_dlc);
     ret = E_ERR_FAILED;
     clock_gettime(CLOCK_MONOTONIC, &start);
     do {
         int tmp_fd;
 
         usleep(STAT_DELAY * 1000);
-        if ((tmp_fd = open(config->waitloop_tty_name, O_RDWR)) >= 0) {
+        if ((tmp_fd = open(info->sanity_check_dlc, O_RDWR)) >= 0) {
             close(tmp_fd);
             ret = E_ERR_SUCCESS;
             break;
@@ -281,9 +313,9 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
               (current.tv_nsec < start.tv_nsec)));
 
     if (ret != E_ERR_SUCCESS) {
-        LOG_ERROR("was not able to open TTY %s", config->waitloop_tty_name);
+        LOG_ERROR("was not able to open TTY %s", info->sanity_check_dlc);
     } else {
-        LOG_DEBUG("TTY %s open success", config->waitloop_tty_name);
+        LOG_DEBUG("TTY %s open success", info->sanity_check_dlc);
         /* It's necessary to reset the terminal configuration after MUX init */
         ret = set_termio(*fd_tty);
     }

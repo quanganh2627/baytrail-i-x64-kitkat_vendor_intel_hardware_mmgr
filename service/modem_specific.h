@@ -27,6 +27,7 @@
 #include <linux/mdm_ctrl.h>
 
 e_mmgr_errors_t mdm_specific_init(modem_info_t *info);
+e_mmgr_errors_t mdm_specific_dispose(modem_info_t *info);
 e_mmgr_errors_t mdm_cold_reset(modem_info_t *info);
 e_mmgr_errors_t mdm_down(modem_info_t *info);
 e_mmgr_errors_t mdm_up(modem_info_t *info);

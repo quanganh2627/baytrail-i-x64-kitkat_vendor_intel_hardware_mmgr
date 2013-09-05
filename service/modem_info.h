@@ -20,13 +20,13 @@
 #include <time.h>
 #include "config.h"
 #include "modem_update.h"
+#include "tcs_config.h"
 #include "tcs_mmgr.h"
 
 #define HANDSHAKE_AFTER_CD_RETRIES_COUNT 12
 #define CORE_DUMP_READY_TIMEOUT 10      /* 10 seconds for modem to re-enumerate
                                          * in flashing mode */
 #define MBD_DEV "/dev/mdm_ctrl"
-#define FLASHLESS_CFG "/etc/telephony/flashless.conf"
 
 typedef enum e_modem_events_type {
     E_EV_NONE = 0x0,
@@ -69,17 +69,23 @@ typedef struct modem_info {
     mup_op_t mup;
     int fd_mcd;
     int polled_states;
-    flashless_config_t fl_conf;
+    mmgr_flashless_t fl_conf;
     bool is_flashless;
     e_link_t mdm_link;          /* modem link */
     e_link_t cd_link;           /* core dump link */
-    char *hsic_pm_path;
-    char *hsic_enable_path;
+    char hsic_pm_path[PATH_MAX];
+    char hsic_enable_path[PATH_MAX];
+    char mdm_ipc_path[PATH_MAX];
+    char sanity_check_dlc[PATH_MAX];
+    char mdm_custo_dlc[PATH_MAX];
+    char shtdwn_dlc[PATH_MAX];
+    mux_t mux;
 } modem_info_t;
 
-e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
-                                modem_info_t *info);
-e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
-                              modem_info_t *info, int timeout);
+e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
+                                mmgr_mdm_link_t *mdm_link,
+                                mmgr_flashless_t *flash, modem_info_t *info);
+e_mmgr_errors_t modem_info_dispose(modem_info_t *info);
+e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info);
 
 #endif                          /* _MMGR_MODEM_INFO_HEADER__ */

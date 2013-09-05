@@ -19,12 +19,10 @@
 #ifndef __MMGR_MUX_HEADER__
 #define __MMGR_MUX_HEADER__
 
-#include "config.h"
+#include "tcs_mmgr.h"
 
-e_mmgr_errors_t modem_handshake(int fd_tty, mmgr_configuration_t *config,
-                                int timeout);
+e_mmgr_errors_t modem_handshake(int fd_tty, int timeout);
 e_mmgr_errors_t configure_cmux_driver(int fd_tty, int max_frame_size);
-e_mmgr_errors_t send_at_cmux(int fd_tty, mmgr_configuration_t *config,
-                             int timeout);
+e_mmgr_errors_t send_at_cmux(int fd_tty, mux_t *mux);
 
 #endif                          /* __MCDR_FILE_HEADER__ */

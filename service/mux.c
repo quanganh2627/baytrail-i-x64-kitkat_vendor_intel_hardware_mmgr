@@ -50,31 +50,18 @@
  * check that modem is alive by sending PING request
  *
  * @param [in] fd_tty modem file descriptor
- * @param [in] config mmgr config
  * @param [in] retry retries to send command
  *
- * @return E_ERR_BAD_PARAMETER if config is NULL
  * @return E_ERR_TTY_BAD_FD bad file descriptor
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_AT_CMD_RESEND  generic failure
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_handshake(int fd_tty, mmgr_configuration_t *config,
-                                int retry)
+e_mmgr_errors_t modem_handshake(int fd_tty, int retry)
 {
-    int ret;
-
-    CHECK_PARAM(config, ret, out);
-
-    sleep(config->delay_before_at);
     LOG_VERBOSE("sending PING to modem");
-
-    ret = send_at_retry(fd_tty, AT_PING_CMD, strlen(AT_PING_CMD), retry,
-                        AT_ANSWER_SHORT_TIMEOUT);
-    if (ret != E_ERR_SUCCESS)
-        LOG_ERROR("PING not successful");
-out:
-    return ret;
+    return send_at_retry(fd_tty, AT_PING_CMD, strlen(AT_PING_CMD), retry,
+                         AT_ANSWER_SHORT_TIMEOUT);
 }
 
 /**
@@ -171,38 +158,35 @@ out:
  * send cmux command
  *
  * @param [in] fd_tty modem file descriptor
- * @param [in] config mmgr config
- * @param [in] retry retries to send command
+ * @param [in] mux mux configuration
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_AT_CMD_RESEND  generic failure
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_TTY_BAD_FD bad file descriptor
- * @return E_ERR_BAD_PARAMETER if config is NULL
  * @return E_ERR_FAILED if AT+CMUX creation command failed
  */
-e_mmgr_errors_t send_at_cmux(int fd_tty, mmgr_configuration_t *config,
-                             int retry)
+e_mmgr_errors_t send_at_cmux(int fd_tty, mux_t *mux)
 {
     char at_cmux_config[AT_MUX_CMD_SIZE];
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    CHECK_PARAM(config, ret, end_send_at_cmux);
+    CHECK_PARAM(mux, ret, out);
 
-    LOG_VERBOSE("sending AT+CMUX to modem");
     /* NB: Add AT_MUX_PORT_SPEED, AT_MUX_T3, AT_MUX_K if needed */
     if (snprintf(at_cmux_config, AT_MUX_CMD_SIZE,
                  "AT+CMUX=%d,%d,,%d,%d,%d,%d,,\r", AT_MUX_MODE, AT_MUX_SUBSET,
-                 config->max_frame_size, AT_MUX_T1, AT_MUX_N2, AT_MUX_T2) < 0) {
-        LOG_ERROR("AT+CMUX creation command failed");
-        goto end_send_at_cmux;
+                 mux->frame_size, AT_MUX_T1, AT_MUX_N2, AT_MUX_T2) < 0) {
+        LOG_ERROR("AT+CMUX command creation failed");
+    } else {
+        LOG_VERBOSE("sending AT+CMUX");
+        ret = send_at_retry(fd_tty, at_cmux_config,
+                            strnlen(at_cmux_config, AT_MUX_CMD_SIZE),
+                            mux->retry, AT_ANSWER_SHORT_TIMEOUT);
+        if (ret != E_ERR_SUCCESS)
+            LOG_ERROR("AT+CMUX not sent successfully");
     }
 
-    ret = send_at_retry(fd_tty, at_cmux_config,
-                        strnlen(at_cmux_config, AT_MUX_CMD_SIZE), retry,
-                        AT_ANSWER_SHORT_TIMEOUT);
-    if (ret != E_ERR_SUCCESS)
-        LOG_ERROR("AT+CMUX not successful");
-end_send_at_cmux:
+out:
     return ret;
 }

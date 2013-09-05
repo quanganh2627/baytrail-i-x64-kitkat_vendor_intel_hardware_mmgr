@@ -24,7 +24,9 @@
 #include "config.h"
 #include "file.h"
 #include "events_manager.h"
+#include "modem_info.h"
 #include "timer_events.h"
+
 #include "tcs.h"
 
 #define USAGE \
@@ -49,6 +51,7 @@ static void cleanup(void)
     secure_stop(g_mmgr->secure);
     secure_dispose(g_mmgr->secure);
     mcdr_dispose(g_mmgr->mcdr);
+    modem_info_dispose(&g_mmgr->info);
     LOG_VERBOSE("Exiting");
 }
 
@@ -157,6 +160,14 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
         mmgr->mcdr = mcdr_init(&cfg->mmgr.mcdr);
         if (!mmgr->mcdr) {
             LOG_ERROR("Failed to configure MCDR module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        if (E_ERR_SUCCESS != modem_info_init(&cfg->mdm_info, &cfg->mmgr.com,
+                                             &cfg->mmgr.mdm_link,
+                                             &cfg->mmgr.flash, &mmgr->info)) {
+            LOG_ERROR("Failed to configure the modem info module");
             ret = E_ERR_FAILED;
             goto out;
         }
