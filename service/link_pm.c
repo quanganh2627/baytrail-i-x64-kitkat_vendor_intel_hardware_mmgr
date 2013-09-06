@@ -23,7 +23,6 @@
 #include <string.h>
 
 #define UART_PM "/sys/devices/pci0000:00/0000:00:05.1/power/control"
-#define HSIC_PM HSIC_PATH"/L2_autosuspend_enable"
 #define PM_CMD_SIZE 6
 
 #define HSIC_PM_ON "1"
@@ -34,6 +33,7 @@
 /**
  * This function sets the IPC power management
  *
+ * @param [in] info modem info
  * @param [in] link type of link
  * @param [in] state (true: power management is enabled)
  *
@@ -41,7 +41,8 @@
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
  */
-static e_mmgr_errors_t pm_set_state(e_link_type_t link, bool state)
+static e_mmgr_errors_t pm_set_state(modem_info_t *info, e_link_type_t link,
+                                    bool state)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char *hsic_cmd[] = { HSIC_PM_OFF, HSIC_PM_ON };
@@ -55,7 +56,7 @@ static e_mmgr_errors_t pm_set_state(e_link_type_t link, bool state)
         ret = E_ERR_FAILED;
         break;
     case E_LINK_HSIC:
-        path = HSIC_PM;
+        path = info->hsic_pm_path;
         cmd = hsic_cmd[state];
         break;
     case E_LINK_UART:
@@ -117,7 +118,7 @@ e_mmgr_errors_t pm_on_mdm_up(modem_info_t *info)
         /* Nothing to do */
         break;
     case E_LINK_HSIC:
-        pm_set_state(info->mdm_link, true);
+        pm_set_state(info, info->mdm_link, true);
         break;
     case E_LINK_UART:
         /* Nothing to do */
@@ -147,7 +148,7 @@ e_mmgr_errors_t pm_on_mdm_oos(modem_info_t *info)
         /* Nothing to do */
         break;
     case E_LINK_HSIC:
-        pm_set_state(info->mdm_link, true);
+        pm_set_state(info, info->mdm_link, true);
         break;
     case E_LINK_UART:
         /* Nothing to do */
@@ -180,7 +181,7 @@ e_mmgr_errors_t pm_on_mdm_cd(modem_info_t *info)
         /* Nothing to do */
         break;
     case E_LINK_UART:
-        pm_set_state(info->cd_link, false);
+        pm_set_state(info, info->cd_link, false);
         break;
     }
 
@@ -207,10 +208,10 @@ e_mmgr_errors_t pm_on_mdm_cd_complete(modem_info_t *info)
         /* Nothing to do */
         break;
     case E_LINK_HSIC:
-        pm_set_state(info->cd_link, true);
+        pm_set_state(info, info->cd_link, true);
         break;
     case E_LINK_UART:
-        pm_set_state(info->cd_link, true);
+        pm_set_state(info, info->cd_link, true);
         break;
     }
 

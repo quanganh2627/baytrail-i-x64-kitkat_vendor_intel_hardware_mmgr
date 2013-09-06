@@ -381,9 +381,6 @@ public class ModemStatusManager implements Callback {
                 case COLD_RESET:
                     this.eventListener.onModemColdReset(args);
                     break;
-                case WARM_RESET:
-                    this.eventListener.onModemWarmReset(args);
-                    break;
                 case SHUTDOWN:
                     this.eventListener.onModemShutdown(args);
                     break;

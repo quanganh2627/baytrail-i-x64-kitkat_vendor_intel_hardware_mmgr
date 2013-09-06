@@ -42,9 +42,10 @@ typedef struct mmgr_configuration {
     char bb_vid[MAX_SIZE_CONF_VAL];
     char flash_pid[MAX_SIZE_CONF_VAL];
     char flash_vid[MAX_SIZE_CONF_VAL];
+    char hsic_enable_path[MAX_SIZE_CONF_VAL];
+    char hsic_pm_path[MAX_SIZE_CONF_VAL];
     /* modem recovery parameters */
     bool modem_reset_enable;
-    int nb_warm_reset;
     int nb_cold_reset;
     int nb_platform_reboot;
     int modem_reset_delay;

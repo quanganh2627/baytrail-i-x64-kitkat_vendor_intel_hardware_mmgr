@@ -25,8 +25,7 @@ LOCAL_SRC_FILES:= \
     test_cases.c \
     test_utils.c
 LOCAL_MODULE_TAGS := optional tests
-LOCAL_STATIC_LIBRARIES := libcutils libc
-LOCAL_SHARED_LIBRARIES := libglib-2.0 libmmgrcli
+LOCAL_SHARED_LIBRARIES := libcutils libc libglib-2.0 libmmgrcli
 LOCAL_LDLIBS += -lpthread
 #uncomment this to enable gcov
 #LOCAL_CFLAGS += -fprofile-arcs -ftest-coverage

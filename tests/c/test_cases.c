@@ -151,20 +151,6 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
          "performed, the test will be declared FAILED\n"
          "*************************************************************\n\n");
 
-    for (i = 1; i <= test->config.nb_warm_reset; i++) {
-        printf("\nCheck #%d WARM reset\n", i);
-        pthread_mutex_lock(&test->mutex);
-        test->events &= ~E_EVENTS_SUCCEED;
-        pthread_mutex_unlock(&test->mutex);
-        ret = reset_by_client_request(test,
-                                      E_MMGR_REQUEST_MODEM_RECOVERY,
-                                      E_MMGR_NOTIFY_MODEM_WARM_RESET,
-                                      E_MMGR_EVENT_MODEM_UP);
-        if ((ret != E_ERR_SUCCESS) || (events_get(test) != E_EVENTS_SUCCEED)) {
-            ret = E_ERR_FAILED;
-            goto out;
-        }
-    }
     if (test->config.nb_cold_reset > 0) {
 
         for (i = 1; i <= test->config.nb_cold_reset; i++) {
@@ -278,7 +264,7 @@ out:
 
 /**
  * Test reset counter mechanism. Reboot counter shall be set to 0
- * and a warm modem reset shall be performed
+ * and a cold modem reset shall be performed
  *
  * @param [in] test test data
  *
@@ -300,7 +286,7 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
     sleep(test->config.min_time_issue + 1);
 
     ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RECOVERY,
-                                  E_MMGR_NOTIFY_MODEM_WARM_RESET,
+                                  E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                   E_MMGR_EVENT_MODEM_UP);
     if (ret != E_ERR_SUCCESS)
         goto out;

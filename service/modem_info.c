@@ -87,7 +87,6 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     CHECK_PARAM(info, ret, out);
 
-    info->ev = E_EV_MODEM_OFF;  /* modem is OFF at boot-up */
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
     info->is_flashless = config->is_flashless;
 
@@ -105,6 +104,9 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
     ret = core_dump_init(config, &info->mcdr);
     if (ret != E_ERR_SUCCESS)
         goto out;
+
+    info->hsic_pm_path = (char *)config->hsic_pm_path;
+    info->hsic_enable_path = (char *)config->hsic_enable_path;
 
     info->fd_mcd = open(MBD_DEV, O_RDWR);
     if (info->fd_mcd == -1) {

@@ -26,17 +26,6 @@ package com.intel.internal.telephony;
 public interface ModemEventListener {
 
     /**
-     * This method is called prior each modem warm reset planned by the Modem
-     * Status Monitor service.
-     *
-     * @param args
-     *            The arguments of the notification. Use
-     *            ModemNotificationArgs.setAcknowledge method to return ACK or
-     *            NACK to the Modem Status Monitor service.
-     */
-    public void onModemWarmReset(ModemNotificationArgs args);
-
-    /**
      * This method is called prior each modem cold reset planned by the Modem
      * Status Monitor service.
      *

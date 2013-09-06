@@ -21,7 +21,7 @@ LOCAL_C_INCLUDES += \
     vendor/intel/external/glib \
     vendor/intel/external/glib/android \
     vendor/intel/external/glib/glib \
-    external/libusb/libusb
+    $(call include-path-for, libusb)
 
 LOCAL_SRC_FILES:= \
     at.c \

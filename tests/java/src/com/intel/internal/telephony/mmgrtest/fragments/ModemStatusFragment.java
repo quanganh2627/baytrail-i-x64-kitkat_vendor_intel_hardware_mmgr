@@ -145,13 +145,6 @@ public class ModemStatusFragment extends Fragment implements
     }
 
     @Override
-    public void onModemWarmReset(ModemNotificationArgs arg) {
-        if (this.textViewLastNotification != null) {
-            this.textViewLastNotification.setText("MODEM WARM RESET");
-        }
-    }
-
-    @Override
     public void onPlatformReboot(ModemNotificationArgs arg) {
         if (this.textViewLastNotification != null) {
             this.textViewLastNotification.setText("PLATFORM REBOOT");

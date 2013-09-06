@@ -42,8 +42,6 @@
 #define MUP_FUNC_CONFIG_SECUR "mup_configure_secur_channel"
 #define MUP_FUNC_GEN_FLS "mup_gen_fls"
 
-#define HSIC_ENABLE_PATH HSIC_PATH"/hsic_enable"
-
 #define BACKUP ".bkup"
 
 /**
@@ -54,7 +52,7 @@
  * @return E_ERR_BAD_PARAMETER
  * @return E_ERR_SUCCESS
  */
-static e_mmgr_errors_t backup_nvm(modem_info_t *info)
+e_mmgr_errors_t backup_nvm(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char dynamic[PATH_MAX] = { '\0' };
@@ -117,7 +115,7 @@ out:
  * @return E_ERR_BAD_PARAMETER
  * @return E_ERR_SUCCESS
  */
-static e_mmgr_errors_t restore_nvm(modem_info_t *info)
+e_mmgr_errors_t restore_nvm(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char dynamic[PATH_MAX] = { '\0' };
@@ -130,6 +128,7 @@ static e_mmgr_errors_t restore_nvm(modem_info_t *info)
 
     unlink(info->fl_conf.run_dyn);
     unlink(info->fl_conf.run_stat);
+    unlink(info->fl_conf.run_cal);
 
     if (is_file_exists(dynamic, 0) == E_ERR_SUCCESS) {
         ret = copy_file(dynamic, info->fl_conf.run_dyn, FLS_FILE_PERMISSION);
@@ -139,6 +138,12 @@ static e_mmgr_errors_t restore_nvm(modem_info_t *info)
     if (is_file_exists(stat, 0) == E_ERR_SUCCESS) {
         ret = copy_file(stat, info->fl_conf.run_stat, FLS_FILE_PERMISSION);
         unlink(stat);
+    }
+
+    if (is_file_exists(info->fl_conf.bkup_cal, 0) == E_ERR_SUCCESS) {
+        ret =
+            copy_file(info->fl_conf.bkup_cal, info->fl_conf.run_cal,
+                      FLS_FILE_PERMISSION);
     }
 
 out:
@@ -315,7 +320,6 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
     case E_MUP_FW_RESTRICTED:
     case E_MUP_SUCCEED:
         *verdict = E_MODEM_FW_SUCCEED;
-        backup_nvm(info);
         ret = E_ERR_SUCCESS;
         break;
     case E_MUP_FAILED:
@@ -404,39 +408,45 @@ out:
 /**
  * start hsic link
  *
+ * @param[in] info modem info
+ *
  * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-static e_mmgr_errors_t start_hsic(void)
+static e_mmgr_errors_t start_hsic(modem_info_t *info)
 {
-    return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "1", 1);
+    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "1", 1);
 }
 
 /**
  * stop hsic link
  *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static e_mmgr_errors_t stop_hsic(void)
-{
-    return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "0", 1);
-}
-
-/**
- * restart hsic link
+ * @param[in] info modem info
  *
  * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-static e_mmgr_errors_t restart_hsic(void)
+static e_mmgr_errors_t stop_hsic(modem_info_t *info)
+{
+    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "0", 1);
+}
+
+/**
+ * restart hsic link
+ *
+ * @param[in] info modem info
+ *
+ * @return E_ERR_BAD_PARAMETER if info is NULL
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+static e_mmgr_errors_t restart_hsic(modem_info_t *info)
 {
     /* When the HSIC is already UP, writing 1 resets the hsic, It's what we
      * want here. This function only exists for "readability" purpose. */
-    return write_to_file(HSIC_ENABLE_PATH, SYSFS_OPEN_MODE, "1", 1);
+    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "1", 1);
 }
 
 /**
@@ -486,30 +496,6 @@ out:
 }
 
 /**
- * Perform a modem warm reset
- *
- * @param [in] info modem info structure
- *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t mdm_warm_reset(modem_info_t *info)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(info, ret, out);
-
-    LOG_INFO("MODEM WARM RESET");
-    if (ioctl(info->fd_mcd, MDM_CTRL_WARM_RESET) == -1) {
-        ret = E_ERR_FAILED;
-        LOG_DEBUG("couldn't reset modem: %s", strerror(errno));
-    }
-out:
-    return ret;
-}
-
-/**
  * Perform a modem cold reset (modem cold boot)
  *
  * @param [in] info modem info structure
@@ -548,7 +534,7 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
     CHECK_PARAM(info, ret, out);
 
     if (info->mdm_link == E_LINK_HSIC)
-        stop_hsic();
+        stop_hsic(info);
 
     if (ioctl(info->fd_mcd, MDM_CTRL_POWER_OFF) == -1) {
         ret = E_ERR_FAILED;
@@ -583,7 +569,7 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
 
     if (info->mdm_link == E_LINK_HSIC)
-        start_hsic();
+        start_hsic(info);
 
     if (info->is_flashless) {
         if (state & MDM_CTRL_STATE_OFF) {
@@ -602,7 +588,7 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     if (ret == E_ERR_SUCCESS)
         LOG_DEBUG("Modem successfully POWERED-UP");
     else if (info->mdm_link == E_LINK_HSIC)
-        stop_hsic();
+        stop_hsic(info);
 
 out:
     return ret;
@@ -768,7 +754,7 @@ e_mmgr_errors_t mdm_prepare_link(modem_info_t *info)
 
     /* restart hsic if the modem is hsic */
     if (info->mdm_link == E_LINK_HSIC)
-        restart_hsic();
+        restart_hsic(info);
 out:
     return ret;
 }
@@ -777,14 +763,12 @@ out:
  * This function is used to configure modem events after modem restart
  *
  * @param [in,out] info modem info context
- * @param [in] subscribe_cd_ev boolean to define if we should subscribe to
- * core dump event or not
  *
  * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  **/
-e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info, bool subscribe_cd_ev)
+e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -795,8 +779,7 @@ e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info, bool subscribe_cd_ev)
     else
         info->polled_states = MDM_CTRL_STATE_IPC_READY;
 
-    if (subscribe_cd_ev)
-        info->polled_states |= MDM_CTRL_STATE_COREDUMP;
+    info->polled_states |= MDM_CTRL_STATE_COREDUMP;
     ret = set_mcd_poll_states(info);
 out:
     return ret;

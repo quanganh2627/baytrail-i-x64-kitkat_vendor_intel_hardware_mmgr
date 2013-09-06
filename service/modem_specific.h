@@ -27,7 +27,6 @@
 #include <linux/mdm_ctrl.h>
 
 e_mmgr_errors_t mdm_specific_init(modem_info_t *info);
-e_mmgr_errors_t mdm_warm_reset(modem_info_t *info);
 e_mmgr_errors_t mdm_cold_reset(modem_info_t *info);
 e_mmgr_errors_t mdm_down(modem_info_t *info);
 e_mmgr_errors_t mdm_up(modem_info_t *info);
@@ -42,8 +41,10 @@ e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode);
 
 e_mmgr_errors_t mdm_prepare(modem_info_t *info);
 e_mmgr_errors_t mdm_prepare_link(modem_info_t *info);
-e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info,
-                                       bool subscribe_cd_ev);
+e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info);
+
+e_mmgr_errors_t backup_nvm(modem_info_t *info);
+e_mmgr_errors_t restore_nvm(modem_info_t *info);
 
 void mup_log(const char *msg, ...);
 e_mmgr_errors_t restore_run(modem_info_t *info);

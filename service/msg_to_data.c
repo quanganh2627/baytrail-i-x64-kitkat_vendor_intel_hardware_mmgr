@@ -320,7 +320,7 @@ e_mmgr_errors_t set_data_core_dump(msg_t *msg, mmgr_cli_event_t *request)
 
     if (cd->reason_len > 0) {
         cd->reason = malloc((cd->reason_len + 1) * sizeof(char));
-        if (cd->path == NULL) {
+        if (cd->reason == NULL) {
             LOG_ERROR("memory allocation failed");
             goto out;
         }

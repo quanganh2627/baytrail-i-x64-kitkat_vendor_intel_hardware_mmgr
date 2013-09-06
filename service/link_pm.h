@@ -22,9 +22,6 @@
 #include "errors.h"
 #include "modem_info.h"
 
-/* @TODO: this should be configurable */
-#define HSIC_PATH "/sys/devices/pci0000:00/0000:00:10.0"
-
 e_mmgr_errors_t pm_on_mdm_flash(modem_info_t *info);
 e_mmgr_errors_t pm_on_mdm_up(modem_info_t *info);
 

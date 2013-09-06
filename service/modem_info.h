@@ -71,7 +71,6 @@ typedef enum e_link_type {
 
 typedef struct modem_info {
     mup_op_t mup;
-    e_modem_events_type_t ev;
     mcdr_lib_t mcdr;
     int fd_mcd;
     int polled_states;
@@ -79,6 +78,8 @@ typedef struct modem_info {
     bool is_flashless;
     e_link_type_t mdm_link;     /* modem link */
     e_link_type_t cd_link;      /* core dump link */
+    char *hsic_pm_path;
+    char *hsic_enable_path;
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
