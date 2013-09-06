@@ -166,7 +166,6 @@ static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
         case E_MMGR_MDM_OOS:
             notification = E_MMGR_EVENT_MODEM_OUT_OF_SERVICE;
             break;
-        case E_MMGR_MDM_START:
         case E_MMGR_MDM_CONF_ONGOING:
         case E_MMGR_MDM_RESET:
         case E_MMGR_MDM_OFF:
@@ -226,10 +225,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     set_mcd_poll_states(&mmgr->info);
 
     if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
-        if (mmgr->info.mdm_link == E_LINK_HSIC)
-            set_mmgr_state(mmgr, E_MMGR_MDM_START);
-        else
-            set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+        set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
         mmgr->events.cli_req = E_CLI_REQ_NONE;
         recov_reinit(&mmgr->reset);
         if (!mmgr->config.is_flashless)
@@ -826,11 +822,9 @@ e_mmgr_errors_t client_events_init(mmgr_data_t *mmgr)
             mmgr->hdler_client[i][j] = client_nack;
 
     /* A client is ALWAYS able to establish a connection, except during
-     * MDM_RESET, MDM_CONF_ONGOING and MDM_START. fake commands shall be
-     * accepted too */
+     * MDM_RESET and MDM_CONF_ONGOING. fake commands shall be accepted too */
     for (i = 0; i < E_MMGR_NUM; i++) {
-        if ((i == E_MMGR_MDM_RESET) || (i == E_MMGR_MDM_CONF_ONGOING)
-            || (i == E_MMGR_MDM_START))
+        if ((i == E_MMGR_MDM_RESET) || (i == E_MMGR_MDM_CONF_ONGOING))
             continue;
 
         mmgr->hdler_client[i][E_MMGR_SET_NAME] = request_set_name;
