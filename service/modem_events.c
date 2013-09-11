@@ -302,18 +302,19 @@ out:
 static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    static bool wait_operation = true;
 
     CHECK_PARAM(mmgr, ret, out);
 
     if (mmgr->clients.connected == 0) {
-        mmgr->reset.state = E_OPERATION_CONTINUE;
-        mmgr->reset.wait_operation = false;
+        recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
+        wait_operation = false;
     } else {
-        if (mmgr->reset.wait_operation) {
+        if (wait_operation) {
             LOG_DEBUG("need to ack all clients");
 
-            mmgr->reset.wait_operation = false;
-            mmgr->reset.state = E_OPERATION_WAIT;
+            wait_operation = false;
+            recov_set_state(mmgr->reset, E_OPERATION_WAIT);
 
             inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
             inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
@@ -321,8 +322,8 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
             set_mmgr_state(mmgr, E_MMGR_WAIT_COLD_ACK);
             start_timer(&mmgr->timer, E_TIMER_COLD_RESET_ACK);
         } else {
-            mmgr->reset.wait_operation = true;
-            mmgr->reset.state = E_OPERATION_CONTINUE;
+            wait_operation = true;
+            recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
 
             broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
             reset_cold_ack(&mmgr->clients);
@@ -356,12 +357,11 @@ static e_mmgr_errors_t pre_platform_reboot(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    mmgr->reset.state = E_OPERATION_CONTINUE;
-    if (reboot_counter >=
-        mmgr->reset.process[E_EL_PLATFORM_REBOOT].retry_allowed) {
+    recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
+    if (reboot_counter >= recov_get_retry_allowed(mmgr->reset)) {
         /* go to next level */
         LOG_INFO("Reboot cancelled. Max value reached");
-        recov_next(&mmgr->reset);
+        recov_next(mmgr->reset);
         pre_modem_out_of_service(mmgr);
     } else {
         recov_set_reboot(++reboot_counter);
@@ -370,7 +370,8 @@ static e_mmgr_errors_t pre_platform_reboot(mmgr_data_t *mmgr)
         broadcast_msg(E_MSG_INTENT_PLATFORM_REBOOT);
 
         sleep(mmgr->config.delay_before_reboot);
-        set_mmgr_state(mmgr, E_MMGR_WAIT_SHT_ACK);
+        /* pretend that the modem is OOS to reject all clients' requests */
+        set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
     }
 out:
     return ret;
@@ -396,7 +397,7 @@ static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr)
     broadcast_msg(E_MSG_INTENT_MODEM_OUT_OF_SERVICE);
 
     set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
-    mmgr->reset.state = E_OPERATION_CONTINUE;
+    recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
 
 out:
     return ret;
@@ -463,19 +464,22 @@ out:
 e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    e_escalation_level_t level;
+    e_escalation_level_t level = E_EL_UNKNOWN;
+    e_reset_operation_state_t state = E_OPERATION_UNKNOWN;
 
     CHECK_PARAM(mmgr, ret, out);
 
     /* Do pre-process operation */
-    recov_start(&mmgr->reset);
-    recov_get_level(&mmgr->reset, &level);
+    recov_start(mmgr->reset);
+    level = recov_get_level(mmgr->reset);
     CHECK_PARAM(mmgr->hdler_pre_mdm[level], ret, out);
     mmgr->hdler_pre_mdm[level] (mmgr);
-    if (mmgr->reset.state == E_OPERATION_SKIP) {
+
+    state = recov_get_state(mmgr->reset);
+    if (state == E_OPERATION_SKIP) {
         mdm_close_fds(mmgr);
         goto out_mdm_ev;
-    } else if (mmgr->reset.state == E_OPERATION_WAIT)
+    } else if (state == E_OPERATION_WAIT)
         goto out;
 
     /* Keep only CORE DUMP state */
@@ -489,17 +493,20 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 
     /* restart modem */
     mdm_prepare_link(&mmgr->info);
-    recov_get_level(&mmgr->reset, &level);
+
+    /* The level can change between the pre operation and the operation in a
+     * specific case: if we are in PLATFORM_REBOOT state and we reached the
+     * maximum allowed attempts */
+    level = recov_get_level(mmgr->reset);
     CHECK_PARAM(mmgr->hdler_mdm[level], ret, out);
     mmgr->hdler_mdm[level] (&mmgr->info);
 
     /* configure events handling */
-    if ((level == E_EL_PLATFORM_REBOOT) ||
-        (mmgr->reset.level.id == E_EL_MODEM_OUT_OF_SERVICE))
+    if ((level == E_EL_PLATFORM_REBOOT) || (level == E_EL_MODEM_OUT_OF_SERVICE))
         goto out;
 
 out_mdm_ev:
-    recov_done(&mmgr->reset);
+    recov_done(mmgr->reset);
 
     mdm_subscribe_start_ev(&mmgr->info);
     if (!mmgr->config.is_flashless)

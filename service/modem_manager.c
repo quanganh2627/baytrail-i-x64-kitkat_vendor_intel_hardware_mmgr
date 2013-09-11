@@ -42,6 +42,7 @@ mmgr_data_t *g_mmgr = NULL;
 static void cleanup(void)
 {
     events_cleanup(g_mmgr);
+    recov_dispose(g_mmgr->reset);
     LOG_VERBOSE("Exiting");
 }
 
@@ -171,9 +172,9 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    err = recov_init(&mmgr.config, &mmgr.reset);
-    if (err != E_ERR_SUCCESS) {
-        LOG_ERROR("Reset escalation init failed (reason=%d). Exit", err);
+    mmgr.reset = recov_init(&mmgr.config);
+    if (!mmgr.reset) {
+        LOG_ERROR("Reset escalation init failed");
         ret = EXIT_FAILURE;
         goto out;
     }

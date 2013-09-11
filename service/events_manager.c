@@ -34,6 +34,7 @@
 #include "security.h"
 #include "timer_events.h"
 #include "tty.h"
+#include "modem_specific.h"
 
 #define FIRST_EVENT -1
 #define TEL_STACK_PROPERTY "persist.service.telephony.off"

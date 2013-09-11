@@ -29,6 +29,7 @@
 #include "property.h"
 #include "timer_events.h"
 #include "msg_to_data.h"
+#include "reset_escalation.h"
 #include "tty.h"
 
 const char *g_mmgr_requests[] = {
@@ -209,7 +210,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         else
             set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
         mmgr->events.cli_req = E_CLI_REQ_NONE;
-        recov_reinit(&mmgr->reset);
+        recov_reinit(mmgr->reset);
         if (!mmgr->config.is_flashless)
             start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         /* if the modem is hsic, add wait_for_bus_ready */
@@ -362,13 +363,15 @@ static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int32_t sec;
+    struct timeval ts;
 
     CHECK_PARAM(mmgr, ret, out);
 
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
 
+    ts = recov_get_last_reset(mmgr->reset);
     memcpy(&sec, &mmgr->request.msg.hdr.ts, sizeof(uint32_t));
-    if (sec > mmgr->reset.last_reset_time.tv_sec) {
+    if (sec > ts.tv_sec) {
         mmgr->events.cli_req = E_CLI_REQ_RESET;
         notify_ap_reset(mmgr);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
@@ -396,10 +399,11 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
-
     mmgr->events.cli_req = E_CLI_REQ_RESET;
-    mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
+
+    recov_force(mmgr->reset, E_FORCE_NO_COUNT);
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+
 out:
     return ret;
 }
@@ -425,7 +429,7 @@ static e_mmgr_errors_t request_bkup_prod(mmgr_data_t *mmgr)
     /* set backup_prod request */
     mmgr->events.cli_req |= E_CLI_REQ_PROD;
     /* do modem restart for NVM flush */
-    mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
+    recov_force(mmgr->reset, E_FORCE_NO_COUNT);
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 out:
     return ret;
