@@ -246,6 +246,7 @@ static void read_core_dump(mmgr_data_t *mmgr)
     notify_core_dump(&mmgr->clients, &mmgr->info.mcdr, state);
 
     mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
+    mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
     set_mcd_poll_states(&mmgr->info);
 
     if (!mmgr->config.is_flashless) {
