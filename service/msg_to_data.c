@@ -237,28 +237,61 @@ e_mmgr_errors_t set_data_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mmgr_cli_ap_reset_t *ap = NULL;
+    mmgr_cli_recovery_cause_t *causes = NULL;
+    char *msg_data = NULL, *name;
+    size_t len_name, num_cause_entries = 0, i;
 
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
 
-    /* calloc is used to be sure that name is NULL the buffer will be freed by
-     * the matching freed function */
-    ap = calloc(1, sizeof(mmgr_cli_ap_reset_t));
+    msg_data = msg->data;
+
+    deserialize_size_t(&msg_data, &len_name);
+    name = malloc((len_name + 1) * sizeof(char));
+    if (name == NULL) {
+        LOG_ERROR("memory allocation failed for name");
+        goto out;
+    }
+    memcpy(name, msg_data, len_name);
+    name[len_name] = '\0';
+
+    msg_data += len_name;
+
+    if (msg->hdr.len > (len_name + sizeof(size_t)))
+        /* Extra information is present */
+        deserialize_size_t(&msg_data, &num_cause_entries);
+
+    ap = malloc(sizeof(mmgr_cli_ap_reset_t));
     if (ap == NULL) {
-        LOG_ERROR("memory allocation failed");
+        LOG_ERROR("memory allocation failed for msg");
+        free(name);
         goto out;
     }
-    memcpy(&ap->len, &msg->hdr.len, sizeof(size_t));
+    causes = malloc(num_cause_entries * sizeof(mmgr_cli_recovery_cause_t));
+    if (causes == NULL) {
+        LOG_ERROR("memory allocation failed for cause array");
+        num_cause_entries = 0;
+    }
+    ap->len = len_name;
+    ap->name = name;
+    ap->num_causes = num_cause_entries;
+    ap->recovery_causes = causes;
 
-    /* the buffer will be freed by the matching freed function */
-    ap->name = malloc((ap->len + 1) * sizeof(char));
-    if (ap->name == NULL) {
-        LOG_ERROR("memory allocation failed");
-        goto out;
+    for (i = 0; i < num_cause_entries; i++) {
+        deserialize_size_t(&msg_data, &ap->recovery_causes[i].len);
+        ap->recovery_causes[i].cause =
+            malloc((ap->recovery_causes[i].len + 1) * sizeof(char));
+        if (ap->recovery_causes[i].cause == NULL) {
+            LOG_ERROR("memory allocation failed for cause %d", i);
+            ap->num_causes = i;
+            break;
+        }
+        memcpy(ap->recovery_causes[i].cause, msg_data,
+               ap->recovery_causes[i].len);
+        ap->recovery_causes[i].cause[ap->recovery_causes[i].len] = '\0';
+        msg_data += ap->recovery_causes[i].len;
     }
 
-    memcpy(ap->name, msg->data, ap->len);
-    memset(ap->name + ap->len, '\0', sizeof(char));
     ret = E_ERR_SUCCESS;
 
 out:
@@ -545,8 +578,14 @@ e_mmgr_errors_t free_data_ap_reset(mmgr_cli_event_t *request)
 
     ap_rst = request->data;
     if (ap_rst != NULL) {
-        if (ap_rst->name != NULL)
-            free(ap_rst->name);
+        free(ap_rst->name);
+        if (ap_rst->recovery_causes) {
+            size_t i;
+
+            for (i = 0; i < ap_rst->num_causes; i++)
+                free(ap_rst->recovery_causes[i].cause);
+            free(ap_rst->recovery_causes);
+        }
         free(ap_rst);
         ret = E_ERR_SUCCESS;
     } else {

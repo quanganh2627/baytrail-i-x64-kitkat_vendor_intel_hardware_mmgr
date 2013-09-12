@@ -55,6 +55,7 @@ typedef struct test_data {
     mmgr_cli_handle_t *lib;
     e_events_t events;
     test_cfg_t cfg;
+    const char *option_string;
 } test_data_t;
 
 e_mmgr_errors_t modem_state_set(test_data_t *test_data, e_mmgr_events_t state);
@@ -70,10 +71,15 @@ e_mmgr_errors_t cleanup_client_library(test_data_t *data);
 int generic_mmgr_evt(mmgr_cli_event_t *ev);
 int bad_callback(mmgr_cli_event_t *ev);
 
-e_mmgr_errors_t reset_by_client_request(test_data_t *events_data,
-                                        e_mmgr_requests_t request,
-                                        e_mmgr_events_t notification,
-                                        e_mmgr_events_t final_state);
+e_mmgr_errors_t reset_by_client_request_with_data(test_data_t *events_data,
+                                                  e_mmgr_requests_t request,
+                                                  size_t data_len, void *data,
+                                                  e_mmgr_events_t notification,
+                                                  e_mmgr_events_t final_state);
+
+#define reset_by_client_request(events_data, request, notification, final_state) \
+    reset_by_client_request_with_data(events_data, request, 0, NULL, \
+                                      notification, final_state)
 
 e_mmgr_errors_t at_self_reset(test_data_t *events_data);
 e_mmgr_errors_t at_core_dump(test_data_t *events_data);

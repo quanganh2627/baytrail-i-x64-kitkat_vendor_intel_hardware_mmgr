@@ -143,6 +143,7 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->set_msg[E_MMGR_SET_NAME] = set_msg_name;
     p_lib->set_msg[E_MMGR_SET_EVENTS] = set_msg_filter;
     p_lib->set_msg[E_MMGR_REQUEST_MODEM_RESTART] = set_msg_restart;
+    p_lib->set_msg[E_MMGR_REQUEST_MODEM_RECOVERY] = set_msg_recovery;
 
     p_lib->set_data[E_MMGR_RESPONSE_MODEM_HW_ID] = set_data_hw_id;
     p_lib->free_data[E_MMGR_RESPONSE_MODEM_HW_ID] = free_data_hw_id;

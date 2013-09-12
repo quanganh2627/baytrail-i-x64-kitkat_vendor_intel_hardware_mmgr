@@ -831,6 +831,8 @@ out:
  *
  * @param [in] data_test test data
  * @param [in] id request to send
+ * @param [in] data_len length of the data to pass to MMGR in the request
+ * @param [in] data pointer to the data to pass to MMGR in the request
  * @param [in] notification expected notification after AT command
  * @param [in] final_state final state expected
  *
@@ -838,10 +840,12 @@ out:
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
-                                        e_mmgr_requests_t id,
-                                        e_mmgr_events_t notification,
-                                        e_mmgr_events_t final_state)
+e_mmgr_errors_t reset_by_client_request_with_data(test_data_t *data_test,
+                                                  e_mmgr_requests_t id,
+                                                  size_t data_len,
+                                                  void *data,
+                                                  e_mmgr_events_t notification,
+                                                  e_mmgr_events_t final_state)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mmgr_cli_requests_t request;
@@ -849,6 +853,10 @@ e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
     MMGR_CLI_INIT_REQUEST(request, id);
 
     CHECK_PARAM(data_test, ret, out);
+
+    /* Fill request with extra data information */
+    request.len = data_len;
+    request.data = data;
 
     /* Wait modem up */
     ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_UP,

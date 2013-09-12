@@ -22,6 +22,7 @@
 #include "client.h"
 #include "client_cnx.h"
 #include "client_events.h"
+#include "data_to_msg.h"
 #include "errors.h"
 #include "file.h"
 #include "logs.h"
@@ -337,7 +338,7 @@ out:
 
 static e_mmgr_errors_t notify_ap_reset(mmgr_data_t *mmgr)
 {
-    mmgr_cli_ap_reset_t ap_rst;
+    mmgr_cli_internal_ap_reset_t ap_rst;
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
     CHECK_PARAM(mmgr, ret, out);
@@ -349,6 +350,15 @@ static e_mmgr_errors_t notify_ap_reset(mmgr_data_t *mmgr)
         LOG_ERROR("memory allocation fails");
         goto out;
     }
+    if ((mmgr->request.msg.hdr.id == E_MMGR_REQUEST_MODEM_RECOVERY) &&
+        (mmgr->request.msg.hdr.len != 0)) {
+        ap_rst.extra_len = mmgr->request.msg.hdr.len;
+        ap_rst.extra_data = mmgr->request.msg.data;
+    } else {
+        ap_rst.extra_len = 0;
+        ap_rst.extra_data = NULL;
+    }
+
     strncpy(ap_rst.name, name, ap_rst.len);
     ret = clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_AP_RESET, &ap_rst);
     free(ap_rst.name);

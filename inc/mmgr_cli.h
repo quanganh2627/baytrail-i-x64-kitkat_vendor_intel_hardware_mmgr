@@ -49,8 +49,9 @@ typedef struct mmgr_cli_event {
 } mmgr_cli_event_t;
 
 /* For requests where id == REQUEST_MODEM_RECOVERY, data can point to an
- * array of up to 5 mmgr_cli_recovery_cause_t structures (for X entries,
- * len should be 'X * sizeof(mmgr_cli_recovery_cause_t)'. */
+ * array of up to MMGR_CLI_MAX_RECOVERY_CAUSES mmgr_cli_recovery_cause_t
+ * structures.
+ * For X entries, len should be 'X * sizeof(mmgr_cli_recovery_cause_t))'. */
 typedef struct mmgr_cli_request {
     e_mmgr_requests_t id;
     size_t len;
