@@ -45,6 +45,7 @@
     X(WAIT_FOR_IPC_READY), \
     X(WAIT_FOR_BUS_READY), \
     X(REBOOT_MODEM_DELAY), \
+    X(WAIT_CORE_DUMP_READY), \
     X(NUM)
 
 #define MMGR_STATE\
@@ -75,6 +76,7 @@ typedef enum e_client_req {
     E_CLI_REQ_NONE = 0x0,
     E_CLI_REQ_RESET = 0x1 << 1,
     E_CLI_REQ_OFF = 0x1 << 2,
+    E_CLI_REQ_PROD = 0x1 << 3,
 } e_client_req_t;
 
 typedef enum e_mmgr_state {

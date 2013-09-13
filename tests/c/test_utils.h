@@ -28,7 +28,7 @@
 
 #define EXE_NAME MODULE_NAME"-test"
 #define FILENAME_SIZE 256
-#define TIMEOUT_MODEM_DOWN_AFTER_CMD 20
+#define TIMEOUT_MODEM_DOWN_AFTER_CMD 30
 #define TIMEOUT_MODEM_UP_AFTER_RESET 1200
 
 typedef enum e_events {

@@ -113,28 +113,6 @@ out:
 }
 
 /**
- * handle REQUEST_MODEM_BACKUP_PRODUCTION request if state is MDM_UP
- *
- * @private
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t request_bkup_prod(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
-
-    /* @TODO: launch get hw id */
-    inform_client(mmgr->request.client, E_MMGR_NACK, NULL);
-out:
-    return ret;
-}
-
-/**
  * handle E_MMGR_SET_EVENTS request
  *
  * @private
@@ -428,6 +406,34 @@ out:
 }
 
 /**
+ * handle REQUEST_MODEM_BACKUP_PRODUCTION request if state is MDM_UP
+ *
+ * @private
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER if mmgr is NULL
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t request_bkup_prod(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    /* ack REQUEST_MODEM_BACKUP_PRODUCTION */
+    inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
+    /* set backup_prod request */
+    mmgr->events.cli_req |= E_CLI_REQ_PROD;
+    /* do modem restart for NVM flush */
+    mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
+    notify_ap_reset(mmgr);
+    set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+out:
+    return ret;
+}
+
+/**
  * handle request ACK_COLD_RESET if state is WAIT_COLD_ACK
  *
  * @private
@@ -446,6 +452,13 @@ static e_mmgr_errors_t request_ack_cold_reset(mmgr_data_t *mmgr)
     mmgr->request.client->cnx |= E_CNX_COLD_RESET;
     if (check_cold_ack(&mmgr->clients, false) == E_ERR_SUCCESS) {
         LOG_DEBUG("All clients agreed cold reset");
+        if (mmgr->events.cli_req & E_CLI_REQ_PROD) {
+            /* backup nvm files from /config/telephony to /factory/telephony */
+            if (backup_prod_nvm(&mmgr->info) == E_ERR_SUCCESS)
+                inform_all_clients(&mmgr->clients,
+                                   E_MMGR_RESPONSE_MODEM_BACKUP_PRODUCTION,
+                                   NULL);
+        }
         mmgr->events.cli_req = E_CLI_REQ_RESET;
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
