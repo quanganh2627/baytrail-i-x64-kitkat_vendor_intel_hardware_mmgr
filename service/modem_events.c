@@ -347,7 +347,7 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
             broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
             reset_cold_ack(&mmgr->clients);
             mmgr->request.accept_request = false;
-            if (mmgr->info.mdm_link == E_LINK_HSIC)
+            if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
                 set_mmgr_state(mmgr, E_MMGR_MDM_START);
             else
                 set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
@@ -759,7 +759,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
 
             mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
             ret = set_mcd_poll_states(&mmgr->info);
-            if (mmgr->info.mdm_link == E_LINK_HSIC)
+            if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
                 set_mmgr_state(mmgr, E_MMGR_MDM_START);
             else
                 set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);

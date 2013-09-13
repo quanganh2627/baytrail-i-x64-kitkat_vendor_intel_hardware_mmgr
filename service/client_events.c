@@ -209,7 +209,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     set_mcd_poll_states(&mmgr->info);
 
     if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
-        if (mmgr->info.mdm_link == E_LINK_HSIC)
+        if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
             set_mmgr_state(mmgr, E_MMGR_MDM_START);
         else
             set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
