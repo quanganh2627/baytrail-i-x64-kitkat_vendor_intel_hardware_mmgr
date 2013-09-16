@@ -76,9 +76,6 @@ typedef struct mmgr_configuration {
 typedef struct flashless_config {
     char bkup_path[MAX_SIZE_CONF_VAL];
     char bkup_cal[MAX_SIZE_CONF_VAL];
-    char bkup_stat[MAX_SIZE_CONF_VAL];
-    char bkup_rnd_cert[MAX_SIZE_CONF_VAL];
-    char bkup_boot_fls[MAX_SIZE_CONF_VAL];
 
     char run_path[MAX_SIZE_CONF_VAL];
     char run_fw_path[MAX_SIZE_CONF_VAL];

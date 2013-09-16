@@ -492,9 +492,6 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file,
     set_param_t bckup[] = {
         {"Folder", config->bkup_path, DEF_RUN_FILES_PATH, string},
         {"Calibration", config->bkup_cal, DEF_CALIBRATION, string},
-        {"Static", config->bkup_stat, DEF_STATIC, string},
-        {"RndCert", config->bkup_rnd_cert, DEF_RND_CERT, string},
-        {"BootFls", config->bkup_boot_fls, DEF_BOOT_FLS, string},
     };
 
     LOG_DEBUG("filename: %s", config_file);
@@ -521,8 +518,6 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file,
     set_full_path(config->run_path, config->run_rnd_cert);
     set_full_path(config->run_path, config->nvm_patch);
     set_full_path(config->bkup_path, config->bkup_cal);
-    set_full_path(config->bkup_path, config->bkup_stat);
-    set_full_path(config->bkup_path, config->bkup_rnd_cert);
 
 out:
     return ret;

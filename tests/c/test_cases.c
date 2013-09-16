@@ -141,7 +141,9 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int i;
     int reboot;
-    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_MODEM_RECOVERY };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_REQUEST_MODEM_RECOVERY);
 
     CHECK_PARAM(test, ret, out);
 
@@ -206,7 +208,9 @@ out:
 e_mmgr_errors_t resource_acquire(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
     CHECK_PARAM(test, ret, out);
 
@@ -231,7 +235,9 @@ out:
 e_mmgr_errors_t start_modem(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
     CHECK_PARAM(test, ret, out);
 
@@ -256,7 +262,9 @@ out:
 e_mmgr_errors_t resource_release(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_RELEASE };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_RELEASE);
 
     CHECK_PARAM(test, ret, out);
 
@@ -348,7 +356,9 @@ out:
 e_mmgr_errors_t turn_on_modem(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
     CHECK_PARAM(test, ret, out);
 
@@ -389,7 +399,9 @@ out:
 e_mmgr_errors_t resource_check(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
     CHECK_PARAM(test, ret, out);
 
@@ -457,7 +469,8 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
 
     CHECK_PARAM(test, ret, out);
 
-    mmgr_cli_requests_t request = {.id = E_MMGR_NUM_REQUESTS };
+    mmgr_cli_requests_t request;
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_NUM_REQUESTS);
     mmgr_cli_handle_t *hdle;
 
     if (mmgr_cli_create_handle(NULL, name, NULL) != E_ERR_CLI_BAD_HANDLE) {
@@ -659,7 +672,7 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
 
     /* request MODEM_RESTART to check bad callback function */
     modem_state_set(test, E_MMGR_NUM_EVENTS);
-    request.id = E_MMGR_REQUEST_MODEM_RESTART;
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_REQUEST_MODEM_RESTART);
     if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
         line = __LINE__;
         goto out;

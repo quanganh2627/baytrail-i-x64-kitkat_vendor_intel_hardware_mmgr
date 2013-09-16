@@ -32,6 +32,10 @@
 #include "reset_escalation.h"
 #include "tty.h"
 
+/* This value is deliberately obfuscated. Otherwise, all clients
+ * could declared the modem OOS */
+#define CARE_CENTER 0xCA2CE7E2
+
 const char *g_mmgr_requests[] = {
 #undef X
 #define X(a) #a
@@ -395,13 +399,32 @@ out:
 static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    uint32_t optional = 0;
 
     CHECK_PARAM(mmgr, ret, out);
 
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     mmgr->events.cli_req = E_CLI_REQ_RESET;
 
-    recov_force(mmgr->reset, E_FORCE_NO_COUNT);
+    if (mmgr->request.msg.hdr.len == sizeof(uint32_t)) {
+        memcpy(&optional, mmgr->request.msg.data, sizeof(uint32_t));
+        optional = ntohl(optional);
+    }
+
+    /* Only NVM server can declare the modem OOS by sending this request The
+     * optional value is deliberately obfuscated */
+    if ((optional == CARE_CENTER) &&
+        !(strncmp(mmgr->request.client->name, "NVM_MANAGER",
+                  sizeof(mmgr->request.client->name)))) {
+        LOG_ERROR("NVM server has declared the modem unrecoverable");
+        /* Set MMGR state to MDM_RESET to call the recovery module and force
+         * OOS state. By doing so, MMGR will turn off the modem and declare the
+         * modem OOS. Clients will not be able to turn on the modem */
+        recov_force(mmgr->reset, E_FORCE_OOS);
+    } else {
+        mmgr->events.cli_req = E_CLI_REQ_RESET;
+        recov_force(mmgr->reset, E_FORCE_NO_COUNT);
+    }
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 
 out:

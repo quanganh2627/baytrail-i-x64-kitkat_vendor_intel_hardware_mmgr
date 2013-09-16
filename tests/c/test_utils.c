@@ -671,7 +671,9 @@ int bad_callback(mmgr_cli_event_t *ev)
 {
     int ret = 1;
     test_data_t *test_data = NULL;
-    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN);
 
     if (ev == NULL) {
         LOG_ERROR("ev is NULL");
@@ -838,7 +840,9 @@ e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
                                         e_mmgr_events_t final_state)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = id };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, id);
 
     CHECK_PARAM(data_test, ret, out);
 
@@ -1002,7 +1006,9 @@ e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     e_err_mmgr_cli_t err = E_ERR_CLI_FAILED;
-    mmgr_cli_requests_t request = {.id = id };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, id);
 
     CHECK_PARAM(test, ret, out);
 

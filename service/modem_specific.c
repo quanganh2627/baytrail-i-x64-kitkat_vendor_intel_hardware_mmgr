@@ -42,37 +42,6 @@
 #define MUP_FUNC_CONFIG_SECUR "mup_configure_secur_channel"
 #define MUP_FUNC_GEN_FLS "mup_gen_fls"
 
-#define BACKUP ".bkup"
-
-/**
- * This function will backup the nvm files. Existing files will be overwrite.
- *
- * @param info
- *
- * @return E_ERR_BAD_PARAMETER
- * @return E_ERR_SUCCESS
- */
-e_mmgr_errors_t backup_nvm(modem_info_t *info)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    char dynamic[PATH_MAX] = { '\0' };
-    char stat[PATH_MAX] = { '\0' };
-
-    CHECK_PARAM(info, ret, out);
-
-    snprintf(dynamic, PATH_MAX, "%s%s", info->fl_conf.run_dyn, BACKUP);
-    snprintf(stat, PATH_MAX, "%s%s", info->fl_conf.run_stat, BACKUP);
-
-    unlink(dynamic);
-    unlink(stat);
-
-    copy_file(info->fl_conf.run_dyn, dynamic, FLS_FILE_PERMISSION);
-    copy_file(info->fl_conf.run_stat, stat, FLS_FILE_PERMISSION);
-
-out:
-    return ret;
-}
-
 /**
  * This function will backup the production nvm files.
  * Existing files will be overwritten.
@@ -88,93 +57,8 @@ e_mmgr_errors_t backup_prod_nvm(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    if (copy_file
-        (info->fl_conf.run_cal, info->fl_conf.bkup_cal,
-         FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
-        ret = E_ERR_FAILED;
-        goto out;
-    }
-    if (copy_file
-        (info->fl_conf.run_stat, info->fl_conf.bkup_stat,
-         FLS_FILE_PERMISSION) != E_ERR_SUCCESS)
-        ret = E_ERR_FAILED;
-
-out:
-    return ret;
-}
-
-/**
- * This function will restore the mode fw and all parameters (RnD, NVM)
- *
- * @param info
- *
- * @return E_ERR_BAD_PARAMETER
- * @return E_ERR_SUCCESS
- */
-e_mmgr_errors_t restore_run(modem_info_t *info)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(info, ret, out);
-
-    unlink(info->fl_conf.run_boot_fls);
-    unlink(info->fl_conf.run_cal);
-    unlink(info->fl_conf.run_dyn);
-    unlink(info->fl_conf.run_stat);
-    unlink(info->fl_conf.run_rnd_cert);
-
-    copy_file(info->fl_conf.bkup_cal, info->fl_conf.run_cal,
-              FLS_FILE_PERMISSION);
-    copy_file(info->fl_conf.bkup_stat, info->fl_conf.run_stat,
-              FLS_FILE_PERMISSION);
-    copy_file(info->fl_conf.bkup_rnd_cert, info->fl_conf.run_rnd_cert,
-              FLS_FILE_PERMISSION);
-    copy_file(info->fl_conf.bkup_boot_fls, info->fl_conf.run_boot_fls,
-              FLS_FILE_PERMISSION);
-
-out:
-    return ret;
-}
-
-/**
- * This function will restore the backup nvm files. If those files doesn't exist,
- * regen_fls will create blank ones
- *
- * @param info
- *
- * @return E_ERR_BAD_PARAMETER
- * @return E_ERR_SUCCESS
- */
-e_mmgr_errors_t restore_nvm(modem_info_t *info)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    char dynamic[PATH_MAX] = { '\0' };
-    char stat[PATH_MAX] = { '\0' };
-
-    CHECK_PARAM(info, ret, out);
-
-    snprintf(dynamic, PATH_MAX, "%s%s", info->fl_conf.run_dyn, BACKUP);
-    snprintf(stat, PATH_MAX, "%s%s", info->fl_conf.run_stat, BACKUP);
-
-    unlink(info->fl_conf.run_dyn);
-    unlink(info->fl_conf.run_stat);
-    unlink(info->fl_conf.run_cal);
-
-    if (is_file_exists(dynamic, 0) == E_ERR_SUCCESS) {
-        ret = copy_file(dynamic, info->fl_conf.run_dyn, FLS_FILE_PERMISSION);
-        unlink(dynamic);
-    }
-
-    if (is_file_exists(stat, 0) == E_ERR_SUCCESS) {
-        ret = copy_file(stat, info->fl_conf.run_stat, FLS_FILE_PERMISSION);
-        unlink(stat);
-    }
-
-    if (is_file_exists(info->fl_conf.bkup_cal, 0) == E_ERR_SUCCESS) {
-        ret =
-            copy_file(info->fl_conf.bkup_cal, info->fl_conf.run_cal,
-                      FLS_FILE_PERMISSION);
-    }
+    ret = copy_file(info->fl_conf.run_cal, info->fl_conf.bkup_cal,
+                    FLS_FILE_PERMISSION);
 
 out:
     return ret;
@@ -353,7 +237,6 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
         ret = E_ERR_SUCCESS;
         break;
     case E_MUP_FAILED:
-        restore_nvm(info);
         break;
     case E_MUP_FW_OUTDATED:
         *verdict = E_MODEM_FW_OUTDATED;
@@ -730,9 +613,8 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
     if (info->is_flashless) {
         /* Restore calibration file from backup if missing */
         if (is_file_exists(info->fl_conf.run_cal, 0) != E_ERR_SUCCESS) {
-            if (copy_file
-                (info->fl_conf.bkup_cal, info->fl_conf.run_cal,
-                 FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
+            if (copy_file(info->fl_conf.bkup_cal, info->fl_conf.run_cal,
+                          FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
                 /* This is not a blocking error case because this can happen in
                  * production when first calib is about to be done. Just raise a
                  * warning. */
@@ -742,21 +624,6 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
             } else {
                 LOG_INFO("Calibration file restored from %s",
                          info->fl_conf.bkup_cal);
-            }
-        }
-        /* Restore R&D cert file from backup if missing */
-        if (is_file_exists(info->fl_conf.run_rnd_cert, 0) != E_ERR_SUCCESS) {
-            if (copy_file
-                (info->fl_conf.bkup_rnd_cert, info->fl_conf.run_rnd_cert,
-                 FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
-                /* This is not a blocking error case because this can happen in
-                 * production when no R&D exist yet. Just raise a warning. */
-                LOG_INFO("No R&D cert could be restored from %s,"
-                         " R&D cert must be provisioned",
-                         info->fl_conf.bkup_rnd_cert);
-            } else {
-                LOG_INFO("R&D cert file restored from %s",
-                         info->fl_conf.bkup_rnd_cert);
             }
         }
         /* re-generates the fls through nvm injection lib if the modem is
