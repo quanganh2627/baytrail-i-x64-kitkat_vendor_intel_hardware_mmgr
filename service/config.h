@@ -69,6 +69,7 @@ typedef struct mmgr_configuration {
     char mcdr_vid[MAX_SIZE_CONF_VAL];
     char mcdr_protocol[MAX_SIZE_CONF_VAL];
     char mcdr_link_layer[MAX_SIZE_CONF_VAL];
+    int modem_core_dump_reset_link_timer;
     /* modem nvm custo */
     char nvm_custo_dlc[MAX_SIZE_CONF_VAL];
 } mmgr_configuration_t;

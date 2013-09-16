@@ -69,6 +69,7 @@
 #define DEF_MCDR_PID "0x0020"
 #define DEF_MCDR_VID "0x1519"
 #define DEF_MCDR_PROTOCOL "YMODEM"
+#define DEF_MODEM_CORE_DUMP_RESET_LINK_TIMEOUT INTEGER(0)       /* in seconds */
 /* nvm custom default values */
 #define DEF_NVM_CUSTO_DLC "/dev/gsmtty11"
 
@@ -230,8 +231,8 @@ static e_mmgr_errors_t set_param(GKeyFile *fd, char *grp, set_param_t *param)
             param->set.copy(param->dest, src);
             ret = E_ERR_SUCCESS;
         } else {
-            //LOG_ERROR("READ ERROR: (%s)", gerror->message);
-            //g_error_free(gerror);
+            /* LOG_ERROR("READ ERROR: (%s)", gerror->message); */
+            /* g_error_free(gerror); */
         }
     }
     param->set.display(param);
@@ -386,6 +387,9 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
          DEF_MCDR_PROTOCOL,.set = string},
         {.key = "McdrLinkLayer",.dest = &params->mcdr_link_layer,
          .def = DEF_MCDR_LINK_LAYER,.set = string},
+        {.key = "TimeBeforeResetLinkInCoreDump",.dest =
+         &params->modem_core_dump_reset_link_timer,
+         .def = DEF_MODEM_CORE_DUMP_RESET_LINK_TIMEOUT,.set = integer},
     };
 
     set_param_t secur[] = {
