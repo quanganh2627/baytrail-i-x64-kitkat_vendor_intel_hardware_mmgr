@@ -461,18 +461,13 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
     ctrl_on_mdm_up(info->ctrl);
 
-    if (info->is_flashless) {
-        if (state & MDM_CTRL_STATE_OFF) {
-            if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {
-                LOG_DEBUG("failed to power on the modem: %s", strerror(errno));
-                ret = E_ERR_FAILED;
-            }
-        } else {
-            ret = mdm_cold_reset(info);
+    if (state & MDM_CTRL_STATE_OFF) {
+        if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {
+            LOG_DEBUG("failed to power on the modem: %s", strerror(errno));
+            ret = E_ERR_FAILED;
         }
-    } else if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {
-        LOG_DEBUG("failed to power on the modem: %s", strerror(errno));
-        ret = E_ERR_FAILED;
+    } else {
+        ret = mdm_cold_reset(info);
     }
 
     if (ret == E_ERR_SUCCESS)
