@@ -508,7 +508,17 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 
     /* initialize modules */
     mdm_close_fds(mmgr);
-    mdm_prepare(&mmgr->info);
+    if ((level != E_EL_PLATFORM_REBOOT) && (level != E_EL_MODEM_OUT_OF_SERVICE)) {
+        if (E_ERR_SUCCESS != mdm_prepare(&mmgr->info)) {
+            LOG_ERROR("modem fw is corrupted. Declare modem OOS");
+            /* Set MMGR state to MDM_RESET to call the recovery module and
+             * force modem recovery to OOS. By doing so, MMGR will turn off the
+             * modem and declare the modem OOS. Clients will not be able to turn
+             * on the modem */
+            recov_force(mmgr->reset, E_FORCE_OOS);
+            return reset_modem(mmgr);
+        }
+    }
 
     /* restart modem */
     mdm_prepare_link(&mmgr->info);
