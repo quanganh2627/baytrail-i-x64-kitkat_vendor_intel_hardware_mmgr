@@ -13,7 +13,8 @@ MY_SRC_FILES := $(call all-c-files-under, .)
 # Extract commit id
 COMMIT_ID := $(shell git --git-dir=$(LOCAL_PATH)/../.git \
         --work-tree=$(LOCAL_PATH) log --oneline -n1 \
-        | sed 's:\s\{1,\}:\\ :g')
+        | sed -e 's:\s\{1,\}:\\ :g' -e 's:["&{}]::g' \
+        -e "s:'::g")
 
 MY_C_FLAGS := -Wall -Werror -Wvla -DLIBUSBHOST \
     -DGIT_COMMIT_ID=\"$(COMMIT_ID)\" -DMODULE_NAME=\"MMGR\"
