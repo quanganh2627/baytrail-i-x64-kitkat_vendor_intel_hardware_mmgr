@@ -143,7 +143,12 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
             inform_all_clients(&mmgr->clients,
                                E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
             broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
-            set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
+            /* Set MMGR state to MDM_RESET to call the recovery module and
+             * force modem recovery to OOS. By doing so, MMGR will turn off the
+             * modem and declare the modem OOS. Clients will not be able to turn
+             * on the modem */
+            recov_force(mmgr->reset, E_FORCE_OOS);
+            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             break;
 
         case E_MODEM_FW_SUCCEED:
@@ -158,7 +163,11 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
             break;
 
         case E_MODEM_FW_SW_CORRUPTED:
-            restore_run(&mmgr->info);
+            /* Set MMGR state to MDM_RESET to call the recovery module and
+             * force modem recovery to OOS. By doing so, MMGR will turn off the
+             * modem and declare the modem OOS. Clients will not be able to turn
+             * on the modem */
+            recov_force(mmgr->reset, E_FORCE_OOS);
             set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             break;
 
@@ -169,12 +178,22 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 
         case E_MODEM_FW_OUTDATED:
             broadcast_msg(E_MSG_INTENT_MODEM_FW_OUTDATED);
-            set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
+            /* Set MMGR state to MDM_RESET to call the recovery module and
+             * force modem recovery to OOS. By doing so, MMGR will turn off the
+             * modem and declare the modem OOS. Clients will not be able to turn
+             * on the modem */
+            recov_force(mmgr->reset, E_FORCE_OOS);
+            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             break;
 
         case E_MODEM_FW_SECURITY_CORRUPTED:
             broadcast_msg(E_MSG_INTENT_MODEM_FW_SECURITY_CORRUPTED);
-            set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
+            /* Set MMGR state to MDM_RESET to call the recovery module and
+             * force modem recovery to OOS. By doing so, MMGR will turn off the
+             * modem and declare the modem OOS. Clients will not be able to turn
+             * on the modem */
+            recov_force(mmgr->reset, E_FORCE_OOS);
+            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             break;
 
         case E_MODEM_FW_NUM:
