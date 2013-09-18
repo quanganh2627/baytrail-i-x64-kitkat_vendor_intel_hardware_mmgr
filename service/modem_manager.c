@@ -57,6 +57,7 @@ static void cleanup(void)
     client_events_dispose(g_mmgr);
     bus_ev_dispose(g_mmgr->events.bus_events);
     pm_dispose(g_mmgr->info.pm);
+    ctrl_dispose(g_mmgr->info.ctrl);
     LOG_VERBOSE("Exiting");
 }
 
@@ -183,6 +184,17 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
 
         if (mmgr->info.pm == NULL) {
             LOG_ERROR("Failed to configure power management module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->info.ctrl = ctrl_init(cfg->mdm_info.ipc_mdm,
+                                    &cfg->mmgr.mdm_link.ctrl,
+                                    cfg->mdm_info.ipc_cd,
+                                    &cfg->mmgr.mcdr.ctrl);
+
+        if (mmgr->info.ctrl == NULL) {
+            LOG_ERROR("Failed to configure link control module");
             ret = E_ERR_FAILED;
             goto out;
         }

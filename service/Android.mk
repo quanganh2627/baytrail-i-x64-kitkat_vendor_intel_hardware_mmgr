@@ -39,6 +39,7 @@ LOCAL_SRC_FILES:= \
     modem_specific.c \
     bus_events.c \
     link/pm.c \
+    link/ctrl.c \
     mux.c \
     property.c \
     security.c \

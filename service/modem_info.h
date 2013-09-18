@@ -22,6 +22,7 @@
 #include "tcs_config.h"
 #include "tcs_mmgr.h"
 #include "pm.h"
+#include "ctrl.h"
 
 #define HANDSHAKE_AFTER_CD_RETRIES_COUNT 12
 #define CORE_DUMP_READY_TIMEOUT 10      /* 10 seconds for modem to re-enumerate
@@ -73,8 +74,6 @@ typedef struct modem_info {
     bool is_flashless;
     e_link_t mdm_link;          /* modem link */
     e_link_t cd_link;           /* core dump link */
-    char hsic_pm_path[PATH_MAX];
-    char hsic_enable_path[PATH_MAX];
     char mdm_ipc_path[PATH_MAX];
     char sanity_check_dlc[PATH_MAX];
     char mdm_custo_dlc[PATH_MAX];
@@ -82,6 +81,7 @@ typedef struct modem_info {
     mux_t mux;
     char mdm_name[NAME];
     pm_handle_t *pm;
+    ctrl_handle_t *ctrl;
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,

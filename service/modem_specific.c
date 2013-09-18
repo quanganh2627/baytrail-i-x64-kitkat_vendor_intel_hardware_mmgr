@@ -23,6 +23,7 @@
 #include "file.h"
 #include "modem_update.h"
 #include "pm.h"
+#include "ctrl.h"
 
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -345,50 +346,6 @@ out:
 }
 
 /**
- * start hsic link
- *
- * @param[in] info modem info
- *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static e_mmgr_errors_t start_hsic(modem_info_t *info)
-{
-    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "1", 1);
-}
-
-/**
- * stop hsic link
- *
- * @param[in] info modem info
- *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static e_mmgr_errors_t stop_hsic(modem_info_t *info)
-{
-    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "0", 1);
-}
-
-/**
- * restart hsic link
- *
- * @param[in] info modem info
- *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static e_mmgr_errors_t restart_hsic(modem_info_t *info)
-{
-    /* When the HSIC is already UP, writing 1 resets the hsic, It's what we
-     * want here. This function only exists for "readability" purpose. */
-    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "1", 1);
-}
-
-/**
  * package fls file with a fresh fls file and nvm files
  *
  * @param [in] info modem info structure
@@ -470,8 +427,7 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    if (info->mdm_link == E_LINK_HSIC)
-        stop_hsic(info);
+    ctrl_on_mdm_down(info->ctrl);
 
     if (ioctl(info->fd_mcd, MDM_CTRL_POWER_OFF) == -1) {
         ret = E_ERR_FAILED;
@@ -504,9 +460,7 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     CHECK_PARAM(info, ret, out);
 
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
-
-    if (info->mdm_link == E_LINK_HSIC)
-        start_hsic(info);
+    ctrl_on_mdm_up(info->ctrl);
 
     if (info->is_flashless) {
         if (state & MDM_CTRL_STATE_OFF) {
@@ -524,8 +478,8 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
 
     if (ret == E_ERR_SUCCESS)
         LOG_DEBUG("Modem successfully POWERED-UP");
-    else if (info->mdm_link == E_LINK_HSIC)
-        stop_hsic(info);
+    else
+        ctrl_on_mdm_down(info->ctrl);
 
 out:
     return ret;
@@ -673,9 +627,8 @@ e_mmgr_errors_t mdm_prepare_link(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    /* restart hsic if the modem is hsic */
-    if (info->mdm_link == E_LINK_HSIC)
-        restart_hsic(info);
+    ret = ctrl_on_mdm_flash(info->ctrl);
+
 out:
     return ret;
 }

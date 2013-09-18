@@ -113,10 +113,6 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
         goto out;
     }
 
-    /* @TODO: this should be part of the link module */
-    strncpy(info->hsic_enable_path, mdm_link->ctrl.device,
-            sizeof(info->hsic_enable_path) - 1);
-
     strncpy(info->mdm_name, mdm_info->name, sizeof(info->mdm_name) - 1);
 
     info->fl_conf = *flash;

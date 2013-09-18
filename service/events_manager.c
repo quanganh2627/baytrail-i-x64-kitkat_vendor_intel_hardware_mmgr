@@ -323,8 +323,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             if (mdm_off)
                 mmgr->events.cli_req = E_CLI_REQ_OFF;
             if (cd_ipc)
-                /* @TODO: replace when control link module is created */
-                mdm_prepare_link(&mmgr->info);
+                ctrl_on_cd_ipc_failure(mmgr->info.ctrl);
 
             break;
         }
