@@ -16,6 +16,7 @@
 **
 */
 
+#define MMGR_FW_OPERATIONS
 #include "events_manager.h"
 #include "modem_specific.h"
 #include "file.h"

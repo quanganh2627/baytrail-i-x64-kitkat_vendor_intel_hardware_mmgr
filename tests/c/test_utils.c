@@ -16,6 +16,7 @@
 **
 */
 
+#define MMGR_FW_OPERATIONS
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>

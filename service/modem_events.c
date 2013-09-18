@@ -16,6 +16,7 @@
 **
 */
 
+#define MMGR_FW_OPERATIONS
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -386,7 +387,6 @@ static e_mmgr_errors_t pre_platform_reboot(mmgr_data_t *mmgr)
         clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_PLATFORM_REBOOT, NULL);
         broadcast_msg(E_MSG_INTENT_PLATFORM_REBOOT);
 
-        sleep(mmgr->config.delay_before_reboot);
         /* pretend that the modem is OOS to reject all clients' requests */
         set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
     }

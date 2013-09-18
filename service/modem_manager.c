@@ -21,12 +21,12 @@
 #include <sys/stat.h>
 #include "errors.h"
 #include "logs.h"
-#include "config.h"
 #include "file.h"
 #include "client_events.h"
 #include "events_manager.h"
 #include "modem_events.h"
 #include "modem_info.h"
+#include "property.h"
 #include "timer_events.h"
 
 #include "tcs.h"
@@ -35,9 +35,9 @@
     "Start "MODULE_NAME " Daemon.\n" \
     "Usage: "MODULE_NAME " [OPTION]...\n" \
     "-h\t\t: Show help options\n" \
-    "-c <filename>\t: Use <filename> as configuration file\n"
 
 #define GCOV_FOLDER "/data/gcov"
+#define TEL_STACK_PROPERTY "persist.service.telephony.off"
 
 /* global values used to cleanup */
 mmgr_data_t *g_mmgr = NULL;
@@ -197,6 +197,11 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
             ret = E_ERR_FAILED;
             goto out;
         }
+
+        if (E_ERR_SUCCESS != events_init(cfg->mmgr.cli.max, mmgr)) {
+            LOG_ERROR("Failed to configure events module");
+            ret = E_ERR_FAILED;
+        }
     } else {
         LOG_ERROR("Failed to init TCS");
         ret = E_ERR_FAILED;
@@ -206,6 +211,25 @@ out:
     if (h && tcs_dispose(h))
         ret = E_ERR_FAILED;
     return ret;
+}
+
+static void disable_telephony(mmgr_data_t *mmgr)
+{
+    int disable_telephony = 1;
+
+    property_get_int(TEL_STACK_PROPERTY, &disable_telephony);
+
+    if (disable_telephony == 1) {
+        LOG_DEBUG("telephony stack is disabled");
+        /* Set MMGR state to MDM_RESET to call the recovery module and force
+         * modem recovery to OOS. By doing so, MMGR will turn off the modem and
+         * declare the modem OOS. Clients will not be able to turn on the modem
+         */
+        recov_force(mmgr->reset, E_FORCE_OOS);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+    } else {
+        set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
+    }
 }
 
 /**
@@ -221,19 +245,14 @@ int main(int argc, char *argv[])
 {
     int err;
     e_mmgr_errors_t ret = EXIT_SUCCESS;
-    char *conf_file = DEFAULT_MMGR_CONFIG_FILE;
     mmgr_data_t mmgr;
 
     /* Initialize the mmgr structure */
     memset(&mmgr, 0, sizeof(mmgr_data_t));
     g_mmgr = &mmgr;
 
-    while (-1 != (err = getopt(argc, argv, "hc:v"))) {
+    while (-1 != (err = getopt(argc, argv, "hv"))) {
         switch (err) {
-        case 'c':
-            conf_file = optarg;
-            break;
-
         case 'h':
             puts(USAGE);
             goto out;
@@ -277,19 +296,15 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    if ((err = mmgr_configure(&mmgr.config, conf_file))
-        == E_ERR_BAD_PARAMETER) {
-        LOG_ERROR("Initialization failed (reason=%d). Exit", err);
+    disable_telephony(&mmgr);
+
+    if (E_ERR_SUCCESS != events_start(&mmgr)) {
+        LOG_ERROR("failed to start event module");
         ret = EXIT_FAILURE;
-        goto out;
+    } else {
+        events_manager(&mmgr);
     }
 
-    if (events_init(&mmgr) != E_ERR_SUCCESS) {
-        LOG_ERROR("Events configuration failed. Exit");
-        ret = EXIT_FAILURE;
-        goto out;
-    }
-    events_manager(&mmgr);
 out:
     /* @TODO: REMOVE EXIT. bogus? If returns is used, atexit function callback
      * is called but mmgr is deallocated... */

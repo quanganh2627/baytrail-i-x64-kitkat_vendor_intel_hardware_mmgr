@@ -16,10 +16,9 @@
 **
 */
 
-#define MMGR_FW_OPERATIONS
+#include "modem_specific.h"
 #include "logs.h"
 #include "mmgr.h"
-#include "modem_specific.h"
 #include "timer_events.h"
 #include "file.h"
 #include "modem_update.h"

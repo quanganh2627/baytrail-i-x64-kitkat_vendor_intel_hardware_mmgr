@@ -38,7 +38,6 @@
 #include "modem_specific.h"
 
 #define FIRST_EVENT -1
-#define TEL_STACK_PROPERTY "persist.service.telephony.off"
 
 const char *g_mmgr_st[] = {
 #undef X
@@ -85,7 +84,44 @@ out:
 }
 
 /**
- * initialize mmgr structure
+ * initialize events module
+ *
+ * @param [in] nb_client
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_BAD_PARAMETER mmgr is NULL
+ * @return E_ERR_FAILED if failed
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(mmgr, ret, out);
+
+    /* initialize all fds */
+    mmgr->fd_tty = CLOSED_FD;
+    mmgr->fd_cnx = CLOSED_FD;
+    mmgr->epollfd = CLOSED_FD;
+
+    mmgr->events.nfds = 0;
+    mmgr->events.ev = malloc(sizeof(struct epoll_event) * (nb_client + 1));
+    if (mmgr->events.ev == NULL) {
+        LOG_ERROR("memory allocation failed");
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    mmgr->events.cur_ev = FIRST_EVENT;
+    mmgr->events.link_state = E_MDM_LINK_NONE;
+    mmgr->request.accept_request = true;
+
+out:
+    return ret;
+}
+
+/**
+ * start events handler
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -93,41 +129,11 @@ out:
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
+e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int disable_telephony = 1;
 
     CHECK_PARAM(mmgr, ret, out);
-
-    mmgr->fd_tty = CLOSED_FD;
-    mmgr->fd_cnx = CLOSED_FD;
-
-    property_get_int(TEL_STACK_PROPERTY, &disable_telephony);
-    if (disable_telephony == 1) {
-        LOG_DEBUG("telephony stack is disabled");
-        /* Set MMGR state to MDM_RESET to call the recovery module and force
-         * modem recovery to OOS. By doing so, MMGR will turn off the modem and
-         * declare the modem OOS. Clients will not be able to turn on the modem
-         **/
-        recov_force(mmgr->reset, E_FORCE_OOS);
-        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-    } else {
-        set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
-    }
-
-    mmgr->events.nfds = 0;
-    mmgr->events.ev = malloc(sizeof(struct epoll_event) *
-                             (mmgr->config.max_clients + 1));
-    mmgr->events.cur_ev = FIRST_EVENT;
-    mmgr->events.link_state = E_MDM_LINK_NONE;
-    mmgr->request.accept_request = true;
-
-    if (mmgr->events.ev == NULL) {
-        LOG_ERROR("Unable to initialize event structure");
-        ret = E_ERR_BAD_PARAMETER;
-        goto out;
-    }
 
     if ((ret = mdm_prepare(&mmgr->info)) != E_ERR_SUCCESS)
         goto out;
@@ -136,7 +142,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    mmgr->epollfd = CLOSED_FD;
     if ((ret = init_ev_hdler(&mmgr->epollfd)) != E_ERR_SUCCESS)
         goto out;
 
@@ -171,7 +176,7 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
             /* ready to flash modem */
             mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
             mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
-        } else if (!mmgr->config.is_flashless) {
+        } else if (!mmgr->info.is_flashless) {
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         }
     } else {
@@ -202,9 +207,10 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
     if (mmgr->events.cur_ev + 1 >= mmgr->events.nfds) {
         do {
             mmgr->events.cur_ev = FIRST_EVENT;
-            LOG_INFO("%s STATE: waiting for a new event", MODULE_NAME);
+            LOG_INFO("Waiting for a new event");
             mmgr->events.nfds = epoll_wait(mmgr->epollfd, mmgr->events.ev,
-                                           mmgr->config.max_clients + 1,
+                                           clients_get_allowed(mmgr->clients)
+                                           + 1,
                                            timer_get_timeout(mmgr->timer));
             if (mmgr->events.nfds == -1) {
                 if ((errno == EBADF) || (errno == EINVAL)) {

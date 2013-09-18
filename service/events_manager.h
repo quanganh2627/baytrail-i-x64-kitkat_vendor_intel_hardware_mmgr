@@ -20,10 +20,9 @@
 #define __MMGR_EVENTS_MANAGER_HEADER__
 
 #include "bus_events.h"
-#include "config.h"
-#include "core_dump.h"
 #include "client.h"
 #include "client_cnx.h"
+#include "core_dump.h"
 #include "mmgr.h"
 #include "modem_info.h"
 #include "bus_events.h"
@@ -96,7 +95,6 @@ typedef struct mmgr_data {
     int fd_tty;
     int fd_cnx;
     e_mmgr_state_t state;
-    mmgr_configuration_t config;
     reset_handle_t *reset;
     clients_hdle_t *clients;
     timer_handle_t *timer;
@@ -111,9 +109,12 @@ typedef struct mmgr_data {
     reset_mdm_op_t hdler_mdm[E_EL_NUMBER_OF];
 } mmgr_data_t;
 
-e_mmgr_errors_t events_manager(mmgr_data_t *mmgr);
+e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr);
 e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr);
-e_mmgr_errors_t events_init(mmgr_data_t *mmgr);
+
+e_mmgr_errors_t events_manager(mmgr_data_t *mmgr);
+e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr);
+e_mmgr_errors_t events_start(mmgr_data_t *mmgr);
 inline void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state);
 
 #endif                          /* __MMGR_EVENTS_MANAGER_HEADER__ */
