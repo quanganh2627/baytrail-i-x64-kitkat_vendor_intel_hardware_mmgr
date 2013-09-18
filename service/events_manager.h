@@ -21,6 +21,7 @@
 
 #include "bus_events.h"
 #include "config.h"
+#include "core_dump.h"
 #include "client.h"
 #include "client_cnx.h"
 #include "mmgr.h"
@@ -99,6 +100,7 @@ typedef struct mmgr_data {
     reset_handle_t *reset;
     client_list_t clients;
     timer_handle_t *timer;
+    mcdr_handle_t *mcdr;
     modem_info_t info;
     mmgr_events_t events;
     current_request_t request;

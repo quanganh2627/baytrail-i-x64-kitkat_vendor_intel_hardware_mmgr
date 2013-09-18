@@ -19,23 +19,23 @@
 #ifndef __CORE_DUMP_HEADER__
 #define __CORE_DUMP_HEADER__
 
-#include "config.h"
+
+#include "errors.h"
 #include "dumpreader.h"
+#define MMGR_FW_OPERATIONS
 #include "mmgr.h"
+#include "tcs_mmgr.h"
 
-typedef struct mcdr_lib {
-    bool enabled;
-    void *lib;
-    mcdr_data_t data;
-    void (*read)(mcdr_data_t *);
-    void (*cleanup)(void);
-    mcdr_status_t (*get_state)(void);
-    char *(*get_reason)(void);
-} mcdr_lib_t;
+typedef void *mcdr_handle_t;
 
-e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
-                               mcdr_lib_t *mcdr);
-e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr,
-                                   e_core_dump_state_t *state);
+mcdr_handle_t *mcdr_init(const mcdr_info_t *cfg);
+e_mmgr_errors_t mcdr_dispose(mcdr_handle_t *h);
+
+e_mmgr_errors_t mcdr_read(mcdr_handle_t *h, e_core_dump_state_t *st);
+
+const char *mcdr_get_path(mcdr_handle_t *h);
+const char *mcdr_get_filename(mcdr_handle_t *h);
+const char *mcdr_get_error_reason(mcdr_handle_t *h);
+bool mcdr_is_enabled(mcdr_handle_t *h);
 
 #endif                          /* __CORE_DUMP_HEADER__ */

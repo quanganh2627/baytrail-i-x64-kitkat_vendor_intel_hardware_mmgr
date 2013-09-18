@@ -53,7 +53,7 @@ static inline void mdm_close_fds(mmgr_data_t *mmgr)
 }
 
 static e_mmgr_errors_t notify_core_dump(client_list_t *clients,
-                                        mcdr_lib_t *mcdr,
+                                        mcdr_handle_t *mcdr_hdle,
                                         e_core_dump_state_t state)
 {
     mmgr_cli_core_dump_t cd;
@@ -64,23 +64,23 @@ static e_mmgr_errors_t notify_core_dump(client_list_t *clients,
     memset(&cd, 0, sizeof(cd));
 
     cd.state = state;
-    if (mcdr != NULL) {
-        cd.path_len = strnlen(mcdr->data.coredump_file, PATH_MAX) +
-                      strnlen(mcdr->data.path, PATH_MAX) + 2;
+    if (mcdr_hdle != NULL) {
+        const char *path = mcdr_get_path(mcdr_hdle);
+        const char *filename = mcdr_get_filename(mcdr_hdle);
+        cd.path_len = strnlen(path, PATH_MAX) + strnlen(filename, PATH_MAX) + 2;
 
         cd.path = malloc(sizeof(char) * cd.path_len);
         if (cd.path == NULL) {
             LOG_ERROR("memory allocation fails");
             goto out;
         }
-        snprintf(cd.path, cd.path_len, "%s/%s", mcdr->data.path,
-                 mcdr->data.coredump_file);
+        snprintf(cd.path, cd.path_len, "%s/%s", path, filename);
 
         if (E_CD_TIMEOUT == state) {
             cd.reason = "Timeout. Operation aborted";
             cd.reason_len = strlen(cd.reason);
         } else if (E_CD_SUCCEED != state) {
-            cd.reason = mcdr->get_reason();
+            cd.reason = (char *)mcdr_get_error_reason(mcdr_hdle);
             cd.reason_len = strlen(cd.reason);
         } else {
             cd.reason = NULL;
@@ -250,16 +250,16 @@ static void read_core_dump(mmgr_data_t *mmgr)
 {
     e_core_dump_state_t state;
 
-    if (!mmgr->info.mcdr.enabled)
+    if (!mcdr_is_enabled(mmgr->mcdr))
         goto out;
 
     timer_stop(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
 
-    retrieve_core_dump(&mmgr->info.mcdr, &state);
+    mcdr_read(mmgr->mcdr, &state);
     pm_on_mdm_cd_complete(&mmgr->info);
 
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
-    notify_core_dump(&mmgr->clients, &mmgr->info.mcdr, state);
+    notify_core_dump(&mmgr->clients, mmgr->mcdr, state);
 
     mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
     mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;

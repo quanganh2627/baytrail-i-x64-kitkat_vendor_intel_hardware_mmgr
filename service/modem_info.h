@@ -19,7 +19,6 @@
 #include <stdbool.h>
 #include <time.h>
 #include "config.h"
-#include "core_dump.h"
 #include "modem_update.h"
 #include "tcs_mmgr.h"
 
@@ -68,7 +67,6 @@ typedef struct mup_op {
 
 typedef struct modem_info {
     mup_op_t mup;
-    mcdr_lib_t mcdr;
     int fd_mcd;
     int polled_states;
     flashless_config_t fl_conf;

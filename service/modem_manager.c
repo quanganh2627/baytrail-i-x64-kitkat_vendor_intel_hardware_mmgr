@@ -48,6 +48,7 @@ static void cleanup(void)
     timer_dispose(g_mmgr->timer);
     secure_stop(g_mmgr->secure);
     secure_dispose(g_mmgr->secure);
+    mcdr_dispose(g_mmgr->mcdr);
     LOG_VERBOSE("Exiting");
 }
 
@@ -149,6 +150,13 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
                                    &cfg->mmgr.com.ch.secured);
         if (!mmgr->secure) {
             LOG_ERROR("Failed to configure the security module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->mcdr = mcdr_init(&cfg->mmgr.mcdr);
+        if (!mmgr->mcdr) {
+            LOG_ERROR("Failed to configure MCDR module");
             ret = E_ERR_FAILED;
             goto out;
         }

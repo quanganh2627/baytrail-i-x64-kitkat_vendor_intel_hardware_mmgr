@@ -16,6 +16,7 @@
 **
 */
 
+#define MMGR_FW_OPERATIONS
 #include <errno.h>
 #include <dlfcn.h>
 #include <fcntl.h>
@@ -74,8 +75,6 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
     close_all_clients(&mmgr->clients);
     write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
-    if (mmgr->info.mcdr.lib != NULL)
-        dlclose(mmgr->info.mcdr.lib);
     if (mmgr->info.mup.hdle != NULL)
         dlclose(mmgr->info.mup.hdle);
     if (mmgr->fd_tty != CLOSED_FD)

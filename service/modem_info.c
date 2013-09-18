@@ -102,10 +102,6 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
         != E_ERR_SUCCESS)
         goto out;
 
-    ret = core_dump_init(config, &info->mcdr);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
-
     info->hsic_pm_path = (char *)config->hsic_pm_path;
     info->hsic_enable_path = (char *)config->hsic_enable_path;
 

@@ -782,8 +782,8 @@ static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
 
-    snprintf(filename, PATH_MAX - 1, "%s/%s",
-             mmgr->info.mcdr.data.path, FAKE_CD_FILENAME);
+    snprintf(filename, PATH_MAX - 1, "%s/%s", mcdr_get_path(mmgr->mcdr),
+             FAKE_CD_FILENAME);
     write_to_file(filename, OPEN_MODE_RW_UGO, data, 0);
 
     cd.state = E_CD_SUCCEED;
