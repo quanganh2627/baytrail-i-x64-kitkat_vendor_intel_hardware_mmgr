@@ -53,7 +53,7 @@
 		reset="600"
 		delay_before_reboot="1"
 		cold_reset_timeout="10"
-		shutdown_timeout="10"
+		shutdown_timeout="1"
 	/>
 	<clients_config max="12"/>
 	<mcdr>

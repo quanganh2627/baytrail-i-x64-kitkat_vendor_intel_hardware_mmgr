@@ -45,6 +45,7 @@
 #define ERROR_REASON "IPC error"
 
 #define AT_CFUN_RETRY 0
+/* NB: This timer shall not be higher than MAX_RADIO_WAIT_TIME (in seconds) */
 #define WAIT_FOR_WARM_BOOT_TIMEOUT 30000
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 
