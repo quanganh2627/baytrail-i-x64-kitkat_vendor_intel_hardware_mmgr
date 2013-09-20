@@ -399,7 +399,6 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
 
     mmgr->events.cli_req = E_CLI_REQ_RESET;
     mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
-    notify_ap_reset(mmgr);
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 out:
     return ret;
@@ -427,7 +426,6 @@ static e_mmgr_errors_t request_bkup_prod(mmgr_data_t *mmgr)
     mmgr->events.cli_req |= E_CLI_REQ_PROD;
     /* do modem restart for NVM flush */
     mmgr->reset.modem_restart = E_FORCE_RESET_ENABLED;
-    notify_ap_reset(mmgr);
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 out:
     return ret;
