@@ -55,6 +55,7 @@ static void cleanup(void)
     mcdr_dispose(g_mmgr->mcdr);
     modem_info_dispose(&g_mmgr->info);
     client_events_dispose(g_mmgr);
+    bus_ev_dispose(g_mmgr->events.bus_events);
     LOG_VERBOSE("Exiting");
 }
 
@@ -183,6 +184,16 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
 
         if (E_ERR_SUCCESS != client_events_init(cfg->mmgr.cli.max, mmgr)) {
             LOG_ERROR("Failed to configure client module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+
+        mmgr->events.bus_events = bus_ev_init(&cfg->mmgr.mdm_link.flash,
+                                              &cfg->mmgr.mdm_link.baseband,
+                                              &cfg->mmgr.mcdr.link);
+        if (!mmgr->events.bus_events) {
+            LOG_ERROR("Failed to configure bus module");
             ret = E_ERR_FAILED;
             goto out;
         }

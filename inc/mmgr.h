@@ -19,6 +19,8 @@
 #ifndef __MMGR_EXTERNAL_HEADER_FILE__
 #define __MMGR_EXTERNAL_HEADER_FILE__
 
+#include <sys/types.h>
+
 #define MMGR_SOCKET_NAME "mmgr"
 #define CLIENT_NAME_LEN 64
 #define FUSE_LEN 9
@@ -156,7 +158,6 @@ typedef struct mmgr_cli_restart {
 } mmgr_cli_restart_t;
 
 #ifdef MMGR_FW_OPERATIONS
-#include <sys/types.h>
 
 #define FW_ERROR \
     X(SUCCEED), \

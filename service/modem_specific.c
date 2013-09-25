@@ -194,7 +194,8 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info is empty
  */
-e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
+e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
+                               bool ch_sw,
                                secure_handle_t *sec_hdle,
                                e_modem_fw_error_t *verdict)
 {

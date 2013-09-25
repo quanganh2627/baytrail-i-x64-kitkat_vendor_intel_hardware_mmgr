@@ -76,7 +76,7 @@ typedef struct mmgr_events {
     struct epoll_event *ev;
     int cur_ev;
     e_events_type_t state;
-    bus_ev_t bus_events;
+    bus_ev_hdle_t *bus_events;
     e_client_req_t cli_req;
     e_mdm_link_state_t link_state;
 } mmgr_events_t;

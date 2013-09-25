@@ -17,54 +17,24 @@
 #ifndef __MMGR_BUS_EV_MANAGER_HEADER__
 #define __MMGR_BUS_EV_MANAGER_HEADER__
 
-#include <inttypes.h>
-#include <linux/limits.h>
-#include "events_manager.h"
 #include "errors.h"
+#include "tcs_mmgr.h"
 
 #define BUS_EV_CAPACITY 32
 #define MDM_FLASH_READY 1
 #define MDM_BB_READY 2
 #define MDM_CD_READY 4
 
-typedef enum {
-    EV_NONE,
-    EV_ADDED,
-    EV_DELETED
-} e_bus_ev_t;
+typedef void *bus_ev_hdle_t;
 
-typedef struct {
-    char path[PATH_MAX];
-    e_bus_ev_t event;
-} bus_event_t;
+bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr);
+e_mmgr_errors_t bus_ev_dispose(bus_ev_hdle_t *h);
+e_mmgr_errors_t bus_ev_start(bus_ev_hdle_t *h);
 
-typedef struct {
-    int i;
-    bus_event_t evs[BUS_EV_CAPACITY];
-} bus_ev_cli_ctx_t;
-
-typedef struct {
-    struct usb_host_context *ctx;
-    bus_ev_cli_ctx_t cli_ctx;
-    int mdm_state;
-    int wd_fd;
-    char modem_flash_path[PATH_MAX];
-    char modem_bb_path[PATH_MAX];
-    char modem_cd_path[PATH_MAX];
-    uint16_t modem_flash_pid;
-    uint16_t modem_flash_vid;
-    uint16_t modem_bb_pid;
-    uint16_t modem_bb_vid;
-    uint16_t mcdr_bb_pid;
-    uint16_t mcdr_bb_vid;
-} bus_ev_t;
-
-e_mmgr_errors_t bus_events_init(bus_ev_t *bus_events, char *bb_pid,
-                                char *bb_vid, char *flash_pid, char *flash_vid,
-                                char *mcdr_pid, char *mcdr_vid);
-int get_bus_state(bus_ev_t *bus_event);
-int bus_ev_get_fd(bus_ev_t *bus_events);
-int bus_read_events(bus_ev_t *bus_events);
-e_mmgr_errors_t bus_handle_events(bus_ev_t *bus_events);
+int bus_ev_get_state(bus_ev_hdle_t *h);
+int bus_ev_get_fd(bus_ev_hdle_t *h);
+int bus_ev_read(bus_ev_hdle_t *h);
+e_mmgr_errors_t bus_ev_hdle_events(bus_ev_hdle_t *h);
+const char *bus_ev_get_flash_interface(bus_ev_hdle_t *h);
 
 #endif                          /* __MMGR_BUS_EV_MANAGER_HEADER__ */

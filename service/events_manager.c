@@ -152,27 +152,22 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     LOG_DEBUG("MCD driver added to poll list");
 
     if (mmgr->info.mdm_link == E_LINK_HSIC) {
-        if ((ret =
-                 bus_events_init(&mmgr->events.bus_events, mmgr->config.bb_pid,
-                                 mmgr->config.bb_vid, mmgr->config.flash_pid,
-                                 mmgr->config.flash_vid, mmgr->config.mcdr_pid,
-                                 mmgr->config.mcdr_vid)) != E_ERR_SUCCESS) {
-            LOG_ERROR("unable to configure bus events handler");
+        if (E_ERR_SUCCESS != (ret = bus_ev_start(mmgr->events.bus_events)))
             goto out;
-        }
 
-        int wd_fd = bus_ev_get_fd(&mmgr->events.bus_events);
+        int wd_fd = bus_ev_get_fd(mmgr->events.bus_events);
         ret = add_fd_ev(mmgr->epollfd, wd_fd, EPOLLIN);
         if (ret != E_ERR_SUCCESS)
             goto out;
         LOG_DEBUG("bus event fd added to poll list");
 
         /* handle the first events after discovery */
-        if (get_bus_state(&mmgr->events.bus_events) & MDM_BB_READY) {
+        if (bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) {
             /* ready to configure modem */
             mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
             mmgr->events.link_state |= E_MDM_LINK_BB_READY;
-        } else if (get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) {
+        } else if (bus_ev_get_state(mmgr->events.bus_events) &
+                   MDM_FLASH_READY) {
             /* ready to flash modem */
             mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
             mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
@@ -181,7 +176,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         }
     } else {
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
-        mmgr->events.bus_events.wd_fd = CLOSED_FD;
     }
 
 out:
@@ -233,7 +227,7 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
             mmgr->events.state = E_EVENT_IPC;
         else if (fd == mmgr->info.fd_mcd)
             mmgr->events.state = E_EVENT_MCD;
-        else if (fd == mmgr->events.bus_events.wd_fd)
+        else if (fd == bus_ev_get_fd(mmgr->events.bus_events))
             mmgr->events.state = E_EVENT_BUS;
         else if (fd == secure_get_fd(mmgr->secure))
             mmgr->events.state = E_EVENT_SECUR;

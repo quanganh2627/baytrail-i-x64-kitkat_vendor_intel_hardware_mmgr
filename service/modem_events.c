@@ -108,7 +108,7 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mmgr_cli_fw_update_result_t fw_result =
     { .id = E_MODEM_FW_ERROR_UNSPECIFIED };
-    char *flashing_interface = NULL;
+    const char *flashing_interface = NULL;
     bool ch_hw_sw = true;
 
     CHECK_PARAM(mmgr, ret, out);
@@ -121,7 +121,8 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
             flashing_interface = "/dev/ttyIFX1";
             ch_hw_sw = true;
         } else if (mmgr->info.mdm_link == E_LINK_HSIC) {
-            flashing_interface = mmgr->events.bus_events.modem_flash_path;
+            flashing_interface =
+                bus_ev_get_flash_interface(mmgr->events.bus_events);
             ch_hw_sw = false;
         }
 
@@ -784,12 +785,12 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    bus_read_events(&mmgr->events.bus_events);
-    if (bus_handle_events(&mmgr->events.bus_events) != E_ERR_SUCCESS) {
-        LOG_INFO("bus_handle_events undefined event");
+    bus_ev_read(mmgr->events.bus_events);
+    if (bus_ev_hdle_events(mmgr->events.bus_events) != E_ERR_SUCCESS) {
+        LOG_INFO("bus_ev_hdle_events undefined event");
         goto out;
     }
-    if ((get_bus_state(&mmgr->events.bus_events) & MDM_BB_READY) &&
+    if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) &&
         (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
         LOG_DEBUG("ready to configure modem");
         timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
@@ -797,7 +798,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
         if (mmgr->events.link_state & E_MDM_LINK_IPC_READY)
             ret = do_configure(mmgr);
-    } else if ((get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) &&
+    } else if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_FLASH_READY) &&
                (mmgr->state == E_MMGR_MDM_START)) {
         LOG_DEBUG("ready to flash modem");
         timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
@@ -808,7 +809,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
             if (ret != E_ERR_FAILED)
                 set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
         }
-    } else if ((get_bus_state(&mmgr->events.bus_events) & MDM_CD_READY) &&
+    } else if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_CD_READY) &&
                (mmgr->state == E_MMGR_MDM_CORE_DUMP)) {
         LOG_DEBUG("ready to read a core dump");
         if (mmgr->fd_tty != CLOSED_FD) {
