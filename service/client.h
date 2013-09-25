@@ -19,13 +19,9 @@
 #ifndef __MMGR_CLIENT_HEADER__
 #define __MMGR_CLIENT_HEADER__
 
-#include "data_to_msg.h"
 #include "errors.h"
-#include "mmgr.h"
+#include "mmgr_cli.h"
 #include <stdbool.h>
-#include <time.h>
-
-typedef e_mmgr_errors_t (*set_msg) (msg_t *, mmgr_cli_event_t *);
 
 typedef enum e_cnx_requests {
     E_CNX_NONE = 0,
@@ -36,44 +32,49 @@ typedef enum e_cnx_requests {
         E_CNX_RESOURCE_RELEASED = 0x01 << 4
 } e_cnx_requests_t;
 
-typedef struct client {
-    char name[CLIENT_NAME_LEN + 1];
-    int fd;
-    struct timespec time;
-    e_mmgr_requests_t request;
-    uint32_t subscription;
-    /* These flags are used to store client ACKs */
-    e_cnx_requests_t cnx;
-    /* @TODO: remove this once MMGR will use getter/setter */
-    set_msg *set_data;
-} client_t;
+typedef enum e_print {
+    E_PRINT,
+    E_MUTE,
+} e_print_t;
 
-typedef struct client_list {
-    int list_size;
-    int connected;
-    client_t *list;
-    set_msg set_data[E_MMGR_NUM_EVENTS];
-} client_list_t;
+/* client handle: */
+typedef void *client_hdle_t;
 
-e_mmgr_errors_t is_registered(client_t *client, bool *state);
-e_mmgr_errors_t initialize_list(client_list_t *clients, int list_size);
-e_mmgr_errors_t add_client(client_list_t *clients, int fd, client_t **client);
-e_mmgr_errors_t remove_client(client_list_t *clients, client_t *client);
-e_mmgr_errors_t set_client_name(client_t *client, char *name, size_t len);
-e_mmgr_errors_t set_client_filter(client_t *client, uint32_t subscription);
-e_mmgr_errors_t find_client(client_list_t *clients, int fd, client_t **client);
+/* list of clients: */
+typedef void *clients_hdle_t;
 
-e_mmgr_errors_t inform_all_clients(client_list_t *clients,
-                                   e_mmgr_events_t state, void *data);
-e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state, void
-                              *data);
-e_mmgr_errors_t close_all_clients(client_list_t *clients);
+/* client API: */
+clients_hdle_t *clients_init(int list_size);
+e_mmgr_errors_t clients_dispose(clients_hdle_t *clients);
 
-e_mmgr_errors_t check_cold_ack(client_list_t *clients, bool listing);
-e_mmgr_errors_t check_shutdown_ack(client_list_t *clients, bool listing);
-e_mmgr_errors_t check_resource_released(client_list_t *clients, bool listing);
+e_mmgr_errors_t client_add(clients_hdle_t *clients, int fd);
+e_mmgr_errors_t client_remove(clients_hdle_t *clients, int fd);
 
-e_mmgr_errors_t reset_cold_ack(client_list_t *clients);
-e_mmgr_errors_t reset_shutdown_ack(client_list_t *clients);
+int clients_get_connected(const clients_hdle_t *l);
+int clients_get_allowed(const clients_hdle_t *l);
+
+e_mmgr_errors_t clients_inform_all(const clients_hdle_t *l, e_mmgr_events_t ev,
+                                   void *d);
+e_mmgr_errors_t clients_inform(const client_hdle_t *l, e_mmgr_events_t ev,
+                               void *data);
+
+bool clients_has_ack_cold(const clients_hdle_t *l, e_print_t print);
+bool clients_has_ack_shtdwn(const clients_hdle_t *l, e_print_t print);
+bool clients_has_resource(const clients_hdle_t *l, e_print_t print);
+
+e_mmgr_errors_t clients_reset_ack_cold(clients_hdle_t *clients);
+e_mmgr_errors_t clients_reset_ack_shtdwn(clients_hdle_t *clients);
+
+/* clients API: */
+bool client_is_registered(const client_hdle_t *client);
+e_mmgr_errors_t client_set_name(client_hdle_t *client, const char *name,
+                                size_t len);
+e_mmgr_errors_t client_set_filter(client_hdle_t *client, uint32_t subscription);
+e_mmgr_errors_t client_set_request(client_hdle_t *cli, e_cnx_requests_t req);
+e_mmgr_errors_t client_unset_request(client_hdle_t *cli, e_cnx_requests_t req);
+
+client_hdle_t *client_find(const clients_hdle_t *l, int fd);
+const char *client_get_name(const client_hdle_t *client);
+int client_get_fd(const client_hdle_t *client);
 
 #endif                          /* __MMGR_CLIENT_HEADER__ */

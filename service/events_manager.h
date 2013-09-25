@@ -83,7 +83,7 @@ typedef struct mmgr_events {
 
 typedef struct current_request {
     msg_t msg;
-    client_t *client;
+    client_hdle_t *client;
     bool accept_request;
 } current_request_t;
 
@@ -98,7 +98,7 @@ typedef struct mmgr_data {
     e_mmgr_state_t state;
     mmgr_configuration_t config;
     reset_handle_t *reset;
-    client_list_t clients;
+    clients_hdle_t *clients;
     timer_handle_t *timer;
     mcdr_handle_t *mcdr;
     modem_info_t info;

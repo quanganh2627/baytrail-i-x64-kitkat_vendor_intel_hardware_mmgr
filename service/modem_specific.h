@@ -19,7 +19,6 @@
 #ifndef __MMGR_MODEM_SPECIFIC_HEADER__
 #define __MMGR_MODEM_SPECIFIC_HEADER__
 
-#define MMGR_FW_OPERATIONS
 #include "mmgr.h"
 #include "errors.h"
 #include "modem_info.h"

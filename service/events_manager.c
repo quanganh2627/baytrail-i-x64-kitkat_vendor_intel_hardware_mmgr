@@ -72,7 +72,6 @@ e_mmgr_errors_t events_cleanup(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     free(mmgr->events.ev);
-    close_all_clients(&mmgr->clients);
     write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
                   strlen(MODULE_NAME));
     if (mmgr->fd_tty != CLOSED_FD)
@@ -130,12 +129,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         goto out;
     }
 
-    if ((ret = initialize_list(&mmgr->clients,
-                               mmgr->config.max_clients)) != E_ERR_SUCCESS) {
-        LOG_ERROR("Client list initialisation failed");
-        goto out;
-    }
-
     if ((ret = mdm_prepare(&mmgr->info)) != E_ERR_SUCCESS)
         goto out;
 
@@ -157,11 +150,6 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
 
     ret = set_mcd_poll_states(&mmgr->info);
     LOG_DEBUG("MCD driver added to poll list");
-
-    if ((ret = client_events_init(mmgr)) != E_ERR_SUCCESS) {
-        LOG_ERROR("unable to configure client events handlers");
-        goto out;
-    }
 
     if (mmgr->info.mdm_link == E_LINK_HSIC) {
         if ((ret =
@@ -281,7 +269,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
 
     for (;; ) {
         if (mmgr->events.cli_req & E_CLI_REQ_OFF) {
-            reset_shutdown_ack(&mmgr->clients);
+            clients_reset_ack_shtdwn(mmgr->clients);
             modem_shutdown(mmgr);
             set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
             mmgr->events.cli_req &= ~E_CLI_REQ_OFF;

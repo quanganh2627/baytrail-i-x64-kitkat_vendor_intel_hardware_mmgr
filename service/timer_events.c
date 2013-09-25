@@ -42,7 +42,7 @@ typedef struct mmgr_timer {
     int ack_shtdwn_timeout;
     int ipc_ready;
     int cd_ipc_reset;
-    const client_list_t *clients;
+    const clients_hdle_t *clients;
 } mmgr_timer_t;
 
 
@@ -206,7 +206,7 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
     if ((t->type & (0x01 << E_TIMER_COLD_RESET_ACK)) &&
         ((cur.tv_sec - t->start[E_TIMER_COLD_RESET_ACK].tv_sec)
          > t->ack_cold_reset)) {
-        check_cold_ack((client_list_t *)t->clients, true);
+        clients_has_ack_cold(t->clients, true);
         timer_stop(h, E_TIMER_COLD_RESET_ACK);
         *reset = true;
     }
@@ -214,7 +214,7 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
     if ((t->type & (0x01 << E_TIMER_MODEM_SHUTDOWN_ACK)) &&
         ((cur.tv_sec - t->start[E_TIMER_MODEM_SHUTDOWN_ACK].tv_sec)
          > t->ack_shtdwn_timeout)) {
-        check_shutdown_ack((client_list_t *)t->clients, true);
+        clients_has_ack_shtdwn(t->clients, true);
         timer_stop(h, E_TIMER_MODEM_SHUTDOWN_ACK);
         *reset = true;
         *mdm_off = true;
@@ -228,8 +228,7 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
         *reset = true;
 
         mmgr_cli_fw_update_result_t result = { .id = E_MODEM_FW_READY_TIMEOUT };
-        inform_all_clients((client_list_t *)t->clients,
-                           E_MMGR_RESPONSE_MODEM_FW_RESULT,
+        clients_inform_all(t->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
                            &result);
     }
 
@@ -265,8 +264,8 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
             mmgr_cli_core_dump_t cd = { .state = E_CD_LINK_ERROR };
             cd.reason = "Modem enumeration failure";
             cd.reason_len = strlen(cd.reason);
-            inform_all_clients((client_list_t *)t->clients,
-                               E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, &cd);
+            clients_inform_all(t->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+                               &cd);
         }
     }
 
@@ -286,7 +285,7 @@ out:
  */
 timer_handle_t *timer_init(const mmgr_recovery_t *recov,
                            const mmgr_timings_t *timings,
-                           const client_list_t *clients)
+                           const clients_hdle_t *clients)
 {
     mmgr_timer_t *timer = NULL;
 

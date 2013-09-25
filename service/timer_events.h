@@ -42,7 +42,7 @@ typedef enum e_timer_type {
 
 timer_handle_t *timer_init(const mmgr_recovery_t *recov,
                            const mmgr_timings_t *timings,
-                           const client_list_t *clients);
+                           const clients_hdle_t *clients);
 e_mmgr_errors_t timer_dispose(timer_handle_t *h);
 
 e_mmgr_errors_t timer_start(timer_handle_t *h, e_timer_type_t type);

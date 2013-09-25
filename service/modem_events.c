@@ -52,7 +52,7 @@ static inline void mdm_close_fds(mmgr_data_t *mmgr)
     close_tty(&mmgr->fd_tty);
 }
 
-static e_mmgr_errors_t notify_core_dump(client_list_t *clients,
+static e_mmgr_errors_t notify_core_dump(clients_hdle_t *clients,
                                         mcdr_handle_t *mcdr_hdle,
                                         e_core_dump_state_t state)
 {
@@ -87,7 +87,7 @@ static e_mmgr_errors_t notify_core_dump(client_list_t *clients,
             cd.reason_len = 0;
         }
     }
-    ret = inform_all_clients(clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, &cd);
+    ret = clients_inform_all(clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, &cd);
     free(cd.path);
 
 out:
@@ -134,13 +134,13 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         toggle_flashing_mode(&mmgr->info, false);
         /* the IPC power management will be enabled when the modem is UP */
 
-        inform_all_clients(&mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
+        clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
                            &fw_result);
 
         switch (fw_result.id) {
         case E_MODEM_FW_BAD_FAMILY:
             modem_shutdown(mmgr);
-            inform_all_clients(&mmgr->clients,
+            clients_inform_all(mmgr->clients,
                                E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
             broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
             /* Set MMGR state to MDM_RESET to call the recovery module and
@@ -239,7 +239,7 @@ static e_mmgr_errors_t do_nvm_customization(mmgr_data_t *mmgr)
             LOG_DEBUG("no nvm patch found at %s; skipping nvm update",
                       mmgr->info.fl_conf.run.nvm_tlv);
         }
-        inform_all_clients(&mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,
+        clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,
                            &nvm_result);
     }
 
@@ -260,7 +260,7 @@ static void read_core_dump(mmgr_data_t *mmgr)
     pm_on_mdm_cd_complete(&mmgr->info);
 
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
-    notify_core_dump(&mmgr->clients, mmgr->mcdr, state);
+    notify_core_dump(mmgr->clients, mmgr->mcdr, state);
 
     mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
     mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
@@ -322,7 +322,7 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    if (mmgr->clients.connected == 0) {
+    if (clients_get_connected(mmgr->clients) == 0) {
         recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
         wait_operation = false;
     } else {
@@ -332,8 +332,8 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
             wait_operation = false;
             recov_set_state(mmgr->reset, E_OPERATION_WAIT);
 
-            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-            inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                NULL);
             set_mmgr_state(mmgr, E_MMGR_WAIT_COLD_ACK);
             timer_start(mmgr->timer, E_TIMER_COLD_RESET_ACK);
@@ -342,7 +342,7 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
             recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
 
             broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
-            reset_cold_ack(&mmgr->clients);
+            clients_reset_ack_cold(mmgr->clients);
             mmgr->request.accept_request = false;
             if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
                 set_mmgr_state(mmgr, E_MMGR_MDM_START);
@@ -382,7 +382,7 @@ static e_mmgr_errors_t pre_platform_reboot(mmgr_data_t *mmgr)
     } else {
         recov_set_reboot(++reboot_counter);
 
-        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_PLATFORM_REBOOT, NULL);
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_PLATFORM_REBOOT, NULL);
         broadcast_msg(E_MSG_INTENT_PLATFORM_REBOOT);
 
         sleep(mmgr->config.delay_before_reboot);
@@ -409,7 +409,7 @@ static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     LOG_INFO("MODEM OUT OF SERVICE");
-    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
+    clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
     broadcast_msg(E_MSG_INTENT_MODEM_OUT_OF_SERVICE);
 
     set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
@@ -459,7 +459,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
         close_tty(&fd);
     }
 
-    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+    clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
     mdm_close_fds(mmgr);
     ret = mdm_down(&mmgr->info);
@@ -622,14 +622,14 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
 
     cleanup_ipc_event(mmgr);
 
-    inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+    clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
     /* send error notification with reason message */
     if (mmgr->info.mdm_link == E_LINK_HSI) {
         mmgr_cli_error_t err = { .id = ERROR_ID };
         err.len = strlen(ERROR_REASON);
         err.reason = (char *)ERROR_REASON;
-        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
     }
 
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
@@ -666,7 +666,7 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
             timer_start(mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
         } else {
             ret = launch_secur(mmgr);
-            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
             pm_on_mdm_up(&mmgr->info);
         }
     }
@@ -721,7 +721,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         timer_stop_all(mmgr->timer);
 
         if (mmgr->fd_tty != CLOSED_FD) {
-            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
             mdm_close_fds(mmgr);
         }
 
@@ -734,7 +734,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         LOG_DEBUG("start timer for core dump ready");
         timer_start(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
 
-        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
         broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
         if ((mmgr->info.mdm_link == E_LINK_HSIC) &&
@@ -763,11 +763,11 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         }
     } else {
         if (state & E_EV_MODEM_SELF_RESET) {
-            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
             if (mmgr->state == E_MMGR_MDM_CORE_DUMP)
-                notify_core_dump(&mmgr->clients, NULL, E_CD_SELF_RESET);
+                notify_core_dump(mmgr->clients, NULL, E_CD_SELF_RESET);
             else
-                inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_SELF_RESET,
+                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_SELF_RESET,
                                    NULL);
         }
         cleanup_ipc_event(mmgr);
@@ -812,7 +812,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
                (mmgr->state == E_MMGR_MDM_CORE_DUMP)) {
         LOG_DEBUG("ready to read a core dump");
         if (mmgr->fd_tty != CLOSED_FD) {
-            inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
             mdm_close_fds(mmgr);
         }
 

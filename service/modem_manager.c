@@ -23,6 +23,7 @@
 #include "logs.h"
 #include "config.h"
 #include "file.h"
+#include "client_events.h"
 #include "events_manager.h"
 #include "modem_events.h"
 #include "modem_info.h"
@@ -53,6 +54,7 @@ static void cleanup(void)
     secure_dispose(g_mmgr->secure);
     mcdr_dispose(g_mmgr->mcdr);
     modem_info_dispose(&g_mmgr->info);
+    client_events_dispose(g_mmgr);
     LOG_VERBOSE("Exiting");
 }
 
@@ -143,7 +145,7 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
         }
 
         mmgr->timer = timer_init(&cfg->mmgr.recov, &cfg->mmgr.timings,
-                                 &mmgr->clients);
+                                 mmgr->clients);
         if (!mmgr->timer) {
             LOG_ERROR("Failed to configure timer module");
             ret = E_ERR_FAILED;
@@ -175,6 +177,12 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
 
         if (E_ERR_SUCCESS != modem_events_init(mmgr)) {
             LOG_ERROR("Failed to configure modem events module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        if (E_ERR_SUCCESS != client_events_init(cfg->mmgr.cli.max, mmgr)) {
+            LOG_ERROR("Failed to configure client module");
             ret = E_ERR_FAILED;
             goto out;
         }
