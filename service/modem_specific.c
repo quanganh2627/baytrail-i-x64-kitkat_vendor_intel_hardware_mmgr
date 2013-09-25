@@ -22,7 +22,7 @@
 #include "timer_events.h"
 #include "file.h"
 #include "modem_update.h"
-#include "link_pm.h"
+#include "pm.h"
 
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -481,7 +481,7 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
         ret = E_ERR_SUCCESS;
     }
 
-    pm_on_mdm_oos(info);
+    pm_on_mdm_oos(info->pm);
 
 out:
     return ret;

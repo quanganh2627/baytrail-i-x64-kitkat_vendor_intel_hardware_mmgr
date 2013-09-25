@@ -20,14 +20,20 @@
 #define __MMGR_IPC_PM_HEADER__
 
 #include "errors.h"
-#include "modem_info.h"
+#include "tcs_mmgr.h"
 
-e_mmgr_errors_t pm_on_mdm_flash(modem_info_t *info);
-e_mmgr_errors_t pm_on_mdm_up(modem_info_t *info);
+typedef void *pm_handle_t;
 
-e_mmgr_errors_t pm_on_mdm_oos(modem_info_t *info);
+pm_handle_t pm_init(e_link_t mdm_type, power_t *mdm_power, e_link_t cd_type,
+                    power_t *cd_power);
+e_mmgr_errors_t pm_dispose(pm_handle_t *h);
 
-e_mmgr_errors_t pm_on_mdm_cd(modem_info_t *info);
-e_mmgr_errors_t pm_on_mdm_cd_complete(modem_info_t *info);
+e_mmgr_errors_t pm_on_mdm_flash(pm_handle_t *h);
+e_mmgr_errors_t pm_on_mdm_up(pm_handle_t *h);
+
+e_mmgr_errors_t pm_on_mdm_oos(pm_handle_t *h);
+
+e_mmgr_errors_t pm_on_mdm_cd(pm_handle_t *h);
+e_mmgr_errors_t pm_on_mdm_cd_complete(pm_handle_t *h);
 
 #endif                          /* __MMGR_IPC_PM_HEADER__ */

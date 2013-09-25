@@ -8,6 +8,7 @@ LOCAL_MODULE := mmgr-test
 LOCAL_CFLAGS += -Wall -DSTDIO_LOGS -Wvla
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../../service \
+    $(LOCAL_PATH)/../../service/link \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
     ../inc \

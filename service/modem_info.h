@@ -21,6 +21,7 @@
 #include "modem_update.h"
 #include "tcs_config.h"
 #include "tcs_mmgr.h"
+#include "pm.h"
 
 #define HANDSHAKE_AFTER_CD_RETRIES_COUNT 12
 #define CORE_DUMP_READY_TIMEOUT 10      /* 10 seconds for modem to re-enumerate
@@ -80,6 +81,7 @@ typedef struct modem_info {
     char shtdwn_dlc[PATH_MAX];
     mux_t mux;
     char mdm_name[NAME];
+    pm_handle_t *pm;
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,

@@ -56,6 +56,7 @@ static void cleanup(void)
     modem_info_dispose(&g_mmgr->info);
     client_events_dispose(g_mmgr);
     bus_ev_dispose(g_mmgr->events.bus_events);
+    pm_dispose(g_mmgr->info.pm);
     LOG_VERBOSE("Exiting");
 }
 
@@ -172,6 +173,16 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
                                              &cfg->mmgr.mdm_link,
                                              &cfg->mmgr.flash, &mmgr->info)) {
             LOG_ERROR("Failed to configure the modem info module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->info.pm = pm_init(cfg->mdm_info.ipc_mdm,
+                                &cfg->mmgr.mdm_link.power, cfg->mdm_info.ipc_cd,
+                                &cfg->mmgr.mcdr.power);
+
+        if (mmgr->info.pm == NULL) {
+            LOG_ERROR("Failed to configure power management module");
             ret = E_ERR_FAILED;
             goto out;
         }

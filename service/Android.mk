@@ -18,6 +18,7 @@ LOCAL_C_INCLUDES += \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
     ../inc \
+    $(LOCAL_PATH)/link \
     $(call include-path-for, libusb) \
     $(call include-path-for, libtcs) \
 
@@ -37,7 +38,7 @@ LOCAL_SRC_FILES:= \
     modem_manager.c  \
     modem_specific.c \
     bus_events.c \
-    link_pm.c \
+    link/pm.c \
     mux.c \
     property.c \
     security.c \

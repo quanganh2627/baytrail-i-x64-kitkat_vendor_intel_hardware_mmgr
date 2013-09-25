@@ -33,7 +33,7 @@
 #include "timer_events.h"
 #include "tty.h"
 #include "mmgr.h"
-#include "link_pm.h"
+#include "pm.h"
 
 /* AT command to shutdown modem */
 #define POWER_OFF_MODEM "AT+CFUN=0\r"
@@ -128,7 +128,7 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         }
 
         toggle_flashing_mode(&mmgr->info, true);
-        pm_on_mdm_flash(&mmgr->info);
+        pm_on_mdm_flash(mmgr->info.pm);
 
         flash_modem_fw(&mmgr->info, flashing_interface, ch_hw_sw,
                        mmgr->secure, &fw_result.id);
@@ -258,7 +258,7 @@ static void read_core_dump(mmgr_data_t *mmgr)
     timer_stop(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
 
     mcdr_read(mmgr->mcdr, &state);
-    pm_on_mdm_cd_complete(&mmgr->info);
+    pm_on_mdm_cd_complete(mmgr->info.pm);
 
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
     notify_core_dump(mmgr->clients, mmgr->mcdr, state);
@@ -668,7 +668,7 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
         } else {
             ret = launch_secur(mmgr);
             clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
-            pm_on_mdm_up(&mmgr->info);
+            pm_on_mdm_up(mmgr->info.pm);
         }
     }
 
@@ -726,7 +726,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
             mdm_close_fds(mmgr);
         }
 
-        pm_on_mdm_cd(&mmgr->info);
+        pm_on_mdm_cd(mmgr->info.pm);
 
         mmgr->events.link_state |= E_MDM_LINK_CORE_DUMP_READY;
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_COREDUMP;
