@@ -41,6 +41,24 @@ inline e_mmgr_events_t is_request_rejected(mmgr_lib_context_t *p_lib)
     return ret;
 }
 
+inline bool is_lock(mmgr_lib_context_t *ctx)
+{
+    bool answer;
+
+    pthread_mutex_lock(&ctx->mtx);
+    answer = ctx->lock;
+    pthread_mutex_unlock(&ctx->mtx);
+
+    return answer;
+}
+
+inline void set_lock(mmgr_lib_context_t *ctx, bool state)
+{
+    pthread_mutex_lock(&ctx->mtx);
+    ctx->lock = state;
+    pthread_mutex_unlock(&ctx->mtx);
+}
+
 /**
  * @see mmgr_cli.h
  */
@@ -87,7 +105,7 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
         goto out;
     }
 
-    p_lib = malloc(sizeof(mmgr_lib_context_t));
+    p_lib = calloc(1, sizeof(mmgr_lib_context_t));
     if (p_lib == NULL) {
         LOG_ERROR("failed to allocate");
         ret = E_ERR_CLI_FAILED;
@@ -98,6 +116,7 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     pthread_mutex_init(&p_lib->mtx_signal, NULL);
     pthread_cond_init(&p_lib->cond, NULL);
     p_lib->events = (0x1 << E_MMGR_ACK) | (0x1 << E_MMGR_NACK);
+    p_lib->lock = false;
     p_lib->cli_ctx = context;
     p_lib->fd_socket = CLOSED_FD;
     p_lib->fd_pipe[READ] = CLOSED_FD;
@@ -105,6 +124,7 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->connected = E_CNX_DISCONNECTED;
     p_lib->thr_id = -1;
     p_lib->tid = DEFAULT_TID;
+    p_lib->ack = E_MMGR_NUM_REQUESTS;
     strncpy(p_lib->cli_name, client_name, CLIENT_NAME_LEN - 1);
 #if DEBUG_MMGR_CLI
     p_lib->init = INIT_CHECK;
@@ -117,9 +137,6 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
         p_lib->set_data[i] = set_data_empty;
         p_lib->free_data[i] = free_data_empty;
     }
-
-    for (i = 0; i < E_MMGR_NUM_EVENTS; i++)
-        p_lib->func[i] = NULL;
 
     p_lib->set_msg[E_MMGR_SET_NAME] = set_msg_name;
     p_lib->set_msg[E_MMGR_SET_EVENTS] = set_msg_filter;
@@ -325,20 +342,17 @@ e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
     if (ret == E_ERR_CLI_REJECTED)
         goto out;
 
-    if (p_lib->lock) {
+    if (is_lock(p_lib)) {
         LOG_ERROR("(fd=%d client=%s) Already locked", p_lib->fd_socket,
                   p_lib->cli_name);
         ret = E_ERR_CLI_ALREADY_LOCK;
     } else {
         ret = send_msg(p_lib, &request, E_SEND_THREADED,
                        DEF_MMGR_RESPONSIVE_TIMEOUT);
-        if (ret == E_ERR_CLI_SUCCEED) {
-            pthread_mutex_lock(&p_lib->mtx);
-            p_lib->lock = true;
-            pthread_mutex_unlock(&p_lib->mtx);
-        } else {
+        if (ret == E_ERR_CLI_SUCCEED)
+            set_lock(p_lib, true);
+        else
             ret = E_ERR_FAILED;
-        }
     }
 out:
     return ret;
@@ -363,20 +377,17 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
     if (ret == E_ERR_CLI_REJECTED)
         goto out;
 
-    if (!p_lib->lock) {
+    if (!is_lock(p_lib)) {
         LOG_ERROR("(fd=%d client=%s) Already unlocked", p_lib->fd_socket,
                   p_lib->cli_name);
         ret = E_ERR_CLI_ALREADY_UNLOCK;
     } else {
         ret = send_msg(p_lib, &request, E_SEND_THREADED,
                        DEF_MMGR_RESPONSIVE_TIMEOUT);
-        if (ret == E_ERR_CLI_SUCCEED) {
-            pthread_mutex_lock(&p_lib->mtx);
-            p_lib->lock = false;
-            pthread_mutex_unlock(&p_lib->mtx);
-        } else {
+        if (ret == E_ERR_CLI_SUCCEED)
+            set_lock(p_lib, false);
+        else
             ret = E_ERR_FAILED;
-        }
     }
 out:
     return ret;
