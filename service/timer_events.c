@@ -1,20 +1,20 @@
 /* Modem Manager - timer manager source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include "events_manager.h"
 #include "modem_specific.h"
@@ -142,7 +142,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
 {
     struct timespec current;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    mmgr_cli_core_dump_t cd = {.state = E_CD_SUCCEED };
+    mmgr_cli_core_dump_t cd = { .state = E_CD_SUCCEED };
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -171,7 +171,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         LOG_DEBUG("IPC READY not received. force modem reset");
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-        mmgr_cli_fw_update_result_t result = {.id = E_MODEM_FW_READY_TIMEOUT };
+        mmgr_cli_fw_update_result_t result = { .id = E_MODEM_FW_READY_TIMEOUT };
         inform_all_clients(&mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
                            &result);
     }
@@ -192,7 +192,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
     }
 
     if (mmgr->timer.type & (0x01 << E_TIMER_WAIT_CORE_DUMP_READY)) {
-        if (mmgr->config.modem_core_dump_reset_link_timer)
+        if (mmgr->config.modem_core_dump_reset_link_timer) {
             if (((current.tv_sec -
                   mmgr->timer.start[E_TIMER_WAIT_CORE_DUMP_READY].tv_sec)
                  == mmgr->config.modem_core_dump_reset_link_timer)) {
@@ -200,6 +200,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
                           "reset bus");
                 mdm_prepare_link(&(mmgr->info));
             }
+        }
 
         if ((current.tv_sec -
              mmgr->timer.start[E_TIMER_WAIT_CORE_DUMP_READY].tv_sec)

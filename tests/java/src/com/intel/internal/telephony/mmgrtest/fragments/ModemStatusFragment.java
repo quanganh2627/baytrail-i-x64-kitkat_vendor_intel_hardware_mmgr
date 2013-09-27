@@ -20,8 +20,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class ModemStatusFragment extends Fragment implements
-        ModemEventListener, OnClickListener {
-
+ModemEventListener, OnClickListener {
     private TextView textViewClientStatus = null;
     private TextView textViewModemStatus = null;
     private TextView textViewLastNotification = null;
@@ -40,7 +39,7 @@ public class ModemStatusFragment extends Fragment implements
         try {
             this.modemManager = ModemStatusManager.getInstance();
             this.modemManager.subscribeToEvent(this, ModemStatus.ALL,
-                    ModemNotification.ALL);
+                                               ModemNotification.ALL);
         } catch (Exception ex) {
             MessageBoxHelper.showException(this.getActivity(), ex);
         }
@@ -51,7 +50,7 @@ public class ModemStatusFragment extends Fragment implements
         super.onDestroy();
 
         try {
-            if(this.modemManager != null) {
+            if (this.modemManager != null) {
                 this.modemManager.disconnect();
                 this.modemManager = null;
             }
@@ -62,29 +61,27 @@ public class ModemStatusFragment extends Fragment implements
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
-
+                             Bundle savedInstanceState) {
         View ret = inflater.inflate(R.layout.modem_status, container, false);
 
         if (ret != null) {
+            this.textViewClientStatus = (TextView)ret
+                                        .findViewById(R.id.textViewClientStatusValue);
+            this.textViewModemStatus = (TextView)ret
+                                       .findViewById(R.id.textViewModemStatusValue);
+            this.textViewLastNotification = (TextView)ret
+                                            .findViewById(R.id.textViewLastNotificationValue);
 
-            this.textViewClientStatus = (TextView) ret
-                    .findViewById(R.id.textViewClientStatusValue);
-            this.textViewModemStatus = (TextView) ret
-                    .findViewById(R.id.textViewModemStatusValue);
-            this.textViewLastNotification = (TextView) ret
-                    .findViewById(R.id.textViewLastNotificationValue);
-
-            this.buttonRequestRecovery = (Button) ret
-                    .findViewById(R.id.buttonRequestRecovery);
-            this.buttonRequestRestart = (Button) ret
-                    .findViewById(R.id.buttonRequestRestart);
-            this.buttonRequestShutdown = (Button) ret
-                    .findViewById(R.id.buttonRequestShutdown);
-            this.buttonRequestLock = (Button) ret
-                    .findViewById(R.id.buttonRequestLock);
-            this.buttonRequestRelease = (Button) ret
-                    .findViewById(R.id.buttonRequestRelease);
+            this.buttonRequestRecovery = (Button)ret
+                                         .findViewById(R.id.buttonRequestRecovery);
+            this.buttonRequestRestart = (Button)ret
+                                        .findViewById(R.id.buttonRequestRestart);
+            this.buttonRequestShutdown = (Button)ret
+                                         .findViewById(R.id.buttonRequestShutdown);
+            this.buttonRequestLock = (Button)ret
+                                     .findViewById(R.id.buttonRequestLock);
+            this.buttonRequestRelease = (Button)ret
+                                        .findViewById(R.id.buttonRequestRelease);
 
             if (this.buttonRequestRecovery != null) {
                 this.buttonRequestRecovery.setOnClickListener(this);
@@ -111,20 +108,19 @@ public class ModemStatusFragment extends Fragment implements
             this.textViewClientStatus.setText("CONNECTING...");
         }
 
-        if(this.modemManager != null) {
+        if (this.modemManager != null) {
             this.modemManager.connectAsync("MMGR Test", new AsyncOperationResultListener() {
-                @Override
-                public void onOperationError(Exception ex) {
-                    ModemStatusFragment.this.setUIDisconnectedMode();
-                }
+                                               @Override
+                                               public void onOperationError(Exception ex) {
+                                                   ModemStatusFragment.this.setUIDisconnectedMode();
+                                               }
 
-                @Override
-                public void onOperationComplete() {
-                    ModemStatusFragment.this.setUIConnectedMode();
-                }
-            });
-        }
-        else {
+                                               @Override
+                                               public void onOperationComplete() {
+                                                   ModemStatusFragment.this.setUIConnectedMode();
+                                               }
+                                           });
+        } else {
             ModemStatusFragment.this.setUIDisconnectedMode();
         }
         return ret;
@@ -209,100 +205,99 @@ public class ModemStatusFragment extends Fragment implements
     private void doRecoverModem() {
         if (this.modemManager != null) {
             this.modemManager.recoverModemAsync(new AsyncOperationResultListener() {
-                @Override
-                public void onOperationError(Exception ex) {
-                    MessageBoxHelper.showException(
-                            ModemStatusFragment.this.getActivity(), ex);
-                }
+                                                    @Override
+                                                    public void onOperationError(Exception ex) {
+                                                        MessageBoxHelper.showException(
+                                                            ModemStatusFragment.this.getActivity(), ex);
+                                                    }
 
-                @Override
-                public void onOperationComplete() {
-                    Toast.makeText(ModemStatusFragment.this.getActivity(),
-                            "Recover request sent",
-                            Toast.LENGTH_SHORT).show();
-                }
-            });
+                                                    @Override
+                                                    public void onOperationComplete() {
+                                                        Toast.makeText(ModemStatusFragment.this.getActivity(),
+                                                                       "Recover request sent",
+                                                                       Toast.LENGTH_SHORT).show();
+                                                    }
+                                                });
         }
     }
 
     private void doRestartModem() {
         if (this.modemManager != null) {
             this.modemManager.restartModemAsync(new AsyncOperationResultListener() {
-                @Override
-                public void onOperationError(Exception ex) {
-                    MessageBoxHelper.showException(
-                            ModemStatusFragment.this.getActivity(), ex);
-                }
+                                                    @Override
+                                                    public void onOperationError(Exception ex) {
+                                                        MessageBoxHelper.showException(
+                                                            ModemStatusFragment.this.getActivity(), ex);
+                                                    }
 
-                @Override
-                public void onOperationComplete() {
-                    Toast.makeText(ModemStatusFragment.this.getActivity(),
-                            "Restart request sent",
-                            Toast.LENGTH_SHORT).show();
-                }
-            });
+                                                    @Override
+                                                    public void onOperationComplete() {
+                                                        Toast.makeText(ModemStatusFragment.this.getActivity(),
+                                                                       "Restart request sent",
+                                                                       Toast.LENGTH_SHORT).show();
+                                                    }
+                                                });
         }
     }
 
     private void doShutdownModem() {
         if (this.modemManager != null) {
             this.modemManager.shutdownModemAsync(new AsyncOperationResultListener() {
-                @Override
-                public void onOperationError(Exception ex) {
-                    MessageBoxHelper.showException(
-                            ModemStatusFragment.this.getActivity(), ex);
-                }
+                                                     @Override
+                                                     public void onOperationError(Exception ex) {
+                                                         MessageBoxHelper.showException(
+                                                             ModemStatusFragment.this.getActivity(), ex);
+                                                     }
 
-                @Override
-                public void onOperationComplete() {
-                    Toast.makeText(ModemStatusFragment.this.getActivity(),
-                            "Shutdown request sent",
-                            Toast.LENGTH_SHORT).show();
-                }
-            });
+                                                     @Override
+                                                     public void onOperationComplete() {
+                                                         Toast.makeText(ModemStatusFragment.this.getActivity(),
+                                                                        "Shutdown request sent",
+                                                                        Toast.LENGTH_SHORT).show();
+                                                     }
+                                                 });
         }
     }
 
     private void doLockModem() {
         if (this.modemManager != null) {
             this.modemManager.acquireModemAsync(new AsyncOperationResultListener() {
-                @Override
-                public void onOperationError(Exception ex) {
-                    MessageBoxHelper.showException(
-                            ModemStatusFragment.this.getActivity(), ex);
-                }
+                                                    @Override
+                                                    public void onOperationError(Exception ex) {
+                                                        MessageBoxHelper.showException(
+                                                            ModemStatusFragment.this.getActivity(), ex);
+                                                    }
 
-                @Override
-                public void onOperationComplete() {
-                    Toast.makeText(ModemStatusFragment.this.getActivity(),
-                            "Acquire request sent",
-                            Toast.LENGTH_SHORT).show();
-                }
-            });
+                                                    @Override
+                                                    public void onOperationComplete() {
+                                                        Toast.makeText(ModemStatusFragment.this.getActivity(),
+                                                                       "Acquire request sent",
+                                                                       Toast.LENGTH_SHORT).show();
+                                                    }
+                                                });
         }
     }
 
     private void doReleaseModem() {
         if (this.modemManager != null) {
             this.modemManager.releaseModemAsync(new AsyncOperationResultListener() {
-                @Override
-                public void onOperationError(Exception ex) {
-                    MessageBoxHelper.showException(
-                            ModemStatusFragment.this.getActivity(), ex);
-                }
+                                                    @Override
+                                                    public void onOperationError(Exception ex) {
+                                                        MessageBoxHelper.showException(
+                                                            ModemStatusFragment.this.getActivity(), ex);
+                                                    }
 
-                @Override
-                public void onOperationComplete() {
-                    Toast.makeText(ModemStatusFragment.this.getActivity(),
-                            "Release request sent",
-                            Toast.LENGTH_SHORT).show();
-                }
-            });
+                                                    @Override
+                                                    public void onOperationComplete() {
+                                                        Toast.makeText(ModemStatusFragment.this.getActivity(),
+                                                                       "Release request sent",
+                                                                       Toast.LENGTH_SHORT).show();
+                                                    }
+                                                });
         }
     }
 
     private void setUIConnectedMode() {
-
         if (this.textViewClientStatus != null) {
             this.textViewClientStatus.setText("CONNECTED");
         }
@@ -324,7 +319,6 @@ public class ModemStatusFragment extends Fragment implements
     }
 
     private void setUIDisconnectedMode() {
-
         if (this.textViewClientStatus != null) {
             this.textViewClientStatus.setText("DISCONNECTED");
         }

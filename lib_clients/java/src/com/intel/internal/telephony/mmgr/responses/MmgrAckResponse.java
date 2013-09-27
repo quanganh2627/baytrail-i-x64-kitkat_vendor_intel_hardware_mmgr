@@ -19,7 +19,6 @@
 package com.intel.internal.telephony.mmgr.responses;
 
 public class MmgrAckResponse extends MmgrBaseResponse {
-
     private boolean ack = false;
 
     public MmgrAckResponse() {

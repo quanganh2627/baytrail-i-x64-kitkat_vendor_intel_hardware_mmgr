@@ -1,20 +1,20 @@
 /* Modem Manager - events manager header file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #ifndef __MMGR_EVENTS_MANAGER_HEADER__
 #define __MMGR_EVENTS_MANAGER_HEADER__
@@ -48,40 +48,40 @@
     X(WAIT_CORE_DUMP_READY), \
     X(NUM)
 
-#define MMGR_STATE\
-    X(MDM_OFF),\
-    X(MDM_RESET),\
-    X(MDM_START),\
-    X(MDM_CONF_ONGOING),\
-    X(MDM_UP),\
-    X(MDM_OOS),\
-    X(WAIT_COLD_ACK),\
-    X(WAIT_SHT_ACK),\
-    X(MDM_CORE_DUMP),\
+#define MMGR_STATE \
+    X(MDM_OFF), \
+    X(MDM_RESET), \
+    X(MDM_START), \
+    X(MDM_CONF_ONGOING), \
+    X(MDM_UP), \
+    X(MDM_OOS), \
+    X(WAIT_COLD_ACK), \
+    X(WAIT_SHT_ACK), \
+    X(MDM_CORE_DUMP), \
     X(NUM)
 
 typedef enum e_timer_type {
 #undef X
-#define X(a) E_TIMER_##a
+#define X(a) E_TIMER_ ## a
     TIMER
 } e_timer_type_t;
 
 typedef enum e_events_type {
 #undef X
-#define X(a) E_EVENT_##a
+#define X(a) E_EVENT_ ## a
     EVENTS
 } e_events_type_t;
 
 typedef enum e_client_req {
     E_CLI_REQ_NONE = 0x0,
     E_CLI_REQ_RESET = 0x1 << 1,
-    E_CLI_REQ_OFF = 0x1 << 2,
-    E_CLI_REQ_PROD = 0x1 << 3,
+        E_CLI_REQ_OFF = 0x1 << 2,
+        E_CLI_REQ_PROD = 0x1 << 3,
 } e_client_req_t;
 
 typedef enum e_mmgr_state {
 #undef X
-#define X(a) E_MMGR_##a
+#define X(a) E_MMGR_ ## a
     MMGR_STATE
 } e_mmgr_state_t;
 
@@ -109,7 +109,7 @@ typedef struct current_request {
 } current_request_t;
 
 struct mmgr_data;
-typedef e_mmgr_errors_t (*event_hdler_t) (struct mmgr_data * mmgr);
+typedef e_mmgr_errors_t (*event_hdler_t) (struct mmgr_data *mmgr);
 typedef e_mmgr_errors_t (*reset_mdm_op_t) (modem_info_t *modem_info);
 
 typedef struct mmgr_data {

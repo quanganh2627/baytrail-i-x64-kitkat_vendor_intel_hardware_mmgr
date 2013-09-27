@@ -13,7 +13,6 @@ import android.support.v4.app.FragmentPagerAdapter;
  * of the primary sections of the app.
  */
 public class SectionsPagerAdapter extends FragmentPagerAdapter {
-
     private Context context = null;
     private Fragment[] fragments = new Fragment[] { new ModemStatusFragment() };
 
@@ -37,13 +36,13 @@ public class SectionsPagerAdapter extends FragmentPagerAdapter {
         switch (position) {
         case 0:
             return this.context.getResources()
-                    .getString(R.string.title_section1).toUpperCase();
+                   .getString(R.string.title_section1).toUpperCase();
         case 1:
             return this.context.getResources()
-                    .getString(R.string.title_section2).toUpperCase();
+                   .getString(R.string.title_section2).toUpperCase();
         case 2:
             return this.context.getResources()
-                    .getString(R.string.title_section3).toUpperCase();
+                   .getString(R.string.title_section3).toUpperCase();
         }
         return null;
     }

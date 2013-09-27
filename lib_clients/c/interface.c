@@ -1,20 +1,20 @@
 /* Modem Manager client library - interface source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include "utils.h"
 #include "mmgr_cli.h"
@@ -22,11 +22,11 @@
 #define DEFAULT_TID 1
 
 #define CHECK_EVENT(id, err, out) do { \
-    if (id>= E_MMGR_NUM_EVENTS) { \
-        LOG_ERROR("unknown event"); \
-        ret = E_ERR_CLI_FAILED; \
-        goto out; \
-    } \
+        if (id >= E_MMGR_NUM_EVENTS) { \
+            LOG_ERROR("unknown event"); \
+            ret = E_ERR_CLI_FAILED; \
+            goto out; \
+        } \
 } while (0)
 
 inline e_mmgr_events_t is_request_rejected(mmgr_lib_context_t *p_lib)
@@ -55,10 +55,9 @@ e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
         LOG_ERROR("request not sent");
     } else {
         ret = is_request_rejected(p_lib);
-        if (ret != E_ERR_CLI_REJECTED) {
+        if (ret != E_ERR_CLI_REJECTED)
             ret = send_msg(p_lib, request, E_SEND_THREADED,
                            DEF_MMGR_RESPONSIVE_TIMEOUT);
-        }
     }
 
     return ret;
@@ -210,13 +209,12 @@ e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
     }
     pthread_mutex_unlock(&p_lib->mtx);
 
-    if (ret == E_ERR_CLI_SUCCEED) {
+    if (ret == E_ERR_CLI_SUCCEED)
         LOG_DEBUG("(fd=%d client=%s) event (%s) subscribed successfully",
                   p_lib->fd_socket, p_lib->cli_name, g_mmgr_events[id]);
-    } else {
+    else
         LOG_ERROR("(fd=%d client=%s) event (%s) already configured",
                   p_lib->fd_socket, p_lib->cli_name, g_mmgr_events[id]);
-    }
 
 out:
     return ret;
@@ -315,7 +313,7 @@ e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
     mmgr_lib_context_t *p_lib = NULL;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+    mmgr_cli_requests_t request = { .id = E_MMGR_RESOURCE_ACQUIRE };
 
     ret = check_state(handle, &p_lib, true);
     if (ret != E_ERR_CLI_SUCCEED) {
@@ -338,8 +336,9 @@ e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
             pthread_mutex_lock(&p_lib->mtx);
             p_lib->lock = true;
             pthread_mutex_unlock(&p_lib->mtx);
-        } else
+        } else {
             ret = E_ERR_FAILED;
+        }
     }
 out:
     return ret;
@@ -352,7 +351,7 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
     mmgr_lib_context_t *p_lib = NULL;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_RELEASE };
+    mmgr_cli_requests_t request = { .id = E_MMGR_RESOURCE_RELEASE };
 
     ret = check_state(handle, &p_lib, true);
     if (ret != E_ERR_CLI_SUCCEED) {
@@ -375,8 +374,9 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
             pthread_mutex_lock(&p_lib->mtx);
             p_lib->lock = false;
             pthread_mutex_unlock(&p_lib->mtx);
-        } else
+        } else {
             ret = E_ERR_FAILED;
+        }
     }
 out:
     return ret;

@@ -1,20 +1,20 @@
 /* Modem Manager - client list source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <errno.h>
 #include <sys/types.h>
@@ -89,12 +89,11 @@ static inline e_mmgr_errors_t check_all_clients_ack(client_list_t *clients,
             if ((clients->list[i].subscription & (0x1 << ev)) &&
                 ((clients->list[i].cnx & filter) != filter)) {
                 ret = E_ERR_FAILED;
-                if (listing) {
+                if (listing)
                     LOG_DEBUG("client (%s) did not ack to %s",
                               clients->list[i].name, g_mmgr_events[ev]);
-                } else {
+                else
                     break;
-                }
             }
         }
     }
@@ -258,7 +257,6 @@ e_mmgr_errors_t add_client(client_list_t *clients, int fd, client_t **client)
             ret = E_ERR_SUCCESS;
             break;
         }
-
     }
 out:
     return ret;
@@ -394,8 +392,8 @@ e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
     size_t size;
     size_t write_size;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    mmgr_cli_event_t event = {.id = state,.data = data };
-    msg_t msg = {.data = NULL };
+    mmgr_cli_event_t event = { .id = state, .data = data };
+    msg_t msg = { .data = NULL };
 
     CHECK_PARAM(client, ret, out);
     /* do not check data because it can be NULL on purpose */
@@ -548,12 +546,11 @@ e_mmgr_errors_t check_resource_released(client_list_t *clients, bool listing)
             if ((clients->list[i].cnx & E_CNX_RESOURCE_RELEASED)
                 != E_CNX_RESOURCE_RELEASED) {
                 ret = E_ERR_FAILED;
-                if (listing) {
+                if (listing)
                     LOG_DEBUG("client (%s) did not release",
                               clients->list[i].name);
-                } else {
+                else
                     break;
-                }
             }
         }
     }

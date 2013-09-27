@@ -1,20 +1,20 @@
 /* Modem Manager - secure source file
- **
- ** Copyright (C) Intel 2013
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2013
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include "at.h"
 #include "logs.h"
@@ -35,9 +35,9 @@
 #define MSG_LEN_INDX 2
 #define MSG_DATA_INDX 4
 #define AT_SECUR "xsecchannel"
-#define MSG_START_STR "+"AT_SECUR":"
-#define MSG_ANSWER_START "+"AT_SECUR"="
-#define MAX_TLV_LEN 2*1024
+#define MSG_START_STR "+"AT_SECUR ":"
+#define MSG_ANSWER_START "+"AT_SECUR "="
+#define MAX_TLV_LEN 2 * 1024
 
 /**
  * read the message provided by the modem
@@ -146,7 +146,7 @@ out:
  * @param [out] type message type
  * @param [out] length length of the converted data
  * @param [out] conv converted data. should be freed by the user
-*
+ *
  * @return E_ERR_BAD_PARAMETER
  * @return E_ERR_FAILED
  * @return E_ERR_SUCCESS
@@ -236,7 +236,7 @@ static e_mmgr_errors_t encode_data(int send_id, int req_id, const uint8_t *src,
     /* send_id / req_id are on 16 bits they should not use more than 5 bytes
      * conv_len will not be more than 12 bytes */
     *send_len = conv_len + (5 * 2) + 12 +
-        (sizeof(char) * (10 + strlen(MSG_ANSWER_START)));
+                (sizeof(char) * (10 + strlen(MSG_ANSWER_START)));
     *send = malloc(sizeof(char) * *send_len);
     if (!*send)
         goto out;
@@ -486,17 +486,16 @@ out:
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t secur_get_callback(secur_t *secur,
-                                   secur_callback_fptr_t * callback)
+                                   secur_callback_fptr_t *callback)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(secur, ret, out);
 
-    if (secur->enable) {
+    if (secur->enable)
         *callback = secur->callback;
-    } else {
+    else
         *callback = NULL;
-    }
 
 out:
     return ret;

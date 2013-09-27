@@ -1,20 +1,20 @@
 /* Modem Manager - main source file
- **
- ** Copyright (C) Intel 2010
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2010
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <stdlib.h>
 #include <sys/types.h>
@@ -26,10 +26,10 @@
 #include "events_manager.h"
 
 #define USAGE \
-"Start "MODULE_NAME" Daemon.\n" \
-"Usage: "MODULE_NAME" [OPTION]...\n" \
-"-h\t\t: Show help options\n" \
-"-c <filename>\t: Use <filename> as configuration file\n"
+    "Start "MODULE_NAME " Daemon.\n" \
+    "Usage: "MODULE_NAME " [OPTION]...\n" \
+    "-h\t\t: Show help options\n" \
+    "-c <filename>\t: Use <filename> as configuration file\n"
 
 #define GCOV_FOLDER "/data/gcov"
 
@@ -78,21 +78,17 @@ static e_mmgr_errors_t set_signal_handler(void)
 
     memset(&sigact, 0, sizeof(struct sigaction));
     /* Signal handler */
-    if (sigemptyset(&sigact.sa_mask) == -1) {
+    if (sigemptyset(&sigact.sa_mask) == -1)
         goto end_set_signal_handler;
-    }
     sigact.sa_flags = 0;
     sigact.sa_handler = sig_handler;
 
-    if (sigaction(SIGUSR1, &sigact, NULL) == -1) {
+    if (sigaction(SIGUSR1, &sigact, NULL) == -1)
         goto end_set_signal_handler;
-    }
-    if (sigaction(SIGHUP, &sigact, NULL) == -1) {
+    if (sigaction(SIGHUP, &sigact, NULL) == -1)
         goto end_set_signal_handler;
-    }
-    if (sigaction(SIGTERM, &sigact, NULL) == -1) {
+    if (sigaction(SIGTERM, &sigact, NULL) == -1)
         goto end_set_signal_handler;
-    }
 
     /* configuration successful */
     err = E_ERR_SUCCESS;

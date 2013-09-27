@@ -52,7 +52,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
-
     /* Clients -> MMGR */
     public final static int SET_NAME = 0;
     public final static int SET_EVENTS = 1;
@@ -115,7 +114,6 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
     @Override
     public void start(String clientName) throws MmgrClientException {
-
         Log.d(Constants.LOG_TAG, "Starting client...");
 
         if (this.thread != null && this.thread.isAlive()) {
@@ -131,7 +129,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             Log.e(Constants.LOG_TAG, ex.toString());
 
             this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-                    .sendToTarget();
+            .sendToTarget();
             this.cleanUp();
             throw ex;
         }
@@ -164,13 +162,12 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             this.clientSocket.connect(this.getSocketAddress());
         } catch (IOException ex) {
             throw new MmgrClientException("Connection to MMGR socket failed.",
-                    ex);
+                                          ex);
         }
         Log.d(Constants.LOG_TAG, "Connected to service.");
     }
 
     private boolean waitForAck(long timeout) {
-
         boolean ret = false;
 
         this.ackLock.lock();
@@ -182,8 +179,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                     if (this.nackSignaled) {
                         Log.d(Constants.LOG_TAG, "NACK signaled");
                         ret = false;
-                    }
-                    else {
+                    } else {
                         Log.d(Constants.LOG_TAG, "ACK signaled");
                     }
                 } else {
@@ -192,8 +188,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             } else {
                 if (this.nackSignaled) {
                     Log.d(Constants.LOG_TAG, "NACK already signaled");
-                }
-                else {
+                } else {
                     Log.d(Constants.LOG_TAG, "ACK already signaled");
                     ret = true;
                 }
@@ -272,11 +267,10 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
     protected LocalSocketAddress getSocketAddress() {
         return new LocalSocketAddress("mmgr",
-                LocalSocketAddress.Namespace.RESERVED);
+                                      LocalSocketAddress.Namespace.RESERVED);
     }
 
     public void run() {
-
         Log.d(Constants.LOG_TAG, "MMGR client thread started");
 
         byte[] recvBuffer = new byte[1024]; // should be large enough to contain
@@ -291,7 +285,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             Log.e(Constants.LOG_TAG, ex.toString());
 
             this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-                    .sendToTarget();
+            .sendToTarget();
             this.cleanUp();
             return;
         }
@@ -300,7 +294,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             try {
                 readCount = inputStream.read(recvBuffer, 0, recvBuffer.length);
                 Log.d(Constants.LOG_TAG, String.format(
-                        "Received %d bytes from service.", readCount));
+                          "Received %d bytes from service.", readCount));
 
                 if (readCount > 0) {
                     this.handleResponse(recvBuffer, 0, readCount);
@@ -311,7 +305,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                 Log.e(Constants.LOG_TAG, ex.toString());
 
                 this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-                        .sendToTarget();
+                .sendToTarget();
                 this.cleanUp();
                 return;
             }
@@ -319,7 +313,6 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     }
 
     private void handleResponse(byte[] buffer, int offset, int length) {
-
         ModemNotification notification = ModemNotification.NONE;
         ModemStatus status = ModemStatus.NONE;
 
@@ -332,10 +325,9 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
          */
 
         List<MmgrBaseResponse> parsedResponses = MmgrBaseResponse
-                .parseResponses(buffer, offset, length);
+                                                 .parseResponses(buffer, offset, length);
 
         for (int i = 0; i < parsedResponses.size(); i++) {
-
             switch (parsedResponses.get(i).getResponseId()) {
             case MedfieldMmgrClient.STATUS_MODEM_DOWN:
                 Log.i(Constants.LOG_TAG, "Modem status = MODEM_DOWN");
@@ -354,25 +346,25 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
             case MedfieldMmgrClient.NOTIFY_MODEM_COLD_RESET:
                 Log.i(Constants.LOG_TAG,
-                        "Modem notification = NOTIFY_MODEM_COLD_RESET");
+                      "Modem notification = NOTIFY_MODEM_COLD_RESET");
                 notification = ModemNotification.COLD_RESET;
                 break;
 
             case MedfieldMmgrClient.NOTIFY_MODEM_CORE_DUMP:
                 Log.i(Constants.LOG_TAG,
-                        "Modem notification = NOTIFY_MODEM_CORE_DUMP");
+                      "Modem notification = NOTIFY_MODEM_CORE_DUMP");
                 notification = ModemNotification.CORE_DUMP;
                 break;
 
             case MedfieldMmgrClient.NOTIFY_MODEM_SHUTDOWN:
                 Log.i(Constants.LOG_TAG,
-                        "Modem notification = NOTIFY_MODEM_SHUTDOWN");
+                      "Modem notification = NOTIFY_MODEM_SHUTDOWN");
                 notification = ModemNotification.SHUTDOWN;
                 break;
 
             case MedfieldMmgrClient.NOTIFY_PLATFORM_REBOOT:
                 Log.i(Constants.LOG_TAG,
-                        "Modem notification = NOTIFY_PLATFORM_REBOOT");
+                      "Modem notification = NOTIFY_PLATFORM_REBOOT");
                 notification = ModemNotification.PLATFORM_REBOOT;
                 break;
 
@@ -388,7 +380,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
             default:
                 Log.w(Constants.LOG_TAG, "Unknown response ID :"
-                        + parsedResponses.get(i).getResponseId());
+                      + parsedResponses.get(i).getResponseId());
             }
         }
 
@@ -399,11 +391,11 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         }
         if (status != ModemStatus.NONE) {
             this.handler.obtainMessage(ModemStatusMonitor.MSG_STATUS, status)
-                    .sendToTarget();
+            .sendToTarget();
         }
         if (notification != ModemNotification.NONE) {
             this.handler.obtainMessage(ModemStatusMonitor.MSG_NOTIFICATION,
-                    notification).sendToTarget();
+                                       notification).sendToTarget();
         }
     }
 
@@ -413,7 +405,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             switch (msg.what) {
             case ModemStatusMonitor.MSG_NOTIFICATION_FEEDBACK:
 
-                ModemNotificationArgs feedback = (ModemNotificationArgs) msg.obj;
+                ModemNotificationArgs feedback = (ModemNotificationArgs)msg.obj;
                 if (feedback != null && feedback.isAcknowledge()) {
                     try {
                         this.replyToNotification(feedback);
@@ -424,7 +416,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                 break;
             case ModemStatusMonitor.MSG_REQUEST:
 
-                ModemRequestArgs request = (ModemRequestArgs) msg.obj;
+                ModemRequestArgs request = (ModemRequestArgs)msg.obj;
                 try {
                     this.sendRequest(request);
                 } catch (MmgrClientException ex) {
@@ -437,7 +429,6 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     }
 
     protected void cleanUp() {
-
         Log.d(Constants.LOG_TAG, "Cleaning up client...");
         if (this.clientSocket != null) {
             try {
@@ -454,18 +445,17 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
     @Override
     public void subscribeTo(ModemStatus status, ModemNotification notifications)
-            throws MmgrClientException {
-
+    throws MmgrClientException {
         Log.d(Constants.LOG_TAG, "Connecting to service...");
 
         if (this.thread != null && this.thread.isAlive()) {
             throw new MmgrClientException(
-                    "subscribeTo must be called before start.");
+                      "subscribeTo must be called before start.");
         }
         this.subscribedEvents = MmgrHelper.getEventFrom(status, notifications);
 
         Log.d(Constants.LOG_TAG,
-                String.format("Subscribed events: %x", this.subscribedEvents));
+              String.format("Subscribed events: %x", this.subscribedEvents));
     }
 
     @Override
@@ -486,13 +476,10 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
     @Override
     public void sendRequest(ModemRequestArgs args) throws MmgrClientException {
-
         if (args != null) {
-
             byte[] data = args.getFrame();
 
             if (data != null) {
-
                 OutputStream outputStream = null;
                 try {
                     if (this.clientSocket != null) {
@@ -501,22 +488,22 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                             outputStream.write(data);
                         } else {
                             Log.e(Constants.LOG_TAG,
-                                    "Could not write to MMGR socket: outputStream is null.");
+                                  "Could not write to MMGR socket: outputStream is null.");
                             throw new MmgrClientException(
-                                    "Could not write to MMGR socket: outputStream is null.");
+                                      "Could not write to MMGR socket: outputStream is null.");
                         }
                     } else {
                         Log.e(Constants.LOG_TAG,
-                                "Could not write to MMGR socket: clientSocket is null.");
+                              "Could not write to MMGR socket: clientSocket is null.");
                         throw new MmgrClientException(
-                                "Could not write to MMGR socket: clientSocket is null.");
+                                  "Could not write to MMGR socket: clientSocket is null.");
                     }
                 } catch (IOException ex) {
                     throw new MmgrClientException(
-                            "Could not write to MMGR socket.", ex);
+                              "Could not write to MMGR socket.", ex);
                 }
                 Log.d(Constants.LOG_TAG,
-                        String.format("%s sent successfully", args.getName()));
+                      String.format("%s sent successfully", args.getName()));
             }
         }
     }
@@ -528,11 +515,11 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
     @Override
     public void replyToNotification(ModemNotificationArgs args)
-            throws MmgrClientException {
+    throws MmgrClientException {
         switch (args.getNotification()) {
         case COLD_RESET:
             Log.d(Constants.LOG_TAG,
-                    String.format("Replying ACK to cold reset"));
+                  String.format("Replying ACK to cold reset"));
             this.sendRequest(new MmgrModemColdResetAckRequest());
             break;
         case SHUTDOWN:
@@ -541,8 +528,8 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             break;
         default:
             Log.d(Constants.LOG_TAG,
-                    String.format("No possible reply to notification %d",
-                            args.getNotification().getValue()));
+                  String.format("No possible reply to notification %d",
+                                args.getNotification().getValue()));
         }
     }
 

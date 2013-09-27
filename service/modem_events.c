@@ -1,20 +1,20 @@
 /* Modem Manager - modem events source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <errno.h>
 #include <sys/types.h>
@@ -66,7 +66,7 @@ static e_mmgr_errors_t notify_core_dump(client_list_t *clients,
     cd.state = state;
     if (mcdr != NULL) {
         cd.path_len = strnlen(mcdr->data.coredump_file, PATH_MAX) +
-            strnlen(mcdr->data.path, PATH_MAX) + 2;
+                      strnlen(mcdr->data.path, PATH_MAX) + 2;
 
         cd.path = malloc(sizeof(char) * cd.path_len);
         if (cd.path == NULL) {
@@ -106,8 +106,8 @@ out:
 static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_fw_update_result_t fw_result = {.id = E_MODEM_FW_ERROR_UNSPECIFIED
-    };
+    mmgr_cli_fw_update_result_t fw_result =
+    { .id = E_MODEM_FW_ERROR_UNSPECIFIED };
     char *flashing_interface = NULL;
     bool ch_hw_sw = true;
 
@@ -218,9 +218,8 @@ out:
 static e_mmgr_errors_t do_nvm_customization(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_nvm_update_result_t nvm_result = {.id =
-            E_MODEM_NVM_ERROR_UNSPECIFIED
-    };
+    mmgr_cli_nvm_update_result_t nvm_result = { .id =
+                                                    E_MODEM_NVM_ERROR_UNSPECIFIED };
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -233,7 +232,6 @@ static e_mmgr_errors_t do_nvm_customization(mmgr_data_t *mmgr)
             ret =
                 flash_modem_nvm(&mmgr->info, mmgr->config.nvm_custo_dlc,
                                 &nvm_result.id, &nvm_result.sub_error_code);
-
         } else {
             ret = E_ERR_FAILED;
             nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
@@ -267,9 +265,8 @@ static void read_core_dump(mmgr_data_t *mmgr)
     mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
     set_mcd_poll_states(&mmgr->info);
 
-    if (!mmgr->config.is_flashless) {
+    if (!mmgr->config.is_flashless)
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-    }
     if (mmgr->info.mdm_link == E_LINK_HSIC) {
         start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state = E_MDM_LINK_NONE;
@@ -454,11 +451,10 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
 
         LOG_DEBUG("Waiting for MDM_CTRL_STATE_WARM_BOOT");
 
-        if (ioctl(info->fd_mcd, MDM_CTRL_WAIT_FOR_STATE, &mdm_cmd) <= 0) {
+        if (ioctl(info->fd_mcd, MDM_CTRL_WAIT_FOR_STATE, &mdm_cmd) <= 0)
             LOG_DEBUG("Waiting for MDM_CTRL_STATE_WARM_BOOT failed");
-        } else {
+        else
             LOG_DEBUG("MDM_CTRL_STATE_WARM_BOOT received");
-        }
         close_tty(&fd);
     }
 
@@ -497,8 +493,9 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     if (state == E_OPERATION_SKIP) {
         mdm_close_fds(mmgr);
         goto out_mdm_ev;
-    } else if (state == E_OPERATION_WAIT)
+    } else if (state == E_OPERATION_WAIT) {
         goto out;
+    }
 
     /* Keep only CORE DUMP state */
     mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
@@ -507,7 +504,8 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 
     /* initialize modules */
     mdm_close_fds(mmgr);
-    if ((level != E_EL_PLATFORM_REBOOT) && (level != E_EL_MODEM_OUT_OF_SERVICE)) {
+    if ((level != E_EL_PLATFORM_REBOOT) &&
+        (level != E_EL_MODEM_OUT_OF_SERVICE)) {
         if (E_ERR_SUCCESS != mdm_prepare(&mmgr->info)) {
             LOG_ERROR("modem fw is corrupted. Declare modem OOS");
             /* Set MMGR state to MDM_RESET to call the recovery module and
@@ -596,9 +594,9 @@ static e_mmgr_errors_t cleanup_ipc_event(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     /* clean event by reading data */
-    do {
+    do
         read_size = read(mmgr->fd_tty, data, data_size);
-    } while (read_size > 0);
+    while (read_size > 0);
 
     mdm_close_fds(mmgr);
 
@@ -627,7 +625,7 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
 
     /* send error notification with reason message */
     if (mmgr->info.mdm_link == E_LINK_HSI) {
-        mmgr_cli_error_t err = {.id = ERROR_ID };
+        mmgr_cli_error_t err = { .id = ERROR_ID };
         err.len = strlen(ERROR_REASON);
         err.reason = (char *)ERROR_REASON;
         inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
@@ -705,10 +703,8 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
 
         if (((mmgr->info.mdm_link == E_LINK_HSIC) &&
              mmgr->events.link_state & E_MDM_LINK_FLASH_READY) ||
-            (mmgr->info.mdm_link == E_LINK_HSI)) {
+            (mmgr->info.mdm_link == E_LINK_HSI))
             ret = do_flash(mmgr);
-        }
-
     } else if (state & E_EV_IPC_READY) {
         LOG_DEBUG("current state: E_EV_IPC_READY");
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
@@ -716,9 +712,8 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
         if ((mmgr->events.link_state & E_MDM_LINK_BB_READY) &&
-            (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
+            (mmgr->state == E_MMGR_MDM_CONF_ONGOING))
             ret = do_configure(mmgr);
-        }
     } else if (state & E_EV_CORE_DUMP) {
         LOG_DEBUG("current state: E_EV_CORE_DUMP");
         set_mmgr_state(mmgr, E_MMGR_MDM_CORE_DUMP);
@@ -742,11 +737,10 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
         if ((mmgr->info.mdm_link == E_LINK_HSIC) &&
-            !(mmgr->events.link_state & E_MDM_LINK_CORE_DUMP_READ_READY)) {
+            !(mmgr->events.link_state & E_MDM_LINK_CORE_DUMP_READ_READY))
             LOG_DEBUG("waiting for bus enumeration");
-        } else {
+        else
             read_core_dump(mmgr);
-        }
     } else if (state & E_EV_MODEM_OFF) {
         if (state & E_EV_MODEM_SELF_RESET) {
             LOG_DEBUG("Modem is booting up. Do nothing");
@@ -800,9 +794,8 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         stop_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
-        if (mmgr->events.link_state & E_MDM_LINK_IPC_READY) {
+        if (mmgr->events.link_state & E_MDM_LINK_IPC_READY)
             ret = do_configure(mmgr);
-        }
     } else if ((get_bus_state(&mmgr->events.bus_events) & MDM_FLASH_READY) &&
                (mmgr->state == E_MMGR_MDM_START)) {
         LOG_DEBUG("ready to flash modem");
@@ -811,9 +804,8 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
         if (mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) {
             ret = do_flash(mmgr);
-            if (ret != E_ERR_FAILED) {
+            if (ret != E_ERR_FAILED)
                 set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
-            }
         }
     } else if ((get_bus_state(&mmgr->events.bus_events) & MDM_CD_READY) &&
                (mmgr->state == E_MMGR_MDM_CORE_DUMP)) {
@@ -826,8 +818,9 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         mmgr->events.link_state |= E_MDM_LINK_CORE_DUMP_READ_READY;
         if (mmgr->events.link_state & E_MDM_LINK_CORE_DUMP_READY)
             read_core_dump(mmgr);
-    } else
+    } else {
         LOG_DEBUG("Unhandled usb event");
+    }
 out:
     return ret;
 }
@@ -843,6 +836,7 @@ out:
 e_mmgr_errors_t modem_events_init(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(mmgr, ret, out);
     mmgr->hdler_pre_mdm[E_EL_MODEM_COLD_RESET] = pre_mdm_cold_reset;
     mmgr->hdler_pre_mdm[E_EL_PLATFORM_REBOOT] = pre_platform_reboot;

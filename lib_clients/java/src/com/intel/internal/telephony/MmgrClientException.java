@@ -23,7 +23,6 @@ package com.intel.internal.telephony;
  * and the Modem Status Monitor service.
  */
 public class MmgrClientException extends Exception {
-
     private static final long serialVersionUID = 7944360020026965614L;
 
     public MmgrClientException(String message) {

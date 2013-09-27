@@ -1,10 +1,10 @@
 <resources>
 
-    <string name="app_name">Intel MMGR Test</string>
-    <string name="title_section3">Section 3</string>
-    <string name="title_section2">Section 2</string>
-    <string name="title_section1">MMGR Basic Ops</string>
-    <string name="menu_settings">Settings</string>
+	<string name="app_name">Intel MMGR Test</string>
+	<string name="title_section3">Section 3</string>
+	<string name="title_section2">Section 2</string>
+	<string name="title_section1">MMGR Basic Ops</string>
+	<string name="menu_settings">Settings</string>
 	<string name="label_client_status">Client status:</string>
 	<string name="label_unknown">NONE</string>
 	<string name="label_modem_status">Modem status:</string>

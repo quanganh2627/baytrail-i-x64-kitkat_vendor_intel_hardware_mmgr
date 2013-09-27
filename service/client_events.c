@@ -1,20 +1,20 @@
 /* Modem Manager - client events header file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -593,7 +593,7 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
             if (mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id] !=
                 NULL)
                 ret = mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id]
-                    (mmgr);
+                          (mmgr);
         }
     }
 
@@ -644,11 +644,12 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
          * resource release according to MMGR state */
         if (mmgr->hdler_client[mmgr->state][E_MMGR_RESOURCE_RELEASE] != NULL)
             ret = mmgr->hdler_client[mmgr->state][E_MMGR_RESOURCE_RELEASE]
-                (mmgr);
+                      (mmgr);
         ret = remove_client(&mmgr->clients, client);
-    } else
+    } else {
         LOG_ERROR("Client (fd=%d name=%s) bad message", client->fd,
                   client->name);
+    }
 out:
     return ret;
 }
@@ -697,6 +698,7 @@ out:
 static e_mmgr_errors_t request_fake_up(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(mmgr, ret, out);
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
@@ -707,6 +709,7 @@ out:
 static e_mmgr_errors_t request_fake_down(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(mmgr, ret, out);
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
@@ -717,6 +720,7 @@ out:
 static e_mmgr_errors_t request_fake_shtdwn(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(mmgr, ret, out);
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
@@ -727,6 +731,7 @@ out:
 static e_mmgr_errors_t request_fake_oos(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(mmgr, ret, out);
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
@@ -737,6 +742,7 @@ out:
 static e_mmgr_errors_t request_fake_cdd(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(mmgr, ret, out);
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
@@ -747,6 +753,7 @@ out:
 static e_mmgr_errors_t request_fake_ptfrmreboot(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(mmgr, ret, out);
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_PLATFORM_REBOOT, NULL);
@@ -757,6 +764,7 @@ out:
 static e_mmgr_errors_t request_fake_self_reset(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(mmgr, ret, out);
     inform_client(mmgr->request.client, E_MMGR_ACK, NULL);
     inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_SELF_RESET, NULL);
@@ -799,7 +807,7 @@ static e_mmgr_errors_t request_fake_ap_reset(mmgr_data_t *mmgr)
 static e_mmgr_errors_t request_fake_error(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    mmgr_cli_error_t err = {.id = FAKE_ERROR_ID };
+    mmgr_cli_error_t err = { .id = FAKE_ERROR_ID };
 
     CHECK_PARAM(mmgr, ret, out);
 

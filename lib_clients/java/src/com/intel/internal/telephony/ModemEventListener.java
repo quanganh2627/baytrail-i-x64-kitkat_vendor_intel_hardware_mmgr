@@ -24,7 +24,6 @@ package com.intel.internal.telephony;
  * ModemStatusManager.subscribeToEvent() method.
  */
 public interface ModemEventListener {
-
     /**
      * This method is called prior each modem cold reset planned by the Modem
      * Status Monitor service.

@@ -21,7 +21,6 @@ package com.intel.internal.telephony.mmgr.requests;
 import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
 public class MmgrModemReleaseRequest extends MmgrBaseRequest {
-
     public MmgrModemReleaseRequest() {
         super(MedfieldMmgrClient.RESOURCE_RELEASE);
     }

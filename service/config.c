@@ -1,20 +1,20 @@
 /* Modem Manager - configure source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <glib.h>
 #include <unistd.h>
@@ -23,7 +23,7 @@
 #include "config.h"
 #include <utils/Log.h>
 
-#define INTEGER(a) (int[]) {a}
+#define INTEGER(a) (int[]) { a }
 
 /* MMGR default value for configuration */
 #define DEF_MODEM_PORT "/dev/ttyIFX0"
@@ -32,7 +32,8 @@
 #define DEF_LINK_LAYER "hsi"
 #define DEF_DELAY_BEFORE_AT INTEGER(3456)
 #define DEF_HSIC_ENABLE_PATH "/sys/devices/pci0000:00/0000:00:10.0/hsic_enable"
-#define DEF_HSIC_PM_PATH "/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable"
+#define DEF_HSIC_PM_PATH \
+    "/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable"
 /* 27.010 5.7.2 max frame size */
 #define GPP_MAX_FRAME_SIZE INTEGER(32768)
 /* modem max frame size */
@@ -49,13 +50,13 @@
 #define DEF_MODEM_RESET_ENABLE INTEGER(true)
 #define DEF_NB_COLD_RESET INTEGER(1)
 #define DEF_NB_PLATFORM_REBOOT INTEGER(1)
-#define DEF_MODEM_RESET_DELAY INTEGER(5)        /* in seconds */
-#define DEF_MIN_TIME_ISSUE INTEGER(600) /* in seconds */
-#define DEF_DELAY_BEFORE_RESET INTEGER(300)     /* in milliseconds */
-#define DEF_DELAY_BEFORE_REBOOT INTEGER(3)      /* in seconds */
+#define DEF_MODEM_RESET_DELAY INTEGER(5)      /* in seconds */
+#define DEF_MIN_TIME_ISSUE INTEGER(600)       /* in seconds */
+#define DEF_DELAY_BEFORE_RESET INTEGER(300)   /* in milliseconds */
+#define DEF_DELAY_BEFORE_REBOOT INTEGER(3)    /* in seconds */
 #define DEF_MAX_RETRY INTEGER(24)
-#define DEF_MAX_TIMEOUT_ACK_COLD INTEGER(1)     /* in seconds */
-#define DEF_MAX_TIMEOUT_ACK_SHTDWN INTEGER(1)   /* in seconds */
+#define DEF_MAX_TIMEOUT_ACK_COLD INTEGER(1)   /* in seconds */
+#define DEF_MAX_TIMEOUT_ACK_SHTDWN INTEGER(1) /* in seconds */
 /* mmgr interface */
 #define DEF_NB_ALLOWED_CLIENT INTEGER(12)
 /* security params: */
@@ -92,7 +93,7 @@
 struct set_param;
 typedef void *(*read_param) (GKeyFile *, char *, char *, GError **);
 typedef void (*copy) (void *dest, void *src);
-typedef void (*display) (struct set_param * param);
+typedef void (*display) (struct set_param *param);
 
 typedef struct type_setter {
     read_param read;
@@ -124,6 +125,7 @@ static void init_integer(void *dest, void *src)
     /* copy the content of the unnamed tab */
     int *in = src;
     int *out = dest;
+
     *out = *in;
 }
 
@@ -152,6 +154,7 @@ static void copy_integer(void *dest, void *src)
 {
     int *in = src;
     int *out = dest;
+
     *out = (int)in;
 }
 
@@ -165,6 +168,7 @@ static void copy_integer(void *dest, void *src)
 static void display_integer(set_param_t *param)
 {
     int *tmp = param->dest;
+
     LOGV(PRINT_INTEGER, param->key, *tmp);
 }
 
@@ -179,6 +183,7 @@ static void display_boolean(set_param_t *param)
 {
     bool *tmp = param->dest;
     const char *state[] = { "DISABLED", "ENABLED" };
+
     LOGV(PRINT_STRING, param->key, state[*tmp]);
 }
 
@@ -295,111 +300,179 @@ e_mmgr_errors_t mmgr_configure(mmgr_configuration_t *params,
     GKeyFile *fd = NULL;
     GError *gerror = NULL;
 
-    type_setter_t string = {.read = (read_param) g_key_file_get_string,
-        .size = MAX_SIZE_CONF_VAL,.init = copy_string,
-        .copy = copy_string,.display = display_string
-    };
-    type_setter_t integer = {.read = (read_param) g_key_file_get_integer,
-        .size = sizeof(int),.init = init_integer,
-        .copy = copy_integer,.display = display_integer
-    };
-    type_setter_t boolean = {.read = (read_param) g_key_file_get_boolean,
-        .size = sizeof(bool),.init = init_integer,
-        .copy = copy_integer,.display = display_boolean
-    };
+    type_setter_t string =
+    { .read    =
+          (read_param)g_key_file_get_string,
+      .size    = MAX_SIZE_CONF_VAL,
+      .init    = copy_string,
+      .copy    = copy_string,
+      .display = display_string };
+    type_setter_t integer =
+    { .read    =
+          (read_param)g_key_file_get_integer,
+      .size    = sizeof(int),
+      .init    = init_integer,
+      .copy    = copy_integer,
+      .display = display_integer };
+    type_setter_t boolean =
+    { .read    =
+          (read_param)g_key_file_get_boolean,
+      .size    = sizeof(bool),
+      .init    = init_integer,
+      .copy    = copy_integer,
+      .display = display_boolean };
 
     /* special test case: */
     int *max_frame_size = (MODEM_MAX_FRAME_SIZE < GPP_MAX_FRAME_SIZE) ?
-        MODEM_MAX_FRAME_SIZE : GPP_MAX_FRAME_SIZE;
+                          MODEM_MAX_FRAME_SIZE : GPP_MAX_FRAME_SIZE;
 
     set_param_t gnl[] = {
-        {.key = "ModemPort",.dest = &params->modem_port,.def =
-         DEF_MODEM_PORT,.set = string},
-        {.key = "ShutdownDLC",.dest = &params->shtdwn_dlc,.def =
-         DEF_SHTDWN_DLC,.set = string},
-        {.key = "WaitLoopTTYName",.dest = &params->waitloop_tty_name,
-         .def = DEF_WAITLOOP_TTY_NAME,.set = string},
-        {.key = "LinkLayer",.dest = &params->link_layer,
-         .def = DEF_LINK_LAYER,.set = string},
-        {.key = "DelayBeforeFirstAt",.dest = &params->delay_before_at,
-         .def = DEF_DELAY_BEFORE_AT,.set = integer},
-        {.key = "MaxFrameSize",.dest = &params->max_frame_size,
-         .def = max_frame_size,.set = integer},
-        {.key = "isFlashLess",.dest = &params->is_flashless,
-         .def = DEF_IS_FLASHLESS,.set = boolean},
-        {.key = "BaseBandPid",.dest = &params->bb_pid,.def = DEF_BB_PID,
-         .set = string},
-        {.key = "BaseBandVid",.dest = &params->bb_vid,.def = DEF_BB_VID,
-         .set = string},
-        {.key = "FlashPid",.dest = &params->flash_pid,
-         .def = DEF_FLASH_PID,.set = string},
-        {.key = "FlashVid",.dest = &params->flash_vid,
-         .def = DEF_FLASH_VID,.set = string},
-        {.key = "HSICEnablePath",.dest = &params->hsic_enable_path,
-         .def = DEF_HSIC_ENABLE_PATH,.set = string},
-        {.key = "HSICPmPath",.dest = &params->hsic_pm_path,
-         .def = DEF_HSIC_PM_PATH,.set = string},
+        { .key = "ModemPort",          .dest =
+              &params->modem_port,
+          .def =
+              DEF_MODEM_PORT, .set = string },
+        { .key = "ShutdownDLC",        .dest =
+              &params->shtdwn_dlc,
+          .def =
+              DEF_SHTDWN_DLC, .set = string },
+        { .key = "WaitLoopTTYName",    .dest =
+              &params->waitloop_tty_name,
+          .def = DEF_WAITLOOP_TTY_NAME, .set = string },
+        { .key = "LinkLayer",          .dest =
+              &params->link_layer,
+          .def = DEF_LINK_LAYER, .set = string },
+        { .key = "DelayBeforeFirstAt", .dest =
+              &params->delay_before_at,
+          .def = DEF_DELAY_BEFORE_AT, .set = integer },
+        { .key = "MaxFrameSize",       .dest =
+              &params->max_frame_size,
+          .def = max_frame_size, .set = integer },
+        { .key = "isFlashLess",        .dest =
+              &params->is_flashless,
+          .def = DEF_IS_FLASHLESS, .set = boolean },
+        { .key = "BaseBandPid",        .dest =
+              &params->bb_pid,
+          .def = DEF_BB_PID,
+          .set = string },
+        { .key = "BaseBandVid",        .dest =
+              &params->bb_vid,
+          .def = DEF_BB_VID,
+          .set = string },
+        { .key = "FlashPid",           .dest =
+              &params->flash_pid,
+          .def = DEF_FLASH_PID, .set = string },
+        { .key = "FlashVid",           .dest =
+              &params->flash_vid,
+          .def = DEF_FLASH_VID, .set = string },
+        { .key = "HSICEnablePath",     .dest =
+              &params->hsic_enable_path,
+          .def = DEF_HSIC_ENABLE_PATH, .set = string },
+        { .key = "HSICPmPath",         .dest =
+              &params->hsic_pm_path,
+          .def = DEF_HSIC_PM_PATH, .set = string },
     };
 
     set_param_t recov[] = {
-        {.key = "ModemResetEnable",.dest = &params->modem_reset_enable,.def =
-         DEF_MODEM_RESET_ENABLE,.set = boolean},
-        {.key = "MaxModemColdReset",.dest = &params->nb_cold_reset,.def =
-         DEF_NB_COLD_RESET,.set = integer},
-        {.key = "MaxPlatformReboot",.dest = &params->nb_platform_reboot,.def =
-         DEF_NB_PLATFORM_REBOOT,.set = integer},
-        {.key = "ModemResetDelay",.dest = &params->modem_reset_delay,.def =
-         DEF_MODEM_RESET_DELAY,.set = integer},
-        {.key = "MinTimeIssue",.dest = &params->min_time_issue,.def =
-         DEF_MIN_TIME_ISSUE,.set = integer},
-        {.key = "DelayBeforeReset",.dest = &params->delay_before_reset,.def =
-         DEF_DELAY_BEFORE_RESET,.set = integer},
-        {.key = "DelayBeforeReboot",.dest = &params->delay_before_reboot,.def =
-         DEF_DELAY_BEFORE_REBOOT,.set = integer},
-        {.key = "MaximumRetry",.dest = &params->max_retry,.def =
-         DEF_MAX_RETRY,.set = integer},
-        {.key = "MaxAckColdReset",.dest = &params->timeout_ack_cold,.def =
-         DEF_MAX_TIMEOUT_ACK_COLD,.set = integer},
-        {.key = "MaxAckShtdwn",.dest = &params->timeout_ack_shtdwn,.def =
-         DEF_MAX_TIMEOUT_ACK_SHTDWN,.set = integer},
+        { .key = "ModemResetEnable",  .dest =
+              &params->modem_reset_enable,
+          .def =
+              DEF_MODEM_RESET_ENABLE, .set = boolean },
+        { .key = "MaxModemColdReset", .dest =
+              &params->nb_cold_reset,
+          .def =
+              DEF_NB_COLD_RESET, .set = integer },
+        { .key = "MaxPlatformReboot", .dest =
+              &params->nb_platform_reboot,
+          .def =
+              DEF_NB_PLATFORM_REBOOT, .set = integer },
+        { .key = "ModemResetDelay",   .dest =
+              &params->modem_reset_delay,
+          .def =
+              DEF_MODEM_RESET_DELAY, .set = integer },
+        { .key = "MinTimeIssue",      .dest =
+              &params->min_time_issue,
+          .def =
+              DEF_MIN_TIME_ISSUE, .set = integer },
+        { .key = "DelayBeforeReset",  .dest =
+              &params->delay_before_reset,
+          .def =
+              DEF_DELAY_BEFORE_RESET, .set = integer },
+        { .key = "DelayBeforeReboot", .dest =
+              &params->delay_before_reboot,
+          .def =
+              DEF_DELAY_BEFORE_REBOOT, .set = integer },
+        { .key = "MaximumRetry",      .dest = &params->max_retry,
+          .def =
+              DEF_MAX_RETRY, .set = integer },
+        { .key = "MaxAckColdReset",   .dest =
+              &params->timeout_ack_cold,
+          .def =
+              DEF_MAX_TIMEOUT_ACK_COLD, .set = integer },
+        { .key = "MaxAckShtdwn",      .dest =
+              &params->timeout_ack_shtdwn,
+          .def =
+              DEF_MAX_TIMEOUT_ACK_SHTDWN, .set = integer },
     };
 
     set_param_t interface[] = {
-        {.key = "NumberOfAllowedClient",.dest = &params->max_clients,.def =
-         DEF_NB_ALLOWED_CLIENT,.set = integer},
+        { .key = "NumberOfAllowedClient", .dest = &params->max_clients, .def =
+              DEF_NB_ALLOWED_CLIENT, .set = integer },
     };
 
     set_param_t mcdr[] = {
-        {.key = "ModemCoreDumpEnable",.dest =
-         &params->modem_core_dump_enable,.def = DEF_MODEM_CORE_DUMP,.set =
-         boolean},
-        {.key = "OutpoutPath",.dest = &params->mcdr_path,.def =
-         DEF_MCDR_OUTPUT,.set = string},
-        {.key = "McdrPort",.dest = &params->mcdr_device,.def =
-         DEF_MCDR_DEVICE,.set = string},
-        {.key = "Baudrate",.dest = &params->mcdr_baudrate,.def =
-         DEF_MCDR_BAUDRATE,.set = integer},
-        {.key = "McdrPid",.dest = &params->mcdr_pid,.def =
-         DEF_MCDR_PID,.set = string},
-        {.key = "McdrVid",.dest = &params->mcdr_vid,.def =
-         DEF_MCDR_VID,.set = string},
-        {.key = "McdrProtocol",.dest = &params->mcdr_protocol,.def =
-         DEF_MCDR_PROTOCOL,.set = string},
-        {.key = "McdrLinkLayer",.dest = &params->mcdr_link_layer,
-         .def = DEF_MCDR_LINK_LAYER,.set = string},
-        {.key = "TimeBeforeResetLinkInCoreDump",.dest =
-         &params->modem_core_dump_reset_link_timer,
-         .def = DEF_MODEM_CORE_DUMP_RESET_LINK_TIMEOUT,.set = integer},
+        { .key = "ModemCoreDumpEnable",
+          .dest =
+              &params->modem_core_dump_enable, .def = DEF_MODEM_CORE_DUMP,
+          .set =
+              boolean },
+        { .key = "OutpoutPath",
+          .dest =
+              &params->mcdr_path,
+          .def =
+              DEF_MCDR_OUTPUT, .set = string },
+        { .key = "McdrPort",
+          .dest =
+              &params->mcdr_device,
+          .def =
+              DEF_MCDR_DEVICE, .set = string },
+        { .key = "Baudrate",
+          .dest =
+              &params->mcdr_baudrate, .def =
+              DEF_MCDR_BAUDRATE, .set = integer },
+        { .key = "McdrPid",
+          .dest =
+              &params->mcdr_pid,
+          .def =
+              DEF_MCDR_PID, .set = string },
+        { .key = "McdrVid",
+          .dest =
+              &params->mcdr_vid,
+          .def =
+              DEF_MCDR_VID, .set = string },
+        { .key = "McdrProtocol",
+          .dest =
+              &params->mcdr_protocol, .def =
+              DEF_MCDR_PROTOCOL, .set = string },
+        { .key = "McdrLinkLayer",
+          .dest =
+              &params->mcdr_link_layer,
+          .def = DEF_MCDR_LINK_LAYER, .set = string },
+        { .key = "TimeBeforeResetLinkInCoreDump",
+          .dest =
+              &params->modem_core_dump_reset_link_timer,
+          .def = DEF_MODEM_CORE_DUMP_RESET_LINK_TIMEOUT, .set = integer },
     };
 
     set_param_t secur[] = {
-        {"SecurityEnabled", &params->secur_enable, DEF_SECUR_ENABLE, boolean},
-        {"SecurDlc", &params->secur_dlc, DEF_SECUR_DLC, string},
+        { "SecurityEnabled", &params->secur_enable, DEF_SECUR_ENABLE,
+          boolean },
+        { "SecurDlc",        &params->secur_dlc,    DEF_SECUR_DLC,
+          string },
     };
 
     set_param_t nvm_custo[] = {
-        {.key = "NvmCustoDLC",.dest = &params->nvm_custo_dlc,.def =
-         DEF_NVM_CUSTO_DLC,.set = string},
+        { .key = "NvmCustoDLC", .dest = &params->nvm_custo_dlc, .def =
+              DEF_NVM_CUSTO_DLC, .set = string },
     };
 
     LOG_DEBUG("filename: %s", config_file);
@@ -473,29 +546,43 @@ e_mmgr_errors_t modem_info_flashless_config(char *config_file,
     CHECK_PARAM(config_file, ret, out);
     CHECK_PARAM(config, ret, out);
 
-    type_setter_t string = {.read = (read_param) g_key_file_get_string,
-        .size = MAX_SIZE_CONF_VAL,.init = copy_string,
-        .copy = copy_string,.display = display_string
-    };
+    type_setter_t string =
+    { .read    =
+          (read_param)g_key_file_get_string,
+      .size    = MAX_SIZE_CONF_VAL,
+      .init    = copy_string,
+      .copy    = copy_string,
+      .display = display_string };
 
     GKeyFile *fd = NULL;
     GError *gerror = NULL;
 
     set_param_t runtime[] = {
-        {"RunFolder", config->run_path, DEF_RUN_FILES_PATH, string},
-        {"FwFolder", config->run_fw_path, DEF_FW_FILES_PATH, string},
-        {"BootFls", config->run_boot_fls, DEF_BOOT_FLS, string},
-        {"InjFls", config->run_inj_fls, DEF_INJ_FLS, string},
-        {"Calibration", config->run_cal, DEF_CALIBRATION, string},
-        {"Static", config->run_stat, DEF_STATIC, string},
-        {"Dynamic", config->run_dyn, DEF_DYNAMIC, string},
-        {"RndCert", config->run_rnd_cert, DEF_RND_CERT, string},
-        {"NvmPatch", config->nvm_patch, DEF_NVM_PATCH, string},
+        { "RunFolder",   config->run_path,     DEF_RUN_FILES_PATH,
+          string },
+        { "FwFolder",    config->run_fw_path,  DEF_FW_FILES_PATH,
+          string },
+        { "BootFls",     config->run_boot_fls, DEF_BOOT_FLS,
+          string },
+        { "InjFls",      config->run_inj_fls,  DEF_INJ_FLS,
+          string },
+        { "Calibration", config->run_cal,      DEF_CALIBRATION,
+          string },
+        { "Static",      config->run_stat,     DEF_STATIC,
+          string },
+        { "Dynamic",     config->run_dyn,      DEF_DYNAMIC,
+          string },
+        { "RndCert",     config->run_rnd_cert, DEF_RND_CERT,
+          string },
+        { "NvmPatch",    config->nvm_patch,    DEF_NVM_PATCH,
+          string },
     };
 
     set_param_t bckup[] = {
-        {"Folder", config->bkup_path, DEF_RUN_FILES_PATH, string},
-        {"Calibration", config->bkup_cal, DEF_CALIBRATION, string},
+        { "Folder",      config->bkup_path, DEF_RUN_FILES_PATH,
+          string },
+        { "Calibration", config->bkup_cal,  DEF_CALIBRATION,
+          string },
     };
 
     LOG_DEBUG("filename: %s", config_file);

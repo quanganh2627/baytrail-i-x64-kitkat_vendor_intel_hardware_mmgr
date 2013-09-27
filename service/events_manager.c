@@ -1,20 +1,20 @@
 /* Modem Manager - events manager source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <errno.h>
 #include <dlfcn.h>
@@ -116,11 +116,13 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
         LOG_DEBUG("telephony stack is disabled");
         /* Set MMGR state to MDM_RESET to call the recovery module and force
          * modem recovery to OOS. By doing so, MMGR will turn off the modem and
-         * declare the modem OOS. Clients will not be able to turn on the modem */
+         * declare the modem OOS. Clients will not be able to turn on the modem
+         **/
         recov_force(mmgr->reset, E_FORCE_OOS);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-    } else
+    } else {
         set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
+    }
 
     mmgr->events.nfds = 0;
     mmgr->events.ev = malloc(sizeof(struct epoll_event) *
@@ -202,10 +204,10 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
 
     if (mmgr->info.mdm_link == E_LINK_HSIC) {
         if ((ret =
-             bus_events_init(&mmgr->events.bus_events, mmgr->config.bb_pid,
-                             mmgr->config.bb_vid, mmgr->config.flash_pid,
-                             mmgr->config.flash_vid, mmgr->config.mcdr_pid,
-                             mmgr->config.mcdr_vid)) != E_ERR_SUCCESS) {
+                 bus_events_init(&mmgr->events.bus_events, mmgr->config.bb_pid,
+                                 mmgr->config.bb_vid, mmgr->config.flash_pid,
+                                 mmgr->config.flash_vid, mmgr->config.mcdr_pid,
+                                 mmgr->config.mcdr_vid)) != E_ERR_SUCCESS) {
             LOG_ERROR("unable to configure bus events handler");
             goto out;
         }
@@ -225,8 +227,9 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
             /* ready to flash modem */
             mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
             mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
-        } else if (!mmgr->config.is_flashless)
+        } else if (!mmgr->config.is_flashless) {
             start_timer(&mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+        }
     } else {
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
         mmgr->events.bus_events.wd_fd = CLOSED_FD;
@@ -250,6 +253,7 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int fd;
+
     CHECK_PARAM(mmgr, ret, out);
 
     if (mmgr->events.cur_ev + 1 >= mmgr->events.nfds) {
@@ -274,19 +278,18 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
         mmgr->events.state = E_EVENT_TIMEOUT;
     } else {
         fd = mmgr->events.ev[mmgr->events.cur_ev].data.fd;
-        if (fd == mmgr->fd_cnx) {
+        if (fd == mmgr->fd_cnx)
             mmgr->events.state = E_EVENT_NEW_CLIENT;
-        } else if (fd == mmgr->fd_tty) {
+        else if (fd == mmgr->fd_tty)
             mmgr->events.state = E_EVENT_IPC;
-        } else if (fd == mmgr->info.fd_mcd) {
+        else if (fd == mmgr->info.fd_mcd)
             mmgr->events.state = E_EVENT_MCD;
-        } else if (fd == mmgr->events.bus_events.wd_fd) {
+        else if (fd == mmgr->events.bus_events.wd_fd)
             mmgr->events.state = E_EVENT_BUS;
-        } else if (fd == mmgr->secur.fd) {
+        else if (fd == mmgr->secur.fd)
             mmgr->events.state = E_EVENT_SECUR;
-        } else {
+        else
             mmgr->events.state = E_EVENT_CLIENT;
-        }
     }
 out:
     return ret;
@@ -315,7 +318,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    for (;;) {
+    for (;; ) {
         if (mmgr->events.cli_req & E_CLI_REQ_OFF) {
             reset_shutdown_ack(&mmgr->clients);
             modem_shutdown(mmgr);

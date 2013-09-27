@@ -19,7 +19,6 @@
 package com.intel.internal.telephony;
 
 public abstract class ModemRequestArgs {
-
     private ModemStatusMonitor sender = null;
 
     public ModemStatusMonitor getSender() {
@@ -33,7 +32,7 @@ public abstract class ModemRequestArgs {
     public int getTimestamp() {
         long currentMs = System.currentTimeMillis();
 
-        return (int) (currentMs / 1000);
+        return (int)(currentMs / 1000);
     }
 
     public abstract byte[] getFrame();

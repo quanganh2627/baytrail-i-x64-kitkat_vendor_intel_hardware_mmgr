@@ -24,25 +24,25 @@
 #define FUSE_LEN 9
 
 /* Please read README file to have useful information about
-   MMGR requests */
+ *  MMGR requests */
 
 #define MMGR_REQUESTS \
-    X(SET_NAME),\
-    X(SET_EVENTS),\
+    X(SET_NAME), \
+    X(SET_EVENTS), \
     /* Resource allocation: Clients -> MMGR */ \
-    X(RESOURCE_ACQUIRE),\
-    X(RESOURCE_RELEASE),\
+    X(RESOURCE_ACQUIRE), \
+    X(RESOURCE_RELEASE), \
     /* Requests: Clients -> MMGR */ \
-    X(REQUEST_MODEM_RECOVERY),\
-    X(REQUEST_MODEM_RESTART),\
-    X(REQUEST_FORCE_MODEM_SHUTDOWN),\
+    X(REQUEST_MODEM_RECOVERY), \
+    X(REQUEST_MODEM_RESTART), \
+    X(REQUEST_FORCE_MODEM_SHUTDOWN), \
     /* ACK: Clients -> MMGR */ \
-    X(ACK_MODEM_COLD_RESET),\
-    X(ACK_MODEM_SHUTDOWN),\
+    X(ACK_MODEM_COLD_RESET), \
+    X(ACK_MODEM_SHUTDOWN), \
     /* flashing request */ \
-    X(REQUEST_MODEM_FUSE_INFO),\
-    X(REQUEST_MODEM_GET_HW_ID),\
-    X(REQUEST_MODEM_BACKUP_PRODUCTION),\
+    X(REQUEST_MODEM_FUSE_INFO), \
+    X(REQUEST_MODEM_GET_HW_ID), \
+    X(REQUEST_MODEM_BACKUP_PRODUCTION), \
     /* fake requests */ \
     X(REQUEST_FAKE_DOWN), \
     X(REQUEST_FAKE_UP), \
@@ -58,60 +58,60 @@
 
 #define MMGR_EVENTS \
     /* Events notification: MMGR -> Clients */ \
-    X(EVENT_MODEM_DOWN),\
-    X(EVENT_MODEM_UP),\
-    X(EVENT_MODEM_OUT_OF_SERVICE),\
+    X(EVENT_MODEM_DOWN), \
+    X(EVENT_MODEM_UP), \
+    X(EVENT_MODEM_OUT_OF_SERVICE), \
     /* Notifications: MMGR -> Clients */ \
-    X(NOTIFY_MODEM_COLD_RESET),\
-    X(NOTIFY_MODEM_SHUTDOWN),\
-    X(NOTIFY_PLATFORM_REBOOT),\
-    X(NOTIFY_CORE_DUMP),\
+    X(NOTIFY_MODEM_COLD_RESET), \
+    X(NOTIFY_MODEM_SHUTDOWN), \
+    X(NOTIFY_PLATFORM_REBOOT), \
+    X(NOTIFY_CORE_DUMP), \
     /* ACK: MMGR -> Clients */ \
-    X(ACK),\
-    X(NACK),\
-    /* Notifications for crashtool */\
-    X(NOTIFY_CORE_DUMP_COMPLETE),\
-    X(NOTIFY_AP_RESET),\
-    X(NOTIFY_SELF_RESET),\
-    X(NOTIFY_ERROR),\
+    X(ACK), \
+    X(NACK), \
+    /* Notifications for crashtool */ \
+    X(NOTIFY_CORE_DUMP_COMPLETE), \
+    X(NOTIFY_AP_RESET), \
+    X(NOTIFY_SELF_RESET), \
+    X(NOTIFY_ERROR), \
     /* flashing notifications */ \
-    X(RESPONSE_MODEM_HW_ID),\
-    X(RESPONSE_MODEM_FW_RESULT),\
-    X(RESPONSE_MODEM_NVM_RESULT),\
-    X(RESPONSE_FUSE_INFO),\
-    X(RESPONSE_MODEM_BACKUP_PRODUCTION),\
+    X(RESPONSE_MODEM_HW_ID), \
+    X(RESPONSE_MODEM_FW_RESULT), \
+    X(RESPONSE_MODEM_NVM_RESULT), \
+    X(RESPONSE_FUSE_INFO), \
+    X(RESPONSE_MODEM_BACKUP_PRODUCTION), \
     X(NUM_EVENTS)
 
 typedef enum e_mmgr_requests {
 #undef X
-#define X(a) E_MMGR_##a
+#define X(a) E_MMGR_ ## a
     MMGR_REQUESTS
 } e_mmgr_requests_t;
 
 typedef enum e_mmgr_events {
 #undef X
-#define X(a) E_MMGR_##a
+#define X(a) E_MMGR_ ## a
     MMGR_EVENTS
 } e_mmgr_events_t;
 
-#define CORE_DUMP_STATE\
-    X(SUCCEED),\
-    /* core dump retrieval takes too much time. The operation has been */\
-    /* aborted by MMGR */\
-    X(TIMEOUT),\
-    /* MMGR is not able to open the fd (HSIC enumeration issue, device not */\
-    /* available, etc) */\
-    X(LINK_ERROR),\
-    /* A protocol error happened during the core dump retrieval (PING not */\
-    /* received, bad message, etc) */\
-    X(PROTOCOL_ERROR),\
-    X(SELF_RESET),\
-    /* generic failure */\
+#define CORE_DUMP_STATE \
+    X(SUCCEED), \
+    /* core dump retrieval takes too much time. The operation has been */ \
+    /* aborted by MMGR */ \
+    X(TIMEOUT), \
+    /* MMGR is not able to open the fd (HSIC enumeration issue, device not */ \
+    /* available, etc) */ \
+    X(LINK_ERROR), \
+    /* A protocol error happened during the core dump retrieval (PING not */ \
+    /* received, bad message, etc) */ \
+    X(PROTOCOL_ERROR), \
+    X(SELF_RESET), \
+    /* generic failure */ \
     X(OTHER)
 
 typedef enum e_core_dump_state {
 #undef X
-#define X(a) E_CD_##a
+#define X(a) E_CD_ ## a
     CORE_DUMP_STATE
 } e_core_dump_state_t;
 
@@ -159,31 +159,31 @@ typedef struct mmgr_cli_restart {
 #include <sys/types.h>
 
 #define FW_ERROR \
-    X(SUCCEED),\
-    X(OUTDATED),\
-    X(READY_TIMEOUT),\
-    X(SECURITY_CORRUPTED),\
-    X(SW_CORRUPTED),\
-    X(BAD_FAMILY),\
-    X(ERROR_UNSPECIFIED),\
+    X(SUCCEED), \
+    X(OUTDATED), \
+    X(READY_TIMEOUT), \
+    X(SECURITY_CORRUPTED), \
+    X(SW_CORRUPTED), \
+    X(BAD_FAMILY), \
+    X(ERROR_UNSPECIFIED), \
     X(NUM)
 
 typedef enum e_modem_fw_error {
 #undef X
-#define X(a) E_MODEM_FW_##a
+#define X(a) E_MODEM_FW_ ## a
     FW_ERROR
 } e_modem_fw_error_t;
 
 #define NVM_ERROR \
     X(SUCCEED), \
     X(NO_NVM_PATCH), \
-    X(ERROR_UNSPECIFIED),\
+    X(ERROR_UNSPECIFIED), \
     X(FAIL), \
     X(NUM)
 
 typedef enum e_modem_nvm_error {
 #undef X
-#define X(a) E_MODEM_NVM_##a
+#define X(a) E_MODEM_NVM_ ## a
     NVM_ERROR
 } e_modem_nvm_error_t;
 

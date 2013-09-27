@@ -22,7 +22,6 @@ import com.intel.internal.telephony.ModemRequestArgs;
 import java.nio.ByteBuffer;
 
 public class MmgrModemColdResetAckRequest extends ModemRequestArgs {
-
     @Override
     public byte[] getFrame() {
         ByteBuffer ret = ByteBuffer.allocate(8);

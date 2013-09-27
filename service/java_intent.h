@@ -41,13 +41,13 @@
 
 typedef enum e_intent_msg {
 #undef X
-#define X(a) E_MSG_INTENT_##a
+#define X(a) E_MSG_INTENT_ ## a
     MSG_INTENTS
 } e_intent_msg_t;
 
 typedef enum e_intent_action {
 #undef X
-#define X(a) E_ACTION_INTENT_##a
+#define X(a) E_ACTION_INTENT_ ## a
     ACTION_INTENTS
 } e_intent_action_t;
 

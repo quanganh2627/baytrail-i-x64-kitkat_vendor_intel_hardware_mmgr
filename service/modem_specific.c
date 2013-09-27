@@ -1,20 +1,20 @@
 /* Modem Manager - modem specific source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include "logs.h"
 #include "modem_specific.h"
@@ -28,7 +28,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define FLS_FILE_PERMISSION (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH)
+#define FLS_FILE_PERMISSION (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 /* @TODO: this should be configurable via mmgr.conf */
 #define MUP_LIB "libmodemupdate.so"
 #define MUP_FUNC_INIT "mup_initialize"
@@ -185,7 +185,8 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
         goto out;
     }
 
-    /* @TODO retrieve modem version via SFI table and remove this static value */
+    /* @TODO retrieve modem version via SFI table and remove this static value
+    **/
     if (info->mup.check_fw_version(info->fl_conf.run_inj_fls, "XMM7160") !=
         E_MUP_SUCCEED) {
         LOG_ERROR("Bad modem family. Shutdown the modem");
@@ -194,13 +195,14 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
     }
 
     mup_fw_update_params_t params = {
-        .handle = handle,
-        .mdm_com_port = comport,
-        .channel_hw_sw = ch_sw,
-        .fw_file_path = info->fl_conf.run_inj_fls,
+        .handle           = handle,
+        .mdm_com_port     = comport,
+        .channel_hw_sw    = ch_sw,
+        .fw_file_path     = info->fl_conf.run_inj_fls,
         .fw_file_path_len = strnlen(info->fl_conf.run_inj_fls,
                                     MAX_SIZE_CONF_VAL),
-        .erase_all = false      /* for flashless modem, this should be false */
+        /* for flashless modem, this should be false */
+        .erase_all        = false,
     };
 
     if (E_MUP_SUCCEED != info->mup.open_device(&params)) {
@@ -288,9 +290,9 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
     }
 
     mup_nvm_update_params_t params = {
-        .handle = handle,
-        .mdm_com_port = comport,
-        .nvm_file_path = info->fl_conf.nvm_patch,
+        .handle            = handle,
+        .mdm_com_port      = comport,
+        .nvm_file_path     = info->fl_conf.nvm_patch,
         .nvm_file_path_len = strnlen(info->fl_conf.nvm_patch,
                                      MAX_SIZE_CONF_VAL),
     };
@@ -301,10 +303,9 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
         *sub_error_code = mup_ret;
         LOG_ERROR("modem nvm update failed with error %d", mup_ret);
     } else {
-        if (unlink(info->fl_conf.nvm_patch) != 0) {
+        if (unlink(info->fl_conf.nvm_patch) != 0)
             LOG_ERROR("couldn't delete %s: %s", info->fl_conf.nvm_patch,
                       strerror(errno));
-        }
         /* for now consider a success even if nvm patch not deleted */
         *verdict = E_MODEM_NVM_SUCCEED;
     }
@@ -373,14 +374,14 @@ static e_mmgr_errors_t restart_hsic(modem_info_t *info)
  */
 static e_mmgr_errors_t regen_fls(modem_info_t *info)
 {
-
     e_mmgr_errors_t ret = E_ERR_FAILED;
     e_mup_err_t mup_err;
     char no_file[2] = "";
 
     CHECK_PARAM(info, ret, out);
 
-    if ((ret = is_file_exists(info->fl_conf.run_boot_fls, 0)) != E_ERR_SUCCESS) {
+    if ((ret =
+             is_file_exists(info->fl_conf.run_boot_fls, 0)) != E_ERR_SUCCESS) {
         LOG_ERROR("fls file (%s) is missing", info->fl_conf.run_boot_fls);
         goto out;
     }
@@ -395,12 +396,11 @@ static e_mmgr_errors_t regen_fls(modem_info_t *info)
 
     if (mup_err == E_MUP_SUCCEED) {
         ret = is_file_exists(info->fl_conf.run_inj_fls, 0);
-        if (ret == E_ERR_SUCCESS) {
+        if (ret == E_ERR_SUCCESS)
             LOG_INFO("fls file created successfully (%s)",
                      info->fl_conf.run_inj_fls);
-        } else {
+        else
             LOG_ERROR("failed to create fls file");
-        }
     } else {
         ret = E_ERR_FAILED;
     }

@@ -1,20 +1,20 @@
 /* Modem Manager - mux source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <errno.h>
 #include <string.h>
@@ -201,9 +201,8 @@ e_mmgr_errors_t send_at_cmux(int fd_tty, mmgr_configuration_t *config,
     ret = send_at_retry(fd_tty, at_cmux_config,
                         strnlen(at_cmux_config, AT_MUX_CMD_SIZE), retry,
                         AT_ANSWER_SHORT_TIMEOUT);
-    if (ret != E_ERR_SUCCESS) {
+    if (ret != E_ERR_SUCCESS)
         LOG_ERROR("AT+CMUX not successful");
-    }
 end_send_at_cmux:
     return ret;
 }

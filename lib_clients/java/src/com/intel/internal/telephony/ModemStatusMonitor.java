@@ -23,7 +23,6 @@ import android.os.Message;
 import android.os.Handler.Callback;
 
 public interface ModemStatusMonitor extends Callback {
-
     // service to client messages
     public static final int MSG_ERROR = 1;
     public static final int MSG_STATUS = 2;
@@ -36,7 +35,7 @@ public interface ModemStatusMonitor extends Callback {
     public void start(String clientName) throws MmgrClientException;
 
     public void subscribeTo(ModemStatus status, ModemNotification notifications)
-            throws MmgrClientException;
+    throws MmgrClientException;
 
     public void stop();
 
@@ -49,7 +48,7 @@ public interface ModemStatusMonitor extends Callback {
     public void restartModem() throws MmgrClientException;
 
     public void recoverModem() throws MmgrClientException;
-    
+
     public boolean waitForStatus(ModemStatus status, long timeout) throws MmgrClientException;
 
     public void shutdownModem() throws MmgrClientException;

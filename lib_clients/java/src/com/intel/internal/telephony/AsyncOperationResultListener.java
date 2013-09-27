@@ -23,7 +23,6 @@ package com.intel.internal.telephony;
  *
  */
 public interface AsyncOperationResultListener {
-
     /**
      * Method called upon a successful operation.
      */

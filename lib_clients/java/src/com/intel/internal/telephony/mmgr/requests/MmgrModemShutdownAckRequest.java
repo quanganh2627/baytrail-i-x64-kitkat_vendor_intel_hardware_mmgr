@@ -21,7 +21,6 @@ package com.intel.internal.telephony.mmgr.requests;
 import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
 public class MmgrModemShutdownAckRequest extends MmgrBaseRequest {
-
     public MmgrModemShutdownAckRequest() {
         super(MedfieldMmgrClient.ACK_MODEM_SHUTDOWN);
     }

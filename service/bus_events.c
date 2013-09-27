@@ -1,18 +1,18 @@
 /* Modem Manager - bus events source file
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <errno.h>
 #include <string.h>
@@ -106,6 +106,7 @@ static int device_rmed_cb(const char *path, void *ctx)
 int is_pid_and_vid(const char *path, uint16_t pid, uint16_t vid)
 {
     struct usb_device *dev = usb_device_open(path);
+
     if (dev == NULL) {
         LOG_ERROR("Failed to open path: %s", path);
         return 0;
@@ -116,7 +117,7 @@ int is_pid_and_vid(const char *path, uint16_t pid, uint16_t vid)
     LOG_DEBUG("Event bus pid 0x%.4x vid 0x%.4x", ppid, pvid);
     usb_device_close(dev);
 
-    return (ppid == pid && pvid == vid);
+    return ppid == pid && pvid == vid;
 }
 
 int bus_read_events(bus_ev_t *bus_events)
@@ -257,7 +258,7 @@ e_mmgr_errors_t bus_events_init(bus_ev_t *bus_events, char *bb_pid,
     usb_host_load(bus_events->ctx, device_added_cb, device_rmed_cb, NULL,
                   &bus_events->cli_ctx);
     /* when calling usb_host_load, there's a call to find_existing_devices
-     * which triggers added_cb events so, there's been events ... maybe. */
+    * which triggers added_cb events so, there's been events ... maybe. */
     bus_handle_events(bus_events);
 
 out:

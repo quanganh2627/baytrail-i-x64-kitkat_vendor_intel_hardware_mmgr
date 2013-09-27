@@ -21,7 +21,6 @@ package com.intel.internal.telephony.mmgr.requests;
 import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
 public class MmgrModemLockRequest extends MmgrBaseRequest {
-
     public MmgrModemLockRequest() {
         super(MedfieldMmgrClient.RESOURCE_ACQUIRE);
     }

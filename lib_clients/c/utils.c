@@ -1,20 +1,20 @@
 /* Modem Manager client library - utils source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <cutils/sockets.h>
 #include <limits.h>
@@ -44,6 +44,7 @@ const char *g_mmgr_requests[] = {
 static inline e_mmgr_events_t get_ack(mmgr_lib_context_t *p_lib)
 {
     e_mmgr_events_t ack;
+
     pthread_mutex_lock(&p_lib->mtx);
     ack = p_lib->ack;
     pthread_mutex_unlock(&p_lib->mtx);
@@ -77,7 +78,7 @@ out:
 static e_err_mmgr_cli_t call_cli_callback(mmgr_lib_context_t *p_lib, msg_t *msg)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
-    mmgr_cli_event_t event = {.context = p_lib->cli_ctx };
+    mmgr_cli_event_t event = { .context = p_lib->cli_ctx };
     e_mmgr_events_t id;
     struct timespec start, end;
     int err = 1;
@@ -178,11 +179,10 @@ static e_err_mmgr_cli_t read_msg(mmgr_lib_context_t *p_lib, msg_t *msg)
 
             size_t read_size = size;
             err = read_cnx(p_lib->fd_socket, msg->data, &read_size);
-            if ((err != E_ERR_SUCCESS) || (read_size != size)) {
+            if ((err != E_ERR_SUCCESS) || (read_size != size))
                 LOG_ERROR("Read error. Size: %d/%d", read_size, size);
-            } else {
+            else
                 ret = E_ERR_CLI_SUCCEED;
-            }
         } else {
             ret = E_ERR_CLI_SUCCEED;
         }
@@ -207,7 +207,7 @@ out:
 static e_err_mmgr_cli_t handle_cnx_event(mmgr_lib_context_t *p_lib)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
-    msg_t msg = {.data = NULL };
+    msg_t msg = { .data = NULL };
 
     CHECK_CLI_PARAM(p_lib, ret, out);
 
@@ -270,7 +270,7 @@ static e_err_mmgr_cli_t handle_disconnection(mmgr_lib_context_t *p_lib)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     cnx_state_t state;
-    msg_t msg = {.data = NULL };
+    msg_t msg = { .data = NULL };
 
     CHECK_CLI_PARAM(p_lib, ret, out);
 
@@ -298,12 +298,12 @@ static e_err_mmgr_cli_t handle_disconnection(mmgr_lib_context_t *p_lib)
         } while (ret != E_ERR_CLI_SUCCEED);
 
         if (p_lib->lock) {
-            mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+            mmgr_cli_requests_t request = { .id = E_MMGR_RESOURCE_ACQUIRE };
             /* restore the context */
-            do {
+            do
                 ret = send_msg(p_lib, &request, E_SEND_SINGLE,
                                DEF_MMGR_RESPONSIVE_TIMEOUT);
-            } while (ret != E_ERR_CLI_SUCCEED);
+            while (ret != E_ERR_CLI_SUCCEED);
             LOG_DEBUG("(client=%s) context restored", p_lib->cli_name);
         }
 
@@ -389,13 +389,12 @@ static e_err_mmgr_cli_t register_client(mmgr_lib_context_t *p_lib)
         timeout = DEF_MMGR_RESPONSIVE_TIMEOUT - (ts.tv_sec - start.tv_sec);
     }
 
-    if (ret == E_ERR_CLI_SUCCEED) {
+    if (ret == E_ERR_CLI_SUCCEED)
         LOG_DEBUG("(fd=%d client=%s) connected successfully",
                   p_lib->fd_socket, p_lib->cli_name);
-    } else {
+    else
         LOG_ERROR("(fd=%d client=%s) failed to connect",
                   p_lib->fd_socket, p_lib->cli_name);
-    }
 out:
     return ret;
 }
@@ -465,7 +464,7 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     e_mmgr_errors_t err = E_ERR_SUCCESS;
-    msg_t msg = {.data = NULL };
+    msg_t msg = { .data = NULL };
     size_t size = 0;
     struct timespec start, ts;
     int sleep_duration = 1;
@@ -515,9 +514,8 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
 
         if (method == E_SEND_SINGLE) {
             err = wait_for_tty_event(p_lib->fd_socket, timeout * 1000);
-            if (err == E_ERR_TTY_TIMEOUT) {
+            if (err == E_ERR_TTY_TIMEOUT)
                 break;
-            }
             msg_t answer;
             memset(&answer, 0, sizeof(msg_t));
             if (read_msg(p_lib, &answer) == E_ERR_CLI_SUCCEED)
@@ -603,7 +601,6 @@ e_err_mmgr_cli_t read_events(mmgr_lib_context_t *p_lib)
         ret = handle_events(p_lib, &rfds);
         if (ret == E_ERR_CLI_BAD_CNX_STATE)
             ret = handle_disconnection(p_lib);
-
     } while (ret != E_ERR_CLI_FAILED);
 
 out:
@@ -662,10 +659,9 @@ e_err_mmgr_cli_t cli_disconnect(mmgr_lib_context_t *p_lib)
     if (connected) {
         LOG_DEBUG("(fd=%d client=%s) writing signal", p_lib->fd_socket,
                   p_lib->cli_name);
-        if ((size = write(p_lib->fd_pipe[WRITE], &msg, sizeof(msg))) < -1) {
+        if ((size = write(p_lib->fd_pipe[WRITE], &msg, sizeof(msg))) < -1)
             LOG_ERROR("(fd=%d client=%s) write failed (%s)",
                       p_lib->fd_socket, p_lib->cli_name, strerror(errno));
-        }
     }
 
     LOG_DEBUG("(fd=%d client=%s) waiting for end of reading thread",

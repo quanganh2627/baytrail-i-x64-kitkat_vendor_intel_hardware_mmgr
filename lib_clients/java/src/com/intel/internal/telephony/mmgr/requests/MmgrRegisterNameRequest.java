@@ -28,7 +28,6 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 public class MmgrRegisterNameRequest extends MmgrBaseRequest {
-
     private String clientName = "";
 
     public MmgrRegisterNameRequest(String clientName) {
@@ -42,7 +41,7 @@ public class MmgrRegisterNameRequest extends MmgrBaseRequest {
 
     public void setClientName(String clientName) {
         this.clientName = clientName.substring(0,
-                Math.min(63, clientName.length()));
+                                               Math.min(63, clientName.length()));
     }
 
     @Override

@@ -1,18 +1,18 @@
 /* Modem Manager - modem info source file
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #define MMGR_FW_OPERATIONS
 #include <errno.h>
@@ -85,6 +85,7 @@ e_mmgr_errors_t modem_info_init(const mmgr_configuration_t *config,
                                 modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
     CHECK_PARAM(info, ret, out);
 
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
@@ -223,7 +224,7 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
     CHECK_PARAM(config, ret, out);
     CHECK_PARAM(info, ret, out);
 
-    for (state = E_MUX_HANDSHAKE; state != E_MUX_DRIVER; /* none */ ) {
+    for (state = E_MUX_HANDSHAKE; state != E_MUX_DRIVER; /* none */) {
         switch (state) {
         case E_MUX_HANDSHAKE:
             ret = modem_handshake(*fd_tty, config, retry);
@@ -259,9 +260,8 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, mmgr_configuration_t *config,
     }
 
     ret = configure_cmux_driver(*fd_tty, config->max_frame_size);
-    if (ret != E_ERR_SUCCESS) {
+    if (ret != E_ERR_SUCCESS)
         goto out;
-    }
 
     /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients
      * (this guarantees that the MUX control channel has been established with

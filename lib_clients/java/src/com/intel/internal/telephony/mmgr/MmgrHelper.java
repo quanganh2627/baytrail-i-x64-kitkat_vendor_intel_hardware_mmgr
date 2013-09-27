@@ -22,11 +22,9 @@ import com.intel.internal.telephony.ModemNotification;
 import com.intel.internal.telephony.ModemStatus;
 
 public class MmgrHelper {
-
     public static int getEventFrom(ModemStatus status,
-            ModemNotification notifications) {
-
-        return (getEventFrom(notifications) | getEventFrom(status));
+                                   ModemNotification notifications) {
+        return getEventFrom(notifications) | getEventFrom(status);
     }
 
     private static int getEventFrom(ModemStatus status) {
@@ -57,7 +55,7 @@ public class MmgrHelper {
             ret |= (1 << MedfieldMmgrClient.NOTIFY_MODEM_SHUTDOWN);
         }
         if ((notification.getValue() & ModemNotification.PLATFORM_REBOOT
-                .getValue()) != 0) {
+             .getValue()) != 0) {
             ret |= (1 << MedfieldMmgrClient.NOTIFY_PLATFORM_REBOOT);
         }
         // by default we want to subscribe to ACK and NACK

@@ -47,6 +47,7 @@ static void broadcast(char *mask, const char *action)
 {
     int err;
     char msg[INTENT_MAX_SIZE];
+
     err = snprintf(msg, INTENT_MAX_SIZE, mask, action);
 
     if (err > 0) {

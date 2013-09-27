@@ -1,20 +1,20 @@
 /* Modem Manager - modem reset escalation source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #define MMGR_FW_OPERATIONS
 #include <errno.h>
@@ -93,7 +93,7 @@ e_mmgr_errors_t out_of_service(modem_info_t *info)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t recov_start(reset_handle_t * h)
+e_mmgr_errors_t recov_start(reset_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     struct timeval current_time;
@@ -112,7 +112,6 @@ e_mmgr_errors_t recov_start(reset_handle_t * h)
          * we were in a stable state before the issue. So, reset the escalation
          * recovery variable to default. */
         if (reset->level.id != E_EL_MODEM_OUT_OF_SERVICE) {
-
             if (current_time.tv_sec - reset->last_reset_time.tv_sec
                 > reset->config->min_time_issue) {
                 /* The modem behavior was correct during at least
@@ -138,7 +137,7 @@ out:
  * @return E_EL_UNKNOWN if h is NULL
  * @return a valid e_escalation_level_t state otherwise
  */
-e_escalation_level_t recov_get_level(reset_handle_t * h)
+e_escalation_level_t recov_get_level(reset_handle_t *h)
 {
     e_escalation_level_t level = E_EL_UNKNOWN;
     reset_management_t *reset = (reset_management_t *)h;
@@ -157,6 +156,7 @@ e_escalation_level_t recov_get_level(reset_handle_t * h)
 int recov_get_reboot(void)
 {
     int reboot_counter;
+
     property_get_int(PLATFORM_REBOOT_KEY, &reboot_counter);
     return reboot_counter;
 }
@@ -179,7 +179,7 @@ void recov_set_reboot(int reboot)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if bad parameter
  */
-e_mmgr_errors_t recov_reinit(reset_handle_t * h)
+e_mmgr_errors_t recov_reinit(reset_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     reset_management_t *reset = (reset_management_t *)h;
@@ -203,17 +203,17 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if bad parameter
  **/
-e_mmgr_errors_t recov_next(reset_handle_t * h)
+e_mmgr_errors_t recov_next(reset_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     reset_management_t *reset = (reset_management_t *)h;
 
     CHECK_PARAM(reset, ret, out);
 
-    do {
+    do
         reset->level.id = reset->process[reset->level.id].next_level;
-    } while ((reset->process[reset->level.id].retry_allowed <= 0) &&
-             (reset->level.id != E_EL_MODEM_OUT_OF_SERVICE));
+    while ((reset->process[reset->level.id].retry_allowed <= 0) &&
+           (reset->level.id != E_EL_MODEM_OUT_OF_SERVICE));
     reset->level.counter = 0;
     LOG_DEBUG("new level: %d", reset->level.id);
 out:
@@ -229,7 +229,7 @@ out:
  * @return E_ERR_FAILED operation has failed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t recov_done(reset_handle_t * h)
+e_mmgr_errors_t recov_done(reset_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     reset_operation_t *process = NULL;
@@ -276,6 +276,7 @@ reset_handle_t *recov_init(const mmgr_configuration_t *config)
     int i = 0;
     reset_operation_t *p_process = NULL;
     reset_management_t *reset = calloc(1, sizeof(reset_management_t));
+
     if (!reset) {
         LOG_ERROR("memory allocation failed");
         goto out;
@@ -283,7 +284,7 @@ reset_handle_t *recov_init(const mmgr_configuration_t *config)
 
     if (!config) {
         LOG_ERROR("config is NULL");
-        recov_dispose((reset_handle_t *) reset);
+        recov_dispose((reset_handle_t *)reset);
         reset = NULL;
         goto out;
     }
@@ -321,7 +322,7 @@ reset_handle_t *recov_init(const mmgr_configuration_t *config)
     p_process->retry_allowed = -1;
 
 out:
-    return (reset_handle_t *) reset;
+    return (reset_handle_t *)reset;
 }
 
 /**
@@ -332,7 +333,7 @@ out:
  * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS otherwise
  */
-e_mmgr_errors_t recov_dispose(reset_handle_t * h)
+e_mmgr_errors_t recov_dispose(reset_handle_t *h)
 {
     reset_management_t *reset = (reset_management_t *)h;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -353,7 +354,7 @@ out:
  * @return a 0 timeval if h is NULL
  * @return a correct timeval otherwise
  */
-struct timeval recov_get_last_reset(reset_handle_t * h)
+struct timeval recov_get_last_reset(reset_handle_t *h)
 {
     reset_management_t *reset = (reset_management_t *)h;
     struct timeval ts;
@@ -373,7 +374,7 @@ struct timeval recov_get_last_reset(reset_handle_t * h)
  * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS otherwise
  */
-e_mmgr_errors_t recov_set_state(reset_handle_t * h,
+e_mmgr_errors_t recov_set_state(reset_handle_t *h,
                                 e_reset_operation_state_t state)
 {
     reset_management_t *reset = (reset_management_t *)h;
@@ -395,7 +396,7 @@ out:
  * @return E_OPERATION_UNKNOWN if h is NULL
  * @return a valid e_reset_operation_state_t otherwise
  */
-e_reset_operation_state_t recov_get_state(reset_handle_t * h)
+e_reset_operation_state_t recov_get_state(reset_handle_t *h)
 {
     reset_management_t *reset = (reset_management_t *)h;
     e_reset_operation_state_t state = E_OPERATION_UNKNOWN;
@@ -414,7 +415,7 @@ e_reset_operation_state_t recov_get_state(reset_handle_t * h)
  * @return -1 if h is NULL
  * @return the maximum operation allowed otherwise
  */
-int recov_get_retry_allowed(reset_handle_t * h)
+int recov_get_retry_allowed(reset_handle_t *h)
 {
     reset_management_t *reset = (reset_management_t *)h;
     int retry = -1;
@@ -435,7 +436,7 @@ int recov_get_retry_allowed(reset_handle_t * h)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t recov_force(reset_handle_t * h, e_force_operation_t op)
+e_mmgr_errors_t recov_force(reset_handle_t *h, e_force_operation_t op)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     reset_management_t *reset = (reset_management_t *)h;
