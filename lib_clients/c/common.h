@@ -64,11 +64,6 @@ typedef struct mmgr_lib_context {
     msg_handler set_msg[E_MMGR_NUM_REQUESTS];
     msg_handler set_data[E_MMGR_NUM_EVENTS];
     free_handler free_data[E_MMGR_NUM_EVENTS];
-#ifdef DEBUG_MMGR_CLI
-    /* the purpose of this variable is to check that this structure has
-     * correctly been initialized */
-    uint32_t init;
-#endif
     /* variables used for sync op: */
     pthread_mutex_t mtx_signal;
     pthread_cond_t cond;
@@ -76,7 +71,6 @@ typedef struct mmgr_lib_context {
     pid_t tid;
 } mmgr_lib_context_t;
 
-#define INIT_CHECK 0xCE5A12BB
 #define CLOSED_FD -1
 
 #define xstr(s) str(s)

@@ -66,10 +66,12 @@ e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
                                    const mmgr_cli_requests_t *request)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
-    mmgr_lib_context_t *p_lib = NULL;
+    mmgr_lib_context_t *p_lib = (mmgr_lib_context_t *)handle;
 
-    ret = check_state(handle, &p_lib, true);
-    if (ret != E_ERR_CLI_SUCCEED) {
+    CHECK_CLI_PARAM(handle, ret, out);
+
+    if (!is_connected(p_lib)) {
+        ret = E_ERR_CLI_BAD_CNX_STATE;
         LOG_ERROR("request not sent");
     } else {
         ret = is_request_rejected(p_lib);
@@ -78,6 +80,7 @@ e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
                            DEF_MMGR_RESPONSIVE_TIMEOUT);
     }
 
+out:
     return ret;
 }
 
@@ -126,9 +129,6 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->tid = DEFAULT_TID;
     p_lib->ack = E_MMGR_NUM_REQUESTS;
     strncpy(p_lib->cli_name, client_name, CLIENT_NAME_LEN - 1);
-#if DEBUG_MMGR_CLI
-    p_lib->init = INIT_CHECK;
-#endif
 
     for (i = 0; i < E_MMGR_NUM_REQUESTS; i++)
         p_lib->set_msg[i] = set_msg_empty;
@@ -172,15 +172,15 @@ out:
 e_err_mmgr_cli_t mmgr_cli_delete_handle(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
-    mmgr_lib_context_t *p_lib = NULL;
+    mmgr_lib_context_t *p_lib = (mmgr_lib_context_t *)handle;
 
-    CHECK_CLI_PARAM(handle, ret, out);
+    CHECK_CLI_PARAM(p_lib, ret, out);
 
-    ret = check_state(handle, &p_lib, false);
-    if (ret == E_ERR_CLI_SUCCEED) {
+    if (!is_connected(p_lib)) {
         free(p_lib);
         LOG_DEBUG("handle freed successfully");
     } else {
+        ret = E_ERR_CLI_BAD_CNX_STATE;
         LOG_ERROR("handle not freed");
     }
 
@@ -196,12 +196,14 @@ e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
                                           e_mmgr_events_t id)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
-    mmgr_lib_context_t *p_lib = NULL;
+    mmgr_lib_context_t *p_lib = (mmgr_lib_context_t *)handle;
 
-    ret = check_state(handle, &p_lib, false);
-    if (ret != E_ERR_CLI_SUCCEED) {
+    CHECK_CLI_PARAM(p_lib, ret, out);
+
+    if (is_connected(p_lib)) {
         LOG_ERROR("To subscribe to an event, you should provide a valid handle"
                   " and be disconnected");
+        ret = E_ERR_CLI_BAD_CNX_STATE;
         goto out;
     }
 
@@ -244,11 +246,13 @@ e_err_mmgr_cli_t mmgr_cli_unsubscribe_event(mmgr_cli_handle_t *handle,
                                             e_mmgr_events_t id)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
-    mmgr_lib_context_t *p_lib = NULL;
+    mmgr_lib_context_t *p_lib = (mmgr_lib_context_t *)handle;
 
-    ret = check_state(handle, &p_lib, false);
-    if (ret != E_ERR_CLI_SUCCEED) {
+    CHECK_CLI_PARAM(p_lib, ret, out);
+
+    if (is_connected(p_lib)) {
         LOG_ERROR("To subscribe to an event, you should be disconnected");
+        ret = E_ERR_CLI_BAD_CNX_STATE;
         goto out;
     }
 
@@ -274,13 +278,17 @@ out:
  */
 e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
 {
-    e_err_mmgr_cli_t ret;
-    mmgr_lib_context_t *p_lib = NULL;
+    e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
+    mmgr_lib_context_t *p_lib = (mmgr_lib_context_t *)handle;
     int err = 0;
 
-    ret = check_state(handle, &p_lib, false);
-    if (ret != E_ERR_CLI_SUCCEED)
+    CHECK_CLI_PARAM(p_lib, ret, out);
+
+    if (is_connected(p_lib)) {
+        LOG_ERROR("(fd=%d client=%s) already connected", p_lib->fd_socket,
+                  p_lib->cli_name);
         goto out;
+    }
 
     if (pipe(p_lib->fd_pipe) < 0) {
         LOG_ERROR("(client=%s) failed to create pipe (%s)", p_lib->cli_name,
@@ -314,12 +322,16 @@ out:
 e_err_mmgr_cli_t mmgr_cli_disconnect(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
-    mmgr_lib_context_t *p_lib = NULL;
+    mmgr_lib_context_t *p_lib = (mmgr_lib_context_t *)handle;
 
-    ret = check_state(handle, &p_lib, true);
-    if (ret == E_ERR_CLI_SUCCEED)
+    CHECK_CLI_PARAM(p_lib, ret, out);
+
+    if (is_connected(p_lib))
         ret = cli_disconnect(p_lib);
+    else
+        ret = E_ERR_CLI_BAD_CNX_STATE;
 
+out:
     return ret;
 }
 
@@ -329,12 +341,15 @@ e_err_mmgr_cli_t mmgr_cli_disconnect(mmgr_cli_handle_t *handle)
 e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
-    mmgr_lib_context_t *p_lib = NULL;
+    mmgr_lib_context_t *p_lib = (mmgr_lib_context_t *)handle;
     mmgr_cli_requests_t request = { .id = E_MMGR_RESOURCE_ACQUIRE };
 
-    ret = check_state(handle, &p_lib, true);
-    if (ret != E_ERR_CLI_SUCCEED) {
-        LOG_ERROR("not locked");
+    CHECK_CLI_PARAM(p_lib, ret, out);
+
+    if (!is_connected(p_lib)) {
+        ret = E_ERR_CLI_BAD_CNX_STATE;
+        LOG_ERROR("(fd=%d client=%s) not connected", p_lib->fd_socket,
+                  p_lib->cli_name);
         goto out;
     }
 
@@ -364,12 +379,15 @@ out:
 e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
-    mmgr_lib_context_t *p_lib = NULL;
+    mmgr_lib_context_t *p_lib = (mmgr_lib_context_t *)handle;
     mmgr_cli_requests_t request = { .id = E_MMGR_RESOURCE_RELEASE };
 
-    ret = check_state(handle, &p_lib, true);
-    if (ret != E_ERR_CLI_SUCCEED) {
-        LOG_ERROR("not unlocked");
+    CHECK_CLI_PARAM(p_lib, ret, out);
+
+    if (!is_connected(p_lib)) {
+        ret = E_ERR_CLI_BAD_CNX_STATE;
+        LOG_ERROR("(fd=%d client=%s) not connected", p_lib->fd_socket,
+                  p_lib->cli_name);
         goto out;
     }
 

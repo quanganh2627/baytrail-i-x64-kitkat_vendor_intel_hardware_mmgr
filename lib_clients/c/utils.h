@@ -27,8 +27,7 @@ typedef enum e_send_method {
     E_SEND_THREADED,
 } e_send_method_t;
 
-e_err_mmgr_cli_t check_state(mmgr_cli_handle_t *handle,
-                             mmgr_lib_context_t **p_lib, bool connected);
+bool is_connected(mmgr_lib_context_t *p_lib);
 e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
                           const mmgr_cli_requests_t *request,
                           e_send_method_t method, int timeout);

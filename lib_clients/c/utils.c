@@ -329,25 +329,24 @@ out:
 /**
  * check if client is connected or not. This is a sensitive data
  *
- * @param [in] p_lib private structure
- * @param [out] answer true if connected, false otherwise
+ * @param [in] ctx private structure
  *
  * @private
  *
- * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
- * @return E_ERR_CLI_SUCCEED
+ * @return false if ctx is NULL
+ * @return connection state otherwise
  */
-static e_err_mmgr_cli_t is_connected(mmgr_lib_context_t *p_lib, bool *answer)
+bool is_connected(mmgr_lib_context_t *ctx)
 {
-    e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
+    bool answer = false;
 
-    CHECK_CLI_PARAM(p_lib, ret, out);
+    if (ctx) {
+        pthread_mutex_lock(&ctx->mtx);
+        answer = (ctx->connected == E_CNX_CONNECTED);
+        pthread_mutex_unlock(&ctx->mtx);
+    }
 
-    pthread_mutex_lock(&p_lib->mtx);
-    *answer = (p_lib->connected == E_CNX_CONNECTED);
-    pthread_mutex_unlock(&p_lib->mtx);
-out:
-    return ret;
+    return answer;
 }
 
 /**
@@ -395,48 +394,6 @@ static e_err_mmgr_cli_t register_client(mmgr_lib_context_t *p_lib)
     else
         LOG_ERROR("(fd=%d client=%s) failed to connect",
                   p_lib->fd_socket, p_lib->cli_name);
-out:
-    return ret;
-}
-
-/**
- * check current library state
- *
- * @param [in] handle library handle
- * @param [out] p_lib library handle with correct cast
- * @param [in] connected check if client is connected or not
- *
- * @return E_ERR_CLI_BAD_HANDLE if handle is invalid
- * @return E_ERR_CLI_BAD_CNX_STATE if bad cnx state
- * @return E_ERR_CLI_SUCCEED
- */
-e_err_mmgr_cli_t check_state(mmgr_cli_handle_t *handle,
-                             mmgr_lib_context_t **p_lib, bool connected)
-{
-    e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
-    char *state_str[] = { "disconnected", "connected" };
-    bool state = false;
-
-    CHECK_CLI_PARAM(handle, ret, out);
-    CHECK_CLI_PARAM(p_lib, ret, out);
-
-    *p_lib = (mmgr_lib_context_t *)handle;
-
-#ifdef DEBUG_MMGR_CLI
-    if ((*p_lib)->init != INIT_CHECK) {
-        LOG_ERROR("handle is not configured");
-        ret = E_ERR_CLI_BAD_HANDLE;
-        goto out;
-    }
-#endif
-
-    is_connected(*p_lib, &state);
-    if (state != connected) {
-        ret = E_ERR_CLI_BAD_CNX_STATE;
-        LOG_ERROR("(fd=%d client=%s) WRONG STATE: client is %s instead of %s",
-                  (*p_lib)->fd_socket, (*p_lib)->cli_name,
-                  state_str[state], state_str[connected]);
-    }
 out:
     return ret;
 }
@@ -651,12 +608,10 @@ out:
 e_err_mmgr_cli_t cli_disconnect(mmgr_lib_context_t *p_lib)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
-    bool connected = false;
     char msg = 0;
     ssize_t size;
 
-    is_connected(p_lib, &connected);
-    if (connected) {
+    if (is_connected(p_lib)) {
         LOG_DEBUG("(fd=%d client=%s) writing signal", p_lib->fd_socket,
                   p_lib->cli_name);
         if ((size = write(p_lib->fd_pipe[WRITE], &msg, sizeof(msg))) < -1)
@@ -674,8 +629,7 @@ e_err_mmgr_cli_t cli_disconnect(mmgr_lib_context_t *p_lib)
     LOG_DEBUG("(fd=%d client=%s) reading thread stopped",
               p_lib->fd_socket, p_lib->cli_name);
 
-    is_connected(p_lib, &connected);
-    if (!connected) {
+    if (!is_connected(p_lib)) {
         LOG_DEBUG("(fd=%d client=%s) is disconnected", p_lib->fd_socket,
                   p_lib->cli_name);
         ret = E_ERR_CLI_SUCCEED;
