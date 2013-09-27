@@ -18,12 +18,14 @@
 
 #include "utils.h"
 #include "mmgr_cli.h"
+#include "msg_to_data.h"
+#include "data_to_msg.h"
 
 #define DEFAULT_TID 1
 
-#define CHECK_EVENT(id, err, out) do { \
+#define CHECK_EVENT(ctx, id, err, out) do { \
         if (id >= E_MMGR_NUM_EVENTS) { \
-            LOG_ERROR("unknown event"); \
+            LOG_ERROR("unknown event", ctx); \
             ret = E_ERR_CLI_FAILED; \
             goto out; \
         } \
@@ -72,7 +74,7 @@ e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
 
     if (!is_connected(p_lib)) {
         ret = E_ERR_CLI_BAD_CNX_STATE;
-        LOG_ERROR("request not sent");
+        LOG_ERROR("request not sent", p_lib);
     } else {
         ret = is_request_rejected(p_lib);
         if (ret != E_ERR_CLI_REJECTED)
@@ -97,20 +99,20 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     CHECK_CLI_PARAM(handle, ret, out);
 
     if (*handle != NULL) {
-        LOG_ERROR("*handle is not NULL");
+        LOGE("*handle is not NULL");
         ret = E_ERR_CLI_BAD_HANDLE;
         goto out;
     }
 
     if (client_name == NULL) {
-        LOG_ERROR("client_name is NULL");
+        LOGE("client_name is NULL");
         ret = E_ERR_CLI_FAILED;
         goto out;
     }
 
     p_lib = calloc(1, sizeof(mmgr_lib_context_t));
     if (p_lib == NULL) {
-        LOG_ERROR("failed to allocate");
+        LOGE("failed to allocate");
         ret = E_ERR_CLI_FAILED;
         goto out;
     }
@@ -161,7 +163,7 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->free_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] = free_one_element_struct;
 
     *handle = (mmgr_cli_handle_t *)p_lib;
-    LOG_DEBUG("handle created successfully");
+    LOGE("handle created successfully");
 out:
     return ret;
 }
@@ -178,10 +180,10 @@ e_err_mmgr_cli_t mmgr_cli_delete_handle(mmgr_cli_handle_t *handle)
 
     if (!is_connected(p_lib)) {
         free(p_lib);
-        LOG_DEBUG("handle freed successfully");
+        LOG_DEBUG("handle freed successfully", p_lib);
     } else {
         ret = E_ERR_CLI_BAD_CNX_STATE;
-        LOG_ERROR("handle not freed");
+        LOG_ERROR("handle not freed", p_lib);
     }
 
 out:
@@ -201,20 +203,20 @@ e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
     CHECK_CLI_PARAM(p_lib, ret, out);
 
     if (is_connected(p_lib)) {
-        LOG_ERROR("To subscribe to an event, you should provide a valid handle"
-                  " and be disconnected");
+        LOG_ERROR("Wrong conntection state. subscription has been rejected",
+                  p_lib);
         ret = E_ERR_CLI_BAD_CNX_STATE;
         goto out;
     }
 
-    CHECK_EVENT(id, ret, out);
+    CHECK_EVENT(p_lib, id, ret, out);
     if ((id == E_MMGR_ACK) || (id == E_MMGR_NACK)) {
         ret = E_ERR_CLI_FAILED;
         goto out;
     }
 
     if (func == NULL) {
-        LOG_ERROR("function is NULL");
+        LOG_ERROR("function is NULL", p_lib);
         ret = E_ERR_CLI_FAILED;
         goto out;
     }
@@ -229,11 +231,10 @@ e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
     pthread_mutex_unlock(&p_lib->mtx);
 
     if (ret == E_ERR_CLI_SUCCEED)
-        LOG_DEBUG("(fd=%d client=%s) event (%s) subscribed successfully",
-                  p_lib->fd_socket, p_lib->cli_name, g_mmgr_events[id]);
+        LOG_DEBUG("event (%s) subscribed successfully", p_lib,
+                  g_mmgr_events[id]);
     else
-        LOG_ERROR("(fd=%d client=%s) event (%s) already configured",
-                  p_lib->fd_socket, p_lib->cli_name, g_mmgr_events[id]);
+        LOG_ERROR("event (%s) already configured", p_lib, g_mmgr_events[id]);
 
 out:
     return ret;
@@ -251,12 +252,12 @@ e_err_mmgr_cli_t mmgr_cli_unsubscribe_event(mmgr_cli_handle_t *handle,
     CHECK_CLI_PARAM(p_lib, ret, out);
 
     if (is_connected(p_lib)) {
-        LOG_ERROR("To subscribe to an event, you should be disconnected");
+        LOG_ERROR("Wrong connection state. Request rejected", p_lib);
         ret = E_ERR_CLI_BAD_CNX_STATE;
         goto out;
     }
 
-    CHECK_EVENT(id, ret, out);
+    CHECK_EVENT(p_lib, id, ret, out);
     if ((id == E_MMGR_ACK) || (id == E_MMGR_NACK)) {
         ret = E_ERR_CLI_FAILED;
         goto out;
@@ -267,8 +268,7 @@ e_err_mmgr_cli_t mmgr_cli_unsubscribe_event(mmgr_cli_handle_t *handle,
     p_lib->func[id] = NULL;
     pthread_mutex_unlock(&p_lib->mtx);
 
-    LOG_DEBUG("(fd=%d client=%s) event (%s) unsubscribed successfully",
-              p_lib->fd_socket, p_lib->cli_name, g_mmgr_events[id]);
+    LOG_DEBUG("event (%s) unsubscribed successfully", p_lib, g_mmgr_events[id]);
 out:
     return ret;
 }
@@ -285,14 +285,12 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
     CHECK_CLI_PARAM(p_lib, ret, out);
 
     if (is_connected(p_lib)) {
-        LOG_ERROR("(fd=%d client=%s) already connected", p_lib->fd_socket,
-                  p_lib->cli_name);
+        LOG_ERROR("already connected", p_lib);
         goto out;
     }
 
     if (pipe(p_lib->fd_pipe) < 0) {
-        LOG_ERROR("(client=%s) failed to create pipe (%s)", p_lib->cli_name,
-                  strerror(errno));
+        LOG_ERROR("failed to create pipe (%s)", p_lib, strerror(errno));
         ret = E_ERR_CLI_FAILED;
     } else {
         ret = cli_connect(p_lib);
@@ -301,9 +299,8 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
     if (ret == E_ERR_CLI_SUCCEED) {
         err = pthread_create(&p_lib->thr_id, NULL, (void *)read_events, p_lib);
         if (err != 0) {
-            LOG_ERROR("(fd=%d client=%s) failed to create the reader thread. "
-                      "Disconnect the client", p_lib->fd_socket,
-                      p_lib->cli_name);
+            LOG_ERROR("failed to create the reader thread. "
+                      "Disconnect the client", p_lib);
             ret = E_ERR_CLI_FAILED;
         } else {
             pthread_mutex_lock(&p_lib->mtx);
@@ -348,8 +345,7 @@ e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
 
     if (!is_connected(p_lib)) {
         ret = E_ERR_CLI_BAD_CNX_STATE;
-        LOG_ERROR("(fd=%d client=%s) not connected", p_lib->fd_socket,
-                  p_lib->cli_name);
+        LOG_ERROR("not connected", p_lib);
         goto out;
     }
 
@@ -358,8 +354,7 @@ e_err_mmgr_cli_t mmgr_cli_lock(mmgr_cli_handle_t *handle)
         goto out;
 
     if (is_lock(p_lib)) {
-        LOG_ERROR("(fd=%d client=%s) Already locked", p_lib->fd_socket,
-                  p_lib->cli_name);
+        LOG_ERROR("Already locked", p_lib);
         ret = E_ERR_CLI_ALREADY_LOCK;
     } else {
         ret = send_msg(p_lib, &request, E_SEND_THREADED,
@@ -386,8 +381,7 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
 
     if (!is_connected(p_lib)) {
         ret = E_ERR_CLI_BAD_CNX_STATE;
-        LOG_ERROR("(fd=%d client=%s) not connected", p_lib->fd_socket,
-                  p_lib->cli_name);
+        LOG_ERROR("not connected", p_lib);
         goto out;
     }
 
@@ -396,8 +390,7 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
         goto out;
 
     if (!is_lock(p_lib)) {
-        LOG_ERROR("(fd=%d client=%s) Already unlocked", p_lib->fd_socket,
-                  p_lib->cli_name);
+        LOG_ERROR("Already unlocked", p_lib);
         ret = E_ERR_CLI_ALREADY_UNLOCK;
     } else {
         ret = send_msg(p_lib, &request, E_SEND_THREADED,

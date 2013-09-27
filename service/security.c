@@ -370,7 +370,7 @@ out:
 e_mmgr_errors_t secure_start(secure_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    const char at_cmd[] = "at+" AT_SECUR "?\r";
+    static const char const at_cmd[] = "at+" AT_SECUR "?\r";
     secure_t *secur = (secure_t *)h;
 
     CHECK_PARAM(secur, ret, out);

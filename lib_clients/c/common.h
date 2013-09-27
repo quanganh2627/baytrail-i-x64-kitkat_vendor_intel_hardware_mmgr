@@ -21,18 +21,22 @@
 
 #define MMGR_FW_OPERATIONS
 #include <stdbool.h>
-#include "logs.h"
-#include "errors.h"
 #include "mmgr_cli.h"
 #include "client_cnx.h"
-#include "msg_to_data.h"
-#include "data_to_msg.h"
 
-#undef LOG_TAG
-#define LOG_TAG "MMGR_CLI"
+#define LOG_NDEBUG 0
+#define LOG_TAG MODULE_NAME
+#include <utils/Log.h>
 
-typedef e_mmgr_errors_t (*msg_handler) (msg_t *, mmgr_cli_event_t *);
-typedef e_mmgr_errors_t (*free_handler) (mmgr_cli_event_t *);
+#define LOG_ERROR(format, ctx, args ...) \
+    do { LOGE("%s - (fd:%d name:%s) - " format, __FUNCTION__, \
+              ctx->fd_socket, ctx->cli_name, ## args); } while (0)
+#define LOG_DEBUG(format, ctx, args ...) \
+    do { LOGD("%s - (fd:%d name:%s) - " format, __FUNCTION__, \
+              ctx->fd_socket, ctx->cli_name, ## args); } while (0)
+#define LOG_VERBOSE(format, ctx, args ...) \
+    do { LOGV("%s - (fd:%d name:%s) - " format, __FUNCTION__, \
+              ctx->fd_socket, ctx->cli_name, ## args); } while (0)
 
 #define CNX_STATES \
     X(DISCONNECTED), \
@@ -44,6 +48,9 @@ typedef enum cnx_state {
 #define X(a) E_CNX_ ## a
     CNX_STATES
 } cnx_state_t;
+
+typedef e_mmgr_errors_t (*msg_handler) (msg_t *, mmgr_cli_event_t *);
+typedef e_mmgr_errors_t (*free_handler) (mmgr_cli_event_t *);
 
 /**
  * internal structure for mmgr_cli
@@ -78,7 +85,7 @@ typedef struct mmgr_lib_context {
 
 #define CHECK_CLI_PARAM(handle, err, out) do { \
         if (handle == NULL) { \
-            LOG_ERROR(xstr(handle) " is NULL"); \
+            LOGE(xstr(handle) "%s - is NULL", __FUNCTION__); \
             err = E_ERR_CLI_BAD_HANDLE; \
             goto out; \
         } \

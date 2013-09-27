@@ -19,8 +19,6 @@
 #ifndef __MMGR_LOGS_HEADER__
 #define __MMGR_LOGS_HEADER__
 
-#define MODULE_NAME "MMGR"
-
 #ifndef STDIO_LOGS
 
 #define LOG_NDEBUG 0

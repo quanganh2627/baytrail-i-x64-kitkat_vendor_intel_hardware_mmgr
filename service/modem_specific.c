@@ -251,7 +251,7 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
     }
 
     e_mup_err_t err = info->mup.update_fw(&params);
-    const char *verdict_str[] = {
+    static const char const *verdict_str[] = {
 #undef X
 #define X(a) #a
         MUP_STATE

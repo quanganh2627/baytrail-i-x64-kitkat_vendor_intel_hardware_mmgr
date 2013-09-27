@@ -21,13 +21,13 @@
 #include "java_intent.h"
 #include "logs.h"
 
-const char *g_msg_str[] = {
+static const char const *g_msg_str[] = {
 #undef X
 #define X(a) #a
     MSG_INTENTS
 };
 
-const char *g_action_str[] = {
+static const char const *g_action_str[] = {
 #undef X
 #define X(a) #a
     ACTION_INTENTS

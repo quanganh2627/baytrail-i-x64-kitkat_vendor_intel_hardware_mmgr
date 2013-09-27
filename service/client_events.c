@@ -37,7 +37,7 @@
  * could declared the modem OOS */
 #define CARE_CENTER 0xCA2CE7E2
 
-const char *g_mmgr_requests[] = {
+static const char const *g_mmgr_requests[] = {
 #undef X
 #define X(a) #a
     MMGR_REQUESTS

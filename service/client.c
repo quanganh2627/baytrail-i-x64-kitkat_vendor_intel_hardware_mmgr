@@ -48,7 +48,7 @@ typedef struct client_list {
     set_msg set_data[E_MMGR_NUM_EVENTS];
 } client_list_t;
 
-const char const *g_mmgr_events[] = {
+static const char const *g_mmgr_events[] = {
 #undef X
 #define X(a) #a
     MMGR_EVENTS

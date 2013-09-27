@@ -11,7 +11,7 @@ MY_SRC_FILES := \
     ../../service/msg_to_data.c \
     ../../service/tty.c
 
-MY_C_FLAGS := -Wall -Werror -Wvla
+MY_C_FLAGS := -Wall -Werror -Wvla -DMODULE_NAME=\"MMGR_CLI\"
 MY_SHARED_LIBS := libcutils libc
 
 #############################################

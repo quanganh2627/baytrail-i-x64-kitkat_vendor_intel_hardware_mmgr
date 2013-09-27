@@ -15,7 +15,7 @@ MY_SRC_FILES := \
     ../../service/property.c \
     ../../service/tty.c
 
-MY_C_FLAGS := -Wall -Werror -Wvla -DSTDIO_LOGS
+MY_C_FLAGS := -Wall -Werror -Wvla -DSTDIO_LOGS -DMODULE_NAME=\"MMGR-TEST\"
 MY_SHARED_LIBS := libcutils libc libmmgrcli libtcs
 MY_LD_LIBS := -lpthread
 

@@ -39,7 +39,7 @@
 
 #define FIRST_EVENT -1
 
-const char *g_mmgr_st[] = {
+static const char const *g_mmgr_st[] = {
 #undef X
 #define X(a) #a
     MMGR_STATE

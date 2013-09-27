@@ -15,7 +15,8 @@ COMMIT_ID := $(shell git --git-dir=$(LOCAL_PATH)/../.git \
         --work-tree=$(LOCAL_PATH) log --oneline -n1 \
         | sed 's:\s\{1,\}:\\ :g')
 
-MY_C_FLAGS := -Wall -Werror -Wvla -DLIBUSBHOST -DGIT_COMMIT_ID=\"$(COMMIT_ID)\"
+MY_C_FLAGS := -Wall -Werror -Wvla -DLIBUSBHOST \
+    -DGIT_COMMIT_ID=\"$(COMMIT_ID)\" -DMODULE_NAME=\"MMGR\"
 
 MY_SHARED_LIBS := libc libcutils libdl libusbhost liblog libtcs
 MY_LDLIBS := -lpthread
