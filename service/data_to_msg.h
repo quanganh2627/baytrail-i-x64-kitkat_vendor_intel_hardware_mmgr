@@ -31,6 +31,7 @@ e_mmgr_errors_t delete_msg(msg_t *msg);
 e_mmgr_errors_t set_msg_name(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_filter(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_empty(msg_t *msg, mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_restart(msg_t *msg, mmgr_cli_event_t *request);
 /* used by mmgr: */
 e_mmgr_errors_t set_msg_modem_hw_id(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_fuse_info(msg_t *msg, mmgr_cli_event_t *request);

@@ -149,6 +149,12 @@ typedef struct mmgr_cli_error {
     char *reason;
 } mmgr_cli_error_t;
 
+typedef struct mmgr_cli_restart {
+    /* This parameter can be used by clients to provide additional information
+     * when they request a MODEM_RESTART */
+    uint32_t optional;
+} mmgr_cli_restart_t;
+
 #ifdef MMGR_FW_OPERATIONS
 #include <sys/types.h>
 

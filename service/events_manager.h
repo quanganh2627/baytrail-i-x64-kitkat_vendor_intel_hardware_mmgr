@@ -118,7 +118,7 @@ typedef struct mmgr_data {
     int fd_cnx;
     e_mmgr_state_t state;
     mmgr_configuration_t config;
-    reset_management_t reset;
+    reset_handle_t *reset;
     client_list_t clients;
     mmgr_timer_t timer;
     modem_info_t info;

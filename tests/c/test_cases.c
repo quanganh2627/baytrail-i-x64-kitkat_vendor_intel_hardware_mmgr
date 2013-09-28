@@ -141,7 +141,9 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int i;
     int reboot;
-    mmgr_cli_requests_t request = {.id = E_MMGR_REQUEST_MODEM_RECOVERY };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_REQUEST_MODEM_RECOVERY);
 
     CHECK_PARAM(test, ret, out);
 
@@ -178,11 +180,15 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
     }
 
     if (reboot >= test->config.nb_platform_reboot) {
-        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, false,
+        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE,
                              TIMEOUT_MODEM_DOWN_AFTER_CMD);
     } else {
-        ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT, false,
+        ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT,
                              TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    }
+
+    if (ret == E_ERR_SUCCESS) {
+        ret = check_wakelock(false);
     }
 
 out:
@@ -202,7 +208,9 @@ out:
 e_mmgr_errors_t resource_acquire(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
     CHECK_PARAM(test, ret, out);
 
@@ -227,7 +235,9 @@ out:
 e_mmgr_errors_t start_modem(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
     CHECK_PARAM(test, ret, out);
 
@@ -252,7 +262,9 @@ out:
 e_mmgr_errors_t resource_release(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_RELEASE };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_RELEASE);
 
     CHECK_PARAM(test, ret, out);
 
@@ -344,11 +356,13 @@ out:
 e_mmgr_errors_t turn_on_modem(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
     CHECK_PARAM(test, ret, out);
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is up");
@@ -361,8 +375,12 @@ e_mmgr_errors_t turn_on_modem(test_data_t *test)
     if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
         ret = E_ERR_FAILED;
     } else {
-        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                              TIMEOUT_MODEM_UP_AFTER_RESET);
+    }
+
+    if (ret == E_ERR_SUCCESS) {
+        ret = check_wakelock(false);
     }
 
 out:
@@ -381,7 +399,9 @@ out:
 e_mmgr_errors_t resource_check(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request = {.id = E_MMGR_RESOURCE_ACQUIRE };
+    mmgr_cli_requests_t request;
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
     CHECK_PARAM(test, ret, out);
 
@@ -390,7 +410,7 @@ e_mmgr_errors_t resource_check(test_data_t *test)
          "resource...\n"
          "*************************************************************\n");
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS)
         goto out;
@@ -408,11 +428,11 @@ e_mmgr_errors_t resource_check(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN, false, 5);
+    ret = wait_for_state(test, E_MMGR_NOTIFY_MODEM_SHUTDOWN, 5);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
     request.id = E_MMGR_RESOURCE_ACQUIRE;
@@ -421,8 +441,12 @@ e_mmgr_errors_t resource_check(test_data_t *test)
         goto out;
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
+
+    if (ret == E_ERR_SUCCESS) {
+        ret = check_wakelock(false);
+    }
 
 out:
     return ret;
@@ -445,7 +469,8 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
 
     CHECK_PARAM(test, ret, out);
 
-    mmgr_cli_requests_t request = {.id = E_MMGR_NUM_REQUESTS };
+    mmgr_cli_requests_t request;
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_NUM_REQUESTS);
     mmgr_cli_handle_t *hdle;
 
     if (mmgr_cli_create_handle(NULL, name, NULL) != E_ERR_CLI_BAD_HANDLE) {
@@ -647,14 +672,13 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
 
     /* request MODEM_RESTART to check bad callback function */
     modem_state_set(test, E_MMGR_NUM_EVENTS);
-    request.id = E_MMGR_REQUEST_MODEM_RESTART;
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_REQUEST_MODEM_RESTART);
     if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
         line = __LINE__;
         goto out;
     }
 
-    wait_for_state(test, E_MMGR_EVENT_MODEM_UP, false,
-                   TIMEOUT_MODEM_UP_AFTER_RESET);
+    wait_for_state(test, E_MMGR_EVENT_MODEM_UP, TIMEOUT_MODEM_UP_AFTER_RESET);
 
     ret = E_ERR_SUCCESS;
 

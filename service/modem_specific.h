@@ -43,12 +43,9 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info);
 e_mmgr_errors_t mdm_prepare_link(modem_info_t *info);
 
 e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info);
+
 e_mmgr_errors_t backup_prod_nvm(modem_info_t *info);
 
-e_mmgr_errors_t backup_nvm(modem_info_t *info);
-e_mmgr_errors_t restore_nvm(modem_info_t *info);
-
 void mup_log(const char *msg, ...);
-e_mmgr_errors_t restore_run(modem_info_t *info);
 
 #endif                          /* __MMGR_MODEM_SPECIFIC_HEADER__ */

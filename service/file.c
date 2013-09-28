@@ -124,7 +124,6 @@ e_mmgr_errors_t is_file_exists(const char *path, unsigned long rights)
     CHECK_PARAM(path, ret, out);
 
     if (stat(path, &statbuf) == -1) {
-        LOG_DEBUG("Failure with stat on %s (%s)", path, strerror(errno));
         ret = E_ERR_FAILED;
         goto out;
     }

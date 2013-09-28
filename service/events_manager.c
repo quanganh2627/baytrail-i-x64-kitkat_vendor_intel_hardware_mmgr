@@ -34,6 +34,7 @@
 #include "security.h"
 #include "timer_events.h"
 #include "tty.h"
+#include "modem_specific.h"
 
 #define FIRST_EVENT -1
 #define TEL_STACK_PROPERTY "persist.service.telephony.off"
@@ -113,8 +114,11 @@ e_mmgr_errors_t events_init(mmgr_data_t *mmgr)
     property_get_int(TEL_STACK_PROPERTY, &disable_telephony);
     if (disable_telephony == 1) {
         LOG_DEBUG("telephony stack is disabled");
-        mdm_down(&mmgr->info);
-        set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
+        /* Set MMGR state to MDM_RESET to call the recovery module and force
+         * modem recovery to OOS. By doing so, MMGR will turn off the modem and
+         * declare the modem OOS. Clients will not be able to turn on the modem */
+        recov_force(mmgr->reset, E_FORCE_OOS);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     } else
         set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
 

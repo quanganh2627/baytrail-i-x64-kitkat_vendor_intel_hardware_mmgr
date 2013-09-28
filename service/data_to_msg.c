@@ -443,6 +443,41 @@ out:
 }
 
 /**
+ * handle REQUEST_MODEM_RESTART message allocation
+ *
+ * @param [out] msg data to send
+ * @param [in] request request to send
+ *
+ * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t set_msg_restart(msg_t *msg, mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    char *msg_data = NULL;
+    size_t size = 0;
+
+    CHECK_PARAM(msg, ret, out);
+    CHECK_PARAM(request, ret, out);
+
+    /* restart is optional */
+    mmgr_cli_restart_t *restart = request->data;
+    if (restart)
+        size = sizeof(uint32_t);
+    ret = prepare_msg(msg, &msg_data, request->id, &size);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    if (restart)
+        serialize_uint32(&msg_data, restart->optional);
+    ret = E_ERR_SUCCESS;
+
+out:
+    return ret;
+}
+
+/**
  * set buffer to send empty message
  *
  * @param [out] msg data to send
