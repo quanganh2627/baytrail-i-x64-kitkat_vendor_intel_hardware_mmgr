@@ -43,6 +43,7 @@ typedef struct mmgr_timer {
     int ack_shtdwn_timeout;
     int ipc_ready;
     int cd_ipc_reset;
+    int cd_ipc_ready;
     const clients_hdle_t *clients;
 } mmgr_timer_t;
 
@@ -257,7 +258,7 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
         }
 
         if ((cur.tv_sec - t->start[E_TIMER_WAIT_CORE_DUMP_READY].tv_sec)
-            > CORE_DUMP_READY_TIMEOUT) {
+            > t->cd_ipc_ready) {
             LOG_DEBUG("Timeout while waiting for core dump IPC. Reset modem");
             timer_stop(h, E_TIMER_WAIT_CORE_DUMP_READY);
             *reset = true;
@@ -299,6 +300,7 @@ timer_handle_t *timer_init(const mmgr_recovery_t *recov,
         timer->ack_shtdwn_timeout = recov->shtdwn_timeout;
         timer->ipc_ready = timings->ipc_ready;
         timer->cd_ipc_reset = timings->cd_ipc_reset;
+        timer->cd_ipc_ready = timings->cd_ipc_ready;
         timer->clients = clients;
 
         timer->type = 0;
@@ -314,7 +316,7 @@ timer_handle_t *timer_init(const mmgr_recovery_t *recov,
         timer->timeout[E_TIMER_REBOOT_MODEM_DELAY] =
             (((int)(timings->ipc_ready / 2)) * 1000) / STEPS;
         timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY] =
-            (CORE_DUMP_READY_TIMEOUT * 1000) / STEPS;
+            (timings->cd_ipc_ready * 1000) / STEPS;
     }
 
 out:
