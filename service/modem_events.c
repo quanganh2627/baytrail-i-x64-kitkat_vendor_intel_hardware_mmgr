@@ -257,7 +257,6 @@ static void read_core_dump(mmgr_data_t *mmgr)
 
     stop_timer(&mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
 
-    pm_on_mdm_cd(&mmgr->info);
     retrieve_core_dump(&mmgr->info.mcdr, &state);
     pm_on_mdm_cd_complete(&mmgr->info);
 
@@ -730,10 +729,13 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
             mdm_close_fds(mmgr);
         }
 
+        pm_on_mdm_cd(&mmgr->info);
+
         mmgr->events.link_state |= E_MDM_LINK_CORE_DUMP_READY;
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_COREDUMP;
         set_mcd_poll_states(&mmgr->info);
 
+        LOG_DEBUG("start timer for core dump ready");
         start_timer(&mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
 
         inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);

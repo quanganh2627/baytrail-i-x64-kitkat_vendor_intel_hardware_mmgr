@@ -119,8 +119,6 @@ e_mmgr_errors_t modem_restart(test_data_t *test)
     ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RESTART,
                                   E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                   E_MMGR_EVENT_MODEM_UP);
-    if (events_get(test) != E_EVENTS_SUCCEED)
-        ret = E_ERR_FAILED;
 
 out:
     return ret;

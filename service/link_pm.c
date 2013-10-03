@@ -178,7 +178,7 @@ e_mmgr_errors_t pm_on_mdm_cd(modem_info_t *info)
         /* Nothing to do */
         break;
     case E_LINK_HSIC:
-        /* Nothing to do */
+        pm_set_state(info, info->cd_link, false);
         break;
     case E_LINK_UART:
         pm_set_state(info, info->cd_link, false);
@@ -208,7 +208,7 @@ e_mmgr_errors_t pm_on_mdm_cd_complete(modem_info_t *info)
         /* Nothing to do */
         break;
     case E_LINK_HSIC:
-        pm_set_state(info, info->cd_link, true);
+        /* Nothing to do */
         break;
     case E_LINK_UART:
         pm_set_state(info, info->cd_link, true);

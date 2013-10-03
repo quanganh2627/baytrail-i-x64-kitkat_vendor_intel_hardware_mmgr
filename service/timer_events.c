@@ -142,7 +142,7 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
 {
     struct timespec current;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    mmgr_cli_core_dump_t cd = {.state = E_CD_SUCCEED};
+    mmgr_cli_core_dump_t cd = {.state = E_CD_SUCCEED };
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -191,18 +191,29 @@ e_mmgr_errors_t timer_event(mmgr_data_t *mmgr)
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
-    if ((mmgr->timer.type & (0x01 << E_TIMER_WAIT_CORE_DUMP_READY)) &&
-        ((current.tv_sec -
-          mmgr->timer.start[E_TIMER_WAIT_CORE_DUMP_READY].tv_sec)
-         > CORE_DUMP_READY_TIMEOUT)) {
-        LOG_DEBUG("Timeout while waiting for core dump IPC. Force modem reset");
-        stop_timer(&mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
-        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-        cd.state = E_CD_LINK_ERROR;
-        cd.reason = "Modem re-enumeration fail.";
-        cd.reason_len = strlen(cd.reason);
-        inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
-                                   &cd);
+    if (mmgr->timer.type & (0x01 << E_TIMER_WAIT_CORE_DUMP_READY)) {
+        if (mmgr->config.modem_core_dump_reset_link_timer)
+            if (((current.tv_sec -
+                  mmgr->timer.start[E_TIMER_WAIT_CORE_DUMP_READY].tv_sec)
+                 == mmgr->config.modem_core_dump_reset_link_timer)) {
+                LOG_DEBUG("timeout expires because no enumeration found:"
+                          "reset bus");
+                mdm_prepare_link(&(mmgr->info));
+            }
+
+        if ((current.tv_sec -
+             mmgr->timer.start[E_TIMER_WAIT_CORE_DUMP_READY].tv_sec)
+            > CORE_DUMP_READY_TIMEOUT) {
+            LOG_DEBUG("Timeout while waiting for core dump IPC."
+                      "Force modem reset");
+            stop_timer(&mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
+            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+            cd.state = E_CD_LINK_ERROR;
+            cd.reason = "Modem re-enumeration fail.";
+            cd.reason_len = strlen(cd.reason);
+            inform_all_clients(&mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+                               &cd);
+        }
     }
 
 out:
