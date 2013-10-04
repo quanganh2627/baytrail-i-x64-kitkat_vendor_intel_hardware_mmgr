@@ -21,6 +21,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <poll.h>
 #include "at.h"
 #include "errors.h"
 #include "file.h"
@@ -436,27 +437,25 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    mmgr->info.polled_states = 0;
+    mmgr->info.polled_states = MDM_CTRL_STATE_WARM_BOOT;
     ret = set_mcd_poll_states(&mmgr->info);
 
     open_tty(mmgr->info.shtdwn_dlc, &fd);
     if (fd < 0) {
         LOG_ERROR("operation FAILED");
     } else {
-        struct mdm_ctrl_cmd mdm_cmd;
-        mdm_cmd.timeout = WAIT_FOR_WARM_BOOT_TIMEOUT;
-        mdm_cmd.param = MDM_CTRL_STATE_WARM_BOOT;
-        modem_info_t *info = &mmgr->info;
+        struct pollfd fds;
+        fds.fd = mmgr->info.fd_mcd;
+        fds.events = POLLHUP;
 
         send_at_retry(fd, POWER_OFF_MODEM, strlen(POWER_OFF_MODEM),
                       AT_CFUN_RETRY, AT_ANSWER_NO_TIMEOUT);
 
         LOG_DEBUG("Waiting for MDM_CTRL_STATE_WARM_BOOT");
-
-        if (ioctl(info->fd_mcd, MDM_CTRL_WAIT_FOR_STATE, &mdm_cmd) <= 0)
-            LOG_DEBUG("Waiting for MDM_CTRL_STATE_WARM_BOOT failed");
+        if (!poll(&fds, 1, WAIT_FOR_WARM_BOOT_TIMEOUT))
+            LOG_ERROR("timeout");
         else
-            LOG_DEBUG("MDM_CTRL_STATE_WARM_BOOT received");
+            LOG_DEBUG("Modem is down");
         close_tty(&fd);
     }
 
