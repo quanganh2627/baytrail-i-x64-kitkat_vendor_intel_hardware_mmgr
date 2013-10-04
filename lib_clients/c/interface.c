@@ -164,7 +164,7 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->free_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] = free_one_element_struct;
 
     *handle = (mmgr_cli_handle_t *)p_lib;
-    LOGE("handle created successfully");
+    LOG_DEBUG("handle created successfully", p_lib);
 out:
     return ret;
 }
@@ -204,7 +204,7 @@ e_err_mmgr_cli_t mmgr_cli_subscribe_event(mmgr_cli_handle_t *handle,
     CHECK_CLI_PARAM(p_lib, ret, out);
 
     if (is_connected(p_lib)) {
-        LOG_ERROR("Wrong conntection state. subscription has been rejected",
+        LOG_ERROR("Wrong connection state. subscription has been rejected",
                   p_lib);
         ret = E_ERR_CLI_BAD_CNX_STATE;
         goto out;

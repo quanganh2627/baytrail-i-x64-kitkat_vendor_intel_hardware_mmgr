@@ -43,11 +43,11 @@
 
 #define USAGE "\n" \
     "--------------------------------------------------\n" \
-    "Usage: "EXE_NAME " [-h] [-f] [-t <test number>]\n" \
+    "Usage: "MODULE_NAME " [-h] [-f] [-t <test number>]\n" \
     "optional arguments:\n" \
-    " -h or --help       show this help message and exit\n" \
-    " -f                 skip CAUTION message\n" \
-    " -v                 display "EXE_NAME " version and "MODULE_NAME \
+    " -h or --help      show this help message and exit\n" \
+    " -f                skip CAUTION message\n" \
+    " -v                display "MODULE_NAME " version and "MODULE_NAME \
     " minimal version\n" \
     " -t <test number>   launch the specified test\n" \
     " -o <option string> pass option string to specified test\n\n"      \
@@ -101,12 +101,13 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
     h = tcs_init();
     if (h) {
         tcs_cfg_t *tcs_cfg = tcs_get_config(h);
-        if (cfg) {
+        if (tcs_cfg) {
             cfg->cold_reset = tcs_cfg->mmgr.recov.cold_reset;
             cfg->reboot = tcs_cfg->mmgr.recov.reboot;
-            cfg->reset_escalation = tcs_cfg->mmgr.recov.reset_delay;
+            cfg->reset_escalation_delay = tcs_cfg->mmgr.recov.reset_delay;
             strncpy(cfg->shtdwn_dlc, tcs_cfg->mmgr.com.ch.shutdown.device,
-                    sizeof(cfg->shtdwn_dlc));
+                    sizeof(cfg->shtdwn_dlc) - 1);
+            cfg->shtdwn_dlc[sizeof(cfg->shtdwn_dlc) - 1] = '\0';
 
             ret = E_ERR_SUCCESS;
         }
@@ -362,7 +363,7 @@ int main(int argc, char *argv[])
                 break;
             case 'v':
                 printf("\n%s (Build: %s:%s).\n"
-                       "Needs at least %s version: %s\n\n", EXE_NAME,
+                       "Needs at least %s version: %s\n\n", MODULE_NAME,
                        __DATE__, __TIME__, MODULE_NAME, MIN_MMGR_VERSION);
                 goto out;
                 break;

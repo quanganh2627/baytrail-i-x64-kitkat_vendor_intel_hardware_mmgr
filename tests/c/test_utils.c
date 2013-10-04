@@ -513,8 +513,8 @@ static int event_ap_reset(mmgr_cli_event_t *ev)
         goto out;
     }
     LOG_DEBUG("AP reset asked by: %s (len: %d)", ap->name, ap->len);
-    if ((ap->len == strlen(EXE_NAME)) &&
-        (strncmp(EXE_NAME, ap->name, ap->len) == 0))
+    if ((ap->len == strlen(MODULE_NAME)) &&
+        (strncmp(MODULE_NAME, ap->name, ap->len) == 0))
         events_set(data, E_EVENTS_SUCCEED);
 
     err = set_and_notify(ev->id, (test_data_t *)ev->context);
@@ -752,7 +752,7 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
 
     CHECK_PARAM(test_data, ret, out);
 
-    err = mmgr_cli_create_handle(&test_data->lib, EXE_NAME, test_data);
+    err = mmgr_cli_create_handle(&test_data->lib, MODULE_NAME, test_data);
     if (err != E_ERR_CLI_SUCCEED) {
         LOG_ERROR("Get client handle failed");
         ret = E_ERR_BAD_PARAMETER;

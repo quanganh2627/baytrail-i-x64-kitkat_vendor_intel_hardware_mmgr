@@ -5,8 +5,8 @@ MY_INCLUDES := \
     $(LOCAL_PATH)/../../service/link \
     $(TARGET_OUT_HEADERS)/IFX-modem \
     $(TARGET_OUT_HEADERS) \
-    ../inc \
-    $(call include-path-for, libtcs) \
+
+MY_LOCAL_IMPORT := libtcs libmcdr
 
 MY_SRC_FILES := \
     $(call all-c-files-under, .) \
@@ -27,6 +27,7 @@ LOCAL_MODULE := mmgr-test
 LOCAL_MODULE_TAGS := optional tests
 
 LOCAL_C_INCLUDES := $(MY_INCLUDES)
+LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_IMPORT)
 LOCAL_SRC_FILES := $(MY_SRC_FILES)
 LOCAL_CFLAGS += $(MY_C_FLAGS)
 LOCAL_LDLIBS += $(MY_LD_LIBS)
@@ -44,6 +45,7 @@ LOCAL_MODULE := mmgr-test-gcov
 LOCAL_MODULE_TAGS := optional tests
 
 LOCAL_C_INCLUDES := $(MY_INCLUDES)
+LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_IMPORT)
 LOCAL_SRC_FILES := $(MY_SRC_FILES)
 LOCAL_CFLAGS += $(MY_C_FLAGS) -fprofile-arcs -ftest-coverage
 LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage -lgcov

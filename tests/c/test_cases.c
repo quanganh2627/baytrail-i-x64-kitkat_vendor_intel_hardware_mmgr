@@ -329,8 +329,8 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
 
     property_set_int(PLATFORM_REBOOT_KEY, 123);
     LOG_DEBUG("waiting during %ds. Please, do not use your phone",
-              test->cfg.reset_escalation + 1);
-    sleep(test->cfg.reset_escalation + 1);
+              test->cfg.reset_escalation_delay + 1);
+    sleep(test->cfg.reset_escalation_delay + 1);
 
     ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RECOVERY,
                                   E_MMGR_NOTIFY_MODEM_COLD_RESET,
@@ -497,7 +497,7 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int line = -1;
-    const char name[] = EXE_NAME "_2";
+    const char name[] = MODULE_NAME "_2";
 
     CHECK_PARAM(test, ret, out);
 

@@ -68,6 +68,7 @@ ctrl_handle_t ctrl_init(e_link_t mdm_type, link_ctrl_t *mdm_ctrl,
             fill_ctrl_link(&ctx->cd, cd_type, cd_ctrl);
         } else {
             LOG_ERROR("memory allocation failed");
+            goto err;
         }
     }
 

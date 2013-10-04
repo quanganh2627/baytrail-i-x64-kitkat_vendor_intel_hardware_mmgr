@@ -26,7 +26,6 @@
 #include "mmgr_cli.h"
 #include "tcs_mmgr.h"
 
-#define EXE_NAME MODULE_NAME "-test"
 #define FILENAME_SIZE 256
 #define TIMEOUT_MODEM_DOWN_AFTER_CMD 30
 #define TIMEOUT_MODEM_UP_AFTER_RESET 1200
@@ -41,7 +40,7 @@ typedef enum e_events {
 typedef struct test_cfg {
     int cold_reset;
     int reboot;
-    int reset_escalation;
+    int reset_escalation_delay;
     char shtdwn_dlc[PATH_MAX];
 } test_cfg_t;
 

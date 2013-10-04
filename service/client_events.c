@@ -63,7 +63,7 @@ static e_mmgr_errors_t request_modem_fuse_info(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     /* @TODO: handle this request */
-    clients_inform(mmgr->request.client, E_MMGR_NACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
     ret = E_ERR_SUCCESS;
 out:
     return ret;
@@ -86,7 +86,7 @@ static e_mmgr_errors_t request_modem_get_hw_id(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     /* @TODO: handle this request */
-    clients_inform(mmgr->request.client, E_MMGR_NACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
     ret = E_ERR_SUCCESS;
 out:
     return ret;
@@ -114,7 +114,7 @@ static e_mmgr_errors_t request_set_name(mmgr_data_t *mmgr)
     if (ret != E_ERR_SUCCESS)
         ret = E_ERR_DISCONNECTED;
 
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 out:
     return ret;
 }
@@ -142,7 +142,7 @@ static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
         ret = client_set_filter(mmgr->request.client, filter);
 
         /* inform client that connection has succeed */
-        clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+        client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
         /* client is registered and accepted. So, MMGR should provide the
          * current modem status if client has subsribed to it */
@@ -172,10 +172,10 @@ static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
         case E_MMGR_NUM:
             break;
         }
-        clients_inform(mmgr->request.client, notification, NULL);
+        client_inform(mmgr->request.client, notification, NULL);
     } else {
         LOG_ERROR("bad filter size");
-        clients_inform(mmgr->request.client, E_MMGR_NACK, NULL);
+        client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
     }
 out:
     return ret;
@@ -197,7 +197,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
     client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
     /* the modem is off, then wake up the modem */
@@ -246,7 +246,7 @@ static e_mmgr_errors_t resource_acquire(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
     client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
 out:
@@ -269,7 +269,7 @@ static e_mmgr_errors_t resource_acquire_stop_down(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
 
     /* At least one client has acquired the resource and modem shutdown
@@ -300,7 +300,7 @@ static e_mmgr_errors_t request_resource_release_mdm_off(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     client_set_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 out:
     return ret;
 }
@@ -321,7 +321,7 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
     client_set_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
     if (!clients_has_resource(mmgr->clients, E_PRINT)) {
@@ -384,7 +384,7 @@ static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
     ts = recov_get_last_reset(mmgr->reset);
     memcpy(&sec, &mmgr->request.msg.hdr.ts, sizeof(uint32_t));
@@ -417,7 +417,7 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
     if (mmgr->request.msg.hdr.len == sizeof(uint32_t)) {
         memcpy(&optional, mmgr->request.msg.data, sizeof(uint32_t));
@@ -461,7 +461,7 @@ static e_mmgr_errors_t request_bkup_prod(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     /* ack REQUEST_MODEM_BACKUP_PRODUCTION */
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     /* set backup_prod request */
     mmgr->events.cli_req |= E_CLI_REQ_PROD;
     /* do modem restart for NVM flush */
@@ -549,7 +549,7 @@ static e_mmgr_errors_t request_force_modem_shutdown(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
     timer_start(mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
@@ -604,7 +604,7 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
             (mmgr->request.msg.hdr.id != E_MMGR_SET_NAME) &&
             (mmgr->request.msg.hdr.id != E_MMGR_SET_EVENTS)) {
             LOG_DEBUG("client not fully registered. Request rejected");
-            clients_inform(mmgr->request.client, E_MMGR_NACK, NULL);
+            client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
         } else {
             if ((mmgr->state < E_MMGR_NUM) &&
                 (mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id]))
@@ -718,7 +718,7 @@ static e_mmgr_errors_t request_fake_up(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
 out:
     return ret;
@@ -729,7 +729,7 @@ static e_mmgr_errors_t request_fake_down(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 out:
     return ret;
@@ -740,7 +740,7 @@ static e_mmgr_errors_t request_fake_shtdwn(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
 out:
     return ret;
@@ -751,7 +751,7 @@ static e_mmgr_errors_t request_fake_oos(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
 out:
     return ret;
@@ -762,7 +762,7 @@ static e_mmgr_errors_t request_fake_cdd(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
 out:
     return ret;
@@ -773,7 +773,7 @@ static e_mmgr_errors_t request_fake_ptfrmreboot(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_PLATFORM_REBOOT, NULL);
 out:
     return ret;
@@ -784,7 +784,7 @@ static e_mmgr_errors_t request_fake_self_reset(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_SELF_RESET, NULL);
 out:
     return ret;
@@ -800,7 +800,7 @@ static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
     path = mcdr_get_path(mmgr->mcdr);
     if (path) {
@@ -822,7 +822,7 @@ out:
 
 static e_mmgr_errors_t request_fake_ap_reset(mmgr_data_t *mmgr)
 {
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     return notify_ap_reset(mmgr);
 }
 
@@ -833,7 +833,7 @@ static e_mmgr_errors_t request_fake_error(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
     err.len = strlen(FAKE_ERROR_REASON);
     err.reason = malloc(sizeof(char) * err.len);
@@ -854,7 +854,7 @@ e_mmgr_errors_t client_nack(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-    clients_inform(mmgr->request.client, E_MMGR_NACK, NULL);
+    client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
 
 out:
     return ret;
