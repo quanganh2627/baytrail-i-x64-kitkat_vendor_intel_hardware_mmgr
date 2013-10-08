@@ -40,12 +40,6 @@
 			frame_size="1509"
 			retry="24"
 		/>
-		<channels>
-			<shutdown device="![CDATA[/dev/gsmtty11]]"/>
-			<sanity_check device="![CDATA[/dev/gsmtty15]]"/>
-			<secured device="![CDATA[/dev/gsmtty22]]"/>
-			<mdm_custo device="![CDATA[/dev/gsmtty11]]"/>
-		</channels>
 	</modem_comm>
 	<modem_timings
 		ipc_ready="5"

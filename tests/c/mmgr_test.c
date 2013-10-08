@@ -105,7 +105,7 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
             cfg->cold_reset = tcs_cfg->mmgr.recov.cold_reset;
             cfg->reboot = tcs_cfg->mmgr.recov.reboot;
             cfg->reset_escalation_delay = tcs_cfg->mmgr.recov.reset_delay;
-            strncpy(cfg->shtdwn_dlc, tcs_cfg->mmgr.com.ch.shutdown.device,
+            strncpy(cfg->shtdwn_dlc, tcs_cfg->channels.shutdown.device,
                     sizeof(cfg->shtdwn_dlc) - 1);
             cfg->shtdwn_dlc[sizeof(cfg->shtdwn_dlc) - 1] = '\0';
 

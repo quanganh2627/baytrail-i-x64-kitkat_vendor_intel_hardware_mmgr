@@ -83,7 +83,7 @@ typedef struct modem_info {
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
-                                mmgr_mdm_link_t *mdm_link,
+                                mmgr_mdm_link_t *mdm_link, channels_t *ch,
                                 mmgr_flashless_t *flash, modem_info_t *info);
 e_mmgr_errors_t modem_info_dispose(modem_info_t *info);
 e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info);
