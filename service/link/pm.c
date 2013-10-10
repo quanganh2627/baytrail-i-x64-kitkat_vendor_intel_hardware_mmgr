@@ -269,7 +269,7 @@ e_mmgr_errors_t pm_on_mdm_cd_complete(pm_handle_t *h)
         /* Nothing to do */
         break;
     case E_LINK_HSIC:
-        /* Nothing to do */
+        ret = pm_set_state(&ctx->cd.power, true);
         break;
     case E_LINK_UART:
         ret = pm_set_state(&ctx->cd.power, true);
