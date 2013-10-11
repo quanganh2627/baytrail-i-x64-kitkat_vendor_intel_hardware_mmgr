@@ -6,6 +6,7 @@ MY_INCLUDES := \
     $(LOCAL_PATH)/../inc \
     $(LOCAL_PATH)/link \
     $(call include-path-for, libusb) \
+    $(call include-path-for, libpower) \
 
 MY_LOCAL_IMPORT := libtcs libmcdr
 MY_SRC_FILES := $(call all-c-files-under, .)
@@ -19,7 +20,7 @@ COMMIT_ID := $(shell git --git-dir=$(LOCAL_PATH)/../.git \
 MY_C_FLAGS := -Wall -Werror -Wvla -DLIBUSBHOST \
     -DGIT_COMMIT_ID=\"$(COMMIT_ID)\" -DMODULE_NAME=\"MMGR\"
 
-MY_SHARED_LIBS := libc libcutils libdl libusbhost liblog
+MY_SHARED_LIBS := libc libcutils libdl libusbhost liblog libpower
 MY_LDLIBS := -lpthread
 
 #############################################

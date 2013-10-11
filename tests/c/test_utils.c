@@ -42,6 +42,7 @@
 #endif
 
 #define LEN_FILTER 10
+#define WAKE_LOCK_SYSFS "/sys/power/wake_lock"
 
 #define AT_SELF_RESET "AT+CFUN=15\r"
 #define AT_CORE_DUMP "AT+XLOG=4\r"
