@@ -36,7 +36,6 @@
     "Usage: "MODULE_NAME " [OPTION]...\n" \
     "-h\t\t: Show help options\n" \
 
-#define GCOV_FOLDER "/data/gcov"
 #define TEL_STACK_PROPERTY "persist.service.telephony.off"
 
 /* global values used to cleanup */
@@ -294,10 +293,7 @@ int main(int argc, char *argv[])
     }
     LOG_DEBUG("Boot. last commit: \"%s\"", GIT_COMMIT_ID);
 
-#ifdef GOCV_MMGR
-    setenv("GCOV_PREFIX", GCOV_FOLDER, 1);
-    mkdir(GCOV_FOLDER, 0777);
-#else
+#ifndef GOCV_MMGR
     /* set default umask to have 664 as default value to new files */
     umask(MMGR_UMASK);
 #endif
