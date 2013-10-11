@@ -201,7 +201,6 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mup_interface_t *handle = NULL;
-    secure_cb_t *secur_callback = NULL;
 
     CHECK_PARAM(info, ret, out);
     CHECK_PARAM(sec_hdle, ret, out);
@@ -243,9 +242,9 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
         len = strnlen(info->fl_conf.run.rnd, sizeof(info->fl_conf.run.rnd));
     }
 
-    secur_callback = secure_get_callback(sec_hdle);
     if (E_MUP_SUCCEED !=
-        info->mup.config_secur_channel(handle, secur_callback, rnd, len)) {
+        info->mup.config_secur_channel(handle, secure_get_callback(sec_hdle),
+                                       rnd, len)) {
         LOG_ERROR("failed to configure the secured channel");
         goto out;
     }

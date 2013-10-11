@@ -291,35 +291,33 @@ timer_handle_t *timer_init(const mmgr_recovery_t *recov,
 {
     mmgr_timer_t *timer = NULL;
 
-    if (!recov && !timings && !clients)
-        goto out;
+    if (recov && timings && clients) {
+        timer = calloc(1, sizeof(mmgr_timer_t));
+        if (timer) {
+            timer->ack_cold_reset = recov->cold_timeout;
+            timer->ack_shtdwn_timeout = recov->shtdwn_timeout;
+            timer->ipc_ready = timings->ipc_ready;
+            timer->cd_ipc_reset = timings->cd_ipc_reset;
+            timer->cd_ipc_ready = timings->cd_ipc_ready;
+            timer->clients = clients;
 
-    timer = calloc(1, sizeof(mmgr_timer_t));
-    if (timer) {
-        timer->ack_cold_reset = recov->cold_timeout;
-        timer->ack_shtdwn_timeout = recov->shtdwn_timeout;
-        timer->ipc_ready = timings->ipc_ready;
-        timer->cd_ipc_reset = timings->cd_ipc_reset;
-        timer->cd_ipc_ready = timings->cd_ipc_ready;
-        timer->clients = clients;
-
-        timer->type = 0;
-        timer->cur_timeout = TIMER_INFINITE;
-        timer->timeout[E_TIMER_COLD_RESET_ACK] =
-            (recov->cold_timeout * 1000) / STEPS;
-        timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK] =
-            (recov->shtdwn_timeout * 1000) / STEPS;
-        timer->timeout[E_TIMER_WAIT_FOR_IPC_READY] =
-            (timings->ipc_ready * 1000) / STEPS;
-        timer->timeout[E_TIMER_WAIT_FOR_BUS_READY] =
-            (timings->ipc_ready * 1000) / STEPS;
-        timer->timeout[E_TIMER_REBOOT_MODEM_DELAY] =
-            (((int)(timings->ipc_ready / 2)) * 1000) / STEPS;
-        timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY] =
-            (timings->cd_ipc_ready * 1000) / STEPS;
+            timer->type = 0;
+            timer->cur_timeout = TIMER_INFINITE;
+            timer->timeout[E_TIMER_COLD_RESET_ACK] =
+                (recov->cold_timeout * 1000) / STEPS;
+            timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK] =
+                (recov->shtdwn_timeout * 1000) / STEPS;
+            timer->timeout[E_TIMER_WAIT_FOR_IPC_READY] =
+                (timings->ipc_ready * 1000) / STEPS;
+            timer->timeout[E_TIMER_WAIT_FOR_BUS_READY] =
+                (timings->ipc_ready * 1000) / STEPS;
+            timer->timeout[E_TIMER_REBOOT_MODEM_DELAY] =
+                (((int)(timings->ipc_ready / 2)) * 1000) / STEPS;
+            timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY] =
+                (timings->cd_ipc_ready * 1000) / STEPS;
+        }
     }
 
-out:
     return (timer_handle_t *)timer;
 }
 

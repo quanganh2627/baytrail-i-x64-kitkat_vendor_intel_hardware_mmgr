@@ -413,6 +413,7 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     uint32_t optional = 0;
+    const char *name = NULL;
 
     CHECK_PARAM(mmgr, ret, out);
 
@@ -425,9 +426,9 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
 
     /* Only NVM server can declare the modem OOS by sending this request The
      * optional value is deliberately obfuscated */
-    if ((optional == CARE_CENTER) &&
-        !(strncmp(client_get_name(mmgr->request.client), "NVM_MANAGER",
-                  CLIENT_NAME_LEN))) {
+    name = client_get_name(mmgr->request.client);
+    if ((optional == CARE_CENTER) && name &&
+        !(strncmp(name, "NVM_MANAGER", CLIENT_NAME_LEN))) {
         LOG_ERROR("NVM server has declared the modem unrecoverable");
         /* Set MMGR state to MDM_RESET to call the recovery module and force
          * OOS state. By doing so, MMGR will turn off the modem and declare the
@@ -605,7 +606,8 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
             LOG_DEBUG("client not fully registered. Request rejected");
             clients_inform(mmgr->request.client, E_MMGR_NACK, NULL);
         } else {
-            if (mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id])
+            if ((mmgr->state < E_MMGR_NUM) &&
+                (mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id]))
                 ret = mmgr->hdler_client[mmgr->state][mmgr->request.msg.hdr.id]
                           (mmgr);
         }
@@ -656,7 +658,8 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
 
             /* client must release the locked resource, if any. handle this
              * resource release according to MMGR state */
-            if (mmgr->hdler_client[mmgr->state][E_MMGR_RESOURCE_RELEASE])
+            if ((mmgr->state < E_MMGR_NUM) &&
+                (mmgr->hdler_client[mmgr->state][E_MMGR_RESOURCE_RELEASE]))
                 ret = mmgr->hdler_client[mmgr->state][E_MMGR_RESOURCE_RELEASE]
                           (mmgr);
             ret = client_remove(mmgr->clients, fd);
@@ -791,15 +794,19 @@ static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_cli_core_dump_t cd;
-    char filename[PATH_MAX];
+    char filename[PATH_MAX] = "";
     char data[1] = "";
+    const char *path = NULL;
 
     CHECK_PARAM(mmgr, ret, out);
+
     clients_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
-    snprintf(filename, PATH_MAX - 1, "%s/%s", mcdr_get_path(mmgr->mcdr),
-             FAKE_CD_FILENAME);
-    write_to_file(filename, OPEN_MODE_RW_UGO, data, 0);
+    path = mcdr_get_path(mmgr->mcdr);
+    if (path) {
+        snprintf(filename, PATH_MAX - 1, "%s/%s", path, FAKE_CD_FILENAME);
+        write_to_file(filename, OPEN_MODE_RW_UGO, data, 0);
+    }
 
     cd.state = E_CD_SUCCEED;
     cd.path = filename;
