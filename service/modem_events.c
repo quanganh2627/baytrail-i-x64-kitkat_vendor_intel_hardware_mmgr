@@ -142,9 +142,6 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 
         switch (fw_result.id) {
         case E_MODEM_FW_BAD_FAMILY:
-            modem_shutdown(mmgr);
-            clients_inform_all(mmgr->clients,
-                               E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
             broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
             /* Set MMGR state to MDM_RESET to call the recovery module and
              * force modem recovery to OOS. By doing so, MMGR will turn off the
