@@ -11,7 +11,6 @@ import android.support.v4.view.ViewPager;
 import android.view.Menu;
 
 public class MainActivity extends FragmentActivity implements ActionBar.TabListener {
-
     private SectionsPagerAdapter sectionsPagerAdapter = null;
     private ViewPager viewPager = null;
 
@@ -23,7 +22,7 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
         // primary sections
         // of the app.
         this.sectionsPagerAdapter = new SectionsPagerAdapter(
-                super.getSupportFragmentManager(), this);
+            super.getSupportFragmentManager(), this);
 
         // Set up the action bar.
         final ActionBar actionBar = super.getActionBar();
@@ -44,11 +43,11 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
         // reference to the
         // Tab.
         this.viewPager.setOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
-                    @Override
-                    public void onPageSelected(int position) {
-                        actionBar.setSelectedNavigationItem(position);
-                    }
-                });
+                                                   @Override
+                                                   public void onPageSelected(int position) {
+                                                       actionBar.setSelectedNavigationItem(position);
+                                                   }
+                                               });
 
         // For each of the sections in the app, add a tab to the action bar.
         for (int i = 0; i < sectionsPagerAdapter.getCount(); i++) {
@@ -58,8 +57,8 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
             // TabListener interface, as the
             // listener for when this tab is selected.
             actionBar.addTab(actionBar.newTab()
-                    .setText(this.sectionsPagerAdapter.getPageTitle(i))
-                    .setTabListener(this));
+                             .setText(this.sectionsPagerAdapter.getPageTitle(i))
+                             .setTabListener(this));
         }
     }
 
@@ -71,12 +70,12 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
 
     @Override
     public void onTabUnselected(ActionBar.Tab tab,
-            FragmentTransaction fragmentTransaction) {
+                                FragmentTransaction fragmentTransaction) {
     }
 
     @Override
     public void onTabSelected(ActionBar.Tab tab,
-            FragmentTransaction fragmentTransaction) {
+                              FragmentTransaction fragmentTransaction) {
         // When the given tab is selected, switch to the corresponding page in
         // the ViewPager.
         this.viewPager.setCurrentItem(tab.getPosition());
@@ -84,6 +83,6 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
 
     @Override
     public void onTabReselected(ActionBar.Tab tab,
-            FragmentTransaction fragmentTransaction) {
+                                FragmentTransaction fragmentTransaction) {
     }
 }

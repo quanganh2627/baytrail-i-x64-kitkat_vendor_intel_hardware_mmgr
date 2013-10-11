@@ -1,21 +1,22 @@
 /* Modem Manager (MMGR) test application - utils source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
+#define MMGR_FW_OPERATIONS
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -191,6 +192,7 @@ static int filter_folder(const struct dirent *d)
 {
     const char *pattern = "crashlog";
     char *found = strstr(d->d_name, pattern);
+
     return found != NULL;
 }
 
@@ -201,6 +203,7 @@ static int filter_archive(const struct dirent *d)
 {
     const char *pattern = ".tar.gz";
     char *found = strstr(d->d_name, pattern);
+
     /* check that the pattern is found at the end of the filename */
     return found != NULL && strlen(found) == strlen(pattern);
 }
@@ -256,6 +259,7 @@ e_mmgr_errors_t is_core_dump_found(char *filename, const char *path)
     char folder_name[FILENAME_SIZE];
     int i;
     int j;
+
     char not[] = "NOT";
 
     CHECK_PARAM(filename, ret, out);
@@ -274,7 +278,8 @@ e_mmgr_errors_t is_core_dump_found(char *filename, const char *path)
         files_number = scandir(folder_name, &files_list, filter_archive,
                                compare_function);
         for (j = 0; j < files_number; j++) {
-            if (strncmp(filename, files_list[j]->d_name, strlen(filename)) == 0) {
+            if (strncmp(filename, files_list[j]->d_name,
+                        strlen(filename)) == 0) {
                 ret = E_ERR_SUCCESS;
                 break;
             }
@@ -311,7 +316,6 @@ out:
  * @return E_ERR_SUCCESS if state reached
  * @return E_ERR_FAILED otherwise
  */
-
 e_mmgr_errors_t check_wakelock(bool state)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -335,7 +339,6 @@ e_mmgr_errors_t check_wakelock(bool state)
                   state_str[wake_state], state_str[state]);
 
     return ret;
-
 }
 
 /**
@@ -396,9 +399,8 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, int timeout)
             LOG_DEBUG("modem state: %s", g_mmgr_events[current_state]);
             ret = E_ERR_SUCCESS;
             break;
-        }
-        else if ((current_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
-            (current_state == E_MMGR_NOTIFY_PLATFORM_REBOOT)) {
+        } else if ((current_state == E_MMGR_EVENT_MODEM_OUT_OF_SERVICE) ||
+                   (current_state == E_MMGR_NOTIFY_PLATFORM_REBOOT)) {
             LOG_DEBUG("modem state: %s", g_mmgr_events[current_state]);
             events_set(test_data, E_EVENTS_MODEM_OOS);
             break;
@@ -575,11 +577,13 @@ static int event_core_dump(mmgr_cli_event_t *ev)
         if (err == E_ERR_SUCCESS) {
             LOG_DEBUG("core dump (%s) found", cd->path);
             ret = 0;
-        } else
+        } else {
             LOG_ERROR("core dump (%s) NOT found", cd->path);
-    } else
+        }
+    } else {
         LOG_ERROR("core dump retrieval has failed with reason: (%s)",
                   cd->reason);
+    }
 
 out:
     set_and_notify(ev->id, (test_data_t *)ev->context);
@@ -684,9 +688,9 @@ int bad_callback(mmgr_cli_event_t *ev)
     if (test_data == NULL)
         goto out;
 
-    if (mmgr_cli_send_msg(test_data->lib, &request) != E_ERR_CLI_REJECTED)
+    if (mmgr_cli_send_msg(test_data->lib, &request) != E_ERR_CLI_REJECTED) {
         events_set(test_data, E_EVENTS_ERROR_OCCURED);
-    else {
+    } else {
         ret = 0;
         LOG_DEBUG("request correctly rejected");
     }
@@ -869,9 +873,8 @@ e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
     /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds to end the
      * test */
     ret = wait_for_state(data_test, final_state, TIMEOUT_MODEM_UP_AFTER_RESET);
-    if (ret == E_ERR_SUCCESS) {
+    if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
-    }
 
 out:
     return ret;
@@ -901,8 +904,7 @@ e_mmgr_errors_t at_core_dump(test_data_t *test)
         goto out;
     }
 
-    err = send_at_cmd(test->config.shtdwn_dlc, AT_CORE_DUMP,
-                      strlen(AT_CORE_DUMP));
+    err = send_at_cmd(test->cfg.shtdwn_dlc, AT_CORE_DUMP, strlen(AT_CORE_DUMP));
     if ((err != E_ERR_TTY_POLLHUP) && (err != E_ERR_SUCCESS)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
@@ -928,9 +930,8 @@ e_mmgr_errors_t at_core_dump(test_data_t *test)
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
-    if (ret == E_ERR_SUCCESS) {
+    if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
-    }
 out:
     return ret;
 }
@@ -960,7 +961,7 @@ e_mmgr_errors_t at_self_reset(test_data_t *test)
     }
 
     /* Send reset command to modem */
-    err = send_at_cmd(test->config.shtdwn_dlc, AT_SELF_RESET,
+    err = send_at_cmd(test->cfg.shtdwn_dlc, AT_SELF_RESET,
                       strlen(AT_SELF_RESET));
     if ((err != E_ERR_TTY_POLLHUP) && (err != E_ERR_SUCCESS)) {
         ret = E_ERR_FAILED;
@@ -982,9 +983,8 @@ e_mmgr_errors_t at_self_reset(test_data_t *test)
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_UP_AFTER_RESET);
 
-    if (ret == E_ERR_SUCCESS) {
+    if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
-    }
 out:
     return ret;
 }
@@ -1028,11 +1028,9 @@ e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
             if (check_result && (events_get(test) != E_EVENTS_SUCCEED))
                 ret = E_ERR_FAILED;
 
-            if (ret == E_ERR_SUCCESS) {
+            if (ret == E_ERR_SUCCESS)
                 ret = check_wakelock(false);
-            }
         }
-
     }
 out:
     return ret;

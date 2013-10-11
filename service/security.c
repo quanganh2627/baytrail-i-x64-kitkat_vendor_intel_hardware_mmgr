@@ -1,20 +1,20 @@
 /* Modem Manager - secure source file
- **
- ** Copyright (C) Intel 2013
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2013
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include "at.h"
 #include "logs.h"
@@ -35,9 +35,17 @@
 #define MSG_LEN_INDX 2
 #define MSG_DATA_INDX 4
 #define AT_SECUR "xsecchannel"
-#define MSG_START_STR "+"AT_SECUR":"
-#define MSG_ANSWER_START "+"AT_SECUR"="
-#define MAX_TLV_LEN 2*1024
+#define MSG_START_STR "+"AT_SECUR ":"
+#define MSG_ANSWER_START "+"AT_SECUR "="
+#define MAX_TLV_LEN 2 * 1024
+
+typedef struct secure {
+    bool enable;
+    char dlc[PATH_MAX];
+    int fd;
+    void *hdle;
+    secure_cb_t callback;
+} secure_t;
 
 /**
  * read the message provided by the modem
@@ -146,7 +154,7 @@ out:
  * @param [out] type message type
  * @param [out] length length of the converted data
  * @param [out] conv converted data. should be freed by the user
-*
+ *
  * @return E_ERR_BAD_PARAMETER
  * @return E_ERR_FAILED
  * @return E_ERR_SUCCESS
@@ -236,7 +244,7 @@ static e_mmgr_errors_t encode_data(int send_id, int req_id, const uint8_t *src,
     /* send_id / req_id are on 16 bits they should not use more than 5 bytes
      * conv_len will not be more than 12 bytes */
     *send_len = conv_len + (5 * 2) + 12 +
-        (sizeof(char) * (10 + strlen(MSG_ANSWER_START)));
+                (sizeof(char) * (10 + strlen(MSG_ANSWER_START)));
     *send = malloc(sizeof(char) * *send_len);
     if (!*send)
         goto out;
@@ -256,13 +264,13 @@ out:
 /**
  * Handle secur event type
  *
- * @param [in] secur security handler
+ * @param [in] h security handler
  *
  * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t secur_event(secur_t *secur)
+e_mmgr_errors_t secure_event(secure_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char *received = NULL;
@@ -276,6 +284,7 @@ e_mmgr_errors_t secur_event(secur_t *secur)
     int send_id = 0;
     int req_id = 0;
     int err = 0;
+    secure_t *secur = (secure_t *)h;
 
     CHECK_PARAM(secur, ret, out);
 
@@ -325,16 +334,17 @@ out:
 /**
  * register the secur module. It returns the file descriptor
  *
- * @param [in] secur security handler
+ * @param [in] h security handler
  * @param [out] fd file descriptor to return
  *
  * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t secur_register(secur_t *secur, int *fd)
+e_mmgr_errors_t secure_register(secure_handle_t *h, int *fd)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    secure_t *secur = (secure_t *)h;
 
     CHECK_PARAM(secur, ret, out);
 
@@ -351,16 +361,17 @@ out:
 /**
  * Start the security module
  *
- * @param [in] secur security handler
+ * @param [in] h security handler
  *
  * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t secur_start(secur_t *secur)
+e_mmgr_errors_t secure_start(secure_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    const char at_cmd[] = "at+" AT_SECUR "?\r";
+    static const char const at_cmd[] = "at+" AT_SECUR "?\r";
+    secure_t *secur = (secure_t *)h;
 
     CHECK_PARAM(secur, ret, out);
 
@@ -378,15 +389,16 @@ out:
 /**
  * Stop the security module
  *
- * @param [in] secur security handler
+ * @param [in] h security handler
  *
  * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t secur_stop(secur_t *secur)
+e_mmgr_errors_t secure_stop(secure_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    secure_t *secur = (secure_t *)h;
 
     CHECK_PARAM(secur, ret, out);
 
@@ -400,33 +412,41 @@ out:
 /**
  * Initialize the security module
  *
- * @param [in] secur security handler
- * @param [in] config mmgr config data
+ * @param [in] enabled enable or disable the secured channel feature
+ * @param [in] ch which channel to use
+ * @param [in, out] h security handler
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
- * @return E_ERR_FAILED if failed
- * @return E_ERR_SUCCESS if successful
+ * @return a valid secure_handle_t pointer
+ * @return NULL otherwise
  */
-e_mmgr_errors_t secur_init(secur_t *secur, mmgr_configuration_t *config)
+secure_handle_t *secure_init(bool enabled, channel_t *ch)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char *p = NULL;
+    secure_t *secur = NULL;
 
-    CHECK_PARAM(secur, ret, out);
-    CHECK_PARAM(config, ret, out);
+    if (!ch) {
+        LOG_ERROR("ch is NULL");
+        goto err;
+    }
+
+    secur = calloc(1, sizeof(secure_t));
+    if (!secur) {
+        LOG_ERROR("memory allocation failed");
+        goto err;
+    }
 
     secur->fd = CLOSED_FD;
-    secur->enable = config->secur_enable;
+    secur->enable = enabled;
 
-    if (config->secur_enable) {
-        secur->dlc = config->secur_dlc;
+    if (enabled) {
+        /* @TODO: This code should be udpated if the channel is not a DLC */
+        strncpy(secur->dlc, ch->device, sizeof(secur->dlc) - 1);
 
         secur->hdle = dlopen(SECUR_LIB, RTLD_LAZY);
         if (secur->hdle == NULL) {
             LOG_ERROR("failed to open library");
-            ret = E_ERR_FAILED;
             dlerror();
-            goto out;
+            goto err;
         }
 
         secur->callback = dlsym(secur->hdle, SECUR_CALLBACK);
@@ -434,42 +454,47 @@ e_mmgr_errors_t secur_init(secur_t *secur, mmgr_configuration_t *config)
         p = (char *)dlerror();
         if (p != NULL) {
             LOG_ERROR("An error ocurred during symbol resolution");
-            ret = E_ERR_FAILED;
             dlclose(secur->hdle);
             secur->hdle = NULL;
+            goto err;
         }
     } else {
         secur->hdle = NULL;
     }
 
-out:
-    return ret;
+    return (secure_handle_t *)secur;
+
+err:
+    secure_dispose((secure_handle_t *)secur);
+    return NULL;
 }
 
 /**
  * Dispose the security module
  *
- * @param [in] secur security handler
+ * @param [in] h security handler
  *
  * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t secur_dispose(secur_t *secur)
+e_mmgr_errors_t secure_dispose(secure_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    secure_t *secur = (secure_t *)h;
 
     CHECK_PARAM(secur, ret, out);
 
-    if (secur->enable)
-        goto out;
-
-    if (secur->hdle != NULL) {
-        dlclose(secur->hdle);
-        secur->hdle = NULL;
-    } else {
-        ret = E_ERR_FAILED;
+    if (secur->enable) {
+        if (secur->hdle != NULL) {
+            dlclose(secur->hdle);
+            secur->hdle = NULL;
+        } else {
+            ret = E_ERR_FAILED;
+        }
     }
+
+    free(secur);
 
 out:
     return ret;
@@ -478,26 +503,37 @@ out:
 /**
  * Provide the secur callback function
  *
- * @param [in] secur security handler
- * @param [out] callback callback function
+ * @param [in] h security handler
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
- * @return E_ERR_FAILED if failed
- * @return E_ERR_SUCCESS if successful
+ * @return a valid secure_cb_t
+ * @return NULL otherwise
  */
-e_mmgr_errors_t secur_get_callback(secur_t *secur,
-                                   secur_callback_fptr_t * callback)
+secure_cb_t *secure_get_callback(secure_handle_t *h)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    secure_t *secur = (secure_t *)h;
+    secure_cb_t *callback = NULL;
 
-    CHECK_PARAM(secur, ret, out);
-
-    if (secur->enable) {
+    if (secur && secur->enable)
         *callback = secur->callback;
-    } else {
-        *callback = NULL;
-    }
 
-out:
-    return ret;
+    return callback;
+}
+
+/**
+ * Return file descriptor used by the secure module
+ *
+ * @param [in] h security handler
+ *
+ * @return CLOSED_FD if h is NULL
+ * @return valid fd
+ */
+int secure_get_fd(secure_handle_t *h)
+{
+    secure_t *secur = (secure_t *)h;
+    int fd = CLOSED_FD;
+
+    if (secur)
+        fd = secur->fd;
+
+    return fd;
 }

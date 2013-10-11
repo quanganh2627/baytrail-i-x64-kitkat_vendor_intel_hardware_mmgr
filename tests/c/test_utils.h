@@ -1,32 +1,32 @@
 /* Modem Manager (MMGR) test application - utils header file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #ifndef __MMGR_TEST_UTILS_FILE__
 #define __MMGR_TEST_UTILS_FILE__
 
 #include <pthread.h>
 #include <stdbool.h>
-#include "config.h"
 #include "logs.h"
 #include "mmgr.h"
 #include "mmgr_cli.h"
+#include "tcs_mmgr.h"
 
-#define EXE_NAME MODULE_NAME"-test"
+#define EXE_NAME MODULE_NAME "-test"
 #define FILENAME_SIZE 256
 #define TIMEOUT_MODEM_DOWN_AFTER_CMD 30
 #define TIMEOUT_MODEM_UP_AFTER_RESET 1200
@@ -35,8 +35,15 @@ typedef enum e_events {
     E_EVENTS_NONE = 0x0,
     E_EVENTS_ERROR_OCCURED = 0x1,
     E_EVENTS_SUCCEED = 0x1 << 1,
-    E_EVENTS_MODEM_OOS = 0x1 << 2,
+        E_EVENTS_MODEM_OOS = 0x1 << 2,
 } e_events_t;
+
+typedef struct test_cfg {
+    int cold_reset;
+    int reboot;
+    int reset_escalation;
+    char shtdwn_dlc[PATH_MAX];
+} test_cfg_t;
 
 typedef struct test_data {
     pthread_mutex_t new_state_read;
@@ -45,9 +52,9 @@ typedef struct test_data {
     pthread_mutex_t cond_mutex;
     e_mmgr_events_t waited_state;
     e_mmgr_events_t modem_state;
-    mmgr_configuration_t config;
     mmgr_cli_handle_t *lib;
     e_events_t events;
+    test_cfg_t cfg;
 } test_data_t;
 
 e_mmgr_errors_t modem_state_set(test_data_t *test_data, e_mmgr_events_t state);

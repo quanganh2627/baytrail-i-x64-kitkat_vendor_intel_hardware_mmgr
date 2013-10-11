@@ -27,26 +27,23 @@ import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 
 public class MessageBoxHelper {
-
     public static void showException(Context context, Exception ex) {
-
         new AlertDialog.Builder(context).setTitle("Error")
-                .setMessage(ex.getMessage())
-                .setPositiveButton("Ok", new OnClickListener() {
-                    public void onClick(DialogInterface arg0, int arg1) {
-                        arg0.dismiss();
-                    }
-                }).show();
+        .setMessage(ex.getMessage())
+        .setPositiveButton("Ok", new OnClickListener() {
+                               public void onClick(DialogInterface arg0, int arg1) {
+                                   arg0.dismiss();
+                               }
+                           }).show();
     }
 
     public static void showMessage(Context context, String msg) {
-
         new AlertDialog.Builder(context)
-                .setTitle(context.getResources().getString(R.string.app_name))
-                .setMessage(msg).setPositiveButton("Ok", new OnClickListener() {
-                    public void onClick(DialogInterface arg0, int arg1) {
-                        arg0.dismiss();
-                    }
-                }).show();
+        .setTitle(context.getResources().getString(R.string.app_name))
+        .setMessage(msg).setPositiveButton("Ok", new OnClickListener() {
+                                               public void onClick(DialogInterface arg0, int arg1) {
+                                                   arg0.dismiss();
+                                               }
+                                           }).show();
     }
 }

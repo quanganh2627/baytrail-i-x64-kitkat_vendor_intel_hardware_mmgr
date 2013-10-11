@@ -1,19 +1,21 @@
 /* Modem Manager - bus events source file
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
+#include <inttypes.h>
+#include <linux/limits.h>
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
@@ -24,6 +26,38 @@
 #include "tty.h"
 #include "events_manager.h"
 #include "bus_events.h"
+
+typedef enum {
+    EV_NONE,
+    EV_ADDED,
+    EV_DELETED
+} e_bus_ev_t;
+
+typedef struct {
+    char path[PATH_MAX];
+    e_bus_ev_t event;
+} bus_event_t;
+
+typedef struct {
+    int i;
+    bus_event_t evs[BUS_EV_CAPACITY];
+} bus_ev_cli_ctx_t;
+
+typedef struct {
+    struct usb_host_context *ctx;
+    bus_ev_cli_ctx_t cli_ctx;
+    int mdm_state;
+    int wd_fd;
+    char modem_flash_path[PATH_MAX];
+    char modem_bb_path[PATH_MAX];
+    char modem_cd_path[PATH_MAX];
+    uint16_t modem_flash_pid;
+    uint16_t modem_flash_vid;
+    uint16_t modem_bb_pid;
+    uint16_t modem_bb_vid;
+    uint16_t mcdr_bb_pid;
+    uint16_t mcdr_bb_vid;
+} bus_ev_t;
 
 /**
  * add bus event
@@ -106,6 +140,7 @@ static int device_rmed_cb(const char *path, void *ctx)
 int is_pid_and_vid(const char *path, uint16_t pid, uint16_t vid)
 {
     struct usb_device *dev = usb_device_open(path);
+
     if (dev == NULL) {
         LOG_ERROR("Failed to open path: %s", path);
         return 0;
@@ -116,24 +151,39 @@ int is_pid_and_vid(const char *path, uint16_t pid, uint16_t vid)
     LOG_DEBUG("Event bus pid 0x%.4x vid 0x%.4x", ppid, pvid);
     usb_device_close(dev);
 
-    return (ppid == pid && pvid == vid);
+    return ppid == pid && pvid == vid;
 }
 
-int bus_read_events(bus_ev_t *bus_events)
+/**
+ * Returns the current event
+ *
+ * @param [in] h
+ *
+ * @return 0 if h is NULL
+ * @return current event otherwise
+ */
+int bus_ev_read(bus_ev_hdle_t *h)
 {
-    return usb_host_read_event(bus_events->ctx);
+    bus_ev_t *bus_events = (bus_ev_t *)h;
+    int ev = 0;
+
+    if (bus_events)
+        ev = usb_host_read_event(bus_events->ctx);
+
+    return ev;
 }
 
 /**
  * handle bus event
  *
- * @param [in, out] bus_events
+ * @param [in, out] h
  *
  * @return E_ERR_SUCCESS
  */
-e_mmgr_errors_t bus_handle_events(bus_ev_t *bus_events)
+e_mmgr_errors_t bus_ev_hdle_events(bus_ev_hdle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
+    bus_ev_t *bus_events = (bus_ev_t *)h;
     int i;
 
     for (i = 0; i < bus_events->cli_ctx.i; i++) {
@@ -196,70 +246,184 @@ e_mmgr_errors_t bus_handle_events(bus_ev_t *bus_events)
     return ret;
 }
 
-int get_bus_state(bus_ev_t *bus_events)
+/**
+ * Returns current bus state
+ *
+ * @param [in] h bus handler
+ *
+ * @return 0 if h is NULL
+ * @return current state
+ */
+int bus_ev_get_state(bus_ev_hdle_t *h)
 {
-    return bus_events->mdm_state;
+    bus_ev_t *bus_events = (bus_ev_t *)h;
+    int state = 0;
+
+    if (bus_events)
+        state = bus_events->mdm_state;
+
+    return state;
 }
 
-int bus_ev_get_fd(bus_ev_t *bus_events)
+/**
+ * Returns bus file descriptor
+ *
+ * @param [in] h bus handler
+ *
+ * @return CLOSED_FD if h is NULL
+ * @return file descriptor otherwise
+ */
+int bus_ev_get_fd(bus_ev_hdle_t *h)
 {
+    int fd = CLOSED_FD;
+    bus_ev_t *bus_events = (bus_ev_t *)h;
+
+    if (bus_events)
+        fd = bus_events->wd_fd;
+
+    return fd;
+}
+
+/**
+ * Starts bus module
+ *
+ * @param [in] h bus handler
+ *
+ * @return E_ERR_BAD_PARAMETER if h is NULL
+ * @return E_ERR_SUCCESS otherwise
+ */
+e_mmgr_errors_t bus_ev_start(bus_ev_hdle_t *h)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    bus_ev_t *bus_events = (bus_ev_t *)h;
+
+    CHECK_PARAM(bus_events, ret, out);
+
     bus_events->wd_fd = usb_host_get_fd(bus_events->ctx);
-    return bus_events->wd_fd;
+
+out:
+    return ret;
 }
 
 /**
  * bus event initialization
  *
- * @private
+ * @param [in] flash
+ * @param [in] bb baseband
+ * @param [in] mcdr core dump
  *
- * @param [in,out] bus_events
- * @param [in] bb_pid base band PID
- * @param [in] bb_vid base band VID
- * @param [in] flash_pid flahless PID
- * @param [in] flash_vid flashless VID
- * @param [in] mcdr_pid mcdr PID
- * @param [in] mcdr_vid mcdr VID
- *
- * @return E_ERR_FAILED
- * @return E_ERR_SUCCESS if successful
+ * @return a valid bus_ev_hdle_t pointer if succeed
+ * @return NULL otherwise
  */
-e_mmgr_errors_t bus_events_init(bus_ev_t *bus_events, char *bb_pid,
-                                char *bb_vid, char *flash_pid, char *flash_vid,
-                                char *mcdr_pid, char *mcdr_vid)
+bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    bool usb = false;
+    bus_ev_t *bus_events = NULL;
 
-    CHECK_PARAM(bus_events, ret, out);
-    CHECK_PARAM(bb_pid, ret, out);
-    CHECK_PARAM(bb_vid, ret, out);
-    CHECK_PARAM(flash_pid, ret, out);
-    CHECK_PARAM(flash_vid, ret, out);
+    CHECK_PARAM(flash, ret, out);
+    CHECK_PARAM(bb, ret, out);
+    CHECK_PARAM(mcdr, ret, out);
 
-    memset(bus_events, 0, sizeof(bus_ev_t));
-    if ((bus_events->ctx = usb_host_init()) == NULL) {
-        ret = E_ERR_FAILED;
+    bus_events = calloc(1, sizeof(bus_ev_t));
+    if (!bus_events) {
+        LOG_ERROR("memory allocation failed");
         goto out;
     }
 
-    errno = 0;
-    bus_events->modem_flash_pid = strtoul(flash_pid, NULL, 0);
-    bus_events->modem_flash_vid = strtoul(flash_vid, NULL, 0);
-    bus_events->modem_bb_pid = strtoul(bb_pid, NULL, 0);
-    bus_events->modem_bb_vid = strtoul(bb_vid, NULL, 0);
-    bus_events->mcdr_bb_pid = strtoul(mcdr_pid, NULL, 0);
-    bus_events->mcdr_bb_vid = strtoul(mcdr_vid, NULL, 0);
-    if (errno != 0) {
-        LOG_DEBUG("Couldn't convert PID/VIDs from config: %s %s %s %s %s %s",
-                  bb_pid, bb_vid, flash_pid, flash_vid, mcdr_pid, mcdr_vid);
-        goto out;
+    bus_events->wd_fd = CLOSED_FD;
+
+    if (flash->type == E_LINK_HSIC) {
+        usb = true;
+        if ((flash->hsic.pid != 0) && (flash->hsic.vid != 0)) {
+            bus_events->modem_flash_pid = flash->hsic.pid;
+            bus_events->modem_flash_vid = flash->hsic.vid;
+        } else {
+            LOG_ERROR("wrong PID/VID for the flashing interface");
+            ret = E_ERR_FAILED;
+        }
     }
-    /* @TODO: handle errors */
-    usb_host_load(bus_events->ctx, device_added_cb, device_rmed_cb, NULL,
-                  &bus_events->cli_ctx);
-    /* when calling usb_host_load, there's a call to find_existing_devices
-     * which triggers added_cb events so, there's been events ... maybe. */
-    bus_handle_events(bus_events);
+
+    if (bb->type == E_LINK_HSIC) {
+        usb = true;
+        if ((bb->hsic.pid != 0) && (bb->hsic.vid != 0)) {
+            bus_events->modem_bb_pid = bb->hsic.pid;
+            bus_events->modem_bb_vid = bb->hsic.vid;
+        } else {
+            LOG_ERROR("wrong PID/VID for the baseband interface");
+            ret = E_ERR_FAILED;
+        }
+    }
+
+    if (mcdr->type == E_LINK_HSIC) {
+        usb = true;
+        if ((mcdr->hsic.pid != 0) && (mcdr->hsic.vid != 0)) {
+            bus_events->mcdr_bb_pid = mcdr->hsic.pid;
+            bus_events->mcdr_bb_vid = mcdr->hsic.vid;
+        } else {
+            LOG_ERROR("wrong PID/VID for the core dump interface");
+            ret = E_ERR_FAILED;
+        }
+    }
+
+    if (usb && (ret == E_ERR_SUCCESS)) {
+        if ((bus_events->ctx = usb_host_init()) == NULL) {
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        /* @TODO: handle errors */
+        usb_host_load(bus_events->ctx, device_added_cb, device_rmed_cb, NULL,
+                      &bus_events->cli_ctx);
+        /* when calling usb_host_load, there's a call to find_existing_devices
+        * which triggers added_cb events so, there's been events ... maybe. */
+        bus_ev_hdle_events((bus_ev_hdle_t *)bus_events);
+    }
 
 out:
+    return (bus_ev_hdle_t *)bus_events;
+}
+
+/**
+ * Disposes the bus event module
+ *
+ * param [in] h bus handle
+ *
+ * @return E_ERR_BAD_PARAMETER if h is NULL
+ * @return E_ERR_SUCCESS otherwise
+ */
+e_mmgr_errors_t bus_ev_dispose(bus_ev_hdle_t *h)
+{
+    bus_ev_t *bus_events = (bus_ev_t *)h;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    if (bus_events) {
+        if (bus_events->ctx)
+            usb_host_cleanup(bus_events->ctx);
+        free(bus_events);
+    } else {
+        ret = E_ERR_BAD_PARAMETER;
+    }
+
     return ret;
+}
+
+/**
+ * Returns current flash interface
+ * The return pointer must not be freed by caller.
+ *
+ * @param [in] h bus handle
+ *
+ * @return NULL if h is NULL
+ * @return flash interface
+ */
+const char *bus_ev_get_flash_interface(bus_ev_hdle_t *h)
+{
+    bus_ev_t *bus_events = (bus_ev_t *)h;
+    char *path = NULL;
+
+    if (bus_events)
+        path = bus_events->modem_flash_path;
+
+    return path;
 }

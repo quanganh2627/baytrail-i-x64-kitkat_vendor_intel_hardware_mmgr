@@ -1,37 +1,43 @@
 /* Modem Manager - main source file
- **
- ** Copyright (C) Intel 2010
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2010
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "errors.h"
 #include "logs.h"
-#include "config.h"
 #include "file.h"
+#include "client_events.h"
 #include "events_manager.h"
+#include "modem_events.h"
+#include "modem_info.h"
+#include "property.h"
+#include "timer_events.h"
+
+#include "tcs.h"
 
 #define USAGE \
-"Start "MODULE_NAME" Daemon.\n" \
-"Usage: "MODULE_NAME" [OPTION]...\n" \
-"-h\t\t: Show help options\n" \
-"-c <filename>\t: Use <filename> as configuration file\n"
+    "Start "MODULE_NAME " Daemon.\n" \
+    "Usage: "MODULE_NAME " [OPTION]...\n" \
+    "-h\t\t: Show help options\n" \
 
 #define GCOV_FOLDER "/data/gcov"
+#define TEL_STACK_PROPERTY "persist.service.telephony.off"
 
 /* global values used to cleanup */
 mmgr_data_t *g_mmgr = NULL;
@@ -41,8 +47,17 @@ mmgr_data_t *g_mmgr = NULL;
  */
 static void cleanup(void)
 {
-    events_cleanup(g_mmgr);
+    events_dispose(g_mmgr);
     recov_dispose(g_mmgr->reset);
+    timer_dispose(g_mmgr->timer);
+    secure_stop(g_mmgr->secure);
+    secure_dispose(g_mmgr->secure);
+    mcdr_dispose(g_mmgr->mcdr);
+    modem_info_dispose(&g_mmgr->info);
+    client_events_dispose(g_mmgr);
+    bus_ev_dispose(g_mmgr->events.bus_events);
+    pm_dispose(g_mmgr->info.pm);
+    ctrl_dispose(g_mmgr->info.ctrl);
     LOG_VERBOSE("Exiting");
 }
 
@@ -78,27 +93,166 @@ static e_mmgr_errors_t set_signal_handler(void)
 
     memset(&sigact, 0, sizeof(struct sigaction));
     /* Signal handler */
-    if (sigemptyset(&sigact.sa_mask) == -1) {
+    if (sigemptyset(&sigact.sa_mask) == -1)
         goto end_set_signal_handler;
-    }
     sigact.sa_flags = 0;
     sigact.sa_handler = sig_handler;
 
-    if (sigaction(SIGUSR1, &sigact, NULL) == -1) {
+    if (sigaction(SIGUSR1, &sigact, NULL) == -1)
         goto end_set_signal_handler;
-    }
-    if (sigaction(SIGHUP, &sigact, NULL) == -1) {
+    if (sigaction(SIGHUP, &sigact, NULL) == -1)
         goto end_set_signal_handler;
-    }
-    if (sigaction(SIGTERM, &sigact, NULL) == -1) {
+    if (sigaction(SIGTERM, &sigact, NULL) == -1)
         goto end_set_signal_handler;
-    }
 
     /* configuration successful */
     err = E_ERR_SUCCESS;
 
 end_set_signal_handler:
     return err;
+}
+
+/**
+ * This function initialize all MMGR modules.
+ * It reads the current platform configuration via TCS
+ *
+ * @param [in, out] mmgr
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED if failed
+ */
+static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
+{
+    tcs_handle_t *h = NULL;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    h = tcs_init();
+    if (h) {
+        if (tcs_print(h)) {
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        tcs_cfg_t *cfg = tcs_get_config(h);
+        if (!cfg) {
+            LOG_ERROR("Failed to get current configuration");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->reset = recov_init(&cfg->mmgr.recov);
+        if (!mmgr->reset) {
+            LOG_ERROR("Failed to configure modem recovery module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->timer = timer_init(&cfg->mmgr.recov, &cfg->mmgr.timings,
+                                 mmgr->clients);
+        if (!mmgr->timer) {
+            LOG_ERROR("Failed to configure timer module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->secure = secure_init(cfg->mdm_info.secured,
+                                   &cfg->mmgr.com.ch.secured);
+        if (!mmgr->secure) {
+            LOG_ERROR("Failed to configure the security module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->mcdr = mcdr_init(&cfg->mmgr.mcdr);
+        if (!mmgr->mcdr) {
+            LOG_ERROR("Failed to configure MCDR module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        if (E_ERR_SUCCESS != modem_info_init(&cfg->mdm_info, &cfg->mmgr.com,
+                                             &cfg->mmgr.mdm_link,
+                                             &cfg->mmgr.flash, &mmgr->info)) {
+            LOG_ERROR("Failed to configure the modem info module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->info.pm = pm_init(cfg->mdm_info.ipc_mdm,
+                                &cfg->mmgr.mdm_link.power, cfg->mdm_info.ipc_cd,
+                                &cfg->mmgr.mcdr.power);
+
+        if (mmgr->info.pm == NULL) {
+            LOG_ERROR("Failed to configure power management module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        mmgr->info.ctrl = ctrl_init(cfg->mdm_info.ipc_mdm,
+                                    &cfg->mmgr.mdm_link.ctrl,
+                                    cfg->mdm_info.ipc_cd,
+                                    &cfg->mmgr.mcdr.ctrl);
+
+        if (mmgr->info.ctrl == NULL) {
+            LOG_ERROR("Failed to configure link control module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        if (E_ERR_SUCCESS != modem_events_init(mmgr)) {
+            LOG_ERROR("Failed to configure modem events module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        if (E_ERR_SUCCESS != client_events_init(cfg->mmgr.cli.max, mmgr)) {
+            LOG_ERROR("Failed to configure client module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+
+        mmgr->events.bus_events = bus_ev_init(&cfg->mmgr.mdm_link.flash,
+                                              &cfg->mmgr.mdm_link.baseband,
+                                              &cfg->mmgr.mcdr.link);
+        if (!mmgr->events.bus_events) {
+            LOG_ERROR("Failed to configure bus module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
+
+        if (E_ERR_SUCCESS != events_init(cfg->mmgr.cli.max, mmgr)) {
+            LOG_ERROR("Failed to configure events module");
+            ret = E_ERR_FAILED;
+        }
+    } else {
+        LOG_ERROR("Failed to init TCS");
+        ret = E_ERR_FAILED;
+    }
+
+out:
+    if (h && tcs_dispose(h))
+        ret = E_ERR_FAILED;
+    return ret;
+}
+
+static void disable_telephony(mmgr_data_t *mmgr)
+{
+    int disable_telephony = 1;
+
+    property_get_int(TEL_STACK_PROPERTY, &disable_telephony);
+
+    if (disable_telephony == 1) {
+        LOG_DEBUG("telephony stack is disabled");
+        /* Set MMGR state to MDM_RESET to call the recovery module and force
+         * modem recovery to OOS. By doing so, MMGR will turn off the modem and
+         * declare the modem OOS. Clients will not be able to turn on the modem
+         */
+        recov_force(mmgr->reset, E_FORCE_OOS);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+    } else {
+        set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
+    }
 }
 
 /**
@@ -114,19 +268,14 @@ int main(int argc, char *argv[])
 {
     int err;
     e_mmgr_errors_t ret = EXIT_SUCCESS;
-    char *conf_file = DEFAULT_MMGR_CONFIG_FILE;
     mmgr_data_t mmgr;
 
     /* Initialize the mmgr structure */
     memset(&mmgr, 0, sizeof(mmgr_data_t));
     g_mmgr = &mmgr;
 
-    while (-1 != (err = getopt(argc, argv, "hc:v"))) {
+    while (-1 != (err = getopt(argc, argv, "hv"))) {
         switch (err) {
-        case 'c':
-            conf_file = optarg;
-            break;
-
         case 'h':
             puts(USAGE);
             goto out;
@@ -165,26 +314,20 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    if ((err = mmgr_configure(&mmgr.config, conf_file))
-        == E_ERR_BAD_PARAMETER) {
-        LOG_ERROR("Initialization failed (reason=%d). Exit", err);
+    if (E_ERR_SUCCESS != mmgr_init(&mmgr)) {
         ret = EXIT_FAILURE;
         goto out;
     }
 
-    mmgr.reset = recov_init(&mmgr.config);
-    if (!mmgr.reset) {
-        LOG_ERROR("Reset escalation init failed");
+    disable_telephony(&mmgr);
+
+    if (E_ERR_SUCCESS != events_start(&mmgr)) {
+        LOG_ERROR("failed to start event module");
         ret = EXIT_FAILURE;
-        goto out;
+    } else {
+        events_manager(&mmgr);
     }
 
-    if (events_init(&mmgr) != E_ERR_SUCCESS) {
-        LOG_ERROR("Events configuration failed. Exit");
-        ret = EXIT_FAILURE;
-        goto out;
-    }
-    events_manager(&mmgr);
 out:
     /* @TODO: REMOVE EXIT. bogus? If returns is used, atexit function callback
      * is called but mmgr is deallocated... */

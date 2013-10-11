@@ -21,7 +21,6 @@ package com.intel.internal.telephony.mmgr.requests;
 import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
 public class MmgrModemRecoveryRequest extends MmgrBaseRequest {
-
     public MmgrModemRecoveryRequest() {
         super(MedfieldMmgrClient.REQUEST_MODEM_RECOVERY);
     }

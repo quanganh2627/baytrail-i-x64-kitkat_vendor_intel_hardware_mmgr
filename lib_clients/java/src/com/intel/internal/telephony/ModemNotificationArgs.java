@@ -19,7 +19,6 @@
 package com.intel.internal.telephony;
 
 public class ModemNotificationArgs {
-
     private ModemStatusManager sender = null;
     private ModemNotification notification;
     private boolean acknowledge = true;

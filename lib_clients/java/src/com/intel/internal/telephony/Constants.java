@@ -19,6 +19,5 @@
 package com.intel.internal.telephony;
 
 public class Constants {
-
     public final static String LOG_TAG = "ModemStatusManagerJavaLib";
 }

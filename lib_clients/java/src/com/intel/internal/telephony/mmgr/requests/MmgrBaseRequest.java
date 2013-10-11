@@ -23,7 +23,6 @@ import com.intel.internal.telephony.ModemRequestArgs;
 import java.nio.ByteBuffer;
 
 public abstract class MmgrBaseRequest extends ModemRequestArgs {
-
     protected int requestId = -1;
 
     protected MmgrBaseRequest(int requestId) {

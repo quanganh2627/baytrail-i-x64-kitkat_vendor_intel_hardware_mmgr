@@ -1,20 +1,20 @@
 /* Modem Manager - client list source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <errno.h>
 #include <sys/types.h>
@@ -23,83 +23,103 @@
 #include "client_cnx.h"
 #include "errors.h"
 #include "logs.h"
-#include "mmgr.h"
+#include "data_to_msg.h"
+#include <time.h>
 
 #define NEW_CLIENT_NAME "unknown"
 
-const char *g_mmgr_events[] = {
+typedef e_mmgr_errors_t (*set_msg) (msg_t *, mmgr_cli_event_t *);
+
+typedef struct client {
+    char name[CLIENT_NAME_LEN + 1];
+    int fd;
+    struct timespec time;
+    e_mmgr_requests_t request;
+    uint32_t subscription;
+    /* These flags are used to store client ACKs */
+    e_cnx_requests_t cnx;
+    set_msg *set_data;
+} client_t;
+
+typedef struct client_list {
+    int list_size;
+    int connected;
+    client_t *list;
+    set_msg set_data[E_MMGR_NUM_EVENTS];
+} client_list_t;
+
+static const char const *g_mmgr_events[] = {
 #undef X
 #define X(a) #a
     MMGR_EVENTS
 };
 
+static e_mmgr_errors_t client_close(client_list_t *clients);
+
 /**
  * Check if the client is fully registered
  *
  * @param [in] client
- * @param [out] state true if registered
  *
- * @return E_ERR_BAD_PARAMETER
- * @return E_ERR_SUCCESS
+ * @return false if client is NULL
+ * @return current client status
  */
-e_mmgr_errors_t is_registered(client_t *client, bool *state)
+bool client_is_registered(const client_hdle_t *h)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    bool registered = false;
+    client_t *client = (client_t *)h;
 
-    CHECK_PARAM(client, ret, out);
-    CHECK_PARAM(state, ret, out);
+    if (client)
+        registered = (client->cnx & E_CNX_NAME) &&
+                     (client->cnx & E_CNX_FILTER);
 
-    *state = (client->cnx & E_CNX_NAME) && (client->cnx & E_CNX_FILTER);
-out:
-    return ret;
+    return registered;
 }
 
 /**
- * Check all clients acknowledgement registered to the event
+ * Check all clients acknowledgement for those registered to the event
  *
  * @private
  *
- * @param [in] clients list of clients
+ * @param [in] h clients list handle
  * @param [in] filter specify which element to check
  * @param [in] ev user should be registered to this event. If not,
  *             MMGR will take into account its ACK.
- * @param [in] listing enable or not displaying
+ * @param [in] print
  *
- * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
- * @return E_ERR_FAILED if at least one client has not acknowledge
- * @return E_ERR_SUCCESS if successful
+ * @return false if h is NULL or ev is incorrect
+ * @return false if at least one client has not acknowledge
+ * @return true if all clients have acknowledge
  */
-static inline e_mmgr_errors_t check_all_clients_ack(client_list_t *clients,
-                                                    e_cnx_requests_t filter,
-                                                    e_mmgr_events_t ev,
-                                                    bool listing)
+static bool check_all_clients_ack(const clients_hdle_t *h,
+                                  e_cnx_requests_t filter, e_mmgr_events_t ev,
+                                  e_print_t print)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int i;
+    bool answer = true;
+    int i = 0;
+    client_list_t *clients = (client_list_t *)h;
 
-    CHECK_PARAM(clients, ret, out);
-
-    if (ev > E_MMGR_NUM_EVENTS) {
-        ret = E_ERR_FAILED;
-        goto out;
-    }
+    if ((!clients) || (ev > E_MMGR_NUM_EVENTS))
+        goto err;
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD) {
             if ((clients->list[i].subscription & (0x1 << ev)) &&
                 ((clients->list[i].cnx & filter) != filter)) {
-                ret = E_ERR_FAILED;
-                if (listing) {
+                answer = false;
+                if (E_PRINT == print)
                     LOG_DEBUG("client (%s) did not ack to %s",
                               clients->list[i].name, g_mmgr_events[ev]);
-                } else {
+                else
                     break;
-                }
             }
         }
     }
-out:
-    return ret;
+
+    return answer;
+
+err:
+    return false;
 }
 
 /**
@@ -107,18 +127,19 @@ out:
  *
  * @private
  *
- * @param [in] clients list of clients
+ * @param [in] h clients list handle
  * @param [in] filter specify which element to check
  *
  * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
  * @return E_ERR_FAILED if at least one client has not acknowledge
  * @return E_ERR_SUCCESS if successful
  */
-static inline e_mmgr_errors_t reset_ack(client_list_t *clients,
+static inline e_mmgr_errors_t reset_ack(clients_hdle_t *h,
                                         e_cnx_requests_t filter)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int i;
+    client_list_t *clients = (client_list_t *)h;
+    int i = 0;
 
     CHECK_PARAM(clients, ret, out);
 
@@ -164,23 +185,34 @@ out:
  * @private
  *
  * @param [in,out] clients list of clients
- * @param [in,out] client client to remove
+ * @param [in] fd
  *
  * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
+ * @return E_ERR_FAILED if client not found
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t remove_from_list(client_list_t *clients,
-                                        client_t *client)
+static e_mmgr_errors_t remove_from_list(client_list_t *clients, int fd)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    int i = 0;
 
     CHECK_PARAM(clients, ret, out);
-    CHECK_PARAM(client, ret, out);
 
-    clients->connected--;
-    LOG_INFO("client (fd=%d name=%s) removed. still connected: %d",
-             client->fd, client->name, clients->connected);
-    client->fd = CLOSED_FD;
+    if (CLOSED_FD == fd)
+        goto out;
+
+    for (i = 0; i < clients->list_size; i++) {
+        if (fd == clients->list[i].fd) {
+            clients->connected--;
+            LOG_INFO("client (fd=%d name=%s) removed. still connected: %d",
+                     clients->list[i].fd, clients->list[i].name,
+                     clients->connected);
+            clients->list[i].fd = CLOSED_FD;
+            ret = E_ERR_SUCCESS;
+            break;
+        }
+    }
+
 out:
     return ret;
 }
@@ -188,33 +220,33 @@ out:
 /**
  * initialize client list structure
  *
- * @param [in,out] clients list of clients
  * @param [in] list_size size of clients
  *
- * @return E_ERR_BAD_PARAMETER if clients is NULL
- * @return E_ERR_FAILED if failed
- * @return E_ERR_SUCCESS if successful
+ * @return a valid clients_hdle_t pointer
+ * @return NULL otherwise
  */
-e_mmgr_errors_t initialize_list(client_list_t *clients, int list_size)
+clients_hdle_t *clients_init(int list_size)
 {
-    int i;
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    int i = 0;
+    client_list_t *clients = NULL;
 
-    CHECK_PARAM(clients, ret, out);
+    clients = calloc(1, sizeof(client_list_t));
+    if (!clients)
+        goto err;
 
+    clients->list = calloc(list_size, sizeof(client_t));
+    if (!clients->list)
+        goto err;
+
+    clients->connected = 0;
     clients->list_size = list_size;
-    clients->list = malloc(list_size * sizeof(client_t));
-    if (clients->list != NULL) {
-        for (i = 0; i < list_size; i++) {
-            init_client(&clients->list[i], CLOSED_FD);
-            clients->list[i].set_data = clients->set_data;
-        }
-        clients->connected = 0;
-        ret = E_ERR_SUCCESS;
+    for (i = 0; i < list_size; i++) {
+        init_client(&clients->list[i], CLOSED_FD);
+        clients->list[i].set_data = clients->set_data;
     }
+
     for (i = 0; i < E_MMGR_NUM_EVENTS; i++)
         clients->set_data[i] = set_msg_empty;
-
     clients->set_data[E_MMGR_RESPONSE_MODEM_HW_ID] = set_msg_modem_hw_id;
     clients->set_data[E_MMGR_RESPONSE_FUSE_INFO] = set_msg_fuse_info;
     clients->set_data[E_MMGR_NOTIFY_AP_RESET] = set_msg_ap_reset;
@@ -223,7 +255,27 @@ e_mmgr_errors_t initialize_list(client_list_t *clients, int list_size)
     clients->set_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] =
         set_msg_modem_fw_result;
 
-out:
+    return (clients_hdle_t *)clients;
+
+err:
+    clients_dispose((clients_hdle_t *)clients);
+    return NULL;
+}
+
+e_mmgr_errors_t clients_dispose(clients_hdle_t *h)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    client_list_t *clients = (client_list_t *)h;
+
+    if (clients) {
+        client_close(clients);
+        if (clients->list)
+            free(clients->list);
+        free(clients);
+    } else {
+        ret = E_ERR_BAD_PARAMETER;
+    }
+
     return ret;
 }
 
@@ -232,21 +284,18 @@ out:
  *
  * @param [in,out] clients list of clients
  * @param [in] fd client file descriptor
- * @param [in,out] client pointer to new client. NULL if failed
  *
  * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
  * @return E_ERR_FAILED no space
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t add_client(client_list_t *clients, int fd, client_t **client)
+e_mmgr_errors_t client_add(clients_hdle_t *h, int fd)
 {
-    int i;
+    int i = 0;
     e_mmgr_errors_t ret = E_ERR_FAILED;
+    client_list_t *clients = (client_list_t *)h;
 
     CHECK_PARAM(clients, ret, out);
-    CHECK_PARAM(client, ret, out);
-
-    *client = NULL;
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd == CLOSED_FD) {
@@ -254,11 +303,9 @@ e_mmgr_errors_t add_client(client_list_t *clients, int fd, client_t **client)
             clients->connected++;
             LOG_DEBUG("client (fd=%d) added. connected: %d",
                       fd, clients->connected);
-            *client = &clients->list[i];
             ret = E_ERR_SUCCESS;
             break;
         }
-
     }
 out:
     return ret;
@@ -267,26 +314,24 @@ out:
 /**
  * close connexion, remove connexion on epoll and remove client from list
  *
- * @param [in,out] clients list of clients
- * @param [in,out] client current client
+ * @param [in] h clients list handle
+ * @param [in] fd
  *
  * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t remove_client(client_list_t *clients, client_t *client)
+e_mmgr_errors_t client_remove(clients_hdle_t *h, int fd)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int fd;
+    client_list_t *clients = (client_list_t *)h;
 
     CHECK_PARAM(clients, ret, out);
-    CHECK_PARAM(client, ret, out);
 
     /* No needs to unsubscribe the fd from epoll list. It's automatically done
      * when the fd is closed. See epoll man page. As remove_from_list set fd to
      * CLOSED_FD, do a backup to close it */
-    fd = client->fd;
-    ret = remove_from_list(clients, client);
+    ret = remove_from_list(clients, fd);
     close_cnx(&fd);
 out:
     return ret;
@@ -295,16 +340,17 @@ out:
 /**
  * Set client name
  *
- * @param [in,out] client client information
- * @param [in] name new client name
+ * @param [in,out] h client handle
+ * @param [in] name client name
  * @param [in] len name length
  *
  * @return E_ERR_BAD_PARAMETER if client or name is/are NULL
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t set_client_name(client_t *client, char *name, size_t len)
+e_mmgr_errors_t client_set_name(client_hdle_t *h, const char *name, size_t len)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    client_t *client = (client_t *)h;
 
     CHECK_PARAM(client, ret, out);
     CHECK_PARAM(name, ret, out);
@@ -324,15 +370,16 @@ out:
 /**
  * set client filter events
  *
- * @param [in,out] client client information
+ * @param [in,out] h client handle
  * @param [in] subscription client filter param
  *
  * @return E_ERR_BAD_PARAMETER if client or name is/are NULL
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t set_client_filter(client_t *client, uint32_t subscription)
+e_mmgr_errors_t client_set_filter(client_hdle_t *h, uint32_t subscription)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    client_t *client = (client_t *)h;
 
     CHECK_PARAM(client, ret, out);
 
@@ -349,38 +396,33 @@ out:
  *
  * @param [in] clients list of clients
  * @param [in] fd client's file descriptor
- * @param[out] client client found
  *
- * @return E_ERR_BAD_PARAMETER clients or/and client is/are NULL
- * @return E_ERR_SUCCESS if not found
- * @return E_ERR_SUCCESS if successful
+ * @return NULL if h is NULL or client not found
+ * @return a valid client_hdle_t pointer
  */
-e_mmgr_errors_t find_client(client_list_t *clients, int fd, client_t **client)
+client_hdle_t *client_find(const clients_hdle_t *h, int fd)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    int i;
+    int i = 0;
+    client_list_t *clients = (client_list_t *)h;
+    client_t *client = NULL;
 
-    CHECK_PARAM(clients, ret, out);
-    CHECK_PARAM(client, ret, out);
-
-    *client = NULL;
-
-    for (i = 0; i < clients->list_size; i++) {
-        if (fd == clients->list[i].fd) {
-            *client = &clients->list[i];
-            ret = E_ERR_SUCCESS;
-            break;
+    if (clients) {
+        for (i = 0; i < clients->list_size; i++) {
+            if (fd == clients->list[i].fd) {
+                client = &clients->list[i];
+                break;
+            }
         }
     }
 
-out:
-    return ret;
+    return (client_hdle_t *)client;
 }
+
 
 /**
  * send message with data to client
  *
- * @param [in] client client to inform
+ * @param [in] h client to inform
  * @param [in] state state to provide
  * @param [in] data data to send
  *
@@ -388,14 +430,15 @@ out:
  * @return E_ERR_SUCCESS if not found
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t inform_client(client_t *client, e_mmgr_events_t state,
-                              void *data)
+e_mmgr_errors_t clients_inform(const client_hdle_t *h, e_mmgr_events_t state,
+                               void *data)
 {
     size_t size;
     size_t write_size;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    mmgr_cli_event_t event = {.id = state,.data = data };
-    msg_t msg = {.data = NULL };
+    mmgr_cli_event_t event = { .id = state, .data = data };
+    msg_t msg = { .data = NULL };
+    client_t *client = (client_t *)h;
 
     CHECK_PARAM(client, ret, out);
     /* do not check data because it can be NULL on purpose */
@@ -435,19 +478,20 @@ out:
 /**
  * inform all clients of modem state
  *
- * @param [in,out] clients list of clients
+ * @param [in] h clients list handle
  * @param [in] state current modem state
  *
  * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t inform_all_clients(client_list_t *clients,
+e_mmgr_errors_t clients_inform_all(const clients_hdle_t *h,
                                    e_mmgr_events_t state, void *data)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int i;
+    int i = 0;
     static bool down_state = false;
+    client_list_t *clients = (client_list_t *)h;
 
     if (state == E_MMGR_EVENT_MODEM_DOWN) {
         if (down_state)
@@ -463,7 +507,8 @@ e_mmgr_errors_t inform_all_clients(client_list_t *clients,
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD)
-            ret = inform_client(&clients->list[i], state, data);
+            ret = clients_inform((client_hdle_t *)&clients->list[i], state,
+                                 data);
     }
 out:
     return ret;
@@ -477,7 +522,7 @@ out:
  * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t close_all_clients(client_list_t *clients)
+static e_mmgr_errors_t client_close(client_list_t *clients)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i;
@@ -497,68 +542,67 @@ out:
 /**
  * check if all clients have acknowledge the modem cold request
  *
- * @param [in,out] clients list of clients
- * @param [in] listing enable display
+ * @param [in,out] h clients list handle
+ * @param [in] print
  *
- * @return E_ERR_BAD_PARAMETER if clients is NULL
- * @return E_ERR_FAILED if at least one client has not ack
- * @return E_ERR_SUCCESS all clients have released
+ * @return false if h is NULL
+ * @return true if all clients have acknowledge
  */
-e_mmgr_errors_t check_cold_ack(client_list_t *clients, bool listing)
+bool clients_has_ack_cold(const clients_hdle_t *h, e_print_t print)
 {
-    return check_all_clients_ack(clients, E_CNX_COLD_RESET,
-                                 E_MMGR_NOTIFY_MODEM_COLD_RESET, listing);
+    return check_all_clients_ack(h, E_CNX_COLD_RESET,
+                                 E_MMGR_NOTIFY_MODEM_COLD_RESET, print);
 }
 
 /**
  * check if all clients have acknowledge the shutdown request
  *
- * @param [in,out] clients list of clients
- * @param [in] listing enable display
+ * @param [in,out] h clients list handle
+ * @param [in] print
  *
- * @return E_ERR_BAD_PARAMETER if clients is NULL
- * @return E_ERR_FAILED if at least one client has not ack
- * @return E_ERR_SUCCESS all clients have released
+ * @return false if h is NULL
+ * @return true if all clients have acknowledge
  */
-e_mmgr_errors_t check_shutdown_ack(client_list_t *clients, bool listing)
+bool clients_has_ack_shtdwn(const clients_hdle_t *h, e_print_t print)
 {
-    return check_all_clients_ack(clients, E_CNX_MODEM_SHUTDOWN,
-                                 E_MMGR_NOTIFY_MODEM_SHUTDOWN, listing);
+    return check_all_clients_ack(h, E_CNX_MODEM_SHUTDOWN,
+                                 E_MMGR_NOTIFY_MODEM_SHUTDOWN, print);
 }
 
 /**
  * check if all clients have released the resource
  *
  * @param [in,out] clients list of clients
- * @param [in] listing enable display
+ * @param [in] print
  *
- * @return E_ERR_BAD_PARAMETER if clients is NULL
- * @return E_ERR_FAILED if at least one client has not released
- * @return E_ERR_SUCCESS all clients have released
+ * @return false if h is NULL
+ * @return true if at least one client has the resource
  */
-e_mmgr_errors_t check_resource_released(client_list_t *clients, bool listing)
+bool clients_has_resource(const clients_hdle_t *h, e_print_t print)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int i;
+    bool answer = false;
+    int i = 0;
+    client_list_t *clients = (client_list_t *)h;
 
-    CHECK_PARAM(clients, ret, out);
+    if (!clients)
+        goto out;
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD) {
             if ((clients->list[i].cnx & E_CNX_RESOURCE_RELEASED)
                 != E_CNX_RESOURCE_RELEASED) {
-                ret = E_ERR_FAILED;
-                if (listing) {
+                answer = true;
+                if (E_PRINT == print)
                     LOG_DEBUG("client (%s) did not release",
                               clients->list[i].name);
-                } else {
+                else
                     break;
-                }
             }
         }
     }
+
 out:
-    return ret;
+    return answer;
 }
 
 /**
@@ -569,9 +613,9 @@ out:
  * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t reset_cold_ack(client_list_t *clients)
+e_mmgr_errors_t clients_reset_ack_cold(clients_hdle_t *h)
 {
-    return reset_ack(clients, E_CNX_COLD_RESET);
+    return reset_ack(h, E_CNX_COLD_RESET);
 }
 
 /**
@@ -582,7 +626,127 @@ e_mmgr_errors_t reset_cold_ack(client_list_t *clients)
  * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t reset_shutdown_ack(client_list_t *clients)
+e_mmgr_errors_t clients_reset_ack_shtdwn(clients_hdle_t *h)
 {
-    return reset_ack(clients, E_CNX_MODEM_SHUTDOWN);
+    return reset_ack(h, E_CNX_MODEM_SHUTDOWN);
+}
+
+/**
+ * @brief client_get_name Return client name
+ * Returned pointer must not be freed.
+ *
+ * @param h
+ *
+ * @return NULL if h is NULL
+ * @return client name
+ */
+const char *client_get_name(const client_hdle_t *h)
+{
+    char *name = NULL;
+    client_t *client = (client_t *)h;
+
+    if (client)
+        name = client->name;
+
+    return name;
+}
+
+/**
+ * @brief client_get_fd Return client file descriptor
+ *
+ * @param h
+ *
+ * @return CLOSED_FD if h is NULL
+ */
+int client_get_fd(const client_hdle_t *h)
+{
+    int fd = CLOSED_FD;
+    client_t *client = (client_t *)h;
+
+    if (client)
+        fd = client->fd;
+
+    return fd;
+}
+
+/**
+ * @brief client_set_request set client request
+ *
+ * @param h
+ * @param req request
+ *
+ * @return E_ERR_SUCCESS
+ * @return E_ERR_BAD_PARAMETER if h is NULL
+ */
+e_mmgr_errors_t client_set_request(client_hdle_t *h, e_cnx_requests_t req)
+{
+    client_t *client = (client_t *)h;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(client, ret, out);
+
+    client->cnx |= req;
+
+out:
+    return ret;
+}
+
+/**
+ * @brief client_unset_request unset client request
+ *
+ * @param h
+ * @param req request
+ *
+ * @return E_ERR_SUCCESS
+ * @return E_ERR_BAD_PARAMETER if h is NULL
+ */
+e_mmgr_errors_t client_unset_request(client_hdle_t *h, e_cnx_requests_t req)
+{
+    client_t *client = (client_t *)h;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(client, ret, out);
+
+    client->cnx &= ~req;
+
+out:
+    return ret;
+}
+
+/**
+ * @brief clients_get_connected Return number of connected clients
+ *
+ * @param h
+ *
+ * @return -1 if h is NULL
+ * @return number of connected clients
+ */
+int clients_get_connected(const clients_hdle_t *h)
+{
+    int nb = -1;
+    client_list_t *clients = (client_list_t *)h;
+
+    if (clients)
+        nb = clients->connected;
+
+    return nb;
+}
+
+/**
+ * @brief clients_get_allowed Return number of allowed clients
+ *
+ * @param h
+ *
+ * @return -1 if h is NULL
+ * @return allowed clients
+ */
+int clients_get_allowed(const clients_hdle_t *h)
+{
+    int nb = -1;
+    client_list_t *clients = (client_list_t *)h;
+
+    if (clients)
+        nb = clients->list_size;
+
+    return nb;
 }

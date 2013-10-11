@@ -15,5 +15,5 @@ limitations under the License.
 
 <permissions>
 <library name="com.intel.internal.telephony.MmgrClient"
-    file="/system/framework/com.intel.internal.telephony.MmgrClient.jar"/>
+	file="/system/framework/com.intel.internal.telephony.MmgrClient.jar"/>
 </permissions>

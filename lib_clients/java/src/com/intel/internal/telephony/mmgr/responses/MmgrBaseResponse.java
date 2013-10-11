@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class MmgrBaseResponse {
-
     protected int responseId = -1;
     protected int timestamp = -1;
     protected byte[] payload = new byte[0];
@@ -77,9 +76,8 @@ public abstract class MmgrBaseResponse {
     }
 
     public void parseRawFrame(byte[] fullFrame, int offset, int size) {
-
         if (fullFrame == null || fullFrame.length < (offset + size)
-                || size < MmgrBaseResponse.HEADER_SIZE) {
+            || size < MmgrBaseResponse.HEADER_SIZE) {
             throw new IllegalArgumentException("fullFrame");
         }
         ByteBuffer buffer = ByteBuffer.wrap(fullFrame, offset, size);
@@ -96,7 +94,7 @@ public abstract class MmgrBaseResponse {
         int payloadSize = (payload != null ? payload.length : 0);
 
         ByteBuffer ret = ByteBuffer.allocate(MmgrBaseResponse.HEADER_SIZE
-                + payloadSize);
+                                             + payloadSize);
 
         if (ret != null) {
             ret.putInt(this.responseId);
@@ -113,12 +111,11 @@ public abstract class MmgrBaseResponse {
     public int getRawFrameLength() {
         byte[] frame = this.getRawFrame();
 
-        return (frame == null ? 0 : frame.length);
+        return frame == null ? 0 : frame.length;
     }
 
     public static MmgrBaseResponse parseResponse(byte[] data, int offset,
-            int size) {
-
+                                                 int size) {
         MmgrBaseResponse header = new MmgrBaseResponse() {
         };
 
@@ -138,11 +135,11 @@ public abstract class MmgrBaseResponse {
         switch (header.getResponseId()) {
         case MedfieldMmgrClient.NOTIFY_ACK:
             header = new MmgrAckResponse(header.getResponseId(),
-                    header.getTimestamp(), true);
+                                         header.getTimestamp(), true);
             break;
         case MedfieldMmgrClient.NOTIFY_NACK:
             header = new MmgrAckResponse(header.getResponseId(),
-                    header.getTimestamp(), false);
+                                         header.getTimestamp(), false);
             break;
         }
 
@@ -150,7 +147,7 @@ public abstract class MmgrBaseResponse {
     }
 
     public static List<MmgrBaseResponse> parseResponses(byte[] data,
-            int offset, int size) {
+                                                        int offset, int size) {
         ArrayList<MmgrBaseResponse> ret = new ArrayList<MmgrBaseResponse>();
 
         MmgrBaseResponse parsedResponse = null;
@@ -159,11 +156,11 @@ public abstract class MmgrBaseResponse {
 
         do {
             parsedResponse = MmgrBaseResponse.parseResponse(data,
-                    currentOffset, currentLength);
+                                                            currentOffset, currentLength);
 
             if (parsedResponse != null) {
                 Log.d(Constants.LOG_TAG, "Parsed response ID : "
-                        + parsedResponse.getResponseId());
+                      + parsedResponse.getResponseId());
                 ret.add(parsedResponse);
                 int currentFrameLength = parsedResponse.getRawFrameLength();
                 currentOffset += currentFrameLength;

@@ -23,7 +23,6 @@ import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 import java.nio.ByteBuffer;
 
 public class MmgrRegisterEventsRequest extends MmgrBaseRequest {
-
     private int subscribedEvents = 0;
 
     public MmgrRegisterEventsRequest(int subscribedEvents) {

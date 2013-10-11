@@ -1,20 +1,20 @@
 /* Modem Manager (MMGR) test application - tests definition source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <errno.h>
 #include <stdio.h>
@@ -151,9 +151,8 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
          "performed, the test will be declared FAILED\n"
          "*************************************************************\n\n");
 
-    if (test->config.nb_cold_reset > 0) {
-
-        for (i = 1; i <= test->config.nb_cold_reset; i++) {
+    if (test->cfg.cold_reset > 0) {
+        for (i = 1; i <= test->cfg.cold_reset; i++) {
             printf("\nCheck #%d COLD reset\n", i);
             pthread_mutex_lock(&test->mutex);
             test->events &= ~E_EVENTS_SUCCEED;
@@ -177,17 +176,15 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
         goto out;
     }
 
-    if (reboot >= test->config.nb_platform_reboot) {
+    if (reboot >= test->cfg.reboot)
         ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE,
                              TIMEOUT_MODEM_DOWN_AFTER_CMD);
-    } else {
+    else
         ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT,
                              TIMEOUT_MODEM_DOWN_AFTER_CMD);
-    }
 
-    if (ret == E_ERR_SUCCESS) {
+    if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
-    }
 
 out:
     return ret;
@@ -292,8 +289,8 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
 
     property_set_int(PLATFORM_REBOOT_KEY, 123);
     LOG_DEBUG("waiting during %ds. Please, do not use your phone",
-              test->config.min_time_issue + 1);
-    sleep(test->config.min_time_issue + 1);
+              test->cfg.reset_escalation + 1);
+    sleep(test->cfg.reset_escalation + 1);
 
     ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RECOVERY,
                                   E_MMGR_NOTIFY_MODEM_COLD_RESET,
@@ -370,16 +367,14 @@ e_mmgr_errors_t turn_on_modem(test_data_t *test)
     LOG_DEBUG("starting the RIL");
     ret = property_set_int(RIL_PROPERTY, 0);
 
-    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
+    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED)
         ret = E_ERR_FAILED;
-    } else {
+    else
         ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                              TIMEOUT_MODEM_UP_AFTER_RESET);
-    }
 
-    if (ret == E_ERR_SUCCESS) {
+    if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
-    }
 
 out:
     return ret;
@@ -442,9 +437,8 @@ e_mmgr_errors_t resource_check(test_data_t *test)
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
 
-    if (ret == E_ERR_SUCCESS) {
+    if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
-    }
 
 out:
     return ret;
@@ -519,7 +513,6 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
 
     if (mmgr_cli_subscribe_event(test->lib, generic_mmgr_evt,
                                  E_MMGR_ACK) != E_ERR_CLI_BAD_CNX_STATE) {
-
         line = __LINE__;
         goto out;
     }
@@ -578,12 +571,14 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    if (mmgr_cli_unsubscribe_event(test->lib, E_MMGR_NACK) != E_ERR_CLI_FAILED) {
+    if (mmgr_cli_unsubscribe_event(test->lib,
+                                   E_MMGR_NACK) != E_ERR_CLI_FAILED) {
         line = __LINE__;
         goto out;
     }
 
-    if (mmgr_cli_unsubscribe_event(test->lib, E_MMGR_NACK) != E_ERR_CLI_FAILED) {
+    if (mmgr_cli_unsubscribe_event(test->lib,
+                                   E_MMGR_NACK) != E_ERR_CLI_FAILED) {
         line = __LINE__;
         goto out;
     }

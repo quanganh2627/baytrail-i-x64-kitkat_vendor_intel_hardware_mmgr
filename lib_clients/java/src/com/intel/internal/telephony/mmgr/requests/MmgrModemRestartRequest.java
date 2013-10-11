@@ -21,7 +21,6 @@ package com.intel.internal.telephony.mmgr.requests;
 import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
 public class MmgrModemRestartRequest extends MmgrBaseRequest {
-
     public MmgrModemRestartRequest() {
         super(MedfieldMmgrClient.REQUEST_MODEM_RESTART);
     }

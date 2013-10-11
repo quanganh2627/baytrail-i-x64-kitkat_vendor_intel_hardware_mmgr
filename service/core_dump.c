@@ -1,20 +1,20 @@
 /* Modem Manager - core dump source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <errno.h>
 #include <dlfcn.h>
@@ -23,6 +23,16 @@
 #include "errors.h"
 #include "logs.h"
 
+typedef struct mcdr_lib {
+    bool enabled;
+    void *lib;
+    mcdr_data_t data;
+    void (*read)(mcdr_data_t *);
+    void (*cleanup)(void);
+    mcdr_status_t (*get_state)(void);
+    char *(*get_reason)(void);
+} mcdr_lib_t;
+
 typedef struct core_dump_thread {
     pthread_t thread_id;
     pthread_mutex_t mutex;
@@ -30,8 +40,6 @@ typedef struct core_dump_thread {
     mcdr_lib_t *mcdr;
 } core_dump_thread_t;
 
-/* Core dump reader configuration filename */
-#define MCDR_CONFIG_FILE "/system/etc/telephony/mcdr.conf"
 /* the recovery time must not exceed */
 #define CORE_DUMP_RECOVERY_MAX_TIME 1200
 #define MCDR_LIBRARY_NAME "libmcdr.so"
@@ -45,23 +53,28 @@ typedef struct core_dump_thread {
  * initialize core dump. If the libmcdr is available, mcdr will be enabled
  * disabled if not.
  *
- * @param [in] config mmgr config
- * @param [in,out] mcdr mcdr config
+ * @param [in] cfg
  *
- * @return E_ERR_BAD_PARAMETER if mcdr is NULL
- * @return E_ERR_FAILED initialization fails
- * @return E_ERR_SUCCESS if successful
+ * @return a valid mcdr_handle_t pointer
+ * @return NULL otherwise
  */
-e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
-                               mcdr_lib_t *mcdr)
+mcdr_handle_t *mcdr_init(const mcdr_info_t *cfg)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char *p = NULL;
-    const char *str_protocol[] = { "LCDP", "YMODEM" };
+    mcdr_lib_t *mcdr = NULL;
 
-    CHECK_PARAM(mcdr, ret, out);
+    if (!cfg) {
+        LOG_ERROR("cfg is NULL");
+        goto err;
+    }
 
-    if (!config->modem_core_dump_enable) {
+    mcdr = calloc(1, sizeof(mcdr_lib_t));
+    if (!mcdr) {
+        LOG_ERROR("memory allocation failed");
+        goto err;
+    }
+
+    if (!cfg->gnl.enable) {
         mcdr->enabled = false;
         LOG_VERBOSE("failed to load library");
     } else {
@@ -71,10 +84,8 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
             dlerror();
         } else {
             mcdr->enabled = true;
-            mcdr->data.baudrate = config->mcdr_baudrate;
-            strncpy(mcdr->data.path, config->mcdr_path, MAX_SIZE_CONF_VAL - 1);
-            strncpy(mcdr->data.port, config->mcdr_device,
-                    MAX_SIZE_CONF_VAL - 1);
+            mcdr->data.mcdr_info = *cfg;
+
             mcdr->read = dlsym(mcdr->lib, MCDR_GET_CORE_DUMP);
             mcdr->cleanup = dlsym(mcdr->lib, MCDR_CLEANUP);
             mcdr->get_state = dlsym(mcdr->lib, MCDR_GET_STATE);
@@ -83,20 +94,38 @@ e_mmgr_errors_t core_dump_init(const mmgr_configuration_t *config,
             p = (char *)dlerror();
             if (p != NULL) {
                 LOG_ERROR("An error ocurred during symbol resolution");
-                dlclose(mcdr->lib);
-                mcdr->lib = NULL;
-                ret = E_ERR_FAILED;
+                goto err;
             }
-
-            if (strncmp(config->mcdr_protocol, "LCDP", MAX_SIZE_CONF_VAL) == 0)
-                mcdr->data.protocol = LCDP;
-            else
-                mcdr->data.protocol = YMODEM;
-
-            LOG_DEBUG("MCDR protocol: %s", str_protocol[mcdr->data.protocol]);
         }
     }
-out:
+
+    return (mcdr_handle_t *)mcdr;
+
+err:
+    mcdr_dispose((mcdr_handle_t *)mcdr);
+    return NULL;
+}
+
+/**
+ * @brief mcdr_dispose
+ *
+ * @param h module handle
+ *
+ * @return E_ERR_SUCCESS if succeed
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t mcdr_dispose(mcdr_handle_t *h)
+{
+    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    if (h) {
+        dlclose(mcdr->lib);
+        free(mcdr);
+    } else {
+        ret = E_ERR_FAILED;
+    }
+
     return ret;
 }
 
@@ -120,21 +149,22 @@ static void thread_core_dump(core_dump_thread_t *cd_reader)
 /**
  * Start core dump reader program.
  *
- * @param [in] mcdr mcdr config
+ * @param [in] h module handle
  * @param [out] state
  *
  * @return E_ERR_BAD_PARAMETER if mcdr is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr, e_core_dump_state_t *state)
+e_mmgr_errors_t mcdr_read(mcdr_handle_t *h, e_core_dump_state_t *state)
 {
-    int err;
+    int err = 0;
     e_mmgr_errors_t ret = E_ERR_FAILED;
     struct timespec ts;
     struct timeval tp;
     struct timeval tp_end;
     core_dump_thread_t cd_reader;
+    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
 
     CHECK_PARAM(mcdr, ret, out);
     CHECK_PARAM(state, ret, out);
@@ -217,4 +247,75 @@ e_mmgr_errors_t retrieve_core_dump(mcdr_lib_t *mcdr, e_core_dump_state_t *state)
 
 out:
     return ret;
+}
+
+/**
+ * Returns the path where core dump is stored
+ * The returned value must not be freed
+ *
+ * @param [in] h module handle
+ *
+ * @return path
+ * @return NULL if h is NULL
+ */
+const char *mcdr_get_path(mcdr_handle_t *h)
+{
+    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
+    char *path = NULL;
+
+    if (h)
+        path = mcdr->data.mcdr_info.gnl.path;
+
+    return path;
+}
+
+/**
+ * Returns the filename where core dump is stored
+ * The returned value must not be freed
+ *
+ * @param [in] h module handle
+ *
+ * @return filename
+ * @return NULL if h is NULL
+ */
+const char *mcdr_get_filename(mcdr_handle_t *h)
+{
+    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
+    char *filename = NULL;
+
+    if (h)
+        filename = mcdr->data.coredump_file;
+
+    return filename;
+}
+
+/**
+ * Returns the error reason where core dump is stored
+ * The returned value must not be freed
+ *
+ * @param [in] h module handle
+ *
+ * @return error reason
+ * @return NULL if h is NULL
+ */
+const char *mcdr_get_error_reason(mcdr_handle_t *h)
+{
+    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
+    char *reason = NULL;
+
+    if (h)
+        reason = mcdr->get_reason();
+
+    return reason;
+}
+
+bool mcdr_is_enabled(mcdr_handle_t *h)
+{
+    bool enable = false;
+    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
+
+    if (h)
+        enable = mcdr->enabled;
+
+    return enable;
 }

@@ -1,34 +1,36 @@
 /* Modem Manager - modem specific source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
-#include "logs.h"
 #include "modem_specific.h"
+#include "logs.h"
+#include "mmgr.h"
 #include "timer_events.h"
 #include "file.h"
 #include "modem_update.h"
-#include "link_pm.h"
+#include "pm.h"
+#include "ctrl.h"
 
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define FLS_FILE_PERMISSION (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH)
+#define FLS_FILE_PERMISSION (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 /* @TODO: this should be configurable via mmgr.conf */
 #define MUP_LIB "libmodemupdate.so"
 #define MUP_FUNC_INIT "mup_initialize"
@@ -57,7 +59,7 @@ e_mmgr_errors_t backup_prod_nvm(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    ret = copy_file(info->fl_conf.run_cal, info->fl_conf.bkup_cal,
+    ret = copy_file(info->fl_conf.run.nvm_cal, info->fl_conf.bkup.nvm_cal,
                     FLS_FILE_PERMISSION);
 
 out:
@@ -141,6 +143,28 @@ out:
     return ret;
 }
 
+/**
+ * This function disposes the modem specific module
+ *
+ * @param [in] info
+ *
+ * @return E_ERR_BAD_PARAMETER one parameter is NULL
+ * @return E_ERR_FAILED if mcdr init fails
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t mdm_specific_dispose(modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    CHECK_PARAM(info, ret, out);
+
+    if (info->mup.hdle != NULL)
+        dlclose(info->mup.hdle);
+
+out:
+    return ret;
+}
+
 e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -163,44 +187,48 @@ out:
  * @param[in] info modem data
  * @param[in] comport modem communication port for flashing
  * @param[in] ch_sw channel hw sw
- * @param[in] secur secur library data
+ * @param[in] sec_hdle secure library handle
  * @param[out] verdict provides modem fw update status
  *
  * @return E_ERR_FAILED if operation fails
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if info is empty
  */
-e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
-                               secur_t *secur, e_modem_fw_error_t *verdict)
+e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
+                               bool ch_sw,
+                               secure_handle_t *sec_hdle,
+                               e_modem_fw_error_t *verdict)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mup_interface_t *handle = NULL;
-    secur_callback_fptr_t secur_callback = NULL;
+    secure_cb_t *secur_callback = NULL;
 
     CHECK_PARAM(info, ret, out);
-    CHECK_PARAM(secur, ret, out);
+    CHECK_PARAM(sec_hdle, ret, out);
 
     if (E_MUP_SUCCEED != info->mup.initialize(&handle, mup_log)) {
         LOG_ERROR("modem updater initialization failed");
         goto out;
     }
 
-    /* @TODO retrieve modem version via SFI table and remove this static value */
-    if (info->mup.check_fw_version(info->fl_conf.run_inj_fls, "XMM7160") !=
-        E_MUP_SUCCEED) {
+    /* @TODO retrieve modem version via SFI table and remove this static value
+    **/
+    if (info->mup.check_fw_version(info->fl_conf.run.mdm_inj_fw,
+                                   info->mdm_name) != E_MUP_SUCCEED) {
         LOG_ERROR("Bad modem family. Shutdown the modem");
         *verdict = E_MODEM_FW_BAD_FAMILY;
         goto out;
     }
 
     mup_fw_update_params_t params = {
-        .handle = handle,
-        .mdm_com_port = comport,
-        .channel_hw_sw = ch_sw,
-        .fw_file_path = info->fl_conf.run_inj_fls,
-        .fw_file_path_len = strnlen(info->fl_conf.run_inj_fls,
-                                    MAX_SIZE_CONF_VAL),
-        .erase_all = false      /* for flashless modem, this should be false */
+        .handle           = handle,
+        .mdm_com_port     = comport,
+        .channel_hw_sw    = ch_sw,
+        .fw_file_path     = info->fl_conf.run.mdm_inj_fw,
+        .fw_file_path_len = strnlen(info->fl_conf.run.mdm_inj_fw,
+                                    sizeof(info->fl_conf.run.mdm_inj_fw)),
+        /* for flashless modem, this should be false */
+        .erase_all        = false
     };
 
     if (E_MUP_SUCCEED != info->mup.open_device(&params)) {
@@ -210,12 +238,12 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
 
     char *rnd = NULL;
     size_t len = 0;
-    if (E_ERR_SUCCESS == is_file_exists(info->fl_conf.run_rnd_cert, 0)) {
-        rnd = info->fl_conf.run_rnd_cert;
-        len = strnlen(info->fl_conf.run_rnd_cert, MAX_SIZE_CONF_VAL);
+    if (E_ERR_SUCCESS == is_file_exists(info->fl_conf.run.rnd, 0)) {
+        rnd = info->fl_conf.run.rnd;
+        len = strnlen(info->fl_conf.run.rnd, sizeof(info->fl_conf.run.rnd));
     }
 
-    secur_get_callback(secur, &secur_callback);
+    secur_callback = secure_get_callback(sec_hdle);
     if (E_MUP_SUCCEED !=
         info->mup.config_secur_channel(handle, secur_callback, rnd, len)) {
         LOG_ERROR("failed to configure the secured channel");
@@ -223,7 +251,7 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, char *comport, bool ch_sw,
     }
 
     e_mup_err_t err = info->mup.update_fw(&params);
-    const char *verdict_str[] = {
+    static const char const *verdict_str[] = {
 #undef X
 #define X(a) #a
         MUP_STATE
@@ -288,11 +316,11 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
     }
 
     mup_nvm_update_params_t params = {
-        .handle = handle,
-        .mdm_com_port = comport,
-        .nvm_file_path = info->fl_conf.nvm_patch,
-        .nvm_file_path_len = strnlen(info->fl_conf.nvm_patch,
-                                     MAX_SIZE_CONF_VAL),
+        .handle            = handle,
+        .mdm_com_port      = comport,
+        .nvm_file_path     = info->fl_conf.run.nvm_tlv,
+        .nvm_file_path_len = strnlen(info->fl_conf.run.nvm_tlv,
+                                     sizeof(info->fl_conf.run.nvm_tlv)),
     };
 
     if ((mup_ret = info->mup.update_nvm(&params)) != E_MUP_SUCCEED) {
@@ -301,10 +329,9 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
         *sub_error_code = mup_ret;
         LOG_ERROR("modem nvm update failed with error %d", mup_ret);
     } else {
-        if (unlink(info->fl_conf.nvm_patch) != 0) {
-            LOG_ERROR("couldn't delete %s: %s", info->fl_conf.nvm_patch,
+        if (unlink(info->fl_conf.run.nvm_tlv) != 0)
+            LOG_ERROR("couldn't delete %s: %s", info->fl_conf.run.nvm_tlv,
                       strerror(errno));
-        }
         /* for now consider a success even if nvm patch not deleted */
         *verdict = E_MODEM_NVM_SUCCEED;
     }
@@ -319,50 +346,6 @@ out:
 }
 
 /**
- * start hsic link
- *
- * @param[in] info modem info
- *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static e_mmgr_errors_t start_hsic(modem_info_t *info)
-{
-    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "1", 1);
-}
-
-/**
- * stop hsic link
- *
- * @param[in] info modem info
- *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static e_mmgr_errors_t stop_hsic(modem_info_t *info)
-{
-    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "0", 1);
-}
-
-/**
- * restart hsic link
- *
- * @param[in] info modem info
- *
- * @return E_ERR_BAD_PARAMETER if info is NULL
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-static e_mmgr_errors_t restart_hsic(modem_info_t *info)
-{
-    /* When the HSIC is already UP, writing 1 resets the hsic, It's what we
-     * want here. This function only exists for "readability" purpose. */
-    return write_to_file(info->hsic_enable_path, SYSFS_OPEN_MODE, "1", 1);
-}
-
-/**
  * package fls file with a fresh fls file and nvm files
  *
  * @param [in] info modem info structure
@@ -373,34 +356,32 @@ static e_mmgr_errors_t restart_hsic(modem_info_t *info)
  */
 static e_mmgr_errors_t regen_fls(modem_info_t *info)
 {
-
     e_mmgr_errors_t ret = E_ERR_FAILED;
     e_mup_err_t mup_err;
     char no_file[2] = "";
 
     CHECK_PARAM(info, ret, out);
 
-    if ((ret = is_file_exists(info->fl_conf.run_boot_fls, 0)) != E_ERR_SUCCESS) {
-        LOG_ERROR("fls file (%s) is missing", info->fl_conf.run_boot_fls);
+    if ((ret = is_file_exists(info->fl_conf.run.mdm_fw, 0)) != E_ERR_SUCCESS) {
+        LOG_ERROR("fls file (%s) is missing", info->fl_conf.run.mdm_fw);
         goto out;
     }
 
-    remove(info->fl_conf.run_inj_fls);
+    remove(info->fl_conf.run.mdm_inj_fw);
     LOG_DEBUG("trying to package fls file");
 
     /* @TODO: add certificate and secur files */
-    mup_err = info->mup.gen_fls(info->fl_conf.run_boot_fls,
-                                info->fl_conf.run_inj_fls,
-                                info->fl_conf.run_path, no_file, no_file);
+    mup_err = info->mup.gen_fls(info->fl_conf.run.mdm_fw,
+                                info->fl_conf.run.mdm_inj_fw,
+                                info->fl_conf.run.path, no_file, no_file);
 
     if (mup_err == E_MUP_SUCCEED) {
-        ret = is_file_exists(info->fl_conf.run_inj_fls, 0);
-        if (ret == E_ERR_SUCCESS) {
+        ret = is_file_exists(info->fl_conf.run.mdm_inj_fw, 0);
+        if (ret == E_ERR_SUCCESS)
             LOG_INFO("fls file created successfully (%s)",
-                     info->fl_conf.run_inj_fls);
-        } else {
+                     info->fl_conf.run.mdm_inj_fw);
+        else
             LOG_ERROR("failed to create fls file");
-        }
     } else {
         ret = E_ERR_FAILED;
     }
@@ -446,8 +427,7 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    if (info->mdm_link == E_LINK_HSIC)
-        stop_hsic(info);
+    ctrl_on_mdm_down(info->ctrl);
 
     if (ioctl(info->fd_mcd, MDM_CTRL_POWER_OFF) == -1) {
         ret = E_ERR_FAILED;
@@ -457,7 +437,7 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
         ret = E_ERR_SUCCESS;
     }
 
-    pm_on_mdm_oos(info);
+    pm_on_mdm_oos(info->pm);
 
 out:
     return ret;
@@ -480,9 +460,7 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     CHECK_PARAM(info, ret, out);
 
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
-
-    if (info->mdm_link == E_LINK_HSIC)
-        start_hsic(info);
+    ctrl_on_mdm_up(info->ctrl);
 
     if (info->is_flashless) {
         if (state & MDM_CTRL_STATE_OFF) {
@@ -500,8 +478,8 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
 
     if (ret == E_ERR_SUCCESS)
         LOG_DEBUG("Modem successfully POWERED-UP");
-    else if (info->mdm_link == E_LINK_HSIC)
-        stop_hsic(info);
+    else
+        ctrl_on_mdm_down(info->ctrl);
 
 out:
     return ret;
@@ -612,18 +590,18 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
 
     if (info->is_flashless) {
         /* Restore calibration file from backup if missing */
-        if (is_file_exists(info->fl_conf.run_cal, 0) != E_ERR_SUCCESS) {
-            if (copy_file(info->fl_conf.bkup_cal, info->fl_conf.run_cal,
+        if (is_file_exists(info->fl_conf.run.nvm_cal, 0) != E_ERR_SUCCESS) {
+            if (copy_file(info->fl_conf.bkup.nvm_cal, info->fl_conf.run.nvm_cal,
                           FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
                 /* This is not a blocking error case because this can happen in
                  * production when first calib is about to be done. Just raise a
                  * warning. */
                 LOG_INFO("No calib could be restored from %s,"
                          " device must be re-calibrated",
-                         info->fl_conf.bkup_cal);
+                         info->fl_conf.bkup.nvm_cal);
             } else {
                 LOG_INFO("Calibration file restored from %s",
-                         info->fl_conf.bkup_cal);
+                         info->fl_conf.bkup.nvm_cal);
             }
         }
         /* re-generates the fls through nvm injection lib if the modem is
@@ -649,9 +627,8 @@ e_mmgr_errors_t mdm_prepare_link(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    /* restart hsic if the modem is hsic */
-    if (info->mdm_link == E_LINK_HSIC)
-        restart_hsic(info);
+    ret = ctrl_on_mdm_flash(info->ctrl);
+
 out:
     return ret;
 }

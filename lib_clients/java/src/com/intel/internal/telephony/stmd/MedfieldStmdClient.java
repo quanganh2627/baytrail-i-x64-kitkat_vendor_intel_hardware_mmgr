@@ -36,7 +36,6 @@ import android.os.Message;
 import android.util.Log;
 
 public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
-
     private final static byte MODEM_DOWN = 0;
     private final static byte MODEM_UP = 1;
     private final static byte PLATFORM_SHUTDOWN = 2;
@@ -59,11 +58,10 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
 
     protected LocalSocketAddress getSocketAddress() {
         return new LocalSocketAddress("modem-status",
-                LocalSocketAddress.Namespace.RESERVED);
+                                      LocalSocketAddress.Namespace.RESERVED);
     }
 
     public void start(String clientName) {
-
         this.stopRequested = false;
 
         this.clientSocket = new LocalSocket();
@@ -74,7 +72,6 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
     }
 
     public void stop() {
-
         this.stopRequested = true;
         this.cleanUp();
         try {
@@ -92,7 +89,6 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
     }
 
     public void run() {
-
         byte[] recvBuffer = new byte[1024]; // should be large enough to contain
                                             // response
         InputStream inputStream = null;
@@ -105,13 +101,12 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
             Log.e(Constants.LOG_TAG, ex.toString());
 
             this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-                    .sendToTarget();
+            .sendToTarget();
             this.cleanUp();
             return;
         }
 
         while (!this.stopRequested) {
-
             try {
                 readCount = inputStream.read(recvBuffer);
 
@@ -120,7 +115,7 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
                 Log.e(Constants.LOG_TAG, ex.toString());
 
                 this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-                        .sendToTarget();
+                .sendToTarget();
                 this.cleanUp();
                 return;
             }
@@ -128,13 +123,11 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
     }
 
     private void handleResponse(byte[] buffer, int length) {
-
         ModemNotification notification = ModemNotification.NONE;
         ModemStatus status = ModemStatus.NONE;
 
         for (int i = 0; i < length; i += 4) {
             switch (buffer[i]) {
-
             case MedfieldStmdClient.MODEM_DOWN:
                 Log.i(Constants.LOG_TAG, "Modem status = MODEM_DOWN");
                 status = ModemStatus.DOWN;
@@ -146,13 +139,13 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
 
             case MedfieldStmdClient.MODEM_COLD_RESET:
                 Log.i(Constants.LOG_TAG,
-                        "Modem notification = MODEM_COLD_RESET");
+                      "Modem notification = MODEM_COLD_RESET");
                 notification = ModemNotification.COLD_RESET;
                 break;
 
             case MedfieldStmdClient.PLATFORM_SHUTDOWN:
                 Log.i(Constants.LOG_TAG,
-                        "Modem notification = PLATFORM_SHUTDOWN");
+                      "Modem notification = PLATFORM_SHUTDOWN");
                 notification = ModemNotification.PLATFORM_REBOOT;
                 break;
             default:
@@ -160,17 +153,16 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
             }
             if (status != ModemStatus.NONE) {
                 this.handler.obtainMessage(ModemStatusMonitor.MSG_STATUS,
-                        status).sendToTarget();
+                                           status).sendToTarget();
             }
             if (notification != ModemNotification.NONE) {
                 this.handler.obtainMessage(ModemStatusMonitor.MSG_NOTIFICATION,
-                        notification).sendToTarget();
+                                           notification).sendToTarget();
             }
         }
     }
 
     protected void cleanUp() {
-
         if (this.clientSocket != null) {
             try {
                 this.clientSocket.shutdownInput();
@@ -233,7 +225,7 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
 
     @Override
     public boolean waitForStatus(ModemStatus status, long timeout)
-            throws MmgrClientException {
+    throws MmgrClientException {
         throw new UnsupportedOperationException("Not supported yet");
     }
 }

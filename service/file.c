@@ -1,20 +1,20 @@
 /* Modem Manager - file source file
- **
- ** Copyright (C) Intel 2012
- **
- ** Licensed under the Apache License, Version 2.0 (the "License");
- ** you may not use this file except in compliance with the License.
- ** You may obtain a copy of the License at
- **
- **     http://www.apache.org/licenses/LICENSE-2.0
- **
- ** Unless required by applicable law or agreed to in writing, software
- ** distributed under the License is distributed on an "AS IS" BASIS,
- ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ** See the License for the specific language governing permissions and
- ** limitations under the License.
- **
- */
+**
+** Copyright (C) Intel 2012
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -143,16 +143,16 @@ out:
 }
 
 /**
-* Copies a file from specified source to destination.
-*
-* @param [in] src Source file to copy.
-* @param [in] dst Destination file to copy to.
-* @param [in] dst_mode Mode to give to destination file.
-*
-* @return E_ERR_BAD_PARAMETER if src or dst is NULL
-* @return E_ERR_FAILED file not copied
-* @return E_ERR_SUCCESS file copied
-*/
+ * Copies a file from specified source to destination.
+ *
+ * @param [in] src Source file to copy.
+ * @param [in] dst Destination file to copy to.
+ * @param [in] dst_mode Mode to give to destination file.
+ *
+ * @return E_ERR_BAD_PARAMETER if src or dst is NULL
+ * @return E_ERR_FAILED file not copied
+ * @return E_ERR_SUCCESS file copied
+ */
 e_mmgr_errors_t copy_file(const char *src, const char *dst, mode_t dst_mode)
 {
     int in_fd = -1;
@@ -193,9 +193,8 @@ e_mmgr_errors_t copy_file(const char *src, const char *dst, mode_t dst_mode)
     }
 
 out:
-    if (in_fd >= 0) {
+    if (in_fd >= 0)
         close(in_fd);
-    }
     if (out_fd >= 0) {
         if (close(out_fd) < 0) {
             LOG_ERROR("Error while closing %s: %d", dst, errno);

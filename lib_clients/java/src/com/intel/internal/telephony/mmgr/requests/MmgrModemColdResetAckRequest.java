@@ -21,7 +21,6 @@ package com.intel.internal.telephony.mmgr.requests;
 import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
 public class MmgrModemColdResetAckRequest extends MmgrBaseRequest {
-
     public MmgrModemColdResetAckRequest() {
         super(MedfieldMmgrClient.ACK_MODEM_COLD_RESET);
     }
