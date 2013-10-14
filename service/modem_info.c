@@ -42,8 +42,7 @@
 
 /* switch to MUX timings */
 #define STAT_DELAY 250          /* in milliseconds */
-#define MAX_TIME_DELAY 50000    /* in milliseconds */
-#define MAX_STAT_RETRIES (MAX_TIME_DELAY / STAT_DELAY)
+#define MAX_TIME_DELAY 4        /* in seconds */
 
 typedef enum e_switch_to_mux_states {
     E_MUX_HANDSHAKE,
