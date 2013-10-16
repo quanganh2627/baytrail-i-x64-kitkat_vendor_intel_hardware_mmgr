@@ -43,11 +43,11 @@ typedef enum e_mmgr_errors {
 #define str(s) #s
 
 #define CHECK_PARAM(param, err, label) do { \
-        if (param == NULL) {                    \
-            LOG_DEBUG(xstr(param) " is NULL");   \
-            err = E_ERR_BAD_PARAMETER;          \
-            goto label;                         \
-        }                                       \
+        if (param == NULL) { \
+            LOG_DEBUG(xstr(param) " is NULL"); \
+            err = E_ERR_BAD_PARAMETER; \
+            goto label; \
+        } \
 } while (0)
 
 #endif                          /* __MMGR_ERRORS_HEADER__ */

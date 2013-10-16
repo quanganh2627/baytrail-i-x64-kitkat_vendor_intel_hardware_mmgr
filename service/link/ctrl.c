@@ -141,7 +141,7 @@ static e_mmgr_errors_t ctrl_set_state(link_ctrl_t *ctrl, e_ctrl_action_t action)
         break;
     }
 
-    ret = write_to_file(ctrl->device, SYSFS_OPEN_MODE, cmd, strlen(cmd));
+    ret = file_write(ctrl->device, SYSFS_OPEN_MODE, cmd, strlen(cmd));
 out:
     return ret;
 }

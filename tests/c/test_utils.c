@@ -30,7 +30,7 @@
 #include <sys/wait.h>
 #include <cutils/sockets.h>
 #include "at.h"
-#include "client_events.h"
+#include "common.h"
 #include "errors.h"
 #include "file.h"
 #include "property.h"
@@ -174,7 +174,7 @@ e_mmgr_errors_t send_at_cmd(char *path, char *command, int command_size)
 
     CHECK_PARAM(command, ret, out);
 
-    open_tty(path, &fd_tty);
+    tty_open(path, &fd_tty);
     if (fd_tty < 0) {
         LOG_ERROR("Failed to open %s", path);
         goto out;
@@ -539,16 +539,17 @@ out:
 static int event_core_dump(mmgr_cli_event_t *ev)
 {
     int ret = 1;
-    e_mmgr_errors_t err = E_ERR_FAILED;
     test_data_t *data = NULL;
     mmgr_cli_core_dump_t *cd = NULL;
+    bool found = false;
     const char *cd_state[] = {
 #undef X
 #define X(a) #a
         CORE_DUMP_STATE
     };
 
-    CHECK_PARAM(ev, err, out);
+    if (ev == NULL)
+        goto out;
 
     data = (test_data_t *)ev->context;
     if (data == NULL)
@@ -563,19 +564,23 @@ static int event_core_dump(mmgr_cli_event_t *ev)
     LOG_DEBUG("state: %s", cd_state[cd->state]);
 
     if (cd->state == E_CD_SUCCEED) {
-        if ((err = is_file_exists(cd->path, 0)) != E_ERR_SUCCESS) {
+        if (file_exist(cd->path, 0)) {
+            found = true;
+        } else {
             char *base_name = basename(cd->path);
             size_t i;
             char *folders[] = { "/mnt/shell/emulated/0/logs/", "/sdcard/" };
             for (i = 0; i < (sizeof(folders) / sizeof(*folders)); i++) {
                 LOG_DEBUG("look at: %s", folders[i]);
-                if ((err = is_core_dump_found(base_name,
-                                              folders[i])) == E_ERR_SUCCESS)
+                if (is_core_dump_found(base_name,
+                                       folders[i]) == E_ERR_SUCCESS) {
+                    found = true;
                     break;
+                }
             }
         }
 
-        if (err == E_ERR_SUCCESS) {
+        if (found) {
             LOG_DEBUG("core dump (%s) found", cd->path);
             ret = 0;
         } else {

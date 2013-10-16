@@ -1,14 +1,17 @@
 LOCAL_PATH:= $(call my-dir)
 
+#############################################
+# General rules:
+#############################################
+MY_MODULE := mmgr
+MY_MODULE_TAGS := optional
+
 MY_INCLUDES := \
-    $(TARGET_OUT_HEADERS)/IFX-modem \
-    $(TARGET_OUT_HEADERS) \
     $(LOCAL_PATH)/../inc \
     $(LOCAL_PATH)/link \
     $(call include-path-for, libusb) \
     $(call include-path-for, libpower) \
 
-MY_LOCAL_IMPORT := libtcs libmcdr
 MY_SRC_FILES := $(call all-c-files-under, .)
 
 # Extract commit id
@@ -21,24 +24,26 @@ MY_C_FLAGS := -Wall -Werror -Wvla -DLIBUSBHOST \
     -DGIT_COMMIT_ID=\"$(COMMIT_ID)\" -DMODULE_NAME=\"MMGR\"
 
 MY_SHARED_LIBS := libc libcutils libdl libusbhost liblog libpower
+MY_LOCAL_IMPORT := libtcs libmmgr_utils
 MY_LDLIBS := -lpthread
 
 #############################################
 # MODEM MANAGER daemon
 #############################################
 include $(CLEAR_VARS)
-LOCAL_MODULE := mmgr
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := $(MY_MODULE)
+LOCAL_MODULE_TAGS := $(MY_MODULE_TAGS)
 
 LOCAL_C_INCLUDES := $(MY_INCLUDES)
-LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_IMPORT)
 LOCAL_SRC_FILES :=  $(MY_SRC_FILES)
 LOCAL_CFLAGS += $(MY_C_FLAGS)
 
-LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) libtcs
+# libmcdr is not linked. Only import the header
+LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_IMPORT) libmcdr
+LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_IMPORT)
 LOCAL_LDLIBS += $(MY_LDLIBS)
 #-------------------------------------------
-# module depedency rules
+# module dependency rules
 #-------------------------------------------
 LOCAL_REQUIRED_MODULES := \
     libmmgrcli \
@@ -62,17 +67,19 @@ include $(BUILD_EXECUTABLE)
 ifeq ($(mmgr_gcov), true)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := mmgr-gcov
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := $(addsuffix -gcov, $(MY_MODULE))
+LOCAL_MODULE_TAGS := $(MY_MODULE_TAGS)
 
 LOCAL_C_INCLUDES := $(MY_INCLUDES)
-LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES += $(MY_LOCAL_IMPORT)
 LOCAL_SRC_FILES :=  $(MY_SRC_FILES)
 LOCAL_CFLAGS += $(MY_C_FLAGS) -fprofile-arcs -ftest-coverage -DGOCV_MMGR
 
+MY_LOCAL_GCOV_IMPORT := $(foreach file,$(MY_LOCAL_IMPORT), $(addsuffix -gcov, $(file)))
+# libmcdr is not linked. Only import the header
+LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES += $(MY_LOCAL_GCOV_IMPORT) libmcdr
 LOCAL_LDLIBS += $(MY_LDLIBS)
 LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage -lgcov
-LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) libtcs-gcov
+LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_GCOV_IMPORT)
 include $(BUILD_EXECUTABLE)
 
 endif

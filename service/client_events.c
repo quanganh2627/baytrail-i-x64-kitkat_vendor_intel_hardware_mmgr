@@ -23,6 +23,7 @@
 #include "client_cnx.h"
 #include "client_events.h"
 #include "data_to_msg.h"
+#include "common.h"
 #include "errors.h"
 #include "file.h"
 #include "logs.h"
@@ -710,7 +711,8 @@ e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
         if (conn_sock < 0) {
             LOG_ERROR("Error during accept (%s)", strerror(errno));
         } else {
-            if (add_fd_ev(mmgr->epollfd, conn_sock, EPOLLIN) == E_ERR_SUCCESS) {
+            if (tty_listen_fd(mmgr->epollfd, conn_sock,
+                              EPOLLIN) == E_ERR_SUCCESS) {
                 ret = client_add(mmgr->clients, conn_sock);
                 if (ret != E_ERR_SUCCESS)
                     LOG_ERROR("failed to add new client");
@@ -817,7 +819,7 @@ static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
     path = mcdr_get_path(mmgr->mcdr);
     if (path) {
         snprintf(filename, PATH_MAX - 1, "%s/%s", path, FAKE_CD_FILENAME);
-        write_to_file(filename, OPEN_MODE_RW_UGO, data, 0);
+        file_write(filename, OPEN_MODE_RW_UGO, data, 0);
     }
 
     cd.state = E_CD_SUCCEED;

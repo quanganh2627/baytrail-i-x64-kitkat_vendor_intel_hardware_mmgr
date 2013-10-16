@@ -104,7 +104,7 @@ static e_mmgr_errors_t pm_set_state(power_t *p, bool state)
     if (!state)
         cmd = p->off;
 
-    ret = write_to_file(p->device, SYSFS_OPEN_MODE, cmd, strlen(cmd));
+    ret = file_write(p->device, SYSFS_OPEN_MODE, cmd, strlen(cmd));
 out:
     return ret;
 }

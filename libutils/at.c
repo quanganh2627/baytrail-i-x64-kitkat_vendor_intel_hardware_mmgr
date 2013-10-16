@@ -58,7 +58,7 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
     /* Send AT command to modem */
     LOG_DEBUG("Send of %s", command);
     tcflush(fd, TCIOFLUSH);
-    ret = write_to_tty(fd, command, command_size);
+    ret = tty_write(fd, command, command_size);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
@@ -70,7 +70,7 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
     LOG_DEBUG("Wait answer...");
     for (;; ) {
         /* Give time to receive response or POLLHUP. */
-        ret = wait_for_tty_event(fd, timeout);
+        ret = tty_wait_for_event(fd, timeout);
         if (ret != E_ERR_SUCCESS) {
             if (ret != E_ERR_TTY_POLLHUP)
                 ret = E_ERR_AT_CMD_RESEND;
@@ -78,7 +78,7 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
         }
 
         /* Read response data but give up after AT_READ_MAX_RETRIES tries */
-        ret = read_from_tty(fd, data, &data_size, AT_READ_MAX_RETRIES);
+        ret = tty_read(fd, data, &data_size, AT_READ_MAX_RETRIES);
         data[data_size] = '\0';
         if (ret != E_ERR_SUCCESS) {
             if (ret != E_ERR_TTY_BAD_FD)

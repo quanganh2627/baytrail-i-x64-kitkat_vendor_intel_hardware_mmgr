@@ -177,13 +177,13 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, int max_retry)
 
     LOG_DEBUG("Sending %s", AT_XLOG_GET);
 
-    ret = write_to_tty(fd_tty, AT_XLOG_GET, strlen(AT_XLOG_GET));
+    ret = tty_write(fd_tty, AT_XLOG_GET, strlen(AT_XLOG_GET));
     if (ret != E_ERR_SUCCESS)
         goto out_xlog;
 
     memset(data, 0, AT_ANSWER_SIZE + 1);
 
-    ret = wait_for_tty_event(fd_tty, AT_XLOG_TIMEOUT);
+    ret = tty_wait_for_event(fd_tty, AT_XLOG_TIMEOUT);
     if (ret != E_ERR_SUCCESS) {
         if (ret != E_ERR_TTY_POLLHUP)
             ret = E_ERR_AT_CMD_RESEND;
@@ -192,7 +192,7 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, int max_retry)
 
     do {
         read_size = AT_ANSWER_SIZE;
-        ret = read_from_tty(fd_tty, data, &read_size, AT_READ_MAX_RETRIES);
+        ret = tty_read(fd_tty, data, &read_size, AT_READ_MAX_RETRIES);
         data[read_size] = '\0';
         if (ret != E_ERR_SUCCESS)
             goto out_xlog;
@@ -272,8 +272,8 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
         } else if ((ret == E_ERR_TTY_BAD_FD) && (retry_bad_fd_done == false)) {
             LOG_DEBUG("reopening tty device: %s", info->mdm_ipc_path);
             retry_bad_fd_done = true;
-            close_tty(fd_tty);
-            if ((ret = open_tty(info->mdm_ipc_path, fd_tty)) != E_ERR_SUCCESS)
+            tty_close(fd_tty);
+            if ((ret = tty_open(info->mdm_ipc_path, fd_tty)) != E_ERR_SUCCESS)
                 goto out;
         } else {
             ret = E_ERR_FAILED;
@@ -311,7 +311,7 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
     } else {
         LOG_DEBUG("TTY %s open success", info->sanity_check_dlc);
         /* It's necessary to reset the terminal configuration after MUX init */
-        ret = set_termio(*fd_tty);
+        ret = tty_set_termio(*fd_tty);
     }
 
 out:

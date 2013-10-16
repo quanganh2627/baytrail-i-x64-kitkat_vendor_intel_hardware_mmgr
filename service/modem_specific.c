@@ -59,7 +59,7 @@ e_mmgr_errors_t backup_prod_nvm(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    ret = copy_file(info->fl_conf.run.nvm_cal, info->fl_conf.bkup.nvm_cal,
+    ret = file_copy(info->fl_conf.run.nvm_cal, info->fl_conf.bkup.nvm_cal,
                     FLS_FILE_PERMISSION);
 
 out:
@@ -237,7 +237,7 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
 
     char *rnd = NULL;
     size_t len = 0;
-    if (E_ERR_SUCCESS == is_file_exists(info->fl_conf.run.rnd, 0)) {
+    if (file_exist(info->fl_conf.run.rnd, 0)) {
         rnd = info->fl_conf.run.rnd;
         len = strnlen(info->fl_conf.run.rnd, sizeof(info->fl_conf.run.rnd));
     }
@@ -361,8 +361,9 @@ static e_mmgr_errors_t regen_fls(modem_info_t *info)
 
     CHECK_PARAM(info, ret, out);
 
-    if ((ret = is_file_exists(info->fl_conf.run.mdm_fw, 0)) != E_ERR_SUCCESS) {
+    if (!file_exist(info->fl_conf.run.mdm_fw, 0)) {
         LOG_ERROR("fls file (%s) is missing", info->fl_conf.run.mdm_fw);
+        ret = E_ERR_FAILED;
         goto out;
     }
 
@@ -375,12 +376,13 @@ static e_mmgr_errors_t regen_fls(modem_info_t *info)
                                 info->fl_conf.run.path, no_file, no_file);
 
     if (mup_err == E_MUP_SUCCEED) {
-        ret = is_file_exists(info->fl_conf.run.mdm_inj_fw, 0);
-        if (ret == E_ERR_SUCCESS)
+        if (file_exist(info->fl_conf.run.mdm_inj_fw, 0)) {
             LOG_INFO("fls file created successfully (%s)",
                      info->fl_conf.run.mdm_inj_fw);
-        else
+            ret = E_ERR_SUCCESS;
+        } else {
             LOG_ERROR("failed to create fls file");
+        }
     } else {
         ret = E_ERR_FAILED;
     }
@@ -584,8 +586,8 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
 
     if (info->is_flashless) {
         /* Restore calibration file from backup if missing */
-        if (is_file_exists(info->fl_conf.run.nvm_cal, 0) != E_ERR_SUCCESS) {
-            if (copy_file(info->fl_conf.bkup.nvm_cal, info->fl_conf.run.nvm_cal,
+        if (!file_exist(info->fl_conf.run.nvm_cal, 0)) {
+            if (file_copy(info->fl_conf.bkup.nvm_cal, info->fl_conf.run.nvm_cal,
                           FLS_FILE_PERMISSION) != E_ERR_SUCCESS) {
                 /* This is not a blocking error case because this can happen in
                  * production when first calib is about to be done. Just raise a

@@ -25,46 +25,7 @@
 #include "file.h"
 #include "logs.h"
 
-/**
- * read a string from a file
- *
- * @param [in] path complete file path
- * @param [in] mode open permissions
- * @param [out] value string to read
- * @param [out] size of the buffer. the size is updated with
- * read value
- *
- * @return E_ERR_FAILED if open fails
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if path or value is/are NULL
- */
-e_mmgr_errors_t read_file(char *path, unsigned long mode, char *value,
-                          size_t *size)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    int fd;
-    int read_size = 0;
-
-    CHECK_PARAM(path, ret, out);
-    CHECK_PARAM(value, ret, out);
-
-    memset(value, 0, *size);
-    fd = open(path, O_RDONLY, mode);
-    if (fd < 0) {
-        LOG_ERROR("open of (%s) failed (%s)", path, strerror(errno));
-    } else {
-        read_size = read(fd, value, *size);
-        if (close(fd) == 0) {
-            ret = E_ERR_SUCCESS;
-            LOG_DEBUG("read to (%s) succeed", path);
-        } else {
-            LOG_ERROR("read to (%s) failed. (%s)", path, strerror(errno));
-        }
-        *size = read_size;
-    }
-out:
-    return ret;
-}
+#define MASK_ALL (S_IRWXU | S_IRWXG | S_IRWXO)
 
 /**
  * write a string to a file
@@ -78,8 +39,8 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_BAD_PARAMETER if path or value is/are NULL
  */
-e_mmgr_errors_t write_to_file(char *path, unsigned long mode, char *value,
-                              size_t size)
+e_mmgr_errors_t file_write(char *path, unsigned long mode, char *value,
+                           size_t size)
 {
     int fd;
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -112,34 +73,25 @@ out:
  * @param [in] rights file rights should be equal to rights. if rights is 0 the
  * check is not performed
  *
- * @return E_ERR_BAD_PARAMETER if path is NULL
- * @return E_ERR_FAILED file not found
- * @return E_ERR_SUCCESS file found
+ * @return false by default
+ * @return true if file exist
  */
-e_mmgr_errors_t is_file_exists(const char *path, unsigned long rights)
+bool file_exist(const char *path, unsigned long rights)
 {
-    struct stat statbuf;
-    int ret = E_ERR_SUCCESS;
+    struct stat st;
+    bool result = false;
 
-    CHECK_PARAM(path, ret, out);
-
-    if (stat(path, &statbuf) == -1) {
-        ret = E_ERR_FAILED;
-        goto out;
-    }
-
-    if (rights != 0) {
-        if (!S_ISREG(statbuf.st_mode)) {
-            LOG_DEBUG("not a file");
-            ret = E_ERR_FAILED;
-        } else if ((statbuf.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) !=
-                   (rights & ~MMGR_UMASK)) {
-            LOG_DEBUG("bad file permissions");
-            ret = E_ERR_FAILED;
+    if (path) {
+        if (!stat(path, &st) && S_ISREG(st.st_mode)) {
+            result = true;
+            if (rights && ((st.st_mode & MASK_ALL) != (rights & ~MMGR_UMASK))) {
+                LOG_DEBUG("bad file permissions");
+                result = false;
+            }
         }
     }
-out:
-    return ret;
+
+    return result;
 }
 
 /**
@@ -153,7 +105,7 @@ out:
  * @return E_ERR_FAILED file not copied
  * @return E_ERR_SUCCESS file copied
  */
-e_mmgr_errors_t copy_file(const char *src, const char *dst, mode_t dst_mode)
+e_mmgr_errors_t file_copy(const char *src, const char *dst, mode_t dst_mode)
 {
     int in_fd = -1;
     int out_fd = -1;

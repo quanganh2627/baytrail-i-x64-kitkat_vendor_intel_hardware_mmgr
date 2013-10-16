@@ -80,7 +80,7 @@ static e_mmgr_errors_t read_msg(int fd, char **received, int *send_id,
 
     do {
         read_size = AT_SIZE;
-        ret = read_from_tty(fd, buffer, &read_size, AT_READ_MAX_RETRIES);
+        ret = tty_read(fd, buffer, &read_size, AT_READ_MAX_RETRIES);
         if ((read_size <= 0) || (ret != E_ERR_SUCCESS))
             goto out;
         buffer[read_size] = '\0';
@@ -133,8 +133,8 @@ static e_mmgr_errors_t read_msg(int fd, char **received, int *send_id,
     if (data_len != *len) {
         remain = *len - data_len + 2;
         tmp = remain;
-        ret = read_from_tty(fd, *received + data_len, &tmp,
-                            AT_READ_MAX_RETRIES);
+        ret = tty_read(fd, *received + data_len, &tmp,
+                       AT_READ_MAX_RETRIES);
         if ((ret != E_ERR_SUCCESS) || (tmp != remain))
             goto out;
     }
@@ -350,7 +350,7 @@ e_mmgr_errors_t secure_register(secure_handle_t *h, int *fd)
 
     secur->fd = CLOSED_FD;
     if (secur->enable)
-        ret = open_tty(secur->dlc, &secur->fd);
+        ret = tty_open(secur->dlc, &secur->fd);
 
     *fd = secur->fd;
 
@@ -379,7 +379,7 @@ e_mmgr_errors_t secure_start(secure_handle_t *h)
         LOG_DEBUG("Send of: %s", at_cmd);
         /* The modem doesn't answer OK to this AT command. That's why this
          * function is used */
-        ret = write_to_tty(secur->fd, at_cmd, strlen(at_cmd));
+        ret = tty_write(secur->fd, at_cmd, strlen(at_cmd));
     }
 
 out:
@@ -403,7 +403,7 @@ e_mmgr_errors_t secure_stop(secure_handle_t *h)
     CHECK_PARAM(secur, ret, out);
 
     if (secur->enable)
-        ret = close_tty(&secur->fd);
+        ret = tty_close(&secur->fd);
 
 out:
     return ret;

@@ -52,7 +52,7 @@ static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 static inline void mdm_close_fds(mmgr_data_t *mmgr)
 {
     secure_stop(mmgr->secure);
-    close_tty(&mmgr->fd_tty);
+    tty_close(&mmgr->fd_tty);
 }
 
 static e_mmgr_errors_t notify_core_dump(clients_hdle_t *clients,
@@ -225,8 +225,7 @@ static e_mmgr_errors_t do_nvm_customization(mmgr_data_t *mmgr)
         LOG_DEBUG("checking for nvm patch existence at %s",
                   mmgr->info.fl_conf.run.nvm_tlv);
 
-        if (is_file_exists(mmgr->info.fl_conf.run.nvm_tlv,
-                           0) == E_ERR_SUCCESS) {
+        if (file_exist(mmgr->info.fl_conf.run.nvm_tlv, 0)) {
             LOG_DEBUG("nvm patch found");
             ret = flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc,
                                   &nvm_result.id, &nvm_result.sub_error_code);
@@ -286,7 +285,7 @@ static e_mmgr_errors_t update_modem_tty(mmgr_data_t *mmgr)
 
     CHECK_PARAM(mmgr, ret, out);
 
-    ret = add_fd_ev(mmgr->epollfd, mmgr->fd_tty, EPOLLIN);
+    ret = tty_listen_fd(mmgr->epollfd, mmgr->fd_tty, EPOLLIN);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
@@ -431,7 +430,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     mmgr->info.polled_states = MDM_CTRL_STATE_WARM_BOOT;
     ret = set_mcd_poll_states(&mmgr->info);
 
-    open_tty(mmgr->info.shtdwn_dlc, &fd);
+    tty_open(mmgr->info.shtdwn_dlc, &fd);
     if (fd < 0) {
         LOG_ERROR("operation FAILED");
     } else {
@@ -447,7 +446,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
             LOG_ERROR("timeout");
         else
             LOG_DEBUG("Modem is down");
-        close_tty(&fd);
+        tty_close(&fd);
     }
 
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
@@ -551,7 +550,7 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     CHECK_PARAM(mmgr, ret, out);
-    ret = open_tty(mmgr->info.mdm_ipc_path, &mmgr->fd_tty);
+    ret = tty_open(mmgr->info.mdm_ipc_path, &mmgr->fd_tty);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("open fails");
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
@@ -639,7 +638,7 @@ static e_mmgr_errors_t launch_secur(mmgr_data_t *mmgr)
         goto out;
 
     if (fd != CLOSED_FD) {
-        add_fd_ev(mmgr->epollfd, fd, EPOLLIN);
+        tty_listen_fd(mmgr->epollfd, fd, EPOLLIN);
         ret = secure_start(mmgr->secure);
     }
 out:

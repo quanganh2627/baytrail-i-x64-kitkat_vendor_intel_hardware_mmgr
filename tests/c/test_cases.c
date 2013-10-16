@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "common.h"
 #include "errors.h"
 #include "file.h"
 #include "mmgr.h"

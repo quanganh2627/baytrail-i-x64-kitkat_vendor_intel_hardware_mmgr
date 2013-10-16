@@ -463,7 +463,7 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
         LOG_DEBUG("Waiting for answer", p_lib);
 
         if (method == E_SEND_SINGLE) {
-            err = wait_for_tty_event(p_lib->fd_socket, timeout * 1000);
+            err = tty_wait_for_event(p_lib->fd_socket, timeout * 1000);
             if (err == E_ERR_TTY_TIMEOUT)
                 break;
             msg_t answer;

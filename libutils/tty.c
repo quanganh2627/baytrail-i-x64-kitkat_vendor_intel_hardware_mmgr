@@ -16,15 +16,16 @@
 **
 */
 
+#include <sys/epoll.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
 #include <termios.h>
-#include "errors.h"
 #include "logs.h"
 #include "tty.h"
 
 #define MAX_OPEN_RETRY 5
+#define DELAY_BETWEEN_SUCCESSIVE_READ 20000     /* in milliseconds */
 
 /**
  * add fd to epoll
@@ -37,7 +38,7 @@
  * @return E_ERR_FAILED initialization fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t add_fd_ev(int epollfd, int fd, int events)
+e_mmgr_errors_t tty_listen_fd(int epollfd, int fd, int events)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     struct epoll_event ev;
@@ -52,7 +53,7 @@ e_mmgr_errors_t add_fd_ev(int epollfd, int fd, int events)
     return ret;
 }
 
-e_mmgr_errors_t init_ev_hdler(int *epollfd)
+e_mmgr_errors_t tty_init_listener(int *epollfd)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -79,17 +80,17 @@ out:
  * @return E_ERR_FAILED if epoll create fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t wait_for_tty_event(int fd, int timeout)
+e_mmgr_errors_t tty_wait_for_event(int fd, int timeout)
 {
     struct epoll_event ev;
     int epollfd = CLOSED_FD;
     int err;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    if ((ret = init_ev_hdler(&epollfd)) != E_ERR_SUCCESS)
+    if ((ret = tty_init_listener(&epollfd)) != E_ERR_SUCCESS)
         goto out;
 
-    ret = add_fd_ev(epollfd, fd, EPOLLIN | EPOLLHUP);
+    ret = tty_listen_fd(epollfd, fd, EPOLLIN | EPOLLHUP);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
@@ -130,8 +131,8 @@ out:
  * @return E_ERR_BAD_PARAMETER if data or data_size is/are NULL
  * @return E_ERR_TTY_ERROR otherwise
  */
-e_mmgr_errors_t read_from_tty(int fd, char *data, int *data_size,
-                              int max_retries)
+e_mmgr_errors_t tty_read(int fd, char *data, int *data_size,
+                         int max_retries)
 {
     int i;
     int err;
@@ -178,7 +179,7 @@ failure:
  * @return E_ERR_TTY_ERROR if nothing has been written
  * @return E_ERR_TTY_BAD_FD if write fails
  */
-e_mmgr_errors_t write_to_tty(int fd, const char *data, int data_size)
+e_mmgr_errors_t tty_write(int fd, const char *data, int data_size)
 {
     int err = 0;
     int cur = 0;
@@ -210,7 +211,7 @@ e_mmgr_errors_t write_to_tty(int fd, const char *data, int data_size)
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_TTY_ERROR if nothing has been written
  */
-e_mmgr_errors_t set_termio(int fd)
+e_mmgr_errors_t tty_set_termio(int fd)
 {
     struct termios newtio;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -259,7 +260,7 @@ out:
  * @return E_ERR_TTY_BAD_FD if open fails
  * @return E_ERR_BAD_PARAMETER tty_name or fd is/are NULL
  */
-e_mmgr_errors_t open_tty(const char *tty_name, int *fd)
+e_mmgr_errors_t tty_open(const char *tty_name, int *fd)
 {
     e_mmgr_errors_t ret = E_ERR_TTY_BAD_FD;
     int count;
@@ -287,7 +288,7 @@ e_mmgr_errors_t open_tty(const char *tty_name, int *fd)
 
     if (*fd < 0) {
         LOG_ERROR("open of %s failed (%s)", tty_name, strerror(errno));
-    } else if (set_termio(*fd) != E_ERR_SUCCESS) {
+    } else if (tty_set_termio(*fd) != E_ERR_SUCCESS) {
         LOG_ERROR("Failed to set discipline");
         close(*fd);
         *fd = CLOSED_FD;
@@ -309,7 +310,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_TTY_ERROR if nothing has been written
  */
-e_mmgr_errors_t close_tty(int *fd)
+e_mmgr_errors_t tty_close(int *fd)
 {
     e_mmgr_errors_t ret = E_ERR_TTY_ERROR;
 

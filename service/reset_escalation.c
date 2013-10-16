@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <linux/mdm_ctrl.h>
 #include "at.h"
+#include "common.h"
 #include "errors.h"
 #include "file.h"
 #include "java_intent.h"

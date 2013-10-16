@@ -20,10 +20,7 @@
 #define __MMGR_PROPERTY_HEADER_FILE__
 
 #include <cutils/properties.h>
-/* persistent android property to count the platform reboot.
- *  NB: The key length can't exceed PROPERTY_KEY_MAX */
-#define PLATFORM_REBOOT_KEY "persist.service.mmgr.reboot"
-#define PROPERTY_BUILD_TYPE "ro.build.type"
+#include "errors.h"
 
 e_mmgr_errors_t property_set_int(const char *key, int value);
 e_mmgr_errors_t property_get_int(const char *key, int *value);

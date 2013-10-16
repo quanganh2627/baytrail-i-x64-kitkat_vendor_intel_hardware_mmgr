@@ -21,6 +21,7 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <sys/epoll.h>
 #include <sys/types.h>
 #include "at.h"
 #include "client_events.h"
@@ -74,7 +75,7 @@ e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr)
     free(mmgr->events.ev);
     release_wake_lock(MODULE_NAME);
     if (mmgr->fd_tty != CLOSED_FD)
-        close_tty(&mmgr->fd_tty);
+        tty_close(&mmgr->fd_tty);
     if (mmgr->fd_cnx != CLOSED_FD)
         close_cnx(&mmgr->fd_cnx);
     if (mmgr->epollfd != CLOSED_FD)
@@ -142,14 +143,14 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    if ((ret = init_ev_hdler(&mmgr->epollfd)) != E_ERR_SUCCESS)
+    if ((ret = tty_init_listener(&mmgr->epollfd)) != E_ERR_SUCCESS)
         goto out;
 
-    ret = add_fd_ev(mmgr->epollfd, mmgr->fd_cnx, EPOLLIN);
+    ret = tty_listen_fd(mmgr->epollfd, mmgr->fd_cnx, EPOLLIN);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = add_fd_ev(mmgr->epollfd, mmgr->info.fd_mcd, EPOLLIN);
+    ret = tty_listen_fd(mmgr->epollfd, mmgr->info.fd_mcd, EPOLLIN);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
@@ -161,7 +162,7 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
             goto out;
 
         int wd_fd = bus_ev_get_fd(mmgr->events.bus_events);
-        ret = add_fd_ev(mmgr->epollfd, wd_fd, EPOLLIN);
+        ret = tty_listen_fd(mmgr->epollfd, wd_fd, EPOLLIN);
         if (ret != E_ERR_SUCCESS)
             goto out;
         LOG_DEBUG("bus event fd added to poll list");
