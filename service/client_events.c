@@ -31,9 +31,9 @@
 #include "modem_specific.h"
 #include "property.h"
 #include "timer_events.h"
-#include "msg_to_data.h"
 #include "reset_escalation.h"
 #include "tty.h"
+#include "msg_format.h"
 
 /* This value is deliberately obfuscated. Otherwise, all clients
  * could declared the modem OOS */
@@ -596,7 +596,7 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
         mmgr->request.msg.data = calloc(size, sizeof(char));
         if (mmgr->request.msg.data == NULL)
             goto out;
-        ret = read_cnx(client_get_fd(
+        ret = cnx_read(client_get_fd(
                            mmgr->request.client), mmgr->request.msg.data,
                        &size);
         if ((ret != E_ERR_SUCCESS) || (size != mmgr->request.msg.hdr.len)) {
@@ -661,7 +661,7 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
     } else {
         const char *name = client_get_name(client);
 
-        ret = get_header(fd, &mmgr->request.msg.hdr);
+        ret = msg_get_header(fd, &mmgr->request.msg.hdr);
         mmgr->request.client = client;
         if (ret == E_ERR_SUCCESS) {
             ret = client_request(mmgr);
@@ -707,7 +707,7 @@ e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
     if (clients_get_connected(mmgr->clients) <=
         clients_get_allowed(mmgr->clients)) {
         LOG_DEBUG("try to subscribe new client fd=%d", fd);
-        conn_sock = accept_cnx(fd);
+        conn_sock = cnx_accept(fd);
         if (conn_sock < 0) {
             LOG_ERROR("Error during accept (%s)", strerror(errno));
         } else {

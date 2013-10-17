@@ -16,7 +16,6 @@
 **
 */
 
-#include <arpa/inet.h>
 #include <cutils/sockets.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -36,7 +35,7 @@
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t open_cnx(int *fd)
+e_mmgr_errors_t cnx_open(int *fd)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
@@ -61,7 +60,7 @@ out:
  *
  * @return file descriptor
  */
-e_mmgr_errors_t accept_cnx(int fd)
+e_mmgr_errors_t cnx_accept(int fd)
 {
     return accept(fd, NULL, NULL);
 }
@@ -77,7 +76,7 @@ e_mmgr_errors_t accept_cnx(int fd)
  * @return E_ERR_FAILED read fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t read_cnx(int fd, void *data, size_t *len)
+e_mmgr_errors_t cnx_read(int fd, void *data, size_t *len)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int err;
@@ -109,7 +108,7 @@ out:
  * @return E_ERR_FAILED send fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t write_cnx(int fd, void *data, size_t *len)
+e_mmgr_errors_t cnx_write(int fd, void *data, size_t *len)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int err;
@@ -136,7 +135,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t close_cnx(int *fd)
+e_mmgr_errors_t cnx_close(int *fd)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 

@@ -26,8 +26,8 @@
 #include <sys/types.h>
 #include "utils.h"
 #include "tty.h"
-#include "msg_to_data.h"
-#include "data_to_msg.h"
+#include "msg_format.h"
+#include "client_cnx.h"
 
 const char const *g_mmgr_events[] = {
 #undef X
@@ -151,7 +151,7 @@ static e_err_mmgr_cli_t read_msg(mmgr_lib_context_t *p_lib, msg_t *msg)
     memset(msg, 0, sizeof(msg_t));
 
     /* read msg data */
-    err = get_header(p_lib->fd_socket, &msg->hdr);
+    err = msg_get_header(p_lib->fd_socket, &msg->hdr);
     if (err == E_ERR_DISCONNECTED) {
         LOG_DEBUG("connection closed by MMGR", p_lib);
 
@@ -173,7 +173,7 @@ static e_err_mmgr_cli_t read_msg(mmgr_lib_context_t *p_lib, msg_t *msg)
             }
 
             size_t read_size = size;
-            err = read_cnx(p_lib->fd_socket, msg->data, &read_size);
+            err = cnx_read(p_lib->fd_socket, msg->data, &read_size);
             if ((err != E_ERR_SUCCESS) || (read_size != size))
                 LOG_ERROR("Read error. Size: %d/%d", p_lib, read_size, size);
             else
@@ -210,7 +210,7 @@ static e_err_mmgr_cli_t handle_cnx_event(mmgr_lib_context_t *p_lib)
     if (ret == E_ERR_CLI_SUCCEED)
         ret = call_cli_callback(p_lib, &msg);
 
-    delete_msg(&msg);
+    msg_delete(&msg);
 
 out:
     return ret;
@@ -289,7 +289,7 @@ static e_err_mmgr_cli_t handle_disconnection(mmgr_lib_context_t *p_lib)
 
             pthread_mutex_lock(&p_lib->mtx);
             if (p_lib->fd_socket != CLOSED_FD)
-                close_cnx(&p_lib->fd_socket);
+                cnx_close(&p_lib->fd_socket);
             pthread_mutex_unlock(&p_lib->mtx);
 
             ret = cli_connect(p_lib);
@@ -310,7 +310,7 @@ static e_err_mmgr_cli_t handle_disconnection(mmgr_lib_context_t *p_lib)
         pthread_mutex_unlock(&p_lib->mtx);
     } else {
         pthread_mutex_lock(&p_lib->mtx);
-        close_cnx(&p_lib->fd_socket);
+        cnx_close(&p_lib->fd_socket);
         close(p_lib->fd_pipe[READ]);
         close(p_lib->fd_pipe[WRITE]);
         p_lib->fd_pipe[READ] = CLOSED_FD;
@@ -445,7 +445,7 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
         pthread_mutex_lock(&p_lib->mtx_signal);
 
         size = SIZE_HEADER + msg.hdr.len;
-        err = write_cnx(p_lib->fd_socket, msg.data, &size);
+        err = cnx_write(p_lib->fd_socket, msg.data, &size);
         if ((err != E_ERR_SUCCESS) || (size != (SIZE_HEADER + msg.hdr.len))) {
             LOG_ERROR("write failed", p_lib);
             break;
@@ -470,7 +470,7 @@ e_err_mmgr_cli_t send_msg(mmgr_lib_context_t *p_lib,
             memset(&answer, 0, sizeof(msg_t));
             if (read_msg(p_lib, &answer) == E_ERR_CLI_SUCCEED)
                 set_ack(p_lib, answer.hdr.id);
-            delete_msg(&answer);
+            msg_delete(&answer);
         } else {
             clock_gettime(CLOCK_REALTIME, &ts);
             ts.tv_sec += timeout;
@@ -512,7 +512,7 @@ out:
      * be safe, try to lock it before unlocking it */
     pthread_mutex_trylock(&p_lib->mtx_signal);
     pthread_mutex_unlock(&p_lib->mtx_signal);
-    delete_msg(&msg);
+    msg_delete(&msg);
     return ret;
 }
 

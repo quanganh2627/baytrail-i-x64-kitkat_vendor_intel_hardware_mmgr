@@ -77,7 +77,7 @@ e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr)
     if (mmgr->fd_tty != CLOSED_FD)
         tty_close(&mmgr->fd_tty);
     if (mmgr->fd_cnx != CLOSED_FD)
-        close_cnx(&mmgr->fd_cnx);
+        cnx_close(&mmgr->fd_cnx);
     if (mmgr->epollfd != CLOSED_FD)
         close(mmgr->epollfd);
 out:
@@ -139,7 +139,7 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
     if ((ret = mdm_prepare(&mmgr->info)) != E_ERR_SUCCESS)
         goto out;
 
-    ret = open_cnx(&mmgr->fd_cnx);
+    ret = cnx_open(&mmgr->fd_cnx);
     if (ret != E_ERR_SUCCESS)
         goto out;
 

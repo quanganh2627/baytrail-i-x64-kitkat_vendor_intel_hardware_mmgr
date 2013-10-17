@@ -24,7 +24,7 @@ MY_C_FLAGS := -Wall -Werror -Wvla -DLIBUSBHOST \
     -DGIT_COMMIT_ID=\"$(COMMIT_ID)\" -DMODULE_NAME=\"MMGR\"
 
 MY_SHARED_LIBS := libc libcutils libdl libusbhost liblog libpower
-MY_LOCAL_IMPORT := libtcs libmmgr_utils
+MY_LOCAL_IMPORT := libtcs libmmgr_utils libmmgr_cnx
 MY_LDLIBS := -lpthread
 
 #############################################

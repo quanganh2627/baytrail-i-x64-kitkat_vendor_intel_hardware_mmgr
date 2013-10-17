@@ -20,6 +20,7 @@
 #include "mmgr_cli.h"
 #include "msg_to_data.h"
 #include "data_to_msg.h"
+#include "msg_format.h"
 
 #define DEFAULT_TID 1
 
@@ -133,7 +134,7 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     strncpy(p_lib->cli_name, client_name, CLIENT_NAME_LEN - 1);
 
     for (i = 0; i < E_MMGR_NUM_REQUESTS; i++)
-        p_lib->set_msg[i] = set_msg_empty;
+        p_lib->set_msg[i] = msg_set_empty;
 
     for (i = 0; i < E_MMGR_NUM_EVENTS; i++) {
         p_lib->set_data[i] = set_data_empty;

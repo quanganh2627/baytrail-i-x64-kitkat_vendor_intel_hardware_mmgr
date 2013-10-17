@@ -20,12 +20,9 @@
 #define __MMGR_MSG_TO_DATA_HEADER__
 
 #define MMGR_FW_OPERATIONS
-#include "mmgr.h"
 #include "mmgr_cli.h"
-#include "client_cnx.h"
+#include "msg_format.h"
 #include "errors.h"
-
-e_mmgr_errors_t get_header(int fd, msg_hdr_t *hdr);
 
 e_mmgr_errors_t set_data_fuse_info(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_hw_id(msg_t *msg, mmgr_cli_event_t *request);

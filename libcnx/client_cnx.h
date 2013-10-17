@@ -22,23 +22,10 @@
 #include <sys/types.h>
 #include "errors.h"
 
-#define SIZE_HEADER (sizeof(uint32_t) * 3)
-
-typedef struct msg_hdr {
-    uint32_t id;
-    uint32_t ts;
-    uint32_t len;
-} msg_hdr_t;
-
-typedef struct msg {
-    msg_hdr_t hdr;
-    char *data;
-} msg_t;
-
-e_mmgr_errors_t open_cnx(int *fd);
-e_mmgr_errors_t close_cnx(int *fd);
-e_mmgr_errors_t accept_cnx(int fd);
-e_mmgr_errors_t read_cnx(int fd, void *data, size_t *len);
-e_mmgr_errors_t write_cnx(int fd, void *data, size_t *len);
+e_mmgr_errors_t cnx_open(int *fd);
+e_mmgr_errors_t cnx_close(int *fd);
+e_mmgr_errors_t cnx_accept(int fd);
+e_mmgr_errors_t cnx_read(int fd, void *data, size_t *len);
+e_mmgr_errors_t cnx_write(int fd, void *data, size_t *len);
 
 #endif                          /* __MMGR_CNX_HEADER__ */

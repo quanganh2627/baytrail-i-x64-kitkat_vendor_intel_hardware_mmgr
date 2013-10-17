@@ -16,14 +16,11 @@
 **
 */
 
-#ifndef __MMGR_DATA_TO_MSG_HEADER__
-#define __MMGR_DATA_TO_MSG_HEADER__
+#ifndef __DATA_TO_MESSAGE_HEADER__
+#define __DATA_TO_MESSAGE_HEADER__
 
-#define MMGR_FW_OPERATIONS
-#include "mmgr.h"
-#include "mmgr_cli.h"
-#include "client_cnx.h"
 #include "errors.h"
+#include "msg_format.h"
 
 /* internal structure used by mmgr */
 typedef struct mmgr_cli_internal_ap_reset {
@@ -33,19 +30,11 @@ typedef struct mmgr_cli_internal_ap_reset {
     char *extra_data;
 } mmgr_cli_internal_ap_reset_t;
 
-e_mmgr_errors_t delete_msg(msg_t *msg);
-
-/* used by lib client: */
-e_mmgr_errors_t set_msg_name(msg_t *msg, mmgr_cli_event_t *request);
-e_mmgr_errors_t set_msg_filter(msg_t *msg, mmgr_cli_event_t *request);
-e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request);
-e_mmgr_errors_t set_msg_empty(msg_t *msg, mmgr_cli_event_t *request);
-e_mmgr_errors_t set_msg_restart(msg_t *msg, mmgr_cli_event_t *request);
-/* used by mmgr: */
 e_mmgr_errors_t set_msg_modem_hw_id(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_fuse_info(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_modem_fw_result(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_ap_reset(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_core_dump(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_error(msg_t *msg, mmgr_cli_event_t *request);
-#endif                          /* __MMGR_DATA_TO_MSG_HEADER__ */
+
+#endif /* __DATA_TO_MESSAGE_HEADER__ */

@@ -21,7 +21,6 @@
 
 #include "bus_events.h"
 #include "client.h"
-#include "client_cnx.h"
 #include "core_dump.h"
 #include "mmgr.h"
 #include "modem_info.h"
@@ -29,6 +28,7 @@
 #include "reset_escalation.h"
 #include "security.h"
 #include "timer_events.h"
+#include "msg_format.h"
 
 #define EVENTS \
     X(IPC), \

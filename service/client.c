@@ -24,6 +24,7 @@
 #include "errors.h"
 #include "logs.h"
 #include "data_to_msg.h"
+#include "msg_format.h"
 #include <time.h>
 
 #define NEW_CLIENT_NAME "unknown"
@@ -246,7 +247,7 @@ clients_hdle_t *clients_init(int list_size)
     }
 
     for (i = 0; i < E_MMGR_NUM_EVENTS; i++)
-        clients->set_data[i] = set_msg_empty;
+        clients->set_data[i] = msg_set_empty;
     clients->set_data[E_MMGR_RESPONSE_MODEM_HW_ID] = set_msg_modem_hw_id;
     clients->set_data[E_MMGR_RESPONSE_FUSE_INFO] = set_msg_fuse_info;
     clients->set_data[E_MMGR_NOTIFY_AP_RESET] = set_msg_ap_reset;
@@ -340,7 +341,7 @@ e_mmgr_errors_t client_remove(clients_hdle_t *h, int fd)
      * when the fd is closed. See epoll man page. As remove_from_list set fd to
      * CLOSED_FD, do a backup to close it */
     ret = remove_from_list(clients, fd);
-    close_cnx(&fd);
+    cnx_close(&fd);
 out:
     return ret;
 }
@@ -464,7 +465,7 @@ e_mmgr_errors_t client_inform(const client_hdle_t *h, e_mmgr_events_t state,
     size = SIZE_HEADER + msg.hdr.len;
     write_size = size;
     if ((0x01 << state) & client->subscription) {
-        if ((ret = write_cnx(client->fd, msg.data, &write_size)) !=
+        if ((ret = cnx_write(client->fd, msg.data, &write_size)) !=
             E_ERR_SUCCESS)
             goto out;
 
@@ -481,7 +482,7 @@ e_mmgr_errors_t client_inform(const client_hdle_t *h, e_mmgr_events_t state,
                   client->fd, client->name, g_mmgr_events[state]);
     }
 out:
-    delete_msg(&msg);
+    msg_delete(&msg);
     return ret;
 }
 
@@ -542,7 +543,7 @@ static e_mmgr_errors_t client_close(client_list_t *clients)
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD) {
             LOG_DEBUG("i=%d fd=%d", i, clients->list[i].fd);
-            close_cnx(&clients->list[i].fd);
+            cnx_close(&clients->list[i].fd);
         }
     }
 out:

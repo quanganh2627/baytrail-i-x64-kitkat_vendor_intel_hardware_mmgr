@@ -22,7 +22,7 @@
 #define MMGR_FW_OPERATIONS
 #include <stdbool.h>
 #include "mmgr_cli.h"
-#include "client_cnx.h"
+#include "msg_format.h"
 
 #define LOG_NDEBUG 0
 #define LOG_TAG MODULE_NAME
