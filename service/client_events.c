@@ -210,6 +210,18 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
     set_mcd_poll_states(&mmgr->info);
 
+    if (E_ERR_SUCCESS != mdm_prepare(&mmgr->info)) {
+        LOG_ERROR("modem fw is corrupted. Declare modem OOS");
+        /* Set MMGR state to MDM_RESET to call the recovery module and
+         * force modem recovery to OOS. By doing so, MMGR will turn off the
+         * modem and declare the modem OOS. Clients will not be able to turn
+         * on the modem */
+        recov_force(mmgr->reset, E_FORCE_OOS);
+        reset_modem(mmgr);
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
     if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
         if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
             set_mmgr_state(mmgr, E_MMGR_MDM_START);
