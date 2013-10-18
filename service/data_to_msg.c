@@ -242,18 +242,24 @@ e_mmgr_errors_t set_msg_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_ap_reset_t *ap = request->data;
+    mmgr_cli_internal_ap_reset_t *ap = request->data;
     char *msg_data = NULL;
 
     CHECK_PARAM(msg, ret, out);
     CHECK_PARAM(request, ret, out);
 
-    size = ap->len;
+    size = sizeof(uint32_t) + ap->len + ap->extra_len;
     ret = prepare_msg(msg, &msg_data, E_MMGR_NOTIFY_AP_RESET, &size);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
+    serialize_size_t(&msg_data, ap->len);
     memcpy(msg_data, ap->name, sizeof(char) * ap->len);
+    if (ap->extra_len)
+        /* Note that 'extra_data' is already serialized (as it's the raw data
+         * from the client recovery request) so can be copied 'as is'. */
+        memcpy(msg_data + ap->len, ap->extra_data,
+               sizeof(char) * ap->extra_len);
     ret = E_ERR_SUCCESS;
 
 out:
@@ -473,6 +479,75 @@ e_mmgr_errors_t set_msg_restart(msg_t *msg, mmgr_cli_event_t *request)
 
     if (restart)
         serialize_uint32(&msg_data, restart->optional);
+    ret = E_ERR_SUCCESS;
+
+out:
+    return ret;
+}
+
+/**
+ * handle REQUEST_MODEM_RECOVERY message allocation
+ *
+ * @param [out] msg data to send
+ * @param [in] request request to send
+ *
+ * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    size_t size = 0, string_size = 0;
+    char *msg_data = NULL;
+    size_t i, req_size = request->len;
+    mmgr_cli_recovery_cause_t *req_extra_data = request->data;
+
+    CHECK_PARAM(msg, ret, out);
+    CHECK_PARAM(request, ret, out);
+
+    /* Some sanity checks */
+    if ((req_size > (MMGR_CLI_MAX_RECOVERY_CAUSES *
+                     sizeof(mmgr_cli_recovery_cause_t))) ||
+        ((req_size % sizeof(mmgr_cli_recovery_cause_t)) != 0)) {
+        LOG_ERROR("invalid extra data size (%d), ignoring", req_size);
+        req_size = 0;
+    }
+    if ((req_size != 0) &&
+        ((req_extra_data == NULL) ||
+         ((((int)req_extra_data) %
+           __alignof__(mmgr_cli_recovery_cause_t)) != 0))) {
+        LOG_ERROR("invalid extra data pointer (%p), ignoring", req_extra_data);
+        req_size = 0;
+    }
+    req_size /= sizeof(mmgr_cli_recovery_cause_t);
+    for (i = 0; i < req_size; i++) {
+        if ((req_extra_data[i].len > MMGR_CLI_MAX_RECOVERY_CAUSE_LEN) ||
+            (req_extra_data[i].cause == NULL)) {
+            LOG_ERROR("invalid extra data entry (index %d, len %d, ptr %p)", i,
+                      req_extra_data[i].len, req_extra_data[i].cause);
+            req_size = 0;
+            break;
+        }
+        string_size += req_extra_data[i].len;
+    }
+
+    if (req_size != 0)
+        size = sizeof(size_t) + req_size * sizeof(size_t) + string_size;
+
+    ret = prepare_msg(msg, &msg_data, request->id, &size);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
+    /* Serialize client request */
+    if (req_size != 0) {
+        serialize_size_t(&msg_data, req_size);
+        for (i = 0; i < req_size; i++) {
+            serialize_size_t(&msg_data, req_extra_data[i].len);
+            memcpy(msg_data, req_extra_data[i].cause, req_extra_data[i].len);
+            msg_data += req_extra_data[i].len;
+        }
+    }
     ret = E_ERR_SUCCESS;
 
 out:

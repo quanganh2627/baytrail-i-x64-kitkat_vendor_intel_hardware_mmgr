@@ -25,11 +25,20 @@
 #include "client_cnx.h"
 #include "errors.h"
 
+/* internal structure used by mmgr */
+typedef struct mmgr_cli_internal_ap_reset {
+    size_t len;
+    char *name;
+    size_t extra_len;
+    char *extra_data;
+} mmgr_cli_internal_ap_reset_t;
+
 e_mmgr_errors_t delete_msg(msg_t *msg);
 
 /* used by lib client: */
 e_mmgr_errors_t set_msg_name(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_filter(msg_t *msg, mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_empty(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_restart(msg_t *msg, mmgr_cli_event_t *request);
 /* used by mmgr: */

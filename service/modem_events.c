@@ -253,30 +253,25 @@ static void read_core_dump(mmgr_data_t *mmgr)
 {
     e_core_dump_state_t state;
 
-    if (!mcdr_is_enabled(mmgr->mcdr))
-        goto out;
+    if (mcdr_is_enabled(mmgr->mcdr)) {
+        timer_stop(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
 
-    timer_stop(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
+        pm_on_mdm_cd(mmgr->info.pm);
+        mcdr_read(mmgr->mcdr, &state);
+        pm_on_mdm_cd_complete(mmgr->info.pm);
 
-    mcdr_read(mmgr->mcdr, &state);
-    pm_on_mdm_cd_complete(mmgr->info.pm);
+        broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
+        notify_core_dump(mmgr->clients, mmgr->mcdr, state);
 
-    broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
-    notify_core_dump(mmgr->clients, mmgr->mcdr, state);
+        mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
+        mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
+        set_mcd_poll_states(&mmgr->info);
 
-    mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-    mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
-    set_mcd_poll_states(&mmgr->info);
-
-    if (!mmgr->info.is_flashless)
-        timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-
-    if (mmgr->info.mdm_link == E_LINK_HSIC) {
-        timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-        mmgr->events.link_state = E_MDM_LINK_NONE;
+        if (mmgr->info.mdm_link == E_LINK_HSIC)
+            mmgr->events.link_state = E_MDM_LINK_NONE;
     }
-
-out:
+    /* The modem will be reset. No need to launch
+     * a timer */
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 }
 
@@ -724,8 +719,6 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
             clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
             mdm_close_fds(mmgr);
         }
-
-        pm_on_mdm_cd(mmgr->info.pm);
 
         mmgr->events.link_state |= E_MDM_LINK_CORE_DUMP_READY;
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_COREDUMP;

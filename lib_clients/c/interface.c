@@ -143,6 +143,7 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->set_msg[E_MMGR_SET_NAME] = set_msg_name;
     p_lib->set_msg[E_MMGR_SET_EVENTS] = set_msg_filter;
     p_lib->set_msg[E_MMGR_REQUEST_MODEM_RESTART] = set_msg_restart;
+    p_lib->set_msg[E_MMGR_REQUEST_MODEM_RECOVERY] = set_msg_recovery;
 
     p_lib->set_data[E_MMGR_RESPONSE_MODEM_HW_ID] = set_data_hw_id;
     p_lib->free_data[E_MMGR_RESPONSE_MODEM_HW_ID] = free_data_hw_id;
@@ -180,7 +181,7 @@ e_err_mmgr_cli_t mmgr_cli_delete_handle(mmgr_cli_handle_t *handle)
 
     if (!is_connected(p_lib)) {
         free(p_lib);
-        LOG_DEBUG("handle freed successfully", p_lib);
+        LOGD("handle freed successfully");
     } else {
         ret = E_ERR_CLI_BAD_CNX_STATE;
         LOG_ERROR("handle not freed", p_lib);

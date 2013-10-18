@@ -508,13 +508,13 @@ out:
  * @return a valid secure_cb_t
  * @return NULL otherwise
  */
-secure_cb_t *secure_get_callback(secure_handle_t *h)
+secure_cb_t secure_get_callback(secure_handle_t *h)
 {
     secure_t *secur = (secure_t *)h;
-    secure_cb_t *callback = NULL;
+    secure_cb_t callback = NULL;
 
     if (secur && secur->enable)
-        *callback = secur->callback;
+        callback = secur->callback;
 
     return callback;
 }

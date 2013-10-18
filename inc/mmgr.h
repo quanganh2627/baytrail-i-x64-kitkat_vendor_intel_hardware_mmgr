@@ -129,9 +129,13 @@ typedef struct mmgr_cli_core_dump {
     size_t reason_len;
 } mmgr_cli_core_dump_t;
 
+#define MMGR_CLI_MAX_RECOVERY_CAUSES 5
+#define MMGR_CLI_MAX_RECOVERY_CAUSE_LEN 512
+
 typedef struct mmgr_cli_recovery_cause {
     size_t len;
-    char *cause;                // Maximum string length is 512 bytes
+    /* Maximum string length is MMGR_CLI_MAX_RECOVERY_CAUSE_LEN bytes */
+    char *cause;
 } mmgr_cli_recovery_cause_t;
 
 /* Note: 'recovery_causes' array (if present) is used to describe why
@@ -141,7 +145,8 @@ typedef struct mmgr_cli_ap_reset {
     size_t len;
     char *name;
     size_t num_causes;
-    /* Size of 'recovery_causes' array is given in 'num_causes' */
+    /* Size of 'recovery_causes' array is given in 'num_causes'.
+     * Maximum value is MMGR_CLI_MAX_RECOVERY_CAUSES */
     mmgr_cli_recovery_cause_t *recovery_causes;
 } mmgr_cli_ap_reset_t;
 

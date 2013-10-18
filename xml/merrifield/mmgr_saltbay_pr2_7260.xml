@@ -2,18 +2,18 @@
 <mmgr_config>
 	<modem_link>
 		<flash>
-			<link_hsic device="![CDATA[/dev/ttyACM0]]" pid="0x0716" vid="0x8087"/>
+			<link_hsic device="![CDATA[/dev/ttyACM0]]" pid="0x07ef" vid="0x8087"/>
 		</flash>
 		<baseband>
 			<link_hsic device="![CDATA[/dev/ttyACM0]]" pid="0x0452" vid="0x1519"/>
 		</baseband>
 		<power
-			device="![CDATA[/sys/devices/pci0000:00/0000:00:14.0/L2_autosuspend_enable]]"
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
 			on="1"
 			off="0"
 		/>
 		<link_ctrl
-			device="![CDATA[/sys/devices/pci0000:00/0000:00:14.0/hsic_enable]]"
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/hsic_enable]]"
 			on="1"
 			off="0"
 			reset="1"
@@ -49,7 +49,6 @@
 	</modem_comm>
 	<modem_timings
 		ipc_ready="5"
-		cd_ipc_reset="6"
 		cd_ipc_ready="10"
 	/>
 	<modem_recovery
@@ -73,7 +72,7 @@
 			<link_hsic device="![CDATA[/dev/ttyACM0]]" pid="0xF000" vid="0x1519"/>
 		</link>
 		<power
-			device="![CDATA[/sys/devices/pci0000:00/0000:00:14.0/L2_autosuspend_enable]]"
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
 			on="1"
 			off="0"
 		/>

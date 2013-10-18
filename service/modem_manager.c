@@ -147,14 +147,6 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
             goto out;
         }
 
-        mmgr->timer = timer_init(&cfg->mmgr.recov, &cfg->mmgr.timings,
-                                 mmgr->clients);
-        if (!mmgr->timer) {
-            LOG_ERROR("Failed to configure timer module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
-
         mmgr->secure = secure_init(cfg->mdm_info.secured,
                                    &cfg->mmgr.com.ch.secured);
         if (!mmgr->secure) {
@@ -211,6 +203,13 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
             goto out;
         }
 
+        mmgr->timer = timer_init(&cfg->mmgr.recov, &cfg->mmgr.timings,
+                                 mmgr->clients);
+        if (!mmgr->timer) {
+            LOG_ERROR("Failed to configure timer module");
+            ret = E_ERR_FAILED;
+            goto out;
+        }
 
         mmgr->events.bus_events = bus_ev_init(&cfg->mmgr.mdm_link.flash,
                                               &cfg->mmgr.mdm_link.baseband,

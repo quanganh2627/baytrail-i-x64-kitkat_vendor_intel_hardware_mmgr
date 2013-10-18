@@ -41,4 +41,4 @@ e_mmgr_errors_t accept_cnx(int fd);
 e_mmgr_errors_t read_cnx(int fd, void *data, size_t *len);
 e_mmgr_errors_t write_cnx(int fd, void *data, size_t *len);
 
-#endif                          /* __MMGR_SOCKET_HEADER__ */
+#endif                          /* __MMGR_CNX_HEADER__ */

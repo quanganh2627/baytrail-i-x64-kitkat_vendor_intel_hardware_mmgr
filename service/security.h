@@ -33,7 +33,7 @@ e_mmgr_errors_t secure_register(secure_handle_t *secur, int *fd);
 e_mmgr_errors_t secure_start(secure_handle_t *secur);
 e_mmgr_errors_t secure_stop(secure_handle_t *secur);
 e_mmgr_errors_t secure_event(secure_handle_t *secur);
-secure_cb_t *secure_get_callback(secure_handle_t *secur);
+secure_cb_t secure_get_callback(secure_handle_t *secur);
 int secure_get_fd(secure_handle_t *h);
 
 #endif

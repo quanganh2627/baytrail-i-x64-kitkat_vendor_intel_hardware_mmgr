@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include "errors.h"
 #include "file.h"
 #include "mmgr.h"
@@ -27,6 +28,7 @@
 
 #define MAX_MOVING_FILE_SLEEP 20
 #define RIL_PROPERTY "persist.ril-daemon.disable"
+#define MAX_RECOVERY_CAUSE 64
 
 /**
  * Test modem reset without core dump
@@ -90,8 +92,46 @@ e_mmgr_errors_t modem_recovery(test_data_t *test)
 
     CHECK_PARAM(test, ret, out);
 
-    ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RECOVERY,
-                                  E_MMGR_NUM_EVENTS, E_MMGR_EVENT_MODEM_UP);
+    if (test->option_string != NULL) {
+        int num_extra_params;
+        mmgr_cli_recovery_cause_t *causes = NULL;
+        num_extra_params = atoi(test->option_string);
+
+        if (num_extra_params <= 0)
+            num_extra_params = 0;
+        if (num_extra_params > 0) {
+            int i;
+
+            causes =
+                malloc(num_extra_params * sizeof(mmgr_cli_recovery_cause_t));
+
+            for (i = 0; i < num_extra_params; i++) {
+                causes[i].cause = malloc(MAX_RECOVERY_CAUSE);
+                snprintf(causes[i].cause, MAX_RECOVERY_CAUSE - 1,
+                         "Recovery cause number %d !", i);
+                causes[i].cause[MAX_RECOVERY_CAUSE - 1] = '\0';
+                causes[i].len = strlen(causes[i].cause);
+            }
+        }
+        ret = reset_by_client_request_with_data(test,
+                                                E_MMGR_REQUEST_MODEM_RECOVERY,
+                                                num_extra_params *
+                                                sizeof(mmgr_cli_recovery_cause_t),
+                                                causes,
+                                                E_MMGR_NUM_EVENTS,
+                                                E_MMGR_EVENT_MODEM_UP);
+
+        if (causes != NULL) {
+            int i;
+
+            for (i = 0; i < num_extra_params; i++)
+                free(causes[i].cause);
+            free(causes);
+        }
+    } else {
+        ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RECOVERY,
+                                      E_MMGR_NUM_EVENTS, E_MMGR_EVENT_MODEM_UP);
+    }
 
     if (events_get(test) != E_EVENTS_SUCCEED)
         ret = E_ERR_FAILED;

@@ -45,11 +45,12 @@
     "--------------------------------------------------\n" \
     "Usage: "EXE_NAME " [-h] [-f] [-t <test number>]\n" \
     "optional arguments:\n" \
-    " -h or --help      show this help message and exit\n" \
-    " -f                skip CAUTION message\n" \
-    " -v                display "EXE_NAME " version and "MODULE_NAME \
+    " -h or --help       show this help message and exit\n" \
+    " -f                 skip CAUTION message\n" \
+    " -v                 display "EXE_NAME " version and "MODULE_NAME \
     " minimal version\n" \
-    " -t <test number>  launch the specified test\n\n" \
+    " -t <test number>   launch the specified test\n" \
+    " -o <option string> pass option string to specified test\n\n"      \
     "long option name:\n"
 
 #define PRINT_TEST \
@@ -126,7 +127,7 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
  * @return E_ERR_OUT_OF_SERVICE if modem is out of service
  * @return E_ERR_BAD_PARAMETER if at least one bad parameter is given
  */
-e_mmgr_errors_t run_test(test_case_t *test)
+e_mmgr_errors_t run_test(test_case_t *test, const char *option_string)
 {
     test_data_t test_data;
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -144,6 +145,7 @@ e_mmgr_errors_t run_test(test_case_t *test)
     test_data.waited_state = E_MMGR_NUM_EVENTS;
     test_data.modem_state = E_MMGR_NUM_EVENTS;
     test_data.events = E_EVENTS_NONE;
+    test_data.option_string = option_string;
     pthread_mutex_init(&test_data.new_state_read, NULL);
     pthread_mutex_init(&test_data.mutex, NULL);
     pthread_mutex_init(&test_data.cond_mutex, NULL);
@@ -294,6 +296,7 @@ int main(int argc, char *argv[])
     int nb_tests = 0;
     int index = 0;
     int i;
+    char *option_string = NULL;
 
     /* *INDENT-OFF* */
     test_case_t tests[] = {
@@ -341,7 +344,7 @@ int main(int argc, char *argv[])
     }
 
     while ((choice =
-                getopt_long(argc, argv, "vhft:", long_opts, &index)) != -1) {
+                getopt_long(argc, argv, "vhft:o:", long_opts, &index)) != -1) {
         if (index != 0) {
             test_id = long_opts[index].val;
         } else {
@@ -353,6 +356,9 @@ int main(int argc, char *argv[])
                 test_id = strtol(optarg, &end_ptr, 10) - 1;
                 if (optarg == end_ptr)
                     test_id = INVALID_TEST;
+                break;
+            case 'o':
+                option_string = strdup(optarg);
                 break;
             case 'v':
                 printf("\n%s (Build: %s:%s).\n"
@@ -375,7 +381,7 @@ int main(int argc, char *argv[])
     if (test_id == INVALID_TEST)
         choose_test(tests, sizeof(tests) / sizeof(*tests), &test_id);
     if ((test_id >= 0) && (test_id < nb_tests))
-        err = run_test(&tests[test_id]);
+        err = run_test(&tests[test_id], option_string);
     else
     if (test_id != -1)
         puts(INVALID_CHOICE);
@@ -383,6 +389,7 @@ int main(int argc, char *argv[])
 out:
     if (long_opts != NULL)
         free(long_opts);
+    free(option_string);
 
     LOG_DEBUG("end");
     if (err != E_ERR_SUCCESS)
