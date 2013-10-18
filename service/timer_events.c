@@ -30,23 +30,35 @@ static const char const *g_type_str[] = {
     TIMER
 };
 
-#define STEPS 10
 #define TIMER_INFINITE -1       /* wait indefinitely */
 #define TIMER_ERROR -2
 
 typedef struct mmgr_timer {
-    uint8_t type;
-    int cur_timeout;
-    int timeout[E_TIMER_NUM];
-    struct timespec start[E_TIMER_NUM];
-    int ack_cold_reset;
-    int ack_shtdwn_timeout;
-    int ipc_ready;
-    int cd_ipc_reset;
-    int cd_ipc_ready;
+    e_timer_type_t type;
+    int timeout[E_TIMER_NUM]; /* in seconds */
+    struct timespec end[E_TIMER_NUM];
     const clients_hdle_t *clients;
 } mmgr_timer_t;
 
+/**
+ * Returns remaining time (in seconds) between current time
+ * and end timer
+ */
+static inline long timer_get_elapsed(struct timespec cur, struct timespec end)
+{
+    return ((end.tv_sec - cur.tv_sec) * 1000) +
+           ((end.tv_nsec - cur.tv_nsec) / 1000000);
+}
+
+/**
+ * Checks if timer has elapsed for a specific timer
+ */
+static inline bool timer_is_elapsed(mmgr_timer_t *t, e_timer_type_t type,
+                                    struct timespec *cur)
+{
+    return ((t->type & (0x1 << type)) &&
+            (timer_get_elapsed(*cur, t->end[type]) <= 0));
+}
 
 /**
  * @brief timer_get_timeout Return current timeout value
@@ -54,17 +66,37 @@ typedef struct mmgr_timer {
  * @param h timer module handle
  *
  * @return TIMER_ERROR if h is NULL
- * @return current timeout value otherwise
+ * @return current timeout value otherwise (in milliseconds)
  */
 int timer_get_timeout(timer_handle_t *h)
 {
-    int timeout = TIMER_ERROR;
-    mmgr_timer_t *timer = (mmgr_timer_t *)h;
+    int min = TIMER_ERROR;
+    mmgr_timer_t *t = (mmgr_timer_t *)h;
 
-    if (timer)
-        timeout = timer->cur_timeout;
+    if (t) {
+        min = TIMER_INFINITE;
+        if (t->type != 0x0) {
+            int i = 0;
+            struct timespec cur;
+            clock_gettime(CLOCK_BOOTTIME, &cur);
 
-    return timeout;
+            for (i = 0; i < E_TIMER_NUM; i++) {
+                if (t->type & (0x1 << i)) {
+                    long diff = timer_get_elapsed(cur, t->end[i]);
+                    if (diff < 0)
+                        diff = 0;
+
+                    if (min == TIMER_INFINITE)
+                        min = diff;
+                    else if (min > diff)
+                        min = diff;
+                }
+            }
+        }
+    }
+
+    LOG_DEBUG("timeout: %d ms", min);
+    return min;
 }
 
 /**
@@ -84,16 +116,13 @@ e_mmgr_errors_t timer_start(timer_handle_t *h, e_timer_type_t type)
 
     CHECK_PARAM(timer, ret, out);
 
-    clock_gettime(CLOCK_MONOTONIC, &current);
+    clock_gettime(CLOCK_BOOTTIME, &current);
 
-    timer->type |= 0x01 << type;
-    timer->start[type] = current;
-    LOG_DEBUG("start timer for event: %s", g_type_str[type]);
-
-    if ((timer->cur_timeout == TIMER_INFINITE) ||
-        (timer->cur_timeout > timer->timeout[type])) {
-        timer->cur_timeout = timer->timeout[type];
-        LOG_DEBUG("update timeout: %dms", timer->cur_timeout);
+    if (timer->timeout[type] != 0) {
+        LOG_DEBUG("start timer for event: %s", g_type_str[type]);
+        timer->type |= 0x01 << type;
+        timer->end[type] = current;
+        timer->end[type].tv_sec += timer->timeout[type];
     }
 
 out:
@@ -117,7 +146,6 @@ e_mmgr_errors_t timer_stop_all(timer_handle_t *h)
 
     timer->type = 0x0;
     LOG_DEBUG("timer stopped");
-    timer->cur_timeout = TIMER_INFINITE;
 
 out:
     return ret;
@@ -135,7 +163,6 @@ out:
 e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int min = 0;
     mmgr_timer_t *timer = (mmgr_timer_t *)h;
 
     CHECK_PARAM(timer, ret, out);
@@ -143,34 +170,8 @@ e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
     LOG_DEBUG("stop timer for event: %s", g_type_str[type]);
     timer->type &= ~(0x01 << type);
 
-    if (timer->type == 0x0) {
-        LOG_DEBUG("timer stopped");
-        timer->cur_timeout = TIMER_INFINITE;
-    } else {
-        min = timer->cur_timeout;
-        if ((timer->type & (0x01 << E_TIMER_COLD_RESET_ACK)) &&
-            (min > timer->timeout[E_TIMER_COLD_RESET_ACK]))
-            min = timer->timeout[E_TIMER_COLD_RESET_ACK];
-
-        if ((timer->type & (0x01 << E_TIMER_MODEM_SHUTDOWN_ACK)) &&
-            (min > timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK]))
-            min = timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK];
-
-        if ((timer->type & (0x01 << E_TIMER_WAIT_FOR_IPC_READY)) &&
-            (min > timer->timeout[E_TIMER_WAIT_FOR_IPC_READY]))
-            min = timer->timeout[E_TIMER_WAIT_FOR_IPC_READY];
-
-        if ((timer->type & (0x01 << E_TIMER_WAIT_FOR_BUS_READY)) &&
-            (min > timer->timeout[E_TIMER_WAIT_FOR_BUS_READY]))
-            min = timer->timeout[E_TIMER_WAIT_FOR_BUS_READY];
-
-        if ((timer->type & (0x01 << E_TIMER_WAIT_CORE_DUMP_READY)) &&
-            (min > timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY]))
-            min = timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY];
-
-        timer->cur_timeout = min;
-        LOG_DEBUG("update timeout: %dms", timer->cur_timeout);
-    }
+    if (timer->type == 0x0)
+        LOG_DEBUG("All timers stopped");
 
 out:
     return ret;
@@ -193,6 +194,7 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
     struct timespec cur;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_timer_t *t = (mmgr_timer_t *)h;
+    bool handled = false;
 
     CHECK_PARAM(t, ret, out);
     CHECK_PARAM(reset, ret, out);
@@ -203,28 +205,25 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
     *mdm_off = false;
     *cd_err = false;
 
-    clock_gettime(CLOCK_MONOTONIC, &cur);
+    clock_gettime(CLOCK_BOOTTIME, &cur);
 
-    if ((t->type & (0x01 << E_TIMER_COLD_RESET_ACK)) &&
-        ((cur.tv_sec - t->start[E_TIMER_COLD_RESET_ACK].tv_sec)
-         > t->ack_cold_reset)) {
-        clients_has_ack_cold(t->clients, true);
+    if (timer_is_elapsed(t, E_TIMER_COLD_RESET_ACK, &cur)) {
+        handled = true;
+        clients_has_ack_cold(t->clients, E_PRINT);
         timer_stop(h, E_TIMER_COLD_RESET_ACK);
         *reset = true;
     }
 
-    if ((t->type & (0x01 << E_TIMER_MODEM_SHUTDOWN_ACK)) &&
-        ((cur.tv_sec - t->start[E_TIMER_MODEM_SHUTDOWN_ACK].tv_sec)
-         > t->ack_shtdwn_timeout)) {
-        clients_has_ack_shtdwn(t->clients, true);
+    if (timer_is_elapsed(t, E_TIMER_MODEM_SHUTDOWN_ACK, &cur)) {
+        handled = true;
+        clients_has_ack_shtdwn(t->clients, E_PRINT);
         timer_stop(h, E_TIMER_MODEM_SHUTDOWN_ACK);
         *reset = true;
         *mdm_off = true;
     }
 
-    if ((t->type & (0x01 << E_TIMER_WAIT_FOR_IPC_READY)) &&
-        ((cur.tv_sec - t->start[E_TIMER_WAIT_FOR_IPC_READY].tv_sec)
-         > t->ipc_ready)) {
+    if (timer_is_elapsed(t, E_TIMER_WAIT_FOR_IPC_READY, &cur)) {
+        handled = true;
         LOG_DEBUG("IPC READY not received. force modem reset");
         timer_stop(h, E_TIMER_WAIT_FOR_IPC_READY);
         *reset = true;
@@ -234,42 +233,41 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
                            &result);
     }
 
-    if ((t->type & (0x01 << E_TIMER_WAIT_FOR_BUS_READY)) &&
-        ((cur.tv_sec - t->start[E_TIMER_WAIT_FOR_BUS_READY].tv_sec)
-         > t->ipc_ready)) {
+    if (timer_is_elapsed(t, E_TIMER_WAIT_FOR_BUS_READY, &cur)) {
+        handled = true;
         LOG_DEBUG("BUS READY not received. force modem reset");
         timer_stop(h, E_TIMER_WAIT_FOR_BUS_READY);
         *reset = true;
     }
 
-    if ((t->type & (0x01 << E_TIMER_REBOOT_MODEM_DELAY)) &&
-        ((cur.tv_sec - t->start[E_TIMER_REBOOT_MODEM_DELAY].tv_sec) > 2)) {
+    if (timer_is_elapsed(t, E_TIMER_REBOOT_MODEM_DELAY, &cur)) {
+        handled = true;
         timer_stop(h, E_TIMER_REBOOT_MODEM_DELAY);
         *reset = true;
     }
 
-    if (t->type & (0x01 << E_TIMER_WAIT_CORE_DUMP_READY)) {
-        if (t->cd_ipc_reset) {
-            if (((cur.tv_sec - t->start[E_TIMER_WAIT_CORE_DUMP_READY].tv_sec)
-                 == t->cd_ipc_reset)) {
-                LOG_DEBUG("Timeout while waiting for core dump IPC. Reset IPC");
-                *cd_err = true;
-            }
-        }
-
-        if ((cur.tv_sec - t->start[E_TIMER_WAIT_CORE_DUMP_READY].tv_sec)
-            > t->cd_ipc_ready) {
-            LOG_DEBUG("Timeout while waiting for core dump IPC. Reset modem");
-            timer_stop(h, E_TIMER_WAIT_CORE_DUMP_READY);
-            *reset = true;
-
-            mmgr_cli_core_dump_t cd = { .state = E_CD_LINK_ERROR };
-            cd.reason = "Modem enumeration failure";
-            cd.reason_len = strlen(cd.reason);
-            clients_inform_all(t->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
-                               &cd);
-        }
+    if (timer_is_elapsed(t, E_TIMER_CORE_DUMP_IPC_RESET, &cur)) {
+        handled = true;
+        timer_stop(h, E_TIMER_CORE_DUMP_IPC_RESET);
+        LOG_DEBUG("Timeout while waiting for core dump IPC. Reset IPC");
+        *cd_err = true;
     }
+
+    if (timer_is_elapsed(t, E_TIMER_WAIT_CORE_DUMP_READY, &cur)) {
+        handled = true;
+        LOG_DEBUG("timeout while waiting for core dump ipc. reset modem");
+        timer_stop(h, E_TIMER_WAIT_CORE_DUMP_READY);
+        *reset = true;
+
+        mmgr_cli_core_dump_t cd = { .state = E_CD_LINK_ERROR };
+        cd.reason = "modem enumeration failure";
+        cd.reason_len = strlen(cd.reason);
+        clients_inform_all(t->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+                           &cd);
+    }
+
+    if (!handled)
+        LOG_ERROR("timeout not handled");
 
 out:
     return ret;
@@ -294,27 +292,17 @@ timer_handle_t *timer_init(const mmgr_recovery_t *recov,
     if (recov && timings && clients) {
         timer = calloc(1, sizeof(mmgr_timer_t));
         if (timer) {
-            timer->ack_cold_reset = recov->cold_timeout;
-            timer->ack_shtdwn_timeout = recov->shtdwn_timeout;
-            timer->ipc_ready = timings->ipc_ready;
-            timer->cd_ipc_reset = timings->cd_ipc_reset;
-            timer->cd_ipc_ready = timings->cd_ipc_ready;
             timer->clients = clients;
-
             timer->type = 0;
-            timer->cur_timeout = TIMER_INFINITE;
-            timer->timeout[E_TIMER_COLD_RESET_ACK] =
-                (recov->cold_timeout * 1000) / STEPS;
-            timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK] =
-                (recov->shtdwn_timeout * 1000) / STEPS;
-            timer->timeout[E_TIMER_WAIT_FOR_IPC_READY] =
-                (timings->ipc_ready * 1000) / STEPS;
-            timer->timeout[E_TIMER_WAIT_FOR_BUS_READY] =
-                (timings->ipc_ready * 1000) / STEPS;
-            timer->timeout[E_TIMER_REBOOT_MODEM_DELAY] =
-                (((int)(timings->ipc_ready / 2)) * 1000) / STEPS;
+
+            timer->timeout[E_TIMER_COLD_RESET_ACK] = recov->cold_timeout;
+            timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK] = recov->shtdwn_timeout;
+            timer->timeout[E_TIMER_WAIT_FOR_IPC_READY] = timings->ipc_ready;
+            timer->timeout[E_TIMER_WAIT_FOR_BUS_READY] = timings->ipc_ready;
+            timer->timeout[E_TIMER_REBOOT_MODEM_DELAY] = timings->ipc_ready;
+            timer->timeout[E_TIMER_CORE_DUMP_IPC_RESET] = timings->cd_ipc_reset;
             timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY] =
-                (timings->cd_ipc_ready * 1000) / STEPS;
+                timings->cd_ipc_ready;
         }
     }
 

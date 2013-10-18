@@ -31,6 +31,7 @@ typedef void *timer_handle_t;
     X(WAIT_FOR_IPC_READY), \
     X(WAIT_FOR_BUS_READY), \
     X(REBOOT_MODEM_DELAY), \
+    X(CORE_DUMP_IPC_RESET), \
     X(WAIT_CORE_DUMP_READY), \
     X(NUM)
 
