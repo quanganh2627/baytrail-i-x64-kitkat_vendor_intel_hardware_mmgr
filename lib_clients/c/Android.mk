@@ -26,6 +26,7 @@ LOCAL_SRC_FILES := $(MY_SRC_FILES)
 LOCAL_CFLAGS += $(MY_C_FLAGS)
 
 LOCAL_SYSTEM_SHARED_LIBRARIES := $(MY_SHARED_LIBS)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/../../inc
 include $(BUILD_SHARED_LIBRARY)
 
 #############################################

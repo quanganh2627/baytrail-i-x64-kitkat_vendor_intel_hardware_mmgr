@@ -278,6 +278,10 @@ static e_err_mmgr_cli_t handle_disconnection(mmgr_lib_context_t *p_lib)
         msg.hdr.id = E_MMGR_EVENT_MODEM_DOWN;
         ret = call_cli_callback(p_lib, &msg);
 
+        LOG_DEBUG("notify fake modem cold reset event", p_lib);
+        msg.hdr.id = E_MMGR_NOTIFY_MODEM_COLD_RESET;
+        ret = call_cli_callback(p_lib, &msg);
+
         LOG_DEBUG("try to reconnect", p_lib);
         do {
             /* endlessly try to reconnect to MMGR */

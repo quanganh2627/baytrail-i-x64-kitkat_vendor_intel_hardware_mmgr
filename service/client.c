@@ -262,6 +262,14 @@ err:
     return NULL;
 }
 
+/**
+ * Disposes clients module
+ *
+ * @param [in] h handle
+ *
+ * @return E_ERR_BAD_PARAMETER if h is NULL
+ * @return E_ERR_SUCCESS otherwise
+ */
 e_mmgr_errors_t clients_dispose(clients_hdle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -406,11 +414,13 @@ client_hdle_t *client_find(const clients_hdle_t *h, int fd)
     client_list_t *clients = (client_list_t *)h;
     client_t *client = NULL;
 
-    if (clients) {
-        for (i = 0; i < clients->list_size; i++) {
-            if (fd == clients->list[i].fd) {
-                client = &clients->list[i];
-                break;
+    if (fd != CLOSED_FD) {
+        if (clients) {
+            for (i = 0; i < clients->list_size; i++) {
+                if (fd == clients->list[i].fd) {
+                    client = &clients->list[i];
+                    break;
+                }
             }
         }
     }
@@ -430,8 +440,8 @@ client_hdle_t *client_find(const clients_hdle_t *h, int fd)
  * @return E_ERR_SUCCESS if not found
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t clients_inform(const client_hdle_t *h, e_mmgr_events_t state,
-                               void *data)
+e_mmgr_errors_t client_inform(const client_hdle_t *h, e_mmgr_events_t state,
+                              void *data)
 {
     size_t size;
     size_t write_size;
@@ -507,8 +517,8 @@ e_mmgr_errors_t clients_inform_all(const clients_hdle_t *h,
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD)
-            ret = clients_inform((client_hdle_t *)&clients->list[i], state,
-                                 data);
+            ret = client_inform((client_hdle_t *)&clients->list[i], state,
+                                data);
     }
 out:
     return ret;

@@ -43,7 +43,7 @@ typedef void *client_hdle_t;
 /* list of clients: */
 typedef void *clients_hdle_t;
 
-/* client API: */
+/* clients API: Those functions handle the list of clients */
 clients_hdle_t *clients_init(int list_size);
 e_mmgr_errors_t clients_dispose(clients_hdle_t *clients);
 
@@ -55,8 +55,6 @@ int clients_get_allowed(const clients_hdle_t *l);
 
 e_mmgr_errors_t clients_inform_all(const clients_hdle_t *l, e_mmgr_events_t ev,
                                    void *d);
-e_mmgr_errors_t clients_inform(const client_hdle_t *l, e_mmgr_events_t ev,
-                               void *data);
 
 bool clients_has_ack_cold(const clients_hdle_t *l, e_print_t print);
 bool clients_has_ack_shtdwn(const clients_hdle_t *l, e_print_t print);
@@ -65,13 +63,16 @@ bool clients_has_resource(const clients_hdle_t *l, e_print_t print);
 e_mmgr_errors_t clients_reset_ack_cold(clients_hdle_t *clients);
 e_mmgr_errors_t clients_reset_ack_shtdwn(clients_hdle_t *clients);
 
-/* clients API: */
+/* client API: Those function handle a client */
 bool client_is_registered(const client_hdle_t *client);
 e_mmgr_errors_t client_set_name(client_hdle_t *client, const char *name,
                                 size_t len);
 e_mmgr_errors_t client_set_filter(client_hdle_t *client, uint32_t subscription);
 e_mmgr_errors_t client_set_request(client_hdle_t *cli, e_cnx_requests_t req);
 e_mmgr_errors_t client_unset_request(client_hdle_t *cli, e_cnx_requests_t req);
+
+e_mmgr_errors_t client_inform(const client_hdle_t *l, e_mmgr_events_t ev,
+                              void *data);
 
 client_hdle_t *client_find(const clients_hdle_t *l, int fd);
 const char *client_get_name(const client_hdle_t *client);

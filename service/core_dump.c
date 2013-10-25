@@ -42,7 +42,12 @@ typedef struct core_dump_thread {
 
 /* the recovery time must not exceed */
 #define CORE_DUMP_RECOVERY_MAX_TIME 1200
+
+#ifdef GOCV_MMGR
+#define MCDR_LIBRARY_NAME "libmcdr-gcov.so"
+#else
 #define MCDR_LIBRARY_NAME "libmcdr.so"
+#endif
 
 #define MCDR_GET_CORE_DUMP "mcdr_get_core_dump"
 #define MCDR_CLEANUP "mcdr_cleanup"
@@ -290,7 +295,7 @@ const char *mcdr_get_filename(mcdr_handle_t *h)
 }
 
 /**
- * Returns the error reason where core dump is stored
+ * Returns the error reason
  * The returned value must not be freed
  *
  * @param [in] h module handle
@@ -309,6 +314,14 @@ const char *mcdr_get_error_reason(mcdr_handle_t *h)
     return reason;
 }
 
+/**
+ * Returns if core dump feature is enabled
+ *
+ * @param [in] h module handle
+ *
+ * @return false by default
+ * @return valid state otherwise
+ */
 bool mcdr_is_enabled(mcdr_handle_t *h)
 {
     bool enable = false;

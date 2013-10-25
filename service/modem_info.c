@@ -42,8 +42,7 @@
 
 /* switch to MUX timings */
 #define STAT_DELAY 250          /* in milliseconds */
-#define MAX_TIME_DELAY 50000    /* in milliseconds */
-#define MAX_STAT_RETRIES (MAX_TIME_DELAY / STAT_DELAY)
+#define MAX_TIME_DELAY 4        /* in seconds */
 
 typedef enum e_switch_to_mux_states {
     E_MUX_HANDSHAKE,
@@ -66,7 +65,7 @@ typedef enum e_switch_to_mux_states {
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
-                                mmgr_mdm_link_t *mdm_link,
+                                mmgr_mdm_link_t *mdm_link, channels_t *ch,
                                 mmgr_flashless_t *flash, modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -98,11 +97,11 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
     }
 
     /* @TODO: if not DLC, this code should be updated */
-    strncpy(info->sanity_check_dlc, com->ch.sanity_check.device,
+    strncpy(info->sanity_check_dlc, ch->sanity_check.device,
             sizeof(info->sanity_check_dlc) - 1);
-    strncpy(info->mdm_custo_dlc, com->ch.mdm_custo.device,
+    strncpy(info->mdm_custo_dlc, ch->mdm_custo.device,
             sizeof(info->mdm_custo_dlc) - 1);
-    strncpy(info->shtdwn_dlc, com->ch.shutdown.device,
+    strncpy(info->shtdwn_dlc, ch->shutdown.device,
             sizeof(info->shtdwn_dlc) - 1);
 
     if (!strncmp(info->sanity_check_dlc, "", sizeof(info->sanity_check_dlc)) ||

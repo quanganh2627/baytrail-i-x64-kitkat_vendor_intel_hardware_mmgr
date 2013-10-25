@@ -27,7 +27,6 @@
 #include "client_cnx.h"
 #include "errors.h"
 #include "events_manager.h"
-#include "file.h"
 #include "logs.h"
 #include "modem_events.h"
 #include "mmgr.h"
@@ -36,6 +35,8 @@
 #include "timer_events.h"
 #include "tty.h"
 #include "modem_specific.h"
+
+#include "hardware_legacy/power.h"
 
 #define FIRST_EVENT -1
 
@@ -71,8 +72,7 @@ e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr)
     CHECK_PARAM(mmgr, ret, out);
 
     free(mmgr->events.ev);
-    write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                  strlen(MODULE_NAME));
+    release_wake_lock(MODULE_NAME);
     if (mmgr->fd_tty != CLOSED_FD)
         close_tty(&mmgr->fd_tty);
     if (mmgr->fd_cnx != CLOSED_FD)
@@ -282,15 +282,13 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
         if ((mmgr->state == E_MMGR_MDM_OFF) || (mmgr->state == E_MMGR_MDM_UP) ||
             (mmgr->state == E_MMGR_MDM_OOS)) {
             wakelock = false;
-            write_to_file(WAKE_UNLOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                          strlen(MODULE_NAME));
+            release_wake_lock(MODULE_NAME);
         }
         if ((ret = wait_for_event(mmgr)) != E_ERR_SUCCESS)
             goto out;
         if (wakelock == false) {
             wakelock = true;
-            write_to_file(WAKE_LOCK_SYSFS, SYSFS_OPEN_MODE, MODULE_NAME,
-                          strlen(MODULE_NAME));
+            acquire_wake_lock(PARTIAL_WAKE_LOCK, MODULE_NAME);
         }
 
         LOG_DEBUG("event type: %s", events_str[mmgr->events.state]);

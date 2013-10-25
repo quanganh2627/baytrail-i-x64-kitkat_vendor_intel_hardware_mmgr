@@ -317,18 +317,17 @@ out:
  */
 bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    bool err = false;
     bool usb = false;
     bus_ev_t *bus_events = NULL;
 
-    CHECK_PARAM(flash, ret, out);
-    CHECK_PARAM(bb, ret, out);
-    CHECK_PARAM(mcdr, ret, out);
+    if (!(flash && bb && mcdr))
+        goto err;
 
     bus_events = calloc(1, sizeof(bus_ev_t));
     if (!bus_events) {
         LOG_ERROR("memory allocation failed");
-        goto out;
+        goto err;
     }
 
     bus_events->wd_fd = CLOSED_FD;
@@ -340,7 +339,7 @@ bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr)
             bus_events->modem_flash_vid = flash->hsic.vid;
         } else {
             LOG_ERROR("wrong PID/VID for the flashing interface");
-            ret = E_ERR_FAILED;
+            err = true;
         }
     }
 
@@ -351,7 +350,7 @@ bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr)
             bus_events->modem_bb_vid = bb->hsic.vid;
         } else {
             LOG_ERROR("wrong PID/VID for the baseband interface");
-            ret = E_ERR_FAILED;
+            err = true;
         }
     }
 
@@ -362,15 +361,13 @@ bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr)
             bus_events->mcdr_bb_vid = mcdr->hsic.vid;
         } else {
             LOG_ERROR("wrong PID/VID for the core dump interface");
-            ret = E_ERR_FAILED;
+            err = true;
         }
     }
 
-    if (usb && (ret == E_ERR_SUCCESS)) {
-        if ((bus_events->ctx = usb_host_init()) == NULL) {
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    if (usb && !err) {
+        if ((bus_events->ctx = usb_host_init()) == NULL)
+            goto err;
 
         /* @TODO: handle errors */
         usb_host_load(bus_events->ctx, device_added_cb, device_rmed_cb, NULL,
@@ -380,8 +377,11 @@ bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr)
         bus_ev_hdle_events((bus_ev_hdle_t *)bus_events);
     }
 
-out:
     return (bus_ev_hdle_t *)bus_events;
+
+err:
+    bus_ev_dispose((bus_ev_hdle_t *)bus_events);
+    return NULL;
 }
 
 /**

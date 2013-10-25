@@ -40,12 +40,6 @@
 			frame_size="1509"
 			retry="24"
 		/>
-		<channels>
-			<shutdown device="![CDATA[/dev/gsmtty11]]"/>
-			<sanity_check device="![CDATA[/dev/gsmtty15]]"/>
-			<secured device="![CDATA[/dev/gsmtty22]]"/>
-			<mdm_custo device="![CDATA[/dev/gsmtty11]]"/>
-		</channels>
 	</modem_comm>
 	<modem_timings
 		ipc_ready="5"
@@ -73,7 +67,7 @@
 			<link_hsic device="![CDATA[/dev/ttyACM0]]" pid="0xF000" vid="0x1519"/>
 		</link>
 		<power
-			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:14.0/L2_autosuspend_enable]]"
 			on="1"
 			off="0"
 		/>

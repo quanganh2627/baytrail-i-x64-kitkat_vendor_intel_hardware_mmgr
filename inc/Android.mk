@@ -1,6 +1,10 @@
 #############################################
 # MMGR interface file copy
 #############################################
+
+# @TODO: remove this file once all clients are updated
+# to use the new header export mechanism
+
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)

@@ -148,7 +148,7 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
         }
 
         mmgr->secure = secure_init(cfg->mdm_info.secured,
-                                   &cfg->mmgr.com.ch.secured);
+                                   &cfg->channels.secured);
         if (!mmgr->secure) {
             LOG_ERROR("Failed to configure the security module");
             ret = E_ERR_FAILED;
@@ -164,6 +164,7 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
 
         if (E_ERR_SUCCESS != modem_info_init(&cfg->mdm_info, &cfg->mmgr.com,
                                              &cfg->mmgr.mdm_link,
+                                             &cfg->channels,
                                              &cfg->mmgr.flash, &mmgr->info)) {
             LOG_ERROR("Failed to configure the modem info module");
             ret = E_ERR_FAILED;
