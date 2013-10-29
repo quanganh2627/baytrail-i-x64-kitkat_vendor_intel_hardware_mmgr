@@ -153,11 +153,8 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 
         case E_MODEM_FW_SUCCEED:
             /* @TODO: fix that into flash_modem/modem_specific */
-            if (mmgr->info.mdm_link == E_LINK_HSIC) {
-                /* @TODO: wait for IPC to appear after flash */
-                sleep(4);
+            if (mmgr->info.mdm_link == E_LINK_HSIC)
                 timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-            }
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
             ret = E_ERR_SUCCESS;
             break;
