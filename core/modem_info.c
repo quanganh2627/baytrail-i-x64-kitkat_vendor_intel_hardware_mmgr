@@ -56,7 +56,8 @@ typedef enum e_switch_to_mux_states {
  * @param [in] mdm_info mmgr config
  * @param [in] com
  * @param [in] mdm_link
- ** @param [in] flash
+ * @param [in] ch channel
+ * @param [in] flash
  * @param [in,out] info modem info
  *
  * @return E_ERR_BAD_PARAMETER one parameter is NULL

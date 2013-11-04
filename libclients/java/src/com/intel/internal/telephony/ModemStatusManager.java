@@ -224,6 +224,7 @@ public class ModemStatusManager implements Callback {
     /**
      * Requests a connection asynchronously (call is not blocking).
      *
+     * @param clientName name of the client
      * @param listener The listener to get notified upon operation result.
      */
     public void connectAsync(String clientName,

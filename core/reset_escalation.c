@@ -267,7 +267,7 @@ out:
 /**
  * initialize the escalation recovery
  *
- * @param [in] config mmgr configuration
+ * @param [in] recov TCS params
  *
  * @return a valid pointer to reset module
  * @return NULL otherwise
@@ -371,6 +371,7 @@ struct timeval recov_get_last_reset(reset_handle_t *h)
  * Set current escalation recovery state
  *
  * @param [in] h reset module handler
+ * @param [in] state new escalation recovery state
  *
  * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS otherwise

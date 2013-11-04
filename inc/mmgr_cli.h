@@ -63,7 +63,7 @@ typedef struct mmgr_cli_request {
  * Useful to guarantee backwards-compatibility of client => MMGR API.
  *
  * @param [in, out] request to be initialized.
- * @param [in] id of the given request.
+ * @param [in] req_id of the given request.
  */
 #define MMGR_CLI_INIT_REQUEST(request, req_id) \
     do { memset(&(request), 0, sizeof(request)); \

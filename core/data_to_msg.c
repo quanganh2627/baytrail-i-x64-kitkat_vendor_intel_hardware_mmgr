@@ -23,7 +23,7 @@
  * handle E_MMGR_RESPONSE_MODEM_HW_ID message allocation
  *
  * @param [in,out] msg data to send
- * @param [in] data data to send
+ * @param [in] request data to send
  *
  * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
@@ -56,7 +56,7 @@ out:
  * handle E_MMGR_RESPONSE_FUSE_INFO message allocation
  *
  * @param [in,out] msg data to send
- * @param [in] data data to send
+ * @param [in] request data to send
  *
  * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
@@ -89,7 +89,7 @@ out:
  * handle E_MMGR_NOTIFY_AP_RESET message allocation
  *
  * @param [in,out] msg data to send
- * @param [in] data data to send
+ * @param [in] request data to send
  *
  * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
@@ -127,7 +127,7 @@ out:
  * handle E_MMGR_RESPONSE_MODEM_FW_RESULT message allocation
  *
  * @param [in,out] msg data to send
- * @param [in] data data to send
+ * @param [in] request data to send
  *
  * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
@@ -161,7 +161,7 @@ out:
  * handle E_MMGR_NOTIFY_CORE_DUMP_COMPLETE message allocation
  *
  * @param [in,out] msg data to send
- * @param [in] data data to send
+ * @param [in] request data to send
  *
  * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
@@ -204,7 +204,7 @@ out:
  * handle E_MMGR_NOTIFY_ERROR message allocation
  *
  * @param [in,out] msg data to send
- * @param [in] data data to send
+ * @param [in] request data to send
  *
  * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful

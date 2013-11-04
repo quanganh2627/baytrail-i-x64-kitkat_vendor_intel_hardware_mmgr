@@ -312,7 +312,7 @@ out:
 /**
  * Check if wakelock state was reached
  *
- * @param [in] wakelock wakelock state to reach
+ * @param [in] state wakelock state to reach
  *
  * @return E_ERR_SUCCESS if state reached
  * @return E_ERR_FAILED otherwise
@@ -347,7 +347,6 @@ e_mmgr_errors_t check_wakelock(bool state)
  *
  * @param [in] test_data test_data
  * @param [in] state state to reach
- * @param [in] wakelock wakelock state
  * @param [in] timeout timeout (in second)
  *
  * @return E_ERR_BAD_PARAMETER if test_data is NULL

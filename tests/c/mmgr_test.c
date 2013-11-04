@@ -88,7 +88,7 @@ enum {
  * This function initialize all MMGR modules.
  * It reads the current platform configuration via TCS
  *
- * @param [in, out] mmgr
+ * @param [in, out] cfg
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if failed
@@ -122,6 +122,7 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
  * Run selected test
  *
  * @param [in,out] test test data
+ * @param [in] option_string
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if test failed

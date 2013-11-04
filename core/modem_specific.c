@@ -70,7 +70,6 @@ out:
  * callback to handle aplog messages
  *
  * @param [in] msg message to display
- * @param [in] args variable arguments list
  *
  */
 void mup_log(const char *msg, ...)
@@ -287,9 +286,10 @@ out:
 /**
  * flash modem nvm
  *
- * @param[in] info modem info
- * @param[in] comport modem communication port for flashing
- * @param[out] verdict provides modem nvm update status
+ * @param [in] info modem info
+ * @param [in] comport modem communication port for flashing
+ * @param [out] verdict provides modem nvm update status
+ * @param [out] sub_error_code
  *
  * @return E_ERR_FAILED if operation fails
  * @return E_ERR_SUCCESS if successful

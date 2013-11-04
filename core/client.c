@@ -60,7 +60,7 @@ static e_mmgr_errors_t client_close(client_list_t *clients);
 /**
  * Check if the client is fully registered
  *
- * @param [in] client
+ * @param [in] h client handle
  *
  * @return false if client is NULL
  * @return current client status
@@ -291,7 +291,7 @@ e_mmgr_errors_t clients_dispose(clients_hdle_t *h)
 /**
  * add new client to list
  *
- * @param [in,out] clients list of clients
+ * @param [in,out] h list of clients
  * @param [in] fd client file descriptor
  *
  * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
@@ -403,7 +403,7 @@ out:
 /**
  * find the client on client list
  *
- * @param [in] clients list of clients
+ * @param [in] h list of clients
  * @param [in] fd client's file descriptor
  *
  * @return NULL if h is NULL or client not found
@@ -491,6 +491,7 @@ out:
  *
  * @param [in] h clients list handle
  * @param [in] state current modem state
+ * @param [in] data additional data to send
  *
  * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
@@ -583,7 +584,7 @@ bool clients_has_ack_shtdwn(const clients_hdle_t *h, e_print_t print)
 /**
  * check if all clients have released the resource
  *
- * @param [in,out] clients list of clients
+ * @param [in,out] h list of clients
  * @param [in] print
  *
  * @return false if h is NULL
@@ -619,7 +620,7 @@ out:
 /**
  * reset cold ack flag for all connected clients
  *
- * @param [in,out] clients list of clients
+ * @param [in,out] h list of clients
  *
  * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
@@ -632,7 +633,7 @@ e_mmgr_errors_t clients_reset_ack_cold(clients_hdle_t *h)
 /**
  * reset shutdown ack flag for all connected clients
  *
- * @param [in,out] clients list of clients
+ * @param [in,out] h list of clients
  *
  * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful

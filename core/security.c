@@ -414,7 +414,6 @@ out:
  *
  * @param [in] enabled enable or disable the secured channel feature
  * @param [in] ch which channel to use
- * @param [in, out] h security handler
  *
  * @return a valid secure_handle_t pointer
  * @return NULL otherwise

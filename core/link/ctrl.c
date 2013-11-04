@@ -96,8 +96,8 @@ err:
  *
  * @param [in] h control link handle
  *
- * @param E_ERR_BAD_PARAMETER if h is NULL
- * @param E_ERR_SUCCESS otherwise
+ * @return E_ERR_BAD_PARAMETER if h is NULL
+ * @return E_ERR_SUCCESS otherwise
  */
 e_mmgr_errors_t ctrl_dispose(ctrl_handle_t *h)
 {
@@ -115,7 +115,7 @@ out:
 /**
  * This function sets the IPC control state
  *
- * @param [in] p link power
+ * @param [in] ctrl link power
  * @param [in] action
  *
  * @return E_ERR_FAILED if it fails

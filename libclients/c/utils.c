@@ -133,8 +133,8 @@ static e_err_mmgr_cli_t call_cli_callback(mmgr_lib_context_t *p_lib, msg_t *msg)
 /**
  * Read a message in the socket
  *
- * @param[in] p_lib
- * @param[out] msg. It's user responsability to free this buffer
+ * @param [in] p_lib
+ * @param [out] msg It's user responsability to free this buffer
  *
  * @return E_ERR_CLI_FAILED
  * @return E_ERR_CLI_BAD_CNX_STATE if client is disconnected
@@ -399,7 +399,7 @@ out:
  *
  * @param [in] p_lib library handle
  * @param [in] request request to send to the mmgr
- * @param [in] method. if this function is called under the reader thread, you
+ * @param [in] method If this function is called under the reader thread, you
  *        should use the E_SEND_SINGLE, E_SEND_THREADED should be used otherwise
  * @param [in] timeout (in seconds)
  *
