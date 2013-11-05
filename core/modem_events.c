@@ -318,32 +318,30 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
     if (clients_get_connected(mmgr->clients) == 0) {
         recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
         wait_operation = false;
+    } else if (wait_operation) {
+        LOG_DEBUG("need to ack all clients");
+
+        wait_operation = false;
+        recov_set_state(mmgr->reset, E_OPERATION_WAIT);
+
+        clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
+                           NULL);
+        set_mmgr_state(mmgr, E_MMGR_WAIT_COLD_ACK);
+        timer_start(mmgr->timer, E_TIMER_COLD_RESET_ACK);
     } else {
-        if (wait_operation) {
-            LOG_DEBUG("need to ack all clients");
+        wait_operation = true;
+        recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
 
-            wait_operation = false;
-            recov_set_state(mmgr->reset, E_OPERATION_WAIT);
+        broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
+        clients_reset_ack_cold(mmgr->clients);
+        mmgr->request.accept_request = false;
+        if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
+            set_mmgr_state(mmgr, E_MMGR_MDM_START);
+        else
+            set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
 
-            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
-                               NULL);
-            set_mmgr_state(mmgr, E_MMGR_WAIT_COLD_ACK);
-            timer_start(mmgr->timer, E_TIMER_COLD_RESET_ACK);
-        } else {
-            wait_operation = true;
-            recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
-
-            broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
-            clients_reset_ack_cold(mmgr->clients);
-            mmgr->request.accept_request = false;
-            if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
-                set_mmgr_state(mmgr, E_MMGR_MDM_START);
-            else
-                set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
-
-            timer_stop(mmgr->timer, E_TIMER_COLD_RESET_ACK);
-        }
+        timer_stop(mmgr->timer, E_TIMER_COLD_RESET_ACK);
     }
 
 out:

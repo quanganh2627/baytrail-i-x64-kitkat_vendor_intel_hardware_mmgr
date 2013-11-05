@@ -710,15 +710,13 @@ e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
         conn_sock = cnx_accept(fd);
         if (conn_sock < 0) {
             LOG_ERROR("Error during accept (%s)", strerror(errno));
-        } else {
-            if (tty_listen_fd(mmgr->epollfd, conn_sock,
-                              EPOLLIN) == E_ERR_SUCCESS) {
-                ret = client_add(mmgr->clients, conn_sock);
-                if (ret != E_ERR_SUCCESS)
-                    LOG_ERROR("failed to add new client");
-                /* do not provide modem status as long as client has not
-                 * provided its name */
-            }
+        } else if (tty_listen_fd(mmgr->epollfd, conn_sock,
+                                 EPOLLIN) == E_ERR_SUCCESS) {
+            ret = client_add(mmgr->clients, conn_sock);
+            if (ret != E_ERR_SUCCESS)
+                LOG_ERROR("failed to add new client");
+            /* do not provide modem status as long as client has not
+             * provided its name */
         }
     } else {
         LOG_INFO("client rejected: max client reached");

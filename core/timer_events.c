@@ -56,8 +56,8 @@ static inline long timer_get_elapsed(struct timespec cur, struct timespec end)
 static inline bool timer_is_elapsed(mmgr_timer_t *t, e_timer_type_t type,
                                     struct timespec *cur)
 {
-    return ((t->type & (0x1 << type)) &&
-            (timer_get_elapsed(*cur, t->end[type]) <= 0));
+    return (t->type & (0x1 << type)) &&
+           (timer_get_elapsed(*cur, t->end[type]) <= 0);
 }
 
 /**

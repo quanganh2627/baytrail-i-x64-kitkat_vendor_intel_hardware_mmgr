@@ -383,9 +383,8 @@ static e_mmgr_errors_t regen_fls(modem_info_t *info)
         } else {
             LOG_ERROR("failed to create fls file");
         }
-    } else {
-        ret = E_ERR_FAILED;
     }
+
 out:
     return ret;
 }

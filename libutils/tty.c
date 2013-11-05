@@ -25,7 +25,7 @@
 #include "tty.h"
 
 #define MAX_OPEN_RETRY 5
-#define DELAY_BETWEEN_SUCCESSIVE_READ 20000     /* in milliseconds */
+#define DELAY_BETWEEN_SUCCESSIVE_READ 20000     /* in microseconds */
 
 /**
  * add fd to epoll
