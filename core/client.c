@@ -100,27 +100,27 @@ static bool check_all_clients_ack(const clients_hdle_t *h,
     int i = 0;
     client_list_t *clients = (client_list_t *)h;
 
-    if ((!clients) || (ev > E_MMGR_NUM_EVENTS))
-        goto err;
+    ASSERT(clients != NULL);
 
-    for (i = 0; i < clients->list_size; i++) {
-        if (clients->list[i].fd != CLOSED_FD) {
-            if ((clients->list[i].subscription & (0x1 << ev)) &&
-                ((clients->list[i].cnx & filter) != filter)) {
-                answer = false;
-                if (E_PRINT == print)
-                    LOG_DEBUG("client (%s) did not ack to %s",
-                              clients->list[i].name, g_mmgr_events[ev]);
-                else
-                    break;
+    if (ev > E_MMGR_NUM_EVENTS) {
+        answer = false;
+    } else {
+        for (i = 0; i < clients->list_size; i++) {
+            if (clients->list[i].fd != CLOSED_FD) {
+                if ((clients->list[i].subscription & (0x1 << ev)) &&
+                    ((clients->list[i].cnx & filter) != filter)) {
+                    answer = false;
+                    if (E_PRINT == print)
+                        LOG_DEBUG("client (%s) did not ack to %s",
+                                  clients->list[i].name, g_mmgr_events[ev]);
+                    else
+                        break;
+                }
             }
         }
     }
 
     return answer;
-
-err:
-    return false;
 }
 
 /**
@@ -131,25 +131,23 @@ err:
  * @param [in] h clients list handle
  * @param [in] filter specify which element to check
  *
- * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
  * @return E_ERR_FAILED if at least one client has not acknowledge
  * @return E_ERR_SUCCESS if successful
  */
 static inline e_mmgr_errors_t reset_ack(clients_hdle_t *h,
                                         e_cnx_requests_t filter)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     client_list_t *clients = (client_list_t *)h;
     int i = 0;
 
-    CHECK_PARAM(clients, ret, out);
+    ASSERT(clients != NULL);
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD)
             clients->list[i].cnx &= ~filter;
     }
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -160,15 +158,12 @@ out:
  * @param [in] client current client
  * @param [in] fd client file descriptor
  *
- * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
  * @return E_ERR_FAILED if at least one client has not acknowledge
  * @return E_ERR_SUCCESS if successful
  */
-static inline e_mmgr_errors_t init_client(client_t *client, int fd)
+static inline void init_client(client_t *client, int fd)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(client, ret, out);
+    ASSERT(client != NULL);
 
     client->fd = fd;
     client->cnx = E_CNX_RESOURCE_RELEASED;
@@ -176,8 +171,6 @@ static inline e_mmgr_errors_t init_client(client_t *client, int fd)
     client->subscription = (0x1 << E_MMGR_ACK) | (0x1 << E_MMGR_NACK);
     strncpy(client->name, NEW_CLIENT_NAME, CLIENT_NAME_LEN);
     clock_gettime(CLOCK_MONOTONIC, &client->time);
-out:
-    return ret;
 }
 
 /**
@@ -188,7 +181,6 @@ out:
  * @param [in,out] clients list of clients
  * @param [in] fd
  *
- * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
  * @return E_ERR_FAILED if client not found
  * @return E_ERR_SUCCESS if successful
  */
@@ -197,24 +189,22 @@ static e_mmgr_errors_t remove_from_list(client_list_t *clients, int fd)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int i = 0;
 
-    CHECK_PARAM(clients, ret, out);
+    ASSERT(clients != NULL);
 
-    if (CLOSED_FD == fd)
-        goto out;
-
-    for (i = 0; i < clients->list_size; i++) {
-        if (fd == clients->list[i].fd) {
-            clients->connected--;
-            LOG_INFO("client (fd=%d name=%s) removed. still connected: %d",
-                     clients->list[i].fd, clients->list[i].name,
-                     clients->connected);
-            clients->list[i].fd = CLOSED_FD;
-            ret = E_ERR_SUCCESS;
-            break;
+    if (CLOSED_FD != fd) {
+        for (i = 0; i < clients->list_size; i++) {
+            if (fd == clients->list[i].fd) {
+                clients->connected--;
+                LOG_INFO("client (fd=%d name=%s) removed. still connected: %d",
+                         clients->list[i].fd, clients->list[i].name,
+                         clients->connected);
+                clients->list[i].fd = CLOSED_FD;
+                ret = E_ERR_SUCCESS;
+                break;
+            }
         }
     }
 
-out:
     return ret;
 }
 
@@ -268,24 +258,22 @@ err:
  *
  * @param [in] h handle
  *
- * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS otherwise
  */
 e_mmgr_errors_t clients_dispose(clients_hdle_t *h)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     client_list_t *clients = (client_list_t *)h;
+
+    /* do not use ASSERT in dispose function */
 
     if (clients) {
         client_close(clients);
         if (clients->list)
             free(clients->list);
         free(clients);
-    } else {
-        ret = E_ERR_BAD_PARAMETER;
     }
 
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -294,7 +282,6 @@ e_mmgr_errors_t clients_dispose(clients_hdle_t *h)
  * @param [in,out] h list of clients
  * @param [in] fd client file descriptor
  *
- * @return E_ERR_BAD_PARAMETER if clients or/and client is/are NULL
  * @return E_ERR_FAILED no space
  * @return E_ERR_SUCCESS if successful
  */
@@ -304,7 +291,7 @@ e_mmgr_errors_t client_add(clients_hdle_t *h, int fd)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     client_list_t *clients = (client_list_t *)h;
 
-    CHECK_PARAM(clients, ret, out);
+    ASSERT(clients != NULL);
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd == CLOSED_FD) {
@@ -316,7 +303,7 @@ e_mmgr_errors_t client_add(clients_hdle_t *h, int fd)
             break;
         }
     }
-out:
+
     return ret;
 }
 
@@ -326,7 +313,6 @@ out:
  * @param [in] h clients list handle
  * @param [in] fd
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -335,14 +321,14 @@ e_mmgr_errors_t client_remove(clients_hdle_t *h, int fd)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     client_list_t *clients = (client_list_t *)h;
 
-    CHECK_PARAM(clients, ret, out);
+    ASSERT(clients != NULL);
 
     /* No needs to unsubscribe the fd from epoll list. It's automatically done
      * when the fd is closed. See epoll man page. As remove_from_list set fd to
      * CLOSED_FD, do a backup to close it */
     ret = remove_from_list(clients, fd);
     cnx_close(&fd);
-out:
+
     return ret;
 }
 
@@ -353,16 +339,14 @@ out:
  * @param [in] name client name
  * @param [in] len name length
  *
- * @return E_ERR_BAD_PARAMETER if client or name is/are NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t client_set_name(client_hdle_t *h, const char *name, size_t len)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     client_t *client = (client_t *)h;
 
-    CHECK_PARAM(client, ret, out);
-    CHECK_PARAM(name, ret, out);
+    ASSERT(client != NULL);
+    ASSERT(name != NULL);
 
     if (len > CLIENT_NAME_LEN) {
         LOG_ERROR("client name too long");
@@ -372,8 +356,8 @@ e_mmgr_errors_t client_set_name(client_hdle_t *h, const char *name, size_t len)
     client->name[len] = '\0';
     LOG_DEBUG("client with fd=%d is called \"%s\"", client->fd, client->name);
     client->cnx |= E_CNX_NAME;
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -382,22 +366,20 @@ out:
  * @param [in,out] h client handle
  * @param [in] subscription client filter param
  *
- * @return E_ERR_BAD_PARAMETER if client or name is/are NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t client_set_filter(client_hdle_t *h, uint32_t subscription)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     client_t *client = (client_t *)h;
 
-    CHECK_PARAM(client, ret, out);
+    ASSERT(client != NULL);
 
     client->subscription = subscription;
     client->cnx |= E_CNX_FILTER;
     LOG_DEBUG("client (fd=%d name=%s) filter=0x%.8X", client->fd, client->name,
               client->subscription);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -415,13 +397,13 @@ client_hdle_t *client_find(const clients_hdle_t *h, int fd)
     client_list_t *clients = (client_list_t *)h;
     client_t *client = NULL;
 
+    ASSERT(clients != NULL);
+
     if (fd != CLOSED_FD) {
-        if (clients) {
-            for (i = 0; i < clients->list_size; i++) {
-                if (fd == clients->list[i].fd) {
-                    client = &clients->list[i];
-                    break;
-                }
+        for (i = 0; i < clients->list_size; i++) {
+            if (fd == clients->list[i].fd) {
+                client = &clients->list[i];
+                break;
             }
         }
     }
@@ -437,9 +419,8 @@ client_hdle_t *client_find(const clients_hdle_t *h, int fd)
  * @param [in] state state to provide
  * @param [in] data data to send
  *
- * @return E_ERR_BAD_PARAMETER clients or/and client is/are NULL
- * @return E_ERR_SUCCESS if not found
  * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t client_inform(const client_hdle_t *h, e_mmgr_events_t state,
                               void *data)
@@ -451,37 +432,31 @@ e_mmgr_errors_t client_inform(const client_hdle_t *h, e_mmgr_events_t state,
     msg_t msg = { .data = NULL };
     client_t *client = (client_t *)h;
 
-    CHECK_PARAM(client, ret, out);
+    ASSERT(client != NULL);
+    ASSERT(client->set_data[state] != NULL);
+
     /* do not check data because it can be NULL on purpose */
-
-    if (client->set_data[state] == NULL) {
-        LOG_ERROR("function is NULL");
-        ret = E_ERR_FAILED;
-        goto out;
-    }
-
     client->set_data[state] (&msg, &event);
 
     size = SIZE_HEADER + msg.hdr.len;
     write_size = size;
     if ((0x01 << state) & client->subscription) {
-        if ((ret = cnx_write(client->fd, msg.data, &write_size)) !=
-            E_ERR_SUCCESS)
-            goto out;
-
-        if (size != write_size) {
-            LOG_ERROR("send failed for client (fd=%d name=%s) send=%d/%d",
-                      client->fd, client->name, write_size, size);
-            ret = E_ERR_FAILED;
-        } else {
-            LOG_DEBUG("Client (fd=%d name=%s) informed of: %s", client->fd,
-                      client->name, g_mmgr_events[state]);
+        if ((ret = cnx_write(client->fd, msg.data, &write_size)) ==
+            E_ERR_SUCCESS) {
+            if (size != write_size) {
+                LOG_ERROR("send failed for client (fd=%d name=%s) send=%d/%d",
+                          client->fd, client->name, write_size, size);
+                ret = E_ERR_FAILED;
+            } else {
+                LOG_DEBUG("Client (fd=%d name=%s) informed of: %s", client->fd,
+                          client->name, g_mmgr_events[state]);
+            }
         }
     } else {
         LOG_DEBUG("Client (fd=%d name=%s) NOT informed of: %s",
                   client->fd, client->name, g_mmgr_events[state]);
     }
-out:
+
     msg_delete(&msg);
     return ret;
 }
@@ -493,7 +468,6 @@ out:
  * @param [in] state current modem state
  * @param [in] data additional data to send
  *
- * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -514,7 +488,7 @@ e_mmgr_errors_t clients_inform_all(const clients_hdle_t *h,
         down_state = false;
     }
 
-    CHECK_PARAM(clients, ret, out);
+    ASSERT(clients != NULL);
     /* do not check data because it can be NULL on purpose */
 
     for (i = 0; i < clients->list_size; i++) {
@@ -522,6 +496,7 @@ e_mmgr_errors_t clients_inform_all(const clients_hdle_t *h,
             ret = client_inform((client_hdle_t *)&clients->list[i], state,
                                 data);
     }
+
 out:
     return ret;
 }
@@ -531,15 +506,13 @@ out:
  *
  * @param [in,out] clients list of clients
  *
- * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t client_close(client_list_t *clients)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int i;
 
-    CHECK_PARAM(clients, ret, out);
+    ASSERT(clients != NULL);
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD) {
@@ -547,8 +520,8 @@ static e_mmgr_errors_t client_close(client_list_t *clients)
             cnx_close(&clients->list[i].fd);
         }
     }
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -596,8 +569,7 @@ bool clients_has_resource(const clients_hdle_t *h, e_print_t print)
     int i = 0;
     client_list_t *clients = (client_list_t *)h;
 
-    if (!clients)
-        goto out;
+    ASSERT(clients != NULL);
 
     for (i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD) {
@@ -613,7 +585,6 @@ bool clients_has_resource(const clients_hdle_t *h, e_print_t print)
         }
     }
 
-out:
     return answer;
 }
 
@@ -622,7 +593,6 @@ out:
  *
  * @param [in,out] h list of clients
  *
- * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t clients_reset_ack_cold(clients_hdle_t *h)
@@ -635,7 +605,6 @@ e_mmgr_errors_t clients_reset_ack_cold(clients_hdle_t *h)
  *
  * @param [in,out] h list of clients
  *
- * @return E_ERR_BAD_PARAMETER if clients is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t clients_reset_ack_shtdwn(clients_hdle_t *h)
@@ -649,18 +618,15 @@ e_mmgr_errors_t clients_reset_ack_shtdwn(clients_hdle_t *h)
  *
  * @param h
  *
- * @return NULL if h is NULL
  * @return client name
  */
 const char *client_get_name(const client_hdle_t *h)
 {
-    char *name = NULL;
     client_t *client = (client_t *)h;
 
-    if (client)
-        name = client->name;
+    ASSERT(client != NULL);
 
-    return name;
+    return client->name;
 }
 
 /**
@@ -675,8 +641,9 @@ int client_get_fd(const client_hdle_t *h)
     int fd = CLOSED_FD;
     client_t *client = (client_t *)h;
 
-    if (client)
-        fd = client->fd;
+    ASSERT(client != NULL);
+
+    fd = client->fd;
 
     return fd;
 }
@@ -688,19 +655,16 @@ int client_get_fd(const client_hdle_t *h)
  * @param req request
  *
  * @return E_ERR_SUCCESS
- * @return E_ERR_BAD_PARAMETER if h is NULL
  */
 e_mmgr_errors_t client_set_request(client_hdle_t *h, e_cnx_requests_t req)
 {
     client_t *client = (client_t *)h;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(client, ret, out);
+    ASSERT(client != NULL);
 
     client->cnx |= req;
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -710,19 +674,16 @@ out:
  * @param req request
  *
  * @return E_ERR_SUCCESS
- * @return E_ERR_BAD_PARAMETER if h is NULL
  */
 e_mmgr_errors_t client_unset_request(client_hdle_t *h, e_cnx_requests_t req)
 {
     client_t *client = (client_t *)h;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(client, ret, out);
+    ASSERT(client != NULL);
 
     client->cnx &= ~req;
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -738,8 +699,9 @@ int clients_get_connected(const clients_hdle_t *h)
     int nb = -1;
     client_list_t *clients = (client_list_t *)h;
 
-    if (clients)
-        nb = clients->connected;
+    ASSERT(clients != NULL);
+
+    nb = clients->connected;
 
     return nb;
 }
@@ -757,8 +719,9 @@ int clients_get_allowed(const clients_hdle_t *h)
     int nb = -1;
     client_list_t *clients = (client_list_t *)h;
 
-    if (clients)
-        nb = clients->list_size;
+    ASSERT(clients != NULL);
+
+    nb = clients->list_size;
 
     return nb;
 }

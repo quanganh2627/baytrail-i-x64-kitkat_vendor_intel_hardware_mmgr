@@ -50,20 +50,14 @@
  *
  * @param info
  *
- * @return E_ERR_BAD_PARAMETER
  * @return E_ERR_SUCCESS
  */
 e_mmgr_errors_t backup_prod_nvm(modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(info != NULL);
 
-    CHECK_PARAM(info, ret, out);
-
-    ret = file_copy(info->fl_conf.run.nvm_cal, info->fl_conf.bkup.nvm_cal,
-                    FLS_FILE_PERMISSION);
-
-out:
-    return ret;
+    return file_copy(info->fl_conf.run.nvm_cal, info->fl_conf.bkup.nvm_cal,
+                     FLS_FILE_PERMISSION);
 }
 
 /**
@@ -103,7 +97,7 @@ e_mmgr_errors_t mdm_specific_init(modem_info_t *info)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char *p = NULL;
 
-    CHECK_PARAM(info, ret, out);
+    ASSERT(info != NULL);
 
     if (info->is_flashless) {
         info->mup.hdle = dlopen(MUP_LIB, RTLD_LAZY);
@@ -111,34 +105,33 @@ e_mmgr_errors_t mdm_specific_init(modem_info_t *info)
             LOG_ERROR("failed to open library");
             ret = E_ERR_FAILED;
             dlerror();
-            goto out;
-        }
+        } else {
+            info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
+            info->mup.open_device = dlsym(info->mup.hdle, MUP_FUNC_OPEN);
+            info->mup.toggle_hsi_flashing_mode = dlsym(info->mup.hdle,
+                                                       MUP_FUNC_TOGGLE_HSI_FLASHING_MODE);
+            info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
+            info->mup.update_nvm = dlsym(info->mup.hdle, MUP_FUNC_UP_NVM);
+            info->mup.read_nvm_id = dlsym(info->mup.hdle, MUP_FUNC_READ_NVM_ID);
+            info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
+            info->mup.config_secur_channel =
+                dlsym(info->mup.hdle, MUP_FUNC_CONFIG_SECUR);
+            info->mup.check_fw_version = dlsym(info->mup.hdle,
+                                               MUP_FUNC_FW_VERSION);
+            info->mup.gen_fls = dlsym(info->mup.hdle, MUP_FUNC_GEN_FLS);
 
-        info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
-        info->mup.open_device = dlsym(info->mup.hdle, MUP_FUNC_OPEN);
-        info->mup.toggle_hsi_flashing_mode = dlsym(info->mup.hdle,
-                                                   MUP_FUNC_TOGGLE_HSI_FLASHING_MODE);
-        info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
-        info->mup.update_nvm = dlsym(info->mup.hdle, MUP_FUNC_UP_NVM);
-        info->mup.read_nvm_id = dlsym(info->mup.hdle, MUP_FUNC_READ_NVM_ID);
-        info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
-        info->mup.config_secur_channel =
-            dlsym(info->mup.hdle, MUP_FUNC_CONFIG_SECUR);
-        info->mup.check_fw_version = dlsym(info->mup.hdle, MUP_FUNC_FW_VERSION);
-        info->mup.gen_fls = dlsym(info->mup.hdle, MUP_FUNC_GEN_FLS);
-
-        p = (char *)dlerror();
-        if (p != NULL) {
-            LOG_ERROR("An error ocurred during symbol resolution");
-            ret = E_ERR_FAILED;
-            dlclose(info->mup.hdle);
-            info->mup.hdle = NULL;
-            goto out;
+            p = (char *)dlerror();
+            if (p != NULL) {
+                LOG_ERROR("An error occurred during symbol resolution");
+                ret = E_ERR_FAILED;
+                dlclose(info->mup.hdle);
+                info->mup.hdle = NULL;
+            }
         }
     } else {
         info->mup.hdle = NULL;
     }
-out:
+
     return ret;
 }
 
@@ -147,28 +140,24 @@ out:
  *
  * @param [in] info
  *
- * @return E_ERR_BAD_PARAMETER one parameter is NULL
  * @return E_ERR_FAILED if mcdr init fails
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t mdm_specific_dispose(modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    /* do not use ASSERT in dispose function */
 
-    CHECK_PARAM(info, ret, out);
-
-    if (info->mup.hdle != NULL)
+    if (info && info->mup.hdle != NULL)
         dlclose(info->mup.hdle);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(info, ret, out);
+    ASSERT(info != NULL);
 
     if (info->mdm_link == E_LINK_HSI)
         ret = (info->mup.toggle_hsi_flashing_mode(flashing_mode) ==
@@ -176,7 +165,6 @@ e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode)
     else
         ret = E_ERR_SUCCESS;
 
-out:
     return ret;
 }
 
@@ -191,7 +179,6 @@ out:
  *
  * @return E_ERR_FAILED if operation fails
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info is empty
  */
 e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
                                bool ch_sw,
@@ -201,8 +188,8 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mup_interface_t *handle = NULL;
 
-    CHECK_PARAM(info, ret, out);
-    CHECK_PARAM(sec_hdle, ret, out);
+    ASSERT(info != NULL);
+    ASSERT(sec_hdle != NULL);
 
     if (E_MUP_SUCCEED != info->mup.initialize(&handle, mup_log)) {
         LOG_ERROR("modem updater initialization failed");
@@ -271,7 +258,7 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
         *verdict = E_MODEM_FW_SECURITY_CORRUPTED;
         break;
     case E_MUP_BAD_PARAMETER:
-        ret = E_ERR_BAD_PARAMETER;
+        ret = E_ERR_FAILED;
     }
 
     if (E_MUP_SUCCEED != info->mup.dispose(handle)) {
@@ -293,7 +280,6 @@ out:
  *
  * @return E_ERR_FAILED if operation fails
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info, comport or verdict is null
  */
 e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
                                 e_modem_nvm_error_t *verdict,
@@ -303,44 +289,42 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
     mup_interface_t *handle = NULL;
     e_mup_err_t mup_ret = E_MUP_SUCCEED;
 
-    CHECK_PARAM(info, ret, out);
-    CHECK_PARAM(comport, ret, out);
-    CHECK_PARAM(verdict, ret, out);
-    CHECK_PARAM(sub_error_code, ret, out);
+    ASSERT(info != NULL);
+    ASSERT(comport != NULL);
+    ASSERT(verdict != NULL);
+    ASSERT(sub_error_code != NULL);
 
     if (E_MUP_SUCCEED != info->mup.initialize(&handle, mup_log)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("modem updater initialization failed");
-        goto out;
-    }
-
-    mup_nvm_update_params_t params = {
-        .handle            = handle,
-        .mdm_com_port      = comport,
-        .nvm_file_path     = info->fl_conf.run.nvm_tlv,
-        .nvm_file_path_len = strnlen(info->fl_conf.run.nvm_tlv,
-                                     sizeof(info->fl_conf.run.nvm_tlv)),
-    };
-
-    if ((mup_ret = info->mup.update_nvm(&params)) != E_MUP_SUCCEED) {
-        ret = E_ERR_FAILED;
-        *verdict = E_MODEM_NVM_FAIL;
-        *sub_error_code = mup_ret;
-        LOG_ERROR("modem nvm update failed with error %d", mup_ret);
     } else {
-        if (unlink(info->fl_conf.run.nvm_tlv) != 0)
-            LOG_ERROR("couldn't delete %s: %s", info->fl_conf.run.nvm_tlv,
-                      strerror(errno));
-        /* for now consider a success even if nvm patch not deleted */
-        *verdict = E_MODEM_NVM_SUCCEED;
+        mup_nvm_update_params_t params = {
+            .handle            = handle,
+            .mdm_com_port      = comport,
+            .nvm_file_path     = info->fl_conf.run.nvm_tlv,
+            .nvm_file_path_len = strnlen(info->fl_conf.run.nvm_tlv,
+                                         sizeof(info->fl_conf.run.nvm_tlv)),
+        };
+
+        if ((mup_ret = info->mup.update_nvm(&params)) != E_MUP_SUCCEED) {
+            ret = E_ERR_FAILED;
+            *verdict = E_MODEM_NVM_FAIL;
+            *sub_error_code = mup_ret;
+            LOG_ERROR("modem nvm update failed with error %d", mup_ret);
+        } else {
+            if (unlink(info->fl_conf.run.nvm_tlv) != 0)
+                LOG_ERROR("couldn't delete %s: %s", info->fl_conf.run.nvm_tlv,
+                          strerror(errno));
+            /* for now consider a success even if nvm patch not deleted */
+            *verdict = E_MODEM_NVM_SUCCEED;
+        }
+
+        if (E_MUP_SUCCEED != info->mup.dispose(handle)) {
+            ret = E_ERR_FAILED;
+            LOG_ERROR("modem updater disposal fails");
+        }
     }
 
-    if (E_MUP_SUCCEED != info->mup.dispose(handle)) {
-        ret = E_ERR_FAILED;
-        LOG_ERROR("modem updater disposal fails");
-    }
-
-out:
     return ret;
 }
 
@@ -349,7 +333,6 @@ out:
  *
  * @param [in] info modem info structure
  *
- * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -359,33 +342,31 @@ static e_mmgr_errors_t regen_fls(modem_info_t *info)
     e_mup_err_t mup_err;
     char no_file[2] = "";
 
-    CHECK_PARAM(info, ret, out);
+    ASSERT(info != NULL);
 
     if (!file_exist(info->fl_conf.run.mdm_fw, 0)) {
         LOG_ERROR("fls file (%s) is missing", info->fl_conf.run.mdm_fw);
         ret = E_ERR_FAILED;
-        goto out;
-    }
+    } else {
+        remove(info->fl_conf.run.mdm_inj_fw);
+        LOG_DEBUG("trying to package fls file");
 
-    remove(info->fl_conf.run.mdm_inj_fw);
-    LOG_DEBUG("trying to package fls file");
+        /* @TODO: add certificate and secur files */
+        mup_err = info->mup.gen_fls(info->fl_conf.run.mdm_fw,
+                                    info->fl_conf.run.mdm_inj_fw,
+                                    info->fl_conf.run.path, no_file, no_file);
 
-    /* @TODO: add certificate and secur files */
-    mup_err = info->mup.gen_fls(info->fl_conf.run.mdm_fw,
-                                info->fl_conf.run.mdm_inj_fw,
-                                info->fl_conf.run.path, no_file, no_file);
-
-    if (mup_err == E_MUP_SUCCEED) {
-        if (file_exist(info->fl_conf.run.mdm_inj_fw, 0)) {
-            LOG_INFO("fls file created successfully (%s)",
-                     info->fl_conf.run.mdm_inj_fw);
-            ret = E_ERR_SUCCESS;
-        } else {
-            LOG_ERROR("failed to create fls file");
+        if (mup_err == E_MUP_SUCCEED) {
+            if (file_exist(info->fl_conf.run.mdm_inj_fw, 0)) {
+                LOG_INFO("fls file created successfully (%s)",
+                         info->fl_conf.run.mdm_inj_fw);
+                ret = E_ERR_SUCCESS;
+            } else {
+                LOG_ERROR("failed to create fls file");
+            }
         }
     }
 
-out:
     return ret;
 }
 
@@ -394,7 +375,6 @@ out:
  *
  * @param [in] info modem info structure
  *
- * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -402,14 +382,14 @@ e_mmgr_errors_t mdm_cold_reset(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(info, ret, out);
+    ASSERT(info != NULL);
 
     LOG_INFO("MODEM COLD RESET");
     if (ioctl(info->fd_mcd, MDM_CTRL_COLD_RESET) == -1) {
         ret = E_ERR_FAILED;
         LOG_DEBUG("couldn't reset modem: %s", strerror(errno));
     }
-out:
+
     return ret;
 }
 
@@ -418,14 +398,14 @@ out:
  *
  * @param [in,out] info reset management structure
  *
- * @return E_OPERATION_BAD_PARAMETER if info is NULL
- * @return E_OPERATION_CONTINUE
+ * @return E_ERR_FAILED
+ * @return E_ERR_SUCCESS
  */
 e_mmgr_errors_t mdm_down(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    CHECK_PARAM(info, ret, out);
+    ASSERT(info != NULL);
 
     ctrl_on_mdm_down(info->ctrl);
 
@@ -439,7 +419,6 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
 
     pm_on_mdm_oos(info->pm);
 
-out:
     return ret;
 }
 
@@ -448,7 +427,6 @@ out:
  *
  * @param [in] info modem info structure
  *
- * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -457,7 +435,7 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int state;
 
-    CHECK_PARAM(info, ret, out);
+    ASSERT(info != NULL);
 
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
     ctrl_on_mdm_up(info->ctrl);
@@ -476,7 +454,6 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     else
         ctrl_on_mdm_down(info->ctrl);
 
-out:
     return ret;
 }
 
@@ -487,14 +464,13 @@ out:
  * @param [out] state e_modem_events_type_t
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info is NULL
  */
 e_mmgr_errors_t mdm_get_state(int fd_mcd, e_modem_events_type_t *state)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int read = 0;
 
-    CHECK_PARAM(state, ret, out);
+    ASSERT(state != NULL);
 
     *state = E_EV_NONE;
 
@@ -546,7 +522,6 @@ out:
  *
  * @param [in,out] info modem info context
  *
- * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -554,7 +529,7 @@ e_mmgr_errors_t set_mcd_poll_states(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(info, ret, out);
+    ASSERT(info != NULL);
 
     LOG_DEBUG("update mcd states filter: 0x%.2X", info->polled_states);
     if (ioctl(info->fd_mcd, MDM_CTRL_SET_POLLED_STATES,
@@ -564,7 +539,6 @@ e_mmgr_errors_t set_mcd_poll_states(modem_info_t *info)
         ret = E_ERR_FAILED;
     }
 
-out:
     return ret;
 }
 
@@ -573,7 +547,6 @@ out:
  *
  * @param [in,out] info modem info context
  *
- * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  **/
@@ -581,7 +554,7 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(info, ret, out);
+    ASSERT(info != NULL);
 
     if (info->is_flashless) {
         /* Restore calibration file from backup if missing */
@@ -603,7 +576,7 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
          * flashless */
         ret = regen_fls(info);
     }
-out:
+
     return ret;
 }
 
@@ -612,20 +585,14 @@ out:
  *
  * @param [in,out] info modem info context
  *
- * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  **/
 e_mmgr_errors_t mdm_prepare_link(modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(info != NULL);
 
-    CHECK_PARAM(info, ret, out);
-
-    ret = ctrl_on_mdm_flash(info->ctrl);
-
-out:
-    return ret;
+    return ctrl_on_mdm_flash(info->ctrl);
 }
 
 /**
@@ -633,15 +600,12 @@ out:
  *
  * @param [in,out] info modem info context
  *
- * @return E_ERR_BAD_PARAMETER if info is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  **/
 e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(info, ret, out);
+    ASSERT(info != NULL);
 
     if (info->is_flashless)
         info->polled_states = MDM_CTRL_STATE_FW_DOWNLOAD_READY;
@@ -649,7 +613,5 @@ e_mmgr_errors_t mdm_subscribe_start_ev(modem_info_t *info)
         info->polled_states = MDM_CTRL_STATE_IPC_READY;
 
     info->polled_states |= MDM_CTRL_STATE_COREDUMP;
-    ret = set_mcd_poll_states(info);
-out:
-    return ret;
+    return set_mcd_poll_states(info);
 }

@@ -68,24 +68,19 @@ mcdr_handle_t *mcdr_init(const mcdr_info_t *cfg)
     char *p = NULL;
     mcdr_lib_t *mcdr = NULL;
 
-    if (!cfg) {
-        LOG_ERROR("cfg is NULL");
-        goto err;
-    }
+    ASSERT(cfg != NULL);
 
     mcdr = calloc(1, sizeof(mcdr_lib_t));
     if (!mcdr) {
         LOG_ERROR("memory allocation failed");
-        goto err;
-    }
-
-    if (!cfg->gnl.enable) {
+    } else if (!cfg->gnl.enable) {
         mcdr->enabled = false;
-        LOG_VERBOSE("failed to load library");
+        LOG_VERBOSE("MCDR is disabled");
     } else {
         mcdr->lib = dlopen(MCDR_LIBRARY_NAME, RTLD_LAZY);
         if (mcdr->lib == NULL) {
             mcdr->enabled = false;
+            LOG_VERBOSE("failed to load the library");
             dlerror();
         } else {
             mcdr->enabled = true;
@@ -99,16 +94,13 @@ mcdr_handle_t *mcdr_init(const mcdr_info_t *cfg)
             p = (char *)dlerror();
             if (p != NULL) {
                 LOG_ERROR("An error ocurred during symbol resolution");
-                goto err;
+                mcdr_dispose((mcdr_handle_t *)mcdr);
+                mcdr = NULL;
             }
         }
     }
 
     return (mcdr_handle_t *)mcdr;
-
-err:
-    mcdr_dispose((mcdr_handle_t *)mcdr);
-    return NULL;
 }
 
 /**
@@ -124,7 +116,7 @@ e_mmgr_errors_t mcdr_dispose(mcdr_handle_t *h)
     mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    if (h) {
+    if (mcdr) {
         dlclose(mcdr->lib);
         free(mcdr);
     } else {
@@ -157,7 +149,6 @@ static void thread_core_dump(core_dump_thread_t *cd_reader)
  * @param [in] h module handle
  * @param [out] state
  *
- * @return E_ERR_BAD_PARAMETER if mcdr is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -171,8 +162,8 @@ e_mmgr_errors_t mcdr_read(mcdr_handle_t *h, e_core_dump_state_t *state)
     core_dump_thread_t cd_reader;
     mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
 
-    CHECK_PARAM(mcdr, ret, out);
-    CHECK_PARAM(state, ret, out);
+    ASSERT(mcdr != NULL);
+    ASSERT(state != NULL);
 
     /* initialize thread structure */
     pthread_mutex_init(&cd_reader.mutex, NULL);

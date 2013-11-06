@@ -44,7 +44,6 @@
  * @return E_ERR_AT_CMD_RESEND generic failure. Command to resend
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_TTY_BAD_FD if a bad file descriptor is provided
- * @return E_ERR_BAD_PARAMETER if data is NULL
  */
 static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
                                int timeout)
@@ -53,7 +52,7 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
     int data_size = AT_SIZE;
     char data[AT_SIZE + 1];
 
-    CHECK_PARAM(command, ret, out);
+    ASSERT(command != NULL);
 
     /* Send AT command to modem */
     LOG_DEBUG("Send of %s", command);
@@ -102,6 +101,7 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
     }                           /* Loop waiting answer */
 
     tcflush(fd, TCIFLUSH);
+
 out:
     return ret;
 }
@@ -119,20 +119,19 @@ out:
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_FAILED failed to send command after all retries
  * @return E_ERR_TTY_BAD_FD bad file descriptor
- * @return E_ERR_BAD_PARAMETER if at_cmd is NULL
  */
 e_mmgr_errors_t send_at_retry(int fd_tty, const char *at_cmd, int at_cmd_size,
                               int retry, int timeout)
 {
     int err = E_ERR_AT_CMD_RESEND;
 
-    CHECK_PARAM(at_cmd, err, out);
+    ASSERT(at_cmd != NULL);
 
     /* Send AT until we get a valid response or after retry retries */
     for (; retry >= 0; retry--) {
         err = send_at(fd_tty, at_cmd, at_cmd_size, timeout);
         if ((err == E_ERR_TTY_BAD_FD) || (err == E_ERR_TTY_POLLHUP) ||
-            (err == E_ERR_BAD_PARAMETER) || (err == E_ERR_SUCCESS))
+            (err == E_ERR_SUCCESS))
             break;
     }
 
@@ -141,6 +140,5 @@ e_mmgr_errors_t send_at_retry(int fd_tty, const char *at_cmd, int at_cmd_size,
         err = E_ERR_FAILED;
     }
 
-out:
     return err;
 }

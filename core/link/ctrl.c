@@ -96,20 +96,17 @@ err:
  *
  * @param [in] h control link handle
  *
- * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS otherwise
  */
 e_mmgr_errors_t ctrl_dispose(ctrl_handle_t *h)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     ctrl_ctx_t *ctx = (ctrl_ctx_t *)h;
 
-    CHECK_PARAM(ctx, ret, out);
+    /* do not use ASSERT in dispose function */
 
     free(ctx);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -120,14 +117,12 @@ out:
  *
  * @return E_ERR_FAILED if it fails
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info or/and path or/and value is/are NULL
  */
 static e_mmgr_errors_t ctrl_set_state(link_ctrl_t *ctrl, e_ctrl_action_t action)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     char *cmd = NULL;
 
-    CHECK_PARAM(ctrl, ret, out);
+    ASSERT(ctrl != NULL);
 
     switch (action) {
     case E_ACTION_OFF:
@@ -141,9 +136,7 @@ static e_mmgr_errors_t ctrl_set_state(link_ctrl_t *ctrl, e_ctrl_action_t action)
         break;
     }
 
-    ret = file_write(ctrl->device, SYSFS_OPEN_MODE, cmd, strlen(cmd));
-out:
-    return ret;
+    return file_write(ctrl->device, SYSFS_OPEN_MODE, cmd, strlen(cmd));
 }
 
 /**
@@ -152,14 +145,13 @@ out:
  * @param [in] h power management handle
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info is NULL
  */
 e_mmgr_errors_t ctrl_on_mdm_down(ctrl_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     ctrl_ctx_t *ctx = (ctrl_ctx_t *)h;
 
-    CHECK_PARAM(ctx, ret, out);
+    ASSERT(ctx != NULL);
 
     switch (ctx->mdm.type) {
     case E_LINK_HSI:
@@ -177,7 +169,6 @@ e_mmgr_errors_t ctrl_on_mdm_down(ctrl_handle_t *h)
         break;
     }
 
-out:
     return ret;
 }
 
@@ -187,14 +178,13 @@ out:
  * @param [in] h power management handle
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info is NULL
  */
 e_mmgr_errors_t ctrl_on_mdm_up(ctrl_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     ctrl_ctx_t *ctx = (ctrl_ctx_t *)h;
 
-    CHECK_PARAM(ctx, ret, out);
+    ASSERT(ctx != NULL);
 
     switch (ctx->mdm.type) {
     case E_LINK_HSI:
@@ -212,7 +202,6 @@ e_mmgr_errors_t ctrl_on_mdm_up(ctrl_handle_t *h)
         break;
     }
 
-out:
     return ret;
 }
 
@@ -222,14 +211,13 @@ out:
  * @param [in] h power management handle
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info is NULL
  */
 e_mmgr_errors_t ctrl_on_mdm_flash(ctrl_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     ctrl_ctx_t *ctx = (ctrl_ctx_t *)h;
 
-    CHECK_PARAM(ctx, ret, out);
+    ASSERT(ctx != NULL);
 
     switch (ctx->mdm.type) {
     case E_LINK_HSI:
@@ -247,7 +235,6 @@ e_mmgr_errors_t ctrl_on_mdm_flash(ctrl_handle_t *h)
         break;
     }
 
-out:
     return ret;
 }
 
@@ -258,14 +245,13 @@ out:
  * @param [in] h power management handle
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if info is NULL
  */
 e_mmgr_errors_t ctrl_on_cd_ipc_failure(ctrl_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     ctrl_ctx_t *ctx = (ctrl_ctx_t *)h;
 
-    CHECK_PARAM(ctx, ret, out);
+    ASSERT(ctx != NULL);
 
     switch (ctx->mdm.type) {
     case E_LINK_HSI:
@@ -283,6 +269,5 @@ e_mmgr_errors_t ctrl_on_cd_ipc_failure(ctrl_handle_t *h)
         break;
     }
 
-out:
     return ret;
 }

@@ -63,14 +63,11 @@ static e_mmgr_errors_t security_event(mmgr_data_t *mmgr)
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_SUCCESS
  */
 e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     free(mmgr->events.ev);
     release_wake_lock(MODULE_NAME);
@@ -80,8 +77,8 @@ e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr)
         cnx_close(&mmgr->fd_cnx);
     if (mmgr->epollfd != CLOSED_FD)
         close(mmgr->epollfd);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -90,7 +87,6 @@ out:
  * @param [in] nb_client
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
@@ -98,7 +94,7 @@ e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     /* initialize all fds */
     mmgr->fd_tty = CLOSED_FD;
@@ -110,14 +106,12 @@ e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr)
     if (mmgr->events.ev == NULL) {
         LOG_ERROR("memory allocation failed");
         ret = E_ERR_FAILED;
-        goto out;
+    } else {
+        mmgr->events.cur_ev = FIRST_EVENT;
+        mmgr->events.link_state = E_MDM_LINK_NONE;
+        mmgr->request.accept_request = true;
     }
 
-    mmgr->events.cur_ev = FIRST_EVENT;
-    mmgr->events.link_state = E_MDM_LINK_NONE;
-    mmgr->request.accept_request = true;
-
-out:
     return ret;
 }
 
@@ -126,7 +120,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
@@ -134,7 +127,7 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     if ((ret = mdm_prepare(&mmgr->info)) != E_ERR_SUCCESS)
         goto out;
@@ -194,7 +187,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if epoll_wait fails
  * E_ERR_SUCCESS: if successful
  */
@@ -203,7 +195,7 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int fd;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     if (mmgr->events.cur_ev + 1 >= mmgr->events.nfds) {
         do {
@@ -241,6 +233,7 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
         else
             mmgr->events.state = E_EVENT_CLIENT;
     }
+
 out:
     return ret;
 }
@@ -253,7 +246,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_SUCCESS
  */
 e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
@@ -266,7 +258,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
         EVENTS
     };
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     for (;; ) {
         if (mmgr->events.cli_req & E_CLI_REQ_OFF) {
@@ -327,10 +319,8 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             break;
         }
         }
-
-        if (ret == E_ERR_BAD_PARAMETER)
-            goto out;
     }
+
 out:
     /* if the wakelock is set here, it will be removed by events_cleanup
      * function */

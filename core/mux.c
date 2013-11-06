@@ -145,11 +145,11 @@ e_mmgr_errors_t configure_cmux_driver(int fd_tty, int max_frame_size)
 
     LOG_VERBOSE("write config ioctl to mux");
     err = ioctl(fd_tty, GSMIOC_SETCONF, &cfg);
-    if (err < 0) {
+    if (err < 0)
         LOG_ERROR("config ioctl problem (%s)", strerror(errno));
-        goto out;
-    }
-    ret = E_ERR_SUCCESS;
+    else
+        ret = E_ERR_SUCCESS;
+
 out:
     return ret;
 }
@@ -171,7 +171,7 @@ e_mmgr_errors_t send_at_cmux(int fd_tty, mux_t *mux)
     char at_cmux_config[AT_MUX_CMD_SIZE];
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    CHECK_PARAM(mux, ret, out);
+    ASSERT(mux != NULL);
 
     /* NB: Add AT_MUX_PORT_SPEED, AT_MUX_T3, AT_MUX_K if needed */
     if (snprintf(at_cmux_config, AT_MUX_CMD_SIZE,
@@ -187,6 +187,5 @@ e_mmgr_errors_t send_at_cmux(int fd_tty, mux_t *mux)
             LOG_ERROR("AT+CMUX not sent successfully");
     }
 
-out:
     return ret;
 }

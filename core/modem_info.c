@@ -60,7 +60,6 @@ typedef enum e_switch_to_mux_states {
  * @param [in] flash
  * @param [in,out] info modem info
  *
- * @return E_ERR_BAD_PARAMETER one parameter is NULL
  * @return E_ERR_FAILED if mcdr init fails
  * @return E_ERR_SUCCESS if successful
  */
@@ -70,10 +69,10 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(mdm_info, ret, out);
-    CHECK_PARAM(com, ret, out);
-    CHECK_PARAM(mdm_link, ret, out);
-    CHECK_PARAM(info, ret, out);
+    ASSERT(mdm_info != NULL);
+    ASSERT(com != NULL);
+    ASSERT(mdm_link != NULL);
+    ASSERT(info != NULL);
 
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
     info->is_flashless = mdm_info->flashless;
@@ -134,24 +133,19 @@ out:
  *
  * @param [in] info
  *
- * @return E_ERR_BAD_PARAMETER one parameter is NULL
  * @return E_ERR_FAILED if mcdr init fails
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_info_dispose(modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    /* do not use ASSERT in dispose function */
 
-    CHECK_PARAM(info, ret, out);
-
-    if (info->fd_mcd != CLOSED_FD) {
+    if (info && info->fd_mcd != CLOSED_FD) {
         close(info->fd_mcd);
         info->fd_mcd = CLOSED_FD;
     }
 
-    ret = mdm_specific_dispose(info);
-out:
-    return ret;
+    return mdm_specific_dispose(info);
 }
 
 /**
@@ -228,7 +222,6 @@ out_xlog:
  * @param [in,out] fd_tty modem file descriptor
  * @param [in] info modem information
  *
- * @return E_ERR_BAD_PARAMETER if parameters are NULL
  * @return E_ERR_TTY_BAD_FD bad file descriptor
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_AT_CMD_RESEND  generic failure
@@ -239,13 +232,13 @@ out_xlog:
  */
 e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
 {
-    e_mmgr_errors_t ret = E_ERR_BAD_PARAMETER;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
     e_switch_to_mux_states_t state;
     struct timespec current, start;
     bool retry_bad_fd_done = false;
 
-    CHECK_PARAM(fd_tty, ret, out);
-    CHECK_PARAM(info, ret, out);
+    ASSERT(fd_tty != NULL);
+    ASSERT(info != NULL);
 
     for (state = E_MUX_HANDSHAKE; state != E_MUX_DRIVER; /* none */) {
         switch (state) {
@@ -263,7 +256,7 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
             break;
         default:
             LOG_ERROR("bad state");
-            ret = E_ERR_BAD_PARAMETER;
+            ret = E_ERR_FAILED;
             goto out;
         }
 

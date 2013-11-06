@@ -37,7 +37,6 @@
  *
  * @return E_ERR_FAILED if open fails
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if path or value is/are NULL
  */
 e_mmgr_errors_t file_write(char *path, unsigned long mode, char *value,
                            size_t size)
@@ -46,8 +45,8 @@ e_mmgr_errors_t file_write(char *path, unsigned long mode, char *value,
     e_mmgr_errors_t ret = E_ERR_FAILED;
     ssize_t write_size = 0;
 
-    CHECK_PARAM(path, ret, out);
-    CHECK_PARAM(value, ret, out);
+    ASSERT(path != NULL);
+    ASSERT(value != NULL);
 
     fd = open(path, O_WRONLY | O_CREAT, mode);
     if (fd < 0) {
@@ -62,7 +61,7 @@ e_mmgr_errors_t file_write(char *path, unsigned long mode, char *value,
             LOG_ERROR("write to (%s) failed. (%s)", path, strerror(errno));
         }
     }
-out:
+
     return ret;
 }
 
@@ -81,13 +80,13 @@ bool file_exist(const char *path, unsigned long rights)
     struct stat st;
     bool result = false;
 
-    if (path) {
-        if (!stat(path, &st) && S_ISREG(st.st_mode)) {
-            result = true;
-            if (rights && ((st.st_mode & MASK_ALL) != (rights & ~MMGR_UMASK))) {
-                LOG_DEBUG("bad file permissions");
-                result = false;
-            }
+    ASSERT(path != NULL);
+
+    if (!stat(path, &st) && S_ISREG(st.st_mode)) {
+        result = true;
+        if (rights && ((st.st_mode & MASK_ALL) != (rights & ~MMGR_UMASK))) {
+            LOG_DEBUG("bad file permissions");
+            result = false;
         }
     }
 
@@ -101,7 +100,6 @@ bool file_exist(const char *path, unsigned long rights)
  * @param [in] dst Destination file to copy to.
  * @param [in] dst_mode Mode to give to destination file.
  *
- * @return E_ERR_BAD_PARAMETER if src or dst is NULL
  * @return E_ERR_FAILED file not copied
  * @return E_ERR_SUCCESS file copied
  */
@@ -114,8 +112,8 @@ e_mmgr_errors_t file_copy(const char *src, const char *dst, mode_t dst_mode)
     struct stat sb;
     off_t offset = 0;
 
-    CHECK_PARAM(src, ret, out);
-    CHECK_PARAM(dst, ret, out);
+    ASSERT(src != NULL);
+    ASSERT(dst != NULL);
 
     old_umask = umask(~dst_mode & 0777);
 

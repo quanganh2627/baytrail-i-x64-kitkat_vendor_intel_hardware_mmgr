@@ -265,7 +265,7 @@ static void disable_telephony(mmgr_data_t *mmgr)
  */
 int main(int argc, char *argv[])
 {
-    int err;
+    int err = 0;
     e_mmgr_errors_t ret = EXIT_SUCCESS;
     mmgr_data_t mmgr;
 

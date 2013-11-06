@@ -81,15 +81,13 @@ static e_mmgr_errors_t add_ev(const char *path, uint8_t event, void *ctx)
         LOG_ERROR("too much events at once, reached %d CAPACITY -> lost event",
                   BUS_EV_CAPACITY);
         ret = E_ERR_FAILED;
-        goto out;
+    } else {
+        bus_event_t *evs = ev_ctx->evs;
+        evs[i].event = event;
+        strncpy(evs[i].path, path, sizeof(evs[i].path));
+        ev_ctx->i++;
     }
 
-    bus_event_t *evs = ev_ctx->evs;
-    evs[i].event = event;
-    strncpy(evs[i].path, path, sizeof(evs[i].path));
-    ev_ctx->i++;
-
-out:
     return ret;
 }
 
@@ -289,20 +287,17 @@ int bus_ev_get_fd(bus_ev_hdle_t *h)
  *
  * @param [in] h bus handler
  *
- * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS otherwise
  */
 e_mmgr_errors_t bus_ev_start(bus_ev_hdle_t *h)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     bus_ev_t *bus_events = (bus_ev_t *)h;
 
-    CHECK_PARAM(bus_events, ret, out);
+    ASSERT(bus_events != NULL);
 
     bus_events->wd_fd = usb_host_get_fd(bus_events->ctx);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -321,8 +316,9 @@ bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr)
     bool usb = false;
     bus_ev_t *bus_events = NULL;
 
-    if (!(flash && bb && mcdr))
-        goto err;
+    ASSERT(flash != NULL);
+    ASSERT(bb != NULL);
+    ASSERT(mcdr != NULL);
 
     bus_events = calloc(1, sizeof(bus_ev_t));
     if (!bus_events) {
@@ -389,23 +385,19 @@ err:
  *
  * param [in] h bus handle
  *
- * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS otherwise
  */
 e_mmgr_errors_t bus_ev_dispose(bus_ev_hdle_t *h)
 {
     bus_ev_t *bus_events = (bus_ev_t *)h;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     if (bus_events) {
         if (bus_events->ctx)
             usb_host_cleanup(bus_events->ctx);
         free(bus_events);
-    } else {
-        ret = E_ERR_BAD_PARAMETER;
     }
 
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**

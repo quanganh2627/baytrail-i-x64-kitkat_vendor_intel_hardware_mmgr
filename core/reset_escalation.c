@@ -90,7 +90,6 @@ e_mmgr_errors_t out_of_service(modem_info_t *info)
  *
  * @param [in] h reset module handler
  *
- * @ return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -101,7 +100,7 @@ e_mmgr_errors_t recov_start(reset_handle_t *h)
     int reboot_counter = 0;
     reset_management_t *reset = (reset_management_t *)h;
 
-    CHECK_PARAM(reset, ret, out);
+    ASSERT(reset != NULL);
 
     if (reset->op == E_FORCE_OOS) {
         reset->level.id = E_EL_MODEM_OUT_OF_SERVICE;
@@ -125,7 +124,6 @@ e_mmgr_errors_t recov_start(reset_handle_t *h)
         }
     }
 
-out:
     reset->last_reset_time = current_time;
     return ret;
 }
@@ -178,21 +176,19 @@ void recov_set_reboot(int reboot)
  * @param [in] h reset module handler
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if bad parameter
  */
 e_mmgr_errors_t recov_reinit(reset_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     reset_management_t *reset = (reset_management_t *)h;
 
-    CHECK_PARAM(reset, ret, out);
+    ASSERT(reset != NULL);
 
     reset->level.counter = 0;
     reset->level.id = E_EL_MODEM_COLD_RESET;
     if (reset->process[reset->level.id].retry_allowed <= 0)
         recov_next(h);
 
-out:
     return ret;
 }
 
@@ -202,14 +198,13 @@ out:
  * @param [in] h reset module handler
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if bad parameter
  **/
 e_mmgr_errors_t recov_next(reset_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     reset_management_t *reset = (reset_management_t *)h;
 
-    CHECK_PARAM(reset, ret, out);
+    ASSERT(reset != NULL);
 
     do
         reset->level.id = reset->process[reset->level.id].next_level;
@@ -217,7 +212,7 @@ e_mmgr_errors_t recov_next(reset_handle_t *h)
            (reset->level.id != E_EL_MODEM_OUT_OF_SERVICE));
     reset->level.counter = 0;
     LOG_DEBUG("new level: %d", reset->level.id);
-out:
+
     return ret;
 }
 
@@ -226,7 +221,6 @@ out:
  *
  * @param [in] h reset module handler
  *
- * @return E_ERR_BAD_PARAMETER if bad parameter
  * @return E_ERR_FAILED operation has failed
  * @return E_ERR_SUCCESS if successful
  */
@@ -241,7 +235,7 @@ e_mmgr_errors_t recov_done(reset_handle_t *h)
         RECOV_LEVEL
     };
 
-    CHECK_PARAM(reset, ret, out);
+    ASSERT(reset != NULL);
 
     if (reset->level.id >= E_EL_NUMBER_OF)
         goto out;
@@ -331,7 +325,6 @@ out:
  *
  * @param [in] h reset module handler
  *
- * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS otherwise
  */
 e_mmgr_errors_t recov_dispose(reset_handle_t *h)
@@ -339,11 +332,10 @@ e_mmgr_errors_t recov_dispose(reset_handle_t *h)
     reset_management_t *reset = (reset_management_t *)h;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(reset, ret, out);
+    /* do not use ASSERT in dispose function */
 
     free(reset);
 
-out:
     return ret;
 }
 
@@ -352,19 +344,15 @@ out:
  *
  * @param [in] h reset module handler
  *
- * @return a 0 timeval if h is NULL
  * @return a correct timeval otherwise
  */
 struct timeval recov_get_last_reset(reset_handle_t *h)
 {
     reset_management_t *reset = (reset_management_t *)h;
-    struct timeval ts;
 
-    memset(&ts, 0, sizeof(ts));
-    if (reset)
-        ts = reset->last_reset_time;
+    ASSERT(reset != NULL);
 
-    return ts;
+    return reset->last_reset_time;
 }
 
 /**
@@ -373,7 +361,6 @@ struct timeval recov_get_last_reset(reset_handle_t *h)
  * @param [in] h reset module handler
  * @param [in] state new escalation recovery state
  *
- * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS otherwise
  */
 e_mmgr_errors_t recov_set_state(reset_handle_t *h,
@@ -382,11 +369,10 @@ e_mmgr_errors_t recov_set_state(reset_handle_t *h,
     reset_management_t *reset = (reset_management_t *)h;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(reset, ret, out);
+    ASSERT(reset != NULL);
 
     reset->state = state;
 
-out:
     return ret;
 }
 
@@ -395,18 +381,15 @@ out:
  *
  * @param [in] h reset module handler
  *
- * @return E_OPERATION_UNKNOWN if h is NULL
  * @return a valid e_reset_operation_state_t otherwise
  */
 e_reset_operation_state_t recov_get_state(reset_handle_t *h)
 {
     reset_management_t *reset = (reset_management_t *)h;
-    e_reset_operation_state_t state = E_OPERATION_UNKNOWN;
 
-    if (reset)
-        state = reset->state;
+    ASSERT(reset != NULL);
 
-    return state;
+    return reset->state;
 }
 
 /**
@@ -414,18 +397,15 @@ e_reset_operation_state_t recov_get_state(reset_handle_t *h)
  *
  * @param [in] h reset module handler
  *
- * @return -1 if h is NULL
  * @return the maximum operation allowed otherwise
  */
 int recov_get_retry_allowed(reset_handle_t *h)
 {
     reset_management_t *reset = (reset_management_t *)h;
-    int retry = -1;
 
-    if (reset)
-        retry = reset->process[reset->level.id].retry_allowed;
+    ASSERT(reset != NULL);
 
-    return retry;
+    return reset->process[reset->level.id].retry_allowed;
 }
 
 /**
@@ -434,7 +414,6 @@ int recov_get_retry_allowed(reset_handle_t *h)
  * @param [in] h reset module handler
  * @param [in] op forced operation type
  *
- * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -443,9 +422,9 @@ e_mmgr_errors_t recov_force(reset_handle_t *h, e_force_operation_t op)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     reset_management_t *reset = (reset_management_t *)h;
 
-    CHECK_PARAM(reset, ret, out);
+    ASSERT(reset != NULL);
+
     reset->op = op;
 
-out:
     return ret;
 }

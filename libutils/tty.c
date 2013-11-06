@@ -34,7 +34,6 @@
  * @param [in] fd file descriptor
  * @param [in] events events to catch
  *
- * @return E_ERR_BAD_PARAMETER clients is NULL
  * @return E_ERR_FAILED initialization fails
  * @return E_ERR_SUCCESS if successful
  */
@@ -57,14 +56,14 @@ e_mmgr_errors_t tty_init_listener(int *epollfd)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(epollfd, ret, out);
+    ASSERT(epollfd != NULL);
 
     *epollfd = epoll_create(1);
     if (*epollfd == CLOSED_FD) {
         LOG_ERROR("epoll initialization failed");
         ret = E_ERR_FAILED;
     }
-out:
+
     return ret;
 }
 
@@ -112,6 +111,7 @@ e_mmgr_errors_t tty_wait_for_event(int fd, int timeout)
         LOG_ERROR("Poll failed (%s)", strerror(errno));
         ret = E_ERR_TTY_ERROR;
     }
+
 out:
     if (epollfd != CLOSED_FD)
         close(epollfd);
@@ -128,7 +128,6 @@ out:
  *
  * @return E_ERR_SUCCESS if successful,
  * @return E_ERR_TTY_BAD_FD if a bad fd is provided,
- * @return E_ERR_BAD_PARAMETER if data or data_size is/are NULL
  * @return E_ERR_TTY_ERROR otherwise
  */
 e_mmgr_errors_t tty_read(int fd, char *data, int *data_size,
@@ -139,8 +138,8 @@ e_mmgr_errors_t tty_read(int fd, char *data, int *data_size,
     int read_size = 0;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(data, ret, failure);
-    CHECK_PARAM(data_size, ret, failure);
+    ASSERT(data != NULL);
+    ASSERT(data_size != NULL);
 
     memset(data, 0, *data_size);
     for (i = 0; i < max_retries; i++) {
@@ -164,6 +163,7 @@ e_mmgr_errors_t tty_read(int fd, char *data, int *data_size,
     }
 
     *data_size = read_size;
+
 failure:
     return ret;
 }
@@ -246,6 +246,7 @@ e_mmgr_errors_t tty_set_termio(int fd)
 
     tcflush(fd, TCIFLUSH);
     tcsetattr(fd, TCSANOW, &newtio);
+
 out:
     return ret;
 }
@@ -258,15 +259,14 @@ out:
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_TTY_BAD_FD if open fails
- * @return E_ERR_BAD_PARAMETER tty_name or fd is/are NULL
  */
 e_mmgr_errors_t tty_open(const char *tty_name, int *fd)
 {
     e_mmgr_errors_t ret = E_ERR_TTY_BAD_FD;
     int count;
 
-    CHECK_PARAM(tty_name, ret, out);
-    CHECK_PARAM(fd, ret, out);
+    ASSERT(tty_name != NULL);
+    ASSERT(fd != NULL);
 
     if (*fd != CLOSED_FD)
         goto out;
@@ -306,7 +306,6 @@ out:
  *
  * @param [in,out] fd file descriptor to close
  *
- * @return E_ERR_BAD_PARAMETER if fd is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_TTY_ERROR if nothing has been written
  */
@@ -314,7 +313,7 @@ e_mmgr_errors_t tty_close(int *fd)
 {
     e_mmgr_errors_t ret = E_ERR_TTY_ERROR;
 
-    CHECK_PARAM(fd, ret, out);
+    ASSERT(fd != NULL);
 
     LOG_DEBUG("trying to close tty");
     if (*fd > CLOSED_FD) {
@@ -323,6 +322,6 @@ e_mmgr_errors_t tty_close(int *fd)
         ret = E_ERR_SUCCESS;
         LOG_DEBUG("closed");
     }
-out:
+
     return ret;
 }

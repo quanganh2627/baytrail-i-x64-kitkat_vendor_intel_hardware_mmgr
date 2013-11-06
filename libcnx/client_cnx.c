@@ -39,17 +39,16 @@ e_mmgr_errors_t cnx_open(int *fd)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    CHECK_PARAM(fd, ret, out);
+    ASSERT(fd != NULL);
 
     LOG_DEBUG("configure socket: %s", MMGR_SOCKET_NAME);
     *fd = android_get_control_socket(MMGR_SOCKET_NAME);
 
-    if (listen(*fd, DEFAULT_BACKLOG) < 0) {
+    if (listen(*fd, DEFAULT_BACKLOG) < 0)
         LOG_ERROR("listen failed (%s)", strerror(errno));
-        goto out;
-    }
-    ret = E_ERR_SUCCESS;
-out:
+    else
+        ret = E_ERR_SUCCESS;
+
     return ret;
 }
 
@@ -72,7 +71,6 @@ e_mmgr_errors_t cnx_accept(int fd)
  * @param [out] data output buffer
  * @param [in,out] len size of data. the value returned is the read size
  *
- * @return E_ERR_BAD_PARAMETER if fd is NULL
  * @return E_ERR_FAILED read fails
  * @return E_ERR_SUCCESS if successful
  */
@@ -81,8 +79,8 @@ e_mmgr_errors_t cnx_read(int fd, void *data, size_t *len)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int err;
 
-    CHECK_PARAM(data, ret, out);
-    CHECK_PARAM(len, ret, out);
+    ASSERT(data != NULL);
+    ASSERT(len != NULL);
 
     memset(data, 0, *len);
     err = recv(fd, data, *len, 0);
@@ -93,7 +91,6 @@ e_mmgr_errors_t cnx_read(int fd, void *data, size_t *len)
         *len = err;
     }
 
-out:
     return ret;
 }
 
@@ -104,7 +101,6 @@ out:
  * @param [in] data data to write
  * @param [in] len data length
  *
- * @return E_ERR_BAD_PARAMETER if fd is NULL
  * @return E_ERR_FAILED send fails
  * @return E_ERR_SUCCESS if successful
  */
@@ -113,8 +109,8 @@ e_mmgr_errors_t cnx_write(int fd, void *data, size_t *len)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int err;
 
-    CHECK_PARAM(data, ret, out);
-    CHECK_PARAM(len, ret, out);
+    ASSERT(data != NULL);
+    ASSERT(len != NULL);
 
     err = send(fd, data, *len, MSG_NOSIGNAL);
     if (err < 0) {
@@ -122,7 +118,6 @@ e_mmgr_errors_t cnx_write(int fd, void *data, size_t *len)
         ret = E_ERR_FAILED;
     }
 
-out:
     return ret;
 }
 
@@ -131,7 +126,6 @@ out:
  *
  * @param [in,out] fd cnx file descriptor
  *
- * @return E_ERR_BAD_PARAMETER if fd is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -139,7 +133,7 @@ e_mmgr_errors_t cnx_close(int *fd)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(fd, ret, out);
+    ASSERT(fd != NULL);
 
     shutdown(*fd, SHUT_RDWR);
     if (close(*fd) < 0) {
@@ -147,6 +141,6 @@ e_mmgr_errors_t cnx_close(int *fd)
         ret = E_ERR_FAILED;
     }
     *fd = CLOSED_FD;
-out:
+
     return ret;
 }

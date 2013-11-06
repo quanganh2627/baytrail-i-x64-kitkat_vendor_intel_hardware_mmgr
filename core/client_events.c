@@ -54,20 +54,14 @@ static const char const *g_mmgr_requests[] = {
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_modem_fuse_info(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     /* @TODO: handle this request */
-    client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
-    ret = E_ERR_SUCCESS;
-out:
-    return ret;
+    return client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
 }
 
 /**
@@ -77,20 +71,14 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_modem_get_hw_id(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     /* @TODO: handle this request */
-    client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
-    ret = E_ERR_SUCCESS;
-out:
-    return ret;
+    return client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
 }
 
 /**
@@ -100,14 +88,13 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_set_name(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     ret = client_set_name(mmgr->request.client, mmgr->request.msg.data,
                           mmgr->request.msg.hdr.len);
@@ -116,7 +103,7 @@ static e_mmgr_errors_t request_set_name(mmgr_data_t *mmgr)
         ret = E_ERR_DISCONNECTED;
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
-out:
+
     return ret;
 }
 
@@ -127,7 +114,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
@@ -135,7 +121,7 @@ static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     uint32_t filter;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     if (mmgr->request.msg.hdr.len == sizeof(uint32_t)) {
         memcpy(&filter, mmgr->request.msg.data, sizeof(uint32_t));
@@ -178,7 +164,7 @@ static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
         LOG_ERROR("bad filter size");
         client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
     }
-out:
+
     return ret;
 }
 
@@ -189,14 +175,13 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
@@ -220,10 +205,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         recov_force(mmgr->reset, E_FORCE_OOS);
         reset_modem(mmgr);
         ret = E_ERR_FAILED;
-        goto out;
-    }
-
-    if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
+    } else if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
         if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
             set_mmgr_state(mmgr, E_MMGR_MDM_START);
         else
@@ -239,7 +221,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         if (mmgr->info.mdm_link == E_LINK_HSIC)
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     }
-out:
+
     return ret;
 }
 
@@ -250,20 +232,14 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t resource_acquire(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
-
-    client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
-out:
-    return ret;
+    return client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
 }
 
 /**
@@ -273,14 +249,11 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t resource_acquire_stop_down(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
@@ -292,8 +265,7 @@ static e_mmgr_errors_t resource_acquire_stop_down(mmgr_data_t *mmgr)
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
     set_mmgr_state(mmgr, E_MMGR_MDM_UP);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -303,19 +275,16 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_resource_release_mdm_off(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_set_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -325,18 +294,15 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
-
     client_set_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
+
     if (!clients_has_resource(mmgr->clients, E_PRINT)) {
         LOG_INFO("notify clients that modem will be shutdown");
         clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
@@ -345,8 +311,8 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
         timer_start(mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
         set_mmgr_state(mmgr, E_MMGR_WAIT_SHT_ACK);
     }
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 static e_mmgr_errors_t notify_ap_reset(mmgr_data_t *mmgr)
@@ -354,28 +320,29 @@ static e_mmgr_errors_t notify_ap_reset(mmgr_data_t *mmgr)
     mmgr_cli_internal_ap_reset_t ap_rst;
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     const char *name = client_get_name(mmgr->request.client);
     ap_rst.len = strnlen(name, CLIENT_NAME_LEN);
     ap_rst.name = malloc(sizeof(char) * ap_rst.len);
     if (ap_rst.name == NULL) {
         LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-    if ((mmgr->request.msg.hdr.id == E_MMGR_REQUEST_MODEM_RECOVERY) &&
-        (mmgr->request.msg.hdr.len != 0)) {
-        ap_rst.extra_len = mmgr->request.msg.hdr.len;
-        ap_rst.extra_data = mmgr->request.msg.data;
     } else {
-        ap_rst.extra_len = 0;
-        ap_rst.extra_data = NULL;
+        if ((mmgr->request.msg.hdr.id == E_MMGR_REQUEST_MODEM_RECOVERY) &&
+            (mmgr->request.msg.hdr.len != 0)) {
+            ap_rst.extra_len = mmgr->request.msg.hdr.len;
+            ap_rst.extra_data = mmgr->request.msg.data;
+        } else {
+            ap_rst.extra_len = 0;
+            ap_rst.extra_data = NULL;
+        }
+
+        strncpy(ap_rst.name, name, ap_rst.len);
+        ret = clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_AP_RESET,
+                                 &ap_rst);
+        free(ap_rst.name);
     }
 
-    strncpy(ap_rst.name, name, ap_rst.len);
-    ret = clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_AP_RESET, &ap_rst);
-    free(ap_rst.name);
-out:
     return ret;
 }
 
@@ -386,7 +353,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
@@ -395,7 +361,7 @@ static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
     int32_t sec;
     struct timeval ts;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
@@ -408,7 +374,7 @@ static e_mmgr_errors_t request_modem_recovery(mmgr_data_t *mmgr)
     } else {
         LOG_DEBUG("skipped. Request older than last recovery");
     }
-out:
+
     return ret;
 }
 
@@ -419,16 +385,14 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     uint32_t optional = 0;
     const char *name = NULL;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
@@ -453,8 +417,7 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
     }
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -464,14 +427,11 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_bkup_prod(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     /* ack REQUEST_MODEM_BACKUP_PRODUCTION */
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
@@ -480,8 +440,8 @@ static e_mmgr_errors_t request_bkup_prod(mmgr_data_t *mmgr)
     /* do modem restart for NVM flush */
     recov_force(mmgr->reset, E_FORCE_NO_COUNT);
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -491,14 +451,11 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_ack_cold_reset(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_set_request(mmgr->request.client, E_CNX_COLD_RESET);
     if (clients_has_ack_cold(mmgr->clients, E_MUTE)) {
@@ -514,8 +471,7 @@ static e_mmgr_errors_t request_ack_cold_reset(mmgr_data_t *mmgr)
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -525,14 +481,11 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_ack_modem_shutdown(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_set_request(mmgr->request.client, E_CNX_MODEM_SHUTDOWN);
     if (clients_has_ack_shtdwn(mmgr->clients, E_MUTE)) {
@@ -542,8 +495,7 @@ static e_mmgr_errors_t request_ack_modem_shutdown(mmgr_data_t *mmgr)
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -553,22 +505,18 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t request_force_modem_shutdown(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
-
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
     timer_start(mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
     set_mmgr_state(mmgr, E_MMGR_WAIT_SHT_ACK);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -578,7 +526,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_FAILED if an error occurs
  * @return E_ERR_SUCCESS if successful
  */
@@ -587,7 +534,7 @@ static e_mmgr_errors_t client_request(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     mmgr->request.msg.data = NULL;
     size = mmgr->request.msg.hdr.len;
@@ -638,7 +585,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if client not found or cnx disconnection fails or
  *                       client banned
@@ -649,7 +595,7 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
     int fd = CLOSED_FD;
     client_hdle_t *client = NULL;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     fd = mmgr->events.ev[mmgr->events.cur_ev].data.fd;
     client = client_find(mmgr->clients, fd);
@@ -681,7 +627,6 @@ e_mmgr_errors_t known_client(mmgr_data_t *mmgr)
         }
     }
 
-out:
     return ret;
 }
 
@@ -690,7 +635,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_FAILED if cnx connection fails or client rejected
  * @return E_ERR_SUCCESS if successful
  */
@@ -700,7 +644,7 @@ e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
     int conn_sock;
     int fd;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     fd = mmgr->events.ev[mmgr->events.cur_ev].data.fd;
 
@@ -721,96 +665,88 @@ e_mmgr_errors_t new_client(mmgr_data_t *mmgr)
     } else {
         LOG_INFO("client rejected: max client reached");
     }
-out:
+
     return ret;
 }
 
 static e_mmgr_errors_t request_fake_up(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(mmgr != NULL);
 
-    CHECK_PARAM(mmgr, ret, out);
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 static e_mmgr_errors_t request_fake_down(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(mmgr != NULL);
 
-    CHECK_PARAM(mmgr, ret, out);
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 static e_mmgr_errors_t request_fake_shtdwn(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(mmgr != NULL);
 
-    CHECK_PARAM(mmgr, ret, out);
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 static e_mmgr_errors_t request_fake_oos(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(mmgr != NULL);
 
-    CHECK_PARAM(mmgr, ret, out);
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 static e_mmgr_errors_t request_fake_cdd(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(mmgr != NULL);
 
-    CHECK_PARAM(mmgr, ret, out);
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 static e_mmgr_errors_t request_fake_ptfrmreboot(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(mmgr != NULL);
 
-    CHECK_PARAM(mmgr, ret, out);
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_PLATFORM_REBOOT, NULL);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 static e_mmgr_errors_t request_fake_self_reset(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(mmgr != NULL);
 
-    CHECK_PARAM(mmgr, ret, out);
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_SELF_RESET, NULL);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_cli_core_dump_t cd;
     char filename[PATH_MAX] = "";
     char data[1] = "";
     const char *path = NULL;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
@@ -828,8 +764,7 @@ static e_mmgr_errors_t request_fake_cdd_complete(mmgr_data_t *mmgr)
 
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, &cd);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 static e_mmgr_errors_t request_fake_ap_reset(mmgr_data_t *mmgr)
@@ -843,7 +778,7 @@ static e_mmgr_errors_t request_fake_error(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_cli_error_t err = { .id = FAKE_ERROR_ID };
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
@@ -851,25 +786,21 @@ static e_mmgr_errors_t request_fake_error(mmgr_data_t *mmgr)
     err.reason = malloc(sizeof(char) * err.len);
     if (err.reason == NULL) {
         LOG_ERROR("memory allocation fails");
-        goto out;
+        ret = E_ERR_FAILED;
+    } else {
+        strncpy(err.reason, FAKE_ERROR_REASON, err.len);
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        free(err.reason);
     }
 
-    strncpy(err.reason, FAKE_ERROR_REASON, err.len);
-    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-    free(err.reason);
-out:
     return ret;
 }
 
 e_mmgr_errors_t client_nack(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(mmgr != NULL);
 
-    CHECK_PARAM(mmgr, ret, out);
-    client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
-
-out:
-    return ret;
+    return client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
 }
 
 /**
@@ -878,7 +809,6 @@ out:
  * @param [in] nb_client
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
@@ -888,7 +818,7 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
     bool fake_requests = false;
     char build_type[PROPERTY_VALUE_MAX];
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     mmgr->clients = clients_init(nb_client);
     if (!mmgr->clients) {
@@ -993,6 +923,7 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
         request_modem_get_hw_id;
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_BACKUP_PRODUCTION] =
         request_bkup_prod;
+
 out:
     return ret;
 }
@@ -1002,17 +933,11 @@ out:
  *
  * @param [in] mmgr
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t client_events_dispose(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(mmgr != NULL);
 
-    CHECK_PARAM(mmgr, ret, out);
-
-    ret = clients_dispose(mmgr->clients);
-
-out:
-    return ret;
+    return clients_dispose(mmgr->clients);
 }

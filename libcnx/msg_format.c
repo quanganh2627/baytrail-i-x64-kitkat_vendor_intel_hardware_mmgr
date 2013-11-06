@@ -122,17 +122,15 @@ inline void serialize_size_t(char **buffer, size_t value)
  *
  * @param [in,out] msg received message
  *
- * @return E_ERR_BAD_PARAMETER if msg is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t msg_set_header(msg_t *msg)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     struct timeval ts;
     uint32_t tmp;
     char *msg_data = msg->data;
 
-    CHECK_PARAM(msg, ret, out);
+    ASSERT(msg != NULL);
 
     /* setting id */
     serialize_uint32(&msg_data, msg->hdr.id);
@@ -144,8 +142,8 @@ e_mmgr_errors_t msg_set_header(msg_t *msg)
 
     /* setting size */
     serialize_uint32(&msg_data, msg->hdr.len);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -154,7 +152,6 @@ out:
  * @param [in] fd cnx file descriptor
  * @param [out] hdr message header
  *
- * @return E_ERR_BAD_PARAMETER if hdr is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_DISCONNECTED if client is disconnected
  * @return E_ERR_FAILED otherwise
@@ -166,7 +163,7 @@ e_mmgr_errors_t msg_get_header(int fd, msg_hdr_t *hdr)
     size_t len = SIZE_HEADER;
     char *p = buffer;
 
-    CHECK_PARAM(hdr, ret, out);
+    ASSERT(hdr != NULL);
 
     if ((ret = cnx_read(fd, buffer, &len)) != E_ERR_SUCCESS)
         goto out;
@@ -190,12 +187,10 @@ e_mmgr_errors_t msg_get_header(int fd, msg_hdr_t *hdr)
     /* extract data len */
     deserialize_uint32(&p, &hdr->len);
 
-    if (hdr->len < (len - SIZE_HEADER)) {
+    if (hdr->len < (len - SIZE_HEADER))
         LOG_ERROR("Invalid message. Bad buffer len");
-        goto out;
-    } else {
+    else
         ret = E_ERR_SUCCESS;
-    }
 
 out:
     return ret;
@@ -206,7 +201,6 @@ out:
  *
  * @param [in] msg data to send
  *
- * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -214,14 +208,13 @@ e_mmgr_errors_t msg_delete(msg_t *msg)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(msg, ret, out);
+    ASSERT(msg != NULL);
 
     if (msg->data != NULL)
         free(msg->data);
     else
         ret = E_ERR_FAILED;
 
-out:
     return ret;
 }
 
@@ -231,28 +224,18 @@ out:
  * @param [out] msg data to send
  * @param [in] request request to send
  *
- * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t msg_set_empty(msg_t *msg, mmgr_cli_event_t *request)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    size_t size;
+    size_t size = 0;
     char *msg_data = NULL;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
-    size = 0;
-    ret = msg_prepare(msg, &msg_data, request->id, &size);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
-
-    ret = E_ERR_SUCCESS;
-
-out:
-    return ret;
+    return msg_prepare(msg, &msg_data, request->id, &size);
 }
 
 /**
@@ -265,7 +248,6 @@ out:
  * @param [in] id message id
  * @param [in] size data size
  *
- * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -275,21 +257,20 @@ e_mmgr_errors_t msg_prepare(msg_t *msg, char **msg_data,
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t len;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(msg_data, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(msg_data != NULL);
 
     len = SIZE_HEADER + *size;
     msg->data = calloc(len, sizeof(char));
     if (msg->data == NULL) {
         LOG_ERROR("memory allocation fails");
-        goto out;
+    } else {
+        memcpy(&msg->hdr.id, &id, sizeof(id));
+        memcpy(&msg->hdr.len, size, sizeof(size_t));
+        ret = msg_set_header(msg);
+        *size = len;
+        *msg_data = msg->data + SIZE_HEADER;
     }
-    memcpy(&msg->hdr.id, &id, sizeof(id));
-    memcpy(&msg->hdr.len, size, sizeof(size_t));
-    ret = msg_set_header(msg);
-    *size = len;
-    *msg_data = msg->data + SIZE_HEADER;
 
-out:
     return ret;
 }

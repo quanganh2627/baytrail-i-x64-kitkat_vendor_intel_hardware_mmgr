@@ -29,7 +29,6 @@
  * @param [in] key property key
  * @param [in] value value to set
  *
- * @return E_OPERATION_BAD_PARAMETER: if key is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if not
  */
@@ -38,7 +37,7 @@ e_mmgr_errors_t property_set_int(const char *key, int value)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     char write_value[PROPERTY_VALUE_MAX];
 
-    CHECK_PARAM(key, ret, out);
+    ASSERT(key != NULL);
 
     snprintf(write_value, sizeof(write_value), "%d", value);
 
@@ -48,7 +47,7 @@ e_mmgr_errors_t property_set_int(const char *key, int value)
     } else {
         LOG_ERROR("Set property failed %s ", strerror(errno));
     }
-out:
+
     return ret;
 }
 
@@ -59,7 +58,6 @@ out:
  * @param [in] key property key
  * @param [out] value read value
  *
- * @return E_OPERATION_BAD_PARAMETER: if key or value is/are NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if not
  */
@@ -68,8 +66,8 @@ e_mmgr_errors_t property_get_int(const char *key, int *value)
     char read_value[PROPERTY_VALUE_MAX];
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(key, ret, out);
-    CHECK_PARAM(value, ret, out);
+    ASSERT(key != NULL);
+    ASSERT(value != NULL);
 
     property_get(key, read_value, "0");
     if (sscanf(read_value, "%d", value) != 1) {
@@ -79,7 +77,7 @@ e_mmgr_errors_t property_get_int(const char *key, int *value)
     }
 
     LOG_DEBUG("%s: %d", key, *value);
-out:
+
     return ret;
 }
 
@@ -90,18 +88,16 @@ out:
  * @param [in] key property key
  * @param [out] value read value
  *
- * @return E_OPERATION_BAD_PARAMETER: if key or value is/are NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if not
  */
 e_mmgr_errors_t property_get_string(const char *key, char *value)
 {
     char read_value[PROPERTY_VALUE_MAX];
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int len;
 
-    CHECK_PARAM(key, ret, out);
-    CHECK_PARAM(value, ret, out);
+    ASSERT(key != NULL);
+    ASSERT(value != NULL);
 
     memset(read_value, 0, PROPERTY_VALUE_MAX);
     property_get(key, read_value, "");
@@ -110,6 +106,6 @@ e_mmgr_errors_t property_get_string(const char *key, char *value)
     value[len] = '\0';
 
     LOG_DEBUG("%s: %s", key, value);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }

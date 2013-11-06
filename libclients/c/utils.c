@@ -169,15 +169,15 @@ static e_err_mmgr_cli_t read_msg(mmgr_lib_context_t *p_lib, msg_t *msg)
             msg->data = calloc(size, sizeof(char));
             if (msg->data == NULL) {
                 LOG_ERROR("memory allocation fails", p_lib);
-                goto out;
+            } else {
+                size_t read_size = size;
+                err = cnx_read(p_lib->fd_socket, msg->data, &read_size);
+                if ((err != E_ERR_SUCCESS) || (read_size != size))
+                    LOG_ERROR("Read error. Size: %d/%d", p_lib, read_size,
+                              size);
+                else
+                    ret = E_ERR_CLI_SUCCEED;
             }
-
-            size_t read_size = size;
-            err = cnx_read(p_lib->fd_socket, msg->data, &read_size);
-            if ((err != E_ERR_SUCCESS) || (read_size != size))
-                LOG_ERROR("Read error. Size: %d/%d", p_lib, read_size, size);
-            else
-                ret = E_ERR_CLI_SUCCEED;
         } else {
             ret = E_ERR_CLI_SUCCEED;
         }
@@ -575,16 +575,14 @@ e_err_mmgr_cli_t cli_connect(mmgr_lib_context_t *p_lib)
                              ANDROID_SOCKET_NAMESPACE_RESERVED, SOCK_STREAM);
     if (fd < 0) {
         LOG_ERROR("failed to open socket", p_lib);
-        goto out;
+    } else {
+        pthread_mutex_lock(&p_lib->mtx);
+        p_lib->fd_socket = fd;
+        pthread_mutex_unlock(&p_lib->mtx);
+
+        ret = register_client(p_lib);
     }
 
-    pthread_mutex_lock(&p_lib->mtx);
-    p_lib->fd_socket = fd;
-    pthread_mutex_unlock(&p_lib->mtx);
-
-    ret = register_client(p_lib);
-
-out:
     return ret;
 }
 

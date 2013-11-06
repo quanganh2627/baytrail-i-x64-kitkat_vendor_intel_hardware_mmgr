@@ -31,7 +31,6 @@ static const char const *g_type_str[] = {
 };
 
 #define TIMER_INFINITE -1       /* wait indefinitely */
-#define TIMER_ERROR -2
 
 typedef struct mmgr_timer {
     e_timer_type_t type;
@@ -65,32 +64,30 @@ static inline bool timer_is_elapsed(mmgr_timer_t *t, e_timer_type_t type,
  *
  * @param h timer module handle
  *
- * @return TIMER_ERROR if h is NULL
  * @return current timeout value otherwise (in milliseconds)
  */
 int timer_get_timeout(timer_handle_t *h)
 {
-    int min = TIMER_ERROR;
+    int min = TIMER_INFINITE;
     mmgr_timer_t *t = (mmgr_timer_t *)h;
 
-    if (t) {
-        min = TIMER_INFINITE;
-        if (t->type != 0x0) {
-            int i = 0;
-            struct timespec cur;
-            clock_gettime(CLOCK_BOOTTIME, &cur);
+    ASSERT(t != NULL);
 
-            for (i = 0; i < E_TIMER_NUM; i++) {
-                if (t->type & (0x1 << i)) {
-                    long diff = timer_get_elapsed(cur, t->end[i]);
-                    if (diff < 0)
-                        diff = 0;
+    if (t->type != 0x0) {
+        int i = 0;
+        struct timespec cur;
+        clock_gettime(CLOCK_BOOTTIME, &cur);
 
-                    if (min == TIMER_INFINITE)
-                        min = diff;
-                    else if (min > diff)
-                        min = diff;
-                }
+        for (i = 0; i < E_TIMER_NUM; i++) {
+            if (t->type & (0x1 << i)) {
+                long diff = timer_get_elapsed(cur, t->end[i]);
+                if (diff < 0)
+                    diff = 0;
+
+                if (min == TIMER_INFINITE)
+                    min = diff;
+                else if (min > diff)
+                    min = diff;
             }
         }
     }
@@ -105,16 +102,14 @@ int timer_get_timeout(timer_handle_t *h)
  * @param [in] h timer module handle
  * @param [in] type type of event
  *
- * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t timer_start(timer_handle_t *h, e_timer_type_t type)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     struct timespec current;
     mmgr_timer_t *timer = (mmgr_timer_t *)h;
 
-    CHECK_PARAM(timer, ret, out);
+    ASSERT(timer != NULL);
 
     clock_gettime(CLOCK_BOOTTIME, &current);
 
@@ -125,8 +120,7 @@ e_mmgr_errors_t timer_start(timer_handle_t *h, e_timer_type_t type)
         timer->end[type].tv_sec += timer->timeout[type];
     }
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -134,21 +128,18 @@ out:
  *
  * @param [in] h timer module handle
  *
- * @return E_ERR_BAD_PARAMETER if timer is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t timer_stop_all(timer_handle_t *h)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_timer_t *timer = (mmgr_timer_t *)h;
 
-    CHECK_PARAM(timer, ret, out);
+    ASSERT(timer != NULL);
 
     timer->type = 0x0;
     LOG_DEBUG("timer stopped");
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -157,15 +148,13 @@ out:
  * @param [in] h timer module handle
  * @param [in] type type of event
  *
- * @return E_ERR_BAD_PARAMETER if h is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_timer_t *timer = (mmgr_timer_t *)h;
 
-    CHECK_PARAM(timer, ret, out);
+    ASSERT(timer != NULL);
 
     LOG_DEBUG("stop timer for event: %s", g_type_str[type]);
     timer->type &= ~(0x01 << type);
@@ -173,8 +162,7 @@ e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
     if (timer->type == 0x0)
         LOG_DEBUG("All timers stopped");
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -185,21 +173,19 @@ out:
  * @param [out] mdm_off true if MMGR should shutdown the modem
  * @param [out] cd_err true if MMGR should restart cd IPC
  *
- * @return E_ERR_BAD_PARAMETER h is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
                             bool *cd_err)
 {
     struct timespec cur;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_timer_t *t = (mmgr_timer_t *)h;
     bool handled = false;
 
-    CHECK_PARAM(t, ret, out);
-    CHECK_PARAM(reset, ret, out);
-    CHECK_PARAM(mdm_off, ret, out);
-    CHECK_PARAM(cd_err, ret, out);
+    ASSERT(t != NULL);
+    ASSERT(reset != NULL);
+    ASSERT(mdm_off != NULL);
+    ASSERT(cd_err != NULL);
 
     *reset = false;
     *mdm_off = false;
@@ -269,8 +255,7 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
     if (!handled)
         LOG_ERROR("timeout not handled");
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -289,21 +274,23 @@ timer_handle_t *timer_init(const mmgr_recovery_t *recov,
 {
     mmgr_timer_t *timer = NULL;
 
-    if (recov && timings && clients) {
-        timer = calloc(1, sizeof(mmgr_timer_t));
-        if (timer) {
-            timer->clients = clients;
-            timer->type = 0;
+    ASSERT(recov != NULL);
+    ASSERT(timings != NULL);
+    ASSERT(clients != NULL);
 
-            timer->timeout[E_TIMER_COLD_RESET_ACK] = recov->cold_timeout;
-            timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK] = recov->shtdwn_timeout;
-            timer->timeout[E_TIMER_WAIT_FOR_IPC_READY] = timings->ipc_ready;
-            timer->timeout[E_TIMER_WAIT_FOR_BUS_READY] = timings->ipc_ready;
-            timer->timeout[E_TIMER_REBOOT_MODEM_DELAY] = timings->ipc_ready;
-            timer->timeout[E_TIMER_CORE_DUMP_IPC_RESET] = timings->cd_ipc_reset;
-            timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY] =
-                timings->cd_ipc_ready;
-        }
+    timer = calloc(1, sizeof(mmgr_timer_t));
+    if (timer) {
+        timer->clients = clients;
+        timer->type = 0;
+
+        timer->timeout[E_TIMER_COLD_RESET_ACK] = recov->cold_timeout;
+        timer->timeout[E_TIMER_MODEM_SHUTDOWN_ACK] = recov->shtdwn_timeout;
+        timer->timeout[E_TIMER_WAIT_FOR_IPC_READY] = timings->ipc_ready;
+        timer->timeout[E_TIMER_WAIT_FOR_BUS_READY] = timings->ipc_ready;
+        timer->timeout[E_TIMER_REBOOT_MODEM_DELAY] = timings->ipc_ready;
+        timer->timeout[E_TIMER_CORE_DUMP_IPC_RESET] = timings->cd_ipc_reset;
+        timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY] =
+            timings->cd_ipc_ready;
     }
 
     return (timer_handle_t *)timer;
@@ -314,18 +301,15 @@ timer_handle_t *timer_init(const mmgr_recovery_t *recov,
  *
  * @param [in] h timer module handle
  *
- * @return E_ERR_BAD_PARAMETER h is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t timer_dispose(timer_handle_t *h)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_timer_t *timer = (mmgr_timer_t *)h;
 
-    CHECK_PARAM(timer, ret, out);
+    /* do not use ASSERT in dispose function */
 
     free(timer);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }

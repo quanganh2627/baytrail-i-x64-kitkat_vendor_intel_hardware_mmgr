@@ -27,21 +27,20 @@
  * @param [in] event data to send to client
  * @param [out] msg data to send
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t set_data_empty(msg_t *msg, mmgr_cli_event_t *event)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(msg != NULL);
+    ASSERT(event != NULL);
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(event, ret, out);
+    (void)msg;  /* unused */
 
     event->data = NULL;
     event->len = 0;
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -50,7 +49,6 @@ out:
  * @param [in,out] msg data received
  * @param [in] request data to provide to MMGR client
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -60,21 +58,19 @@ e_mmgr_errors_t set_data_fuse_info(msg_t *msg, mmgr_cli_event_t *request)
     size_t len;
     mmgr_cli_fuse_info_t *fuse = NULL;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
     memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
     /* the buffer will be freed by the matching freed function */
     fuse = malloc(sizeof(mmgr_cli_fuse_info_t));
     if (fuse == NULL) {
         LOG_ERROR("memory allocation fails");
-        goto out;
+    } else {
+        memcpy(fuse->id, msg->data, len);
+        ret = E_ERR_SUCCESS;
     }
 
-    memcpy(fuse->id, msg->data, len);
-    ret = E_ERR_SUCCESS;
-
-out:
     request->data = fuse;
     return ret;
 }
@@ -85,7 +81,6 @@ out:
  * @param [in,out] msg data received
  * @param [in] request data to provide to MMGR client
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -94,30 +89,28 @@ e_mmgr_errors_t set_data_hw_id(msg_t *msg, mmgr_cli_event_t *request)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mmgr_cli_hw_id_t *hw = NULL;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
     /* calloc is used to be sure that id is NULL the buffer will be freed by
      * the matching freed function */
     hw = calloc(1, sizeof(mmgr_cli_hw_id_t));
     if (hw == NULL) {
         LOG_ERROR("memory allocation fails");
-        goto out;
+    } else {
+        memcpy(&hw->len, &msg->hdr.len, sizeof(size_t));
+
+        /* the buffer will be freed by the matching freed function */
+        hw->id = malloc((hw->len + 1) * sizeof(char));
+        if (hw->id == NULL) {
+            LOG_ERROR("memory allocation fails");
+        } else {
+            memcpy(hw->id, msg->data, hw->len);
+            memset(hw->id + hw->len, '\0', sizeof(char));
+            ret = E_ERR_SUCCESS;
+        }
     }
-    memcpy(&hw->len, &msg->hdr.len, sizeof(size_t));
 
-    /* the buffer will be freed by the matching freed function */
-    hw->id = malloc((hw->len + 1) * sizeof(char));
-    if (hw->id == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-
-    memcpy(hw->id, msg->data, hw->len);
-    memset(hw->id + hw->len, '\0', sizeof(char));
-    ret = E_ERR_SUCCESS;
-
-out:
     request->data = hw;
     return ret;
 }
@@ -128,7 +121,6 @@ out:
  * @param [in] msg message received
  * @param [in] request
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -140,8 +132,8 @@ e_mmgr_errors_t set_data_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
     char *msg_data = NULL, *name;
     size_t len_name, num_cause_entries = 0, i;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
     msg_data = msg->data;
 
@@ -204,7 +196,6 @@ out:
  * @param [in] msg message received
  * @param [in] request
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -215,8 +206,8 @@ e_mmgr_errors_t set_data_core_dump(msg_t *msg, mmgr_cli_event_t *request)
     char *msg_data = NULL;
     uint32_t tmp = 0;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
     /* this structure is composed of 4 elements: 3 integer and a string */
     if (msg->hdr.len < (3 * sizeof(uint32_t))) {
@@ -277,7 +268,6 @@ out:
  * @param [in] msg message received
  * @param [in] request
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -287,8 +277,8 @@ e_mmgr_errors_t set_data_error(msg_t *msg, mmgr_cli_event_t *request)
     mmgr_cli_error_t *err = NULL;
     char *msg_data = NULL;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
     /* this structure is composed of 3 elements: 2 integer and a string */
     if (msg->hdr.len < (2 * sizeof(uint32_t))) {
@@ -334,7 +324,6 @@ out:
  * @param [in,out] msg data received
  * @param [in] request data to provide to MMGR client
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -346,28 +335,25 @@ e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request)
     uint32_t tmp = 0;
     char *msg_data = NULL;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
     memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
     if (len != sizeof(e_modem_fw_error_t)) {
         LOG_ERROR("bad message size");
-        goto out;
+    } else {
+        /* the buffer will be freed by the matching freed function */
+        result = malloc(sizeof(mmgr_cli_fw_update_result_t));
+        if (result == NULL) {
+            LOG_ERROR("memory allocation fails");
+        } else {
+            msg_data = msg->data;
+            deserialize_uint32(&msg_data, &tmp);
+            memcpy(&result->id, &tmp, sizeof(e_modem_fw_error_t));
+            ret = E_ERR_SUCCESS;
+        }
     }
 
-    /* the buffer will be freed by the matching freed function */
-    result = malloc(sizeof(mmgr_cli_fw_update_result_t));
-    if (result == NULL) {
-        LOG_ERROR("memory allocation fails");
-        goto out;
-    }
-
-    msg_data = msg->data;
-    deserialize_uint32(&msg_data, &tmp);
-    memcpy(&result->id, &tmp, sizeof(e_modem_fw_error_t));
-    ret = E_ERR_SUCCESS;
-
-out:
     request->data = result;
     return ret;
 }
@@ -377,25 +363,24 @@ out:
  *
  * @param [in] request data to provide to MMGR client
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t free_one_element_struct(mmgr_cli_event_t *request)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     void *p = NULL;
 
-    CHECK_PARAM(request, ret, out);
+    ASSERT(request != NULL);
 
     p = request->data;
     if (p != NULL) {
         free(p);
-        ret = E_ERR_SUCCESS;
     } else {
         LOG_ERROR("failed to free memory");
+        ret = E_ERR_FAILED;
     }
-out:
+
     return ret;
 }
 
@@ -404,27 +389,26 @@ out:
  *
  * @param [in] request data to delete
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t free_data_hw_id(mmgr_cli_event_t *request)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_cli_hw_id_t *hw = NULL;
 
-    CHECK_PARAM(request, ret, out);
+    ASSERT(request != NULL);
 
     hw = request->data;
     if (hw != NULL) {
         if (hw->id != NULL)
             free(hw->id);
         free(hw);
-        ret = E_ERR_SUCCESS;
     } else {
         LOG_ERROR("failed to free memory");
+        ret = E_ERR_FAILED;
     }
-out:
+
     return ret;
 }
 
@@ -433,16 +417,15 @@ out:
  *
  * @param [in] request data to delete
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t free_data_core_dump(mmgr_cli_event_t *request)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_cli_core_dump_t *cd = NULL;
 
-    CHECK_PARAM(request, ret, out);
+    ASSERT(request != NULL);
 
     cd = request->data;
     if (cd != NULL) {
@@ -451,11 +434,11 @@ e_mmgr_errors_t free_data_core_dump(mmgr_cli_event_t *request)
         if (cd->reason != NULL)
             free(cd->reason);
         free(cd);
-        ret = E_ERR_SUCCESS;
     } else {
         LOG_ERROR("failed to free memory");
+        ret = E_ERR_FAILED;
     }
-out:
+
     return ret;
 }
 
@@ -464,16 +447,15 @@ out:
  *
  * @param [in] request data to delete
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t free_data_ap_reset(mmgr_cli_event_t *request)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_cli_ap_reset_t *ap_rst = NULL;
 
-    CHECK_PARAM(request, ret, out);
+    ASSERT(request != NULL);
 
     ap_rst = request->data;
     if (ap_rst != NULL) {
@@ -486,11 +468,11 @@ e_mmgr_errors_t free_data_ap_reset(mmgr_cli_event_t *request)
             free(ap_rst->recovery_causes);
         }
         free(ap_rst);
-        ret = E_ERR_SUCCESS;
     } else {
         LOG_ERROR("failed to free memory");
+        ret = E_ERR_FAILED;
     }
-out:
+
     return ret;
 }
 
@@ -499,27 +481,26 @@ out:
  *
  * @param [in] request data to delete
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t free_data_error(mmgr_cli_event_t *request)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_cli_error_t *err = NULL;
 
-    CHECK_PARAM(request, ret, out);
+    ASSERT(request != NULL);
 
     err = request->data;
     if (err != NULL) {
         if (err->reason != NULL)
             free(err->reason);
         free(err);
-        ret = E_ERR_SUCCESS;
     } else {
         LOG_ERROR("failed to free memory");
+        ret = E_ERR_FAILED;
     }
-out:
+
     return ret;
 }
 
@@ -528,7 +509,6 @@ out:
  *
  * @param [in] event unused param
  *
- * @return E_ERR_BAD_PARAMETER if event or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */

@@ -62,7 +62,7 @@ static e_mmgr_errors_t notify_core_dump(clients_hdle_t *clients,
     mmgr_cli_core_dump_t cd;
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    CHECK_PARAM(clients, ret, out);
+    ASSERT(clients != NULL);
 
     memset(&cd, 0, sizeof(cd));
 
@@ -102,7 +102,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -114,7 +113,7 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
     const char *flashing_interface = NULL;
     bool ch_hw_sw = true;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     if (mmgr->info.is_flashless) {
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
@@ -200,7 +199,6 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         }
     }
 
-out:
     return ret;
 }
 
@@ -209,7 +207,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -219,7 +216,7 @@ static e_mmgr_errors_t do_nvm_customization(mmgr_data_t *mmgr)
     mmgr_cli_nvm_update_result_t nvm_result = { .id =
                                                     E_MODEM_NVM_ERROR_UNSPECIFIED };
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     if (mmgr->info.is_flashless) {
         LOG_DEBUG("checking for nvm patch existence at %s",
@@ -239,13 +236,14 @@ static e_mmgr_errors_t do_nvm_customization(mmgr_data_t *mmgr)
                            &nvm_result);
     }
 
-out:
     return ret;
 }
 
 static void read_core_dump(mmgr_data_t *mmgr)
 {
     e_core_dump_state_t state;
+
+    ASSERT(mmgr != NULL);
 
     if (mcdr_is_enabled(mmgr->mcdr)) {
         timer_stop(mmgr->timer, E_TIMER_CORE_DUMP_IPC_RESET);
@@ -275,7 +273,6 @@ static void read_core_dump(mmgr_data_t *mmgr)
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -283,19 +280,17 @@ static e_mmgr_errors_t update_modem_tty(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     ret = tty_listen_fd(mmgr->epollfd, mmgr->fd_tty, EPOLLIN);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
+    if (ret == E_ERR_SUCCESS) {
+        mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP | MDM_CTRL_STATE_OFF;
+        mmgr->info.polled_states |=
+            MDM_CTRL_STATE_WARM_BOOT | MDM_CTRL_STATE_COLD_BOOT;
 
-    mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP | MDM_CTRL_STATE_OFF;
-    mmgr->info.polled_states |=
-        MDM_CTRL_STATE_WARM_BOOT | MDM_CTRL_STATE_COLD_BOOT;
+        ret = set_mcd_poll_states(&mmgr->info);
+    }
 
-    ret = set_mcd_poll_states(&mmgr->info);
-
-out:
     return ret;
 }
 
@@ -304,16 +299,14 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr or/and modem_started is/are NULL
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     static bool wait_operation = true;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     if (clients_get_connected(mmgr->clients) == 0) {
         recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
@@ -344,8 +337,7 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
         timer_stop(mmgr->timer, E_TIMER_COLD_RESET_ACK);
     }
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -353,16 +345,13 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr or/and modem_started is/are NULL
- * @return E_ERR_FAILED if reset not performed
- * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_SUCCESS
  */
 static e_mmgr_errors_t pre_platform_reboot(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
     int reboot_counter = recov_get_reboot();
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
     if (reboot_counter >= recov_get_retry_allowed(mmgr->reset)) {
@@ -379,8 +368,8 @@ static e_mmgr_errors_t pre_platform_reboot(mmgr_data_t *mmgr)
         /* pretend that the modem is OOS to reject all clients' requests */
         set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
     }
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -388,15 +377,11 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr or/and modem_started is/are NULL
- * @return E_ERR_FAILED if reset not performed
- * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_SUCCESS
  */
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     LOG_INFO("MODEM OUT OF SERVICE");
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
@@ -405,8 +390,7 @@ static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr)
     set_mmgr_state(mmgr, E_MMGR_MDM_OOS);
     recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -414,19 +398,17 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr or/and modem_started is/are NULL
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
     int fd = CLOSED_FD;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     mmgr->info.polled_states = MDM_CTRL_STATE_WARM_BOOT;
-    ret = set_mcd_poll_states(&mmgr->info);
+    set_mcd_poll_states(&mmgr->info);
 
     tty_open(mmgr->info.shtdwn_dlc, &fd);
     if (fd < 0) {
@@ -450,9 +432,7 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
     mdm_close_fds(mmgr);
-    ret = mdm_down(&mmgr->info);
-out:
-    return ret;
+    return mdm_down(&mmgr->info);
 }
 
 /**
@@ -460,22 +440,20 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr or/and modem_started is/are NULL
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     e_escalation_level_t level = E_EL_UNKNOWN;
     e_reset_operation_state_t state = E_OPERATION_UNKNOWN;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     /* Do pre-process operation */
     recov_start(mmgr->reset);
     level = recov_get_level(mmgr->reset);
-    CHECK_PARAM(mmgr->hdler_pre_mdm[level], ret, out);
+    ASSERT(mmgr->hdler_pre_mdm[level] != NULL);
     mmgr->hdler_pre_mdm[level] (mmgr);
 
     state = recov_get_state(mmgr->reset);
@@ -513,7 +491,7 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
      * specific case: if we are in PLATFORM_REBOOT state and we reached the
      * maximum allowed attempts */
     level = recov_get_level(mmgr->reset);
-    CHECK_PARAM(mmgr->hdler_mdm[level], ret, out);
+    ASSERT(mmgr->hdler_mdm[level] != NULL);
     mmgr->hdler_mdm[level] (&mmgr->info);
 
     /* configure events handling */
@@ -532,7 +510,7 @@ out_mdm_ev:
     }
 
 out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -540,14 +518,14 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
+
     ret = tty_open(mmgr->info.mdm_ipc_path, &mmgr->fd_tty);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("open fails");
@@ -568,6 +546,7 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     update_modem_tty(mmgr);
 
     return ret;
+
 out:
     LOG_DEBUG("Failed to configure modem. Reset on-going");
     return ret;
@@ -575,12 +554,11 @@ out:
 
 static e_mmgr_errors_t cleanup_ipc_event(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
     size_t data_size = READ_SIZE;
     char data[READ_SIZE];
     ssize_t read_size;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     /* clean event by reading data */
     do
@@ -589,8 +567,7 @@ static e_mmgr_errors_t cleanup_ipc_event(mmgr_data_t *mmgr)
 
     mdm_close_fds(mmgr);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -598,15 +575,12 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if config or events is/are NULL
  * @return E_ERR_TTY_BAD_FD failed to open tty. perform a modem reset
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     cleanup_ipc_event(mmgr);
 
@@ -621,8 +595,8 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
     }
 
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 static e_mmgr_errors_t launch_secur(mmgr_data_t *mmgr)
@@ -630,16 +604,15 @@ static e_mmgr_errors_t launch_secur(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     int fd;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
-    if ((ret = secure_register(mmgr->secure, &fd) != E_ERR_SUCCESS))
-        goto out;
-
-    if (fd != CLOSED_FD) {
-        tty_listen_fd(mmgr->epollfd, fd, EPOLLIN);
-        ret = secure_start(mmgr->secure);
+    if ((ret = secure_register(mmgr->secure, &fd) == E_ERR_SUCCESS)) {
+        if (fd != CLOSED_FD) {
+            tty_listen_fd(mmgr->epollfd, fd, EPOLLIN);
+            ret = secure_start(mmgr->secure);
+        }
     }
-out:
+
     return ret;
 }
 
@@ -647,7 +620,7 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS) {
         if (do_nvm_customization(mmgr) == E_ERR_SUCCESS) {
@@ -659,7 +632,6 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
         }
     }
 
-out:
     return ret;
 }
 
@@ -668,7 +640,6 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if config or events is/are NULL
  * @return E_ERR_TTY_BAD_FD failed to open tty. perform a modem reset
  * @return E_ERR_SUCCESS if successful
  */
@@ -677,7 +648,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     e_modem_events_type_t state;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     mdm_get_state(mmgr->info.fd_mcd, &state);
 
@@ -769,7 +740,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(mmgr, ret, out);
+    ASSERT(mmgr != NULL);
 
     bus_ev_read(mmgr->events.bus_events);
     if (bus_ev_hdle_events(mmgr->events.bus_events) != E_ERR_SUCCESS) {
@@ -809,6 +780,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
     } else {
         LOG_DEBUG("Unhandled usb event");
     }
+
 out:
     return ret;
 }
@@ -818,14 +790,12 @@ out:
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_BAD_PARAMETER if mmgr is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_events_init(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ASSERT(mmgr != NULL);
 
-    CHECK_PARAM(mmgr, ret, out);
     mmgr->hdler_pre_mdm[E_EL_MODEM_COLD_RESET] = pre_mdm_cold_reset;
     mmgr->hdler_pre_mdm[E_EL_PLATFORM_REBOOT] = pre_platform_reboot;
     mmgr->hdler_pre_mdm[E_EL_MODEM_OUT_OF_SERVICE] = pre_modem_out_of_service;
@@ -833,6 +803,6 @@ e_mmgr_errors_t modem_events_init(mmgr_data_t *mmgr)
     mmgr->hdler_mdm[E_EL_MODEM_COLD_RESET] = mdm_cold_reset;
     mmgr->hdler_mdm[E_EL_PLATFORM_REBOOT] = platform_reboot;
     mmgr->hdler_mdm[E_EL_MODEM_OUT_OF_SERVICE] = out_of_service;
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }

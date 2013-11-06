@@ -57,7 +57,6 @@ typedef struct secure {
  * @param [out] req_id request id
  * @param [out] len received length
  *
- * @return E_ERR_BAD_PARAMETER
  * @return E_ERR_FAILED
  * @return E_ERR_SUCCESS
  */
@@ -73,10 +72,10 @@ static e_mmgr_errors_t read_msg(int fd, char **received, int *send_id,
     int header_len = 0;
     int data_len = 0;
 
-    CHECK_PARAM(received, ret, out);
-    CHECK_PARAM(send_id, ret, out);
-    CHECK_PARAM(req_id, ret, out);
-    CHECK_PARAM(len, ret, out);
+    ASSERT(received != NULL);
+    ASSERT(send_id != NULL);
+    ASSERT(req_id != NULL);
+    ASSERT(len != NULL);
 
     do {
         read_size = AT_SIZE;
@@ -155,7 +154,6 @@ out:
  * @param [out] length length of the converted data
  * @param [out] conv converted data. should be freed by the user
  *
- * @return E_ERR_BAD_PARAMETER
  * @return E_ERR_FAILED
  * @return E_ERR_SUCCESS
  */
@@ -166,10 +164,10 @@ static e_mmgr_errors_t decode_data(char *received, int rec_len, uint32_t *type,
     uint8_t *tmp = NULL;
     int len = 0;
 
-    CHECK_PARAM(received, ret, out);
-    CHECK_PARAM(type, ret, out);
-    CHECK_PARAM(length, ret, out);
-    CHECK_PARAM(conv, ret, out);
+    ASSERT(received != NULL);
+    ASSERT(type != NULL);
+    ASSERT(length != NULL);
+    ASSERT(conv != NULL);
 
     *conv = NULL;
     tmp = calloc(rec_len, sizeof(uint8_t));
@@ -208,7 +206,6 @@ out:
  * @param [out] send message encoded. should be freed by the user
  * @param [out] send_len message length
  *
- * @return E_ERR_BAD_PARAMETER
  * @return E_ERR_FAILED
  * @return E_ERR_SUCCESS
  */
@@ -220,8 +217,8 @@ static e_mmgr_errors_t encode_data(int send_id, int req_id, const uint8_t *src,
     size_t data_len = 0;
     int conv_len = 0;
 
-    CHECK_PARAM(src, ret, out);
-    CHECK_PARAM(send, ret, out);
+    ASSERT(src != NULL);
+    ASSERT(send != NULL);
 
     if (src_len <= 0)
         goto out;
@@ -266,7 +263,6 @@ out:
  *
  * @param [in] h security handler
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
@@ -286,7 +282,7 @@ e_mmgr_errors_t secure_event(secure_handle_t *h)
     int err = 0;
     secure_t *secur = (secure_t *)h;
 
-    CHECK_PARAM(secur, ret, out);
+    ASSERT(secur != NULL);
 
     if (!secur->enable)
         goto out;
@@ -337,7 +333,6 @@ out:
  * @param [in] h security handler
  * @param [out] fd file descriptor to return
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
@@ -346,7 +341,7 @@ e_mmgr_errors_t secure_register(secure_handle_t *h, int *fd)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     secure_t *secur = (secure_t *)h;
 
-    CHECK_PARAM(secur, ret, out);
+    ASSERT(secur != NULL);
 
     secur->fd = CLOSED_FD;
     if (secur->enable)
@@ -354,7 +349,6 @@ e_mmgr_errors_t secure_register(secure_handle_t *h, int *fd)
 
     *fd = secur->fd;
 
-out:
     return ret;
 }
 
@@ -363,7 +357,6 @@ out:
  *
  * @param [in] h security handler
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
@@ -373,7 +366,7 @@ e_mmgr_errors_t secure_start(secure_handle_t *h)
     static const char const at_cmd[] = "at+" AT_SECUR "?\r";
     secure_t *secur = (secure_t *)h;
 
-    CHECK_PARAM(secur, ret, out);
+    ASSERT(secur != NULL);
 
     if (secur->enable) {
         LOG_DEBUG("Send of: %s", at_cmd);
@@ -382,7 +375,6 @@ e_mmgr_errors_t secure_start(secure_handle_t *h)
         ret = tty_write(secur->fd, at_cmd, strlen(at_cmd));
     }
 
-out:
     return ret;
 }
 
@@ -391,7 +383,6 @@ out:
  *
  * @param [in] h security handler
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
@@ -400,12 +391,11 @@ e_mmgr_errors_t secure_stop(secure_handle_t *h)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     secure_t *secur = (secure_t *)h;
 
-    CHECK_PARAM(secur, ret, out);
+    ASSERT(secur != NULL);
 
     if (secur->enable)
         ret = tty_close(&secur->fd);
 
-out:
     return ret;
 }
 
@@ -423,10 +413,7 @@ secure_handle_t *secure_init(bool enabled, channel_t *ch)
     char *p = NULL;
     secure_t *secur = NULL;
 
-    if (!ch) {
-        LOG_ERROR("ch is NULL");
-        goto err;
-    }
+    ASSERT(ch != NULL);
 
     secur = calloc(1, sizeof(secure_t));
     if (!secur) {
@@ -473,7 +460,6 @@ err:
  *
  * @param [in] h security handler
  *
- * @return E_ERR_BAD_PARAMETER mmgr is NULL
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
@@ -482,9 +468,9 @@ e_mmgr_errors_t secure_dispose(secure_handle_t *h)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     secure_t *secur = (secure_t *)h;
 
-    CHECK_PARAM(secur, ret, out);
+    /* do not use ASSERT in dispose function */
 
-    if (secur->enable) {
+    if (secur && secur->enable) {
         if (secur->hdle != NULL) {
             dlclose(secur->hdle);
             secur->hdle = NULL;
@@ -495,7 +481,6 @@ e_mmgr_errors_t secure_dispose(secure_handle_t *h)
 
     free(secur);
 
-out:
     return ret;
 }
 
@@ -512,7 +497,9 @@ secure_cb_t secure_get_callback(secure_handle_t *h)
     secure_t *secur = (secure_t *)h;
     secure_cb_t callback = NULL;
 
-    if (secur && secur->enable)
+    ASSERT(secur != NULL);
+
+    if (secur->enable)
         callback = secur->callback;
 
     return callback;
@@ -523,16 +510,13 @@ secure_cb_t secure_get_callback(secure_handle_t *h)
  *
  * @param [in] h security handler
  *
- * @return CLOSED_FD if h is NULL
  * @return valid fd
  */
 int secure_get_fd(secure_handle_t *h)
 {
     secure_t *secur = (secure_t *)h;
-    int fd = CLOSED_FD;
 
-    if (secur)
-        fd = secur->fd;
+    ASSERT(secur != NULL);
 
-    return fd;
+    return secur->fd;
 }

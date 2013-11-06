@@ -26,7 +26,6 @@
  * @param [out] msg data to send
  * @param [in] request request to send
  *
- * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -36,25 +35,21 @@ e_mmgr_errors_t set_msg_name(msg_t *msg, mmgr_cli_event_t *request)
     size_t size;
     char *msg_data = NULL;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
     if (request->len <= 0) {
         LOG_ERROR("name is empty");
-        goto out;
+    } else {
+        /* msg.hdr is used to store the string length */
+        size = request->len;
+        ret = msg_prepare(msg, &msg_data, request->id, &size);
+        if (ret == E_ERR_SUCCESS)
+            /* set name */
+            memcpy(msg->data + SIZE_HEADER, request->data,
+                   sizeof(char) * request->len);
     }
 
-    /* msg.hdr is used to store the string length */
-    size = request->len;
-    ret = msg_prepare(msg, &msg_data, request->id, &size);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
-
-    /* set name */
-    memcpy(msg->data + SIZE_HEADER, request->data, sizeof(char) * request->len);
-    ret = E_ERR_SUCCESS;
-
-out:
     return ret;
 }
 
@@ -64,7 +59,6 @@ out:
  * @param [out] msg data to send
  * @param [in] request request to send
  *
- * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -75,20 +69,17 @@ e_mmgr_errors_t set_msg_filter(msg_t *msg, mmgr_cli_event_t *request)
     size_t size;
     char *msg_data = NULL;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
     size = sizeof(uint32_t);
     ret = msg_prepare(msg, &msg_data, request->id, &size);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
+    if (ret == E_ERR_SUCCESS) {
+        /* set filter */
+        memcpy(&tmp, request->data, sizeof(int));
+        serialize_uint32(&msg_data, tmp);
+    }
 
-    /* set filter */
-    memcpy(&tmp, request->data, sizeof(int));
-    serialize_uint32(&msg_data, tmp);
-    ret = E_ERR_SUCCESS;
-
-out:
     return ret;
 }
 
@@ -98,7 +89,6 @@ out:
  * @param [out] msg data to send
  * @param [in] request request to send
  *
- * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -108,22 +98,19 @@ e_mmgr_errors_t set_msg_restart(msg_t *msg, mmgr_cli_event_t *request)
     char *msg_data = NULL;
     size_t size = 0;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
     /* restart is optional */
     mmgr_cli_restart_t *restart = request->data;
     if (restart)
         size = sizeof(uint32_t);
+
     ret = msg_prepare(msg, &msg_data, request->id, &size);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
+    if (ret == E_ERR_SUCCESS)
+        if (restart)
+            serialize_uint32(&msg_data, restart->optional);
 
-    if (restart)
-        serialize_uint32(&msg_data, restart->optional);
-    ret = E_ERR_SUCCESS;
-
-out:
     return ret;
 }
 
@@ -133,7 +120,6 @@ out:
  * @param [out] msg data to send
  * @param [in] request request to send
  *
- * @return E_ERR_BAD_PARAMETER if request or/and msg is/are invalid
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
@@ -145,8 +131,8 @@ e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request)
     size_t i, req_size = request->len;
     mmgr_cli_recovery_cause_t *req_extra_data = request->data;
 
-    CHECK_PARAM(msg, ret, out);
-    CHECK_PARAM(request, ret, out);
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
 
     /* Some sanity checks */
     if ((req_size > (MMGR_CLI_MAX_RECOVERY_CAUSES *
@@ -178,20 +164,18 @@ e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request)
         size = sizeof(size_t) + req_size * sizeof(size_t) + string_size;
 
     ret = msg_prepare(msg, &msg_data, request->id, &size);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
-
-    /* Serialize client request */
-    if (req_size != 0) {
-        serialize_size_t(&msg_data, req_size);
-        for (i = 0; i < req_size; i++) {
-            serialize_size_t(&msg_data, req_extra_data[i].len);
-            memcpy(msg_data, req_extra_data[i].cause, req_extra_data[i].len);
-            msg_data += req_extra_data[i].len;
+    if (ret == E_ERR_SUCCESS) {
+        /* Serialize client request */
+        if (req_size != 0) {
+            serialize_size_t(&msg_data, req_size);
+            for (i = 0; i < req_size; i++) {
+                serialize_size_t(&msg_data, req_extra_data[i].len);
+                memcpy(msg_data, req_extra_data[i].cause,
+                       req_extra_data[i].len);
+                msg_data += req_extra_data[i].len;
+            }
         }
     }
-    ret = E_ERR_SUCCESS;
 
-out:
     return ret;
 }

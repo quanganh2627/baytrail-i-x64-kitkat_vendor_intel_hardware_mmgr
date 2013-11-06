@@ -19,7 +19,12 @@
 #ifndef __MMGR_ERRORS_HEADER__
 #define __MMGR_ERRORS_HEADER__
 
+#include <stdlib.h>
+
 typedef enum e_mmgr_errors {
+    /* General */
+    E_ERR_SUCCESS = 0,
+    E_ERR_FAILED,
     /* TTY errors */
     E_ERR_TTY_BAD_FD,
     E_ERR_TTY_ERROR,
@@ -31,10 +36,6 @@ typedef enum e_mmgr_errors {
     E_ERR_MISSING_FILE,
     /* Client */
     E_ERR_DISCONNECTED,
-    /* General */
-    E_ERR_BAD_PARAMETER,
-    E_ERR_FAILED,
-    E_ERR_SUCCESS
 } e_mmgr_errors_t;
 
 #define CLOSED_FD -1
@@ -42,11 +43,10 @@ typedef enum e_mmgr_errors {
 #define xstr(s) str(s)
 #define str(s) #s
 
-#define CHECK_PARAM(param, err, label) do { \
-        if (param == NULL) { \
-            LOG_DEBUG(xstr(param) " is NULL"); \
-            err = E_ERR_BAD_PARAMETER; \
-            goto label; \
+#define ASSERT(exp) do { \
+        if (!(exp)) { \
+            LOG_ERROR("%s:%d Assertion '" xstr(exp) "'", __FILE__, __LINE__); \
+            abort(); \
         } \
 } while (0)
 
