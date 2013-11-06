@@ -150,7 +150,6 @@ static e_mmgr_errors_t modem_state_get(test_data_t *test_data,
  * @param [in] command_size AT request size
  *
  * @return E_ERR_SUCCESS command sends and 'OK' received
- * @return E_ERR_AT_CMD_RESEND generic failure. Command to resend
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_TTY_BAD_FD if a bad file descriptor is provided
  */

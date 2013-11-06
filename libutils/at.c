@@ -41,7 +41,7 @@
  * @param [in] timeout timeout for the command answer (in ms)
  *
  * @return E_ERR_SUCCESS command sends and 'OK' received
- * @return E_ERR_AT_CMD_RESEND generic failure. Command to resend
+ * @return E_ERR_FAILED generic failure. Command to be resent
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_TTY_BAD_FD if a bad file descriptor is provided
  */
@@ -70,21 +70,15 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
     for (;; ) {
         /* Give time to receive response or POLLHUP. */
         ret = tty_wait_for_event(fd, timeout);
-        if (ret != E_ERR_SUCCESS) {
-            if (ret != E_ERR_TTY_POLLHUP)
-                ret = E_ERR_AT_CMD_RESEND;
+        if (ret != E_ERR_SUCCESS)
             goto out;
-        }
 
         /* Read response data but give up after AT_READ_MAX_RETRIES tries */
         ret = tty_read(fd, data, &data_size, AT_READ_MAX_RETRIES);
-        data[data_size] = '\0';
-        if (ret != E_ERR_SUCCESS) {
-            if (ret != E_ERR_TTY_BAD_FD)
-                ret = E_ERR_AT_CMD_RESEND;
+        if (ret != E_ERR_SUCCESS)
             goto out;
-        }
 
+        data[data_size] = '\0';
         /* Did we get an "OK" back? */
         if (strstr(data, "OK")) {
             LOG_DEBUG("OK received");
@@ -95,7 +89,7 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
             continue;
         } else {
             LOG_ERROR("Wrong anwser (%s)", data);
-            ret = E_ERR_AT_CMD_RESEND;
+            ret = E_ERR_FAILED;
             break;
         }
     }                           /* Loop waiting answer */
@@ -123,22 +117,20 @@ out:
 e_mmgr_errors_t send_at_retry(int fd_tty, const char *at_cmd, int at_cmd_size,
                               int retry, int timeout)
 {
-    int err = E_ERR_AT_CMD_RESEND;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
 
     ASSERT(at_cmd != NULL);
 
     /* Send AT until we get a valid response or after retry retries */
     for (; retry >= 0; retry--) {
-        err = send_at(fd_tty, at_cmd, at_cmd_size, timeout);
-        if ((err == E_ERR_TTY_BAD_FD) || (err == E_ERR_TTY_POLLHUP) ||
-            (err == E_ERR_SUCCESS))
+        ret = send_at(fd_tty, at_cmd, at_cmd_size, timeout);
+        if ((ret == E_ERR_TTY_BAD_FD) || (ret == E_ERR_TTY_POLLHUP) ||
+            (ret == E_ERR_SUCCESS))
             break;
     }
 
-    if (err == E_ERR_AT_CMD_RESEND) {
+    if (ret == E_ERR_FAILED)
         LOG_ERROR("Invalid or no response from modem");
-        err = E_ERR_FAILED;
-    }
 
-    return err;
+    return ret;
 }

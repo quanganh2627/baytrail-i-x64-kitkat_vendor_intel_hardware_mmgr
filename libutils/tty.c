@@ -73,10 +73,9 @@ e_mmgr_errors_t tty_init_listener(int *epollfd)
  * @param [in] fd file descriptor
  * @param [in] timeout timeout (in milliseconds)
  *
- * @return E_ERR_TTY_ERROR if an unexpected event occurs or poll failed
  * @return E_ERR_TTY_TIMEOUT if any event occurs
  * @return E_ERR_TTY_POLLHUP if a pollhup occurs
- * @return E_ERR_FAILED if epoll create fails
+ * @return E_ERR_FAILED if epoll create failed or unexpected event occurs
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t tty_wait_for_event(int fd, int timeout)
@@ -102,14 +101,14 @@ e_mmgr_errors_t tty_wait_for_event(int fd, int timeout)
             LOG_VERBOSE("Received response data");
         } else {
             LOG_ERROR("Unexpected event (%d)", ev.events);
-            ret = E_ERR_TTY_ERROR;
+            ret = E_ERR_FAILED;
         }
     } else if (err == 0) {
         LOG_ERROR("WAIT ANSWER TIMEOUT");
         ret = E_ERR_TTY_TIMEOUT;
     } else {
         LOG_ERROR("Poll failed (%s)", strerror(errno));
-        ret = E_ERR_TTY_ERROR;
+        ret = E_ERR_FAILED;
     }
 
 out:
@@ -128,7 +127,7 @@ out:
  *
  * @return E_ERR_SUCCESS if successful,
  * @return E_ERR_TTY_BAD_FD if a bad fd is provided,
- * @return E_ERR_TTY_ERROR otherwise
+ * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t tty_read(int fd, char *data, int *data_size,
                          int max_retries)
@@ -149,7 +148,7 @@ e_mmgr_errors_t tty_read(int fd, char *data, int *data_size,
             if (errno == EBADF)
                 ret = E_ERR_TTY_BAD_FD;
             else
-                ret = E_ERR_TTY_ERROR;
+                ret = E_ERR_FAILED;
             goto failure;
         } else if (err == 0) {
             if (read_size > 0)
@@ -176,7 +175,7 @@ failure:
  * @param [in] data_size data size
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_TTY_ERROR if nothing has been written
+ * @return E_ERR_FAILED if nothing has been written
  * @return E_ERR_TTY_BAD_FD if write fails
  */
 e_mmgr_errors_t tty_write(int fd, const char *data, int data_size)
@@ -191,7 +190,7 @@ e_mmgr_errors_t tty_write(int fd, const char *data, int data_size)
 
         if (err == 0) {
             LOG_ERROR("write nothing (%s) fd=%d", strerror(errno), fd);
-            ret = E_ERR_TTY_ERROR;
+            ret = E_ERR_FAILED;
             break;
         } else if (err < 0) {
             LOG_ERROR("write error (%s) fd=%d", strerror(errno), fd);
@@ -209,7 +208,7 @@ e_mmgr_errors_t tty_write(int fd, const char *data, int data_size)
  * @param [in] fd tty file descriptor
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_TTY_ERROR if nothing has been written
+ * @return E_ERR_FAILED if nothing has been written
  */
 e_mmgr_errors_t tty_set_termio(int fd)
 {
@@ -218,7 +217,7 @@ e_mmgr_errors_t tty_set_termio(int fd)
 
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
         LOG_ERROR("fcntl failed (%s)", strerror(errno));
-        ret = E_ERR_TTY_ERROR;
+        ret = E_ERR_FAILED;
         goto out;
     }
 
@@ -307,11 +306,11 @@ out:
  * @param [in,out] fd file descriptor to close
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_TTY_ERROR if nothing has been written
+ * @return E_ERR_FAILED if nothing has been written
  */
 e_mmgr_errors_t tty_close(int *fd)
 {
-    e_mmgr_errors_t ret = E_ERR_TTY_ERROR;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
 
     ASSERT(fd != NULL);
 

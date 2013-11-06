@@ -156,9 +156,8 @@ e_mmgr_errors_t modem_info_dispose(modem_info_t *info)
  *
  * @return E_ERR_TTY_BAD_FD
  * @return E_ERR_TTY_POLLHUP if a pollhup occurs
- * @return E_ERR_TTY_ERROR error during write
+ * @return E_ERR_FAILED error during write
  * @return E_ERR_TTY_TIMEOUT no response from modem
- * @return E_ERR_AT_CMD_RESEND generic failure
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t run_at_xlog(int fd_tty, int max_retry)
@@ -179,11 +178,8 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, int max_retry)
     memset(data, 0, AT_ANSWER_SIZE + 1);
 
     ret = tty_wait_for_event(fd_tty, AT_XLOG_TIMEOUT);
-    if (ret != E_ERR_SUCCESS) {
-        if (ret != E_ERR_TTY_POLLHUP)
-            ret = E_ERR_AT_CMD_RESEND;
+    if (ret != E_ERR_SUCCESS)
         goto out_xlog;
-    }
 
     do {
         read_size = AT_ANSWER_SIZE;
@@ -224,9 +220,7 @@ out_xlog:
  *
  * @return E_ERR_TTY_BAD_FD bad file descriptor
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
- * @return E_ERR_AT_CMD_RESEND  generic failure
- * @return E_ERR_FAILED bad driver configuration
- * @return E_ERR_TTY_ERROR error during write
+ * @return E_ERR_FAILED bad driver configuration or error during write
  * @return E_ERR_TTY_TIMEOUT no response from modem
  * @return E_ERR_SUCCESS
  */

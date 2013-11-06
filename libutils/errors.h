@@ -27,13 +27,8 @@ typedef enum e_mmgr_errors {
     E_ERR_FAILED,
     /* TTY errors */
     E_ERR_TTY_BAD_FD,
-    E_ERR_TTY_ERROR,
     E_ERR_TTY_POLLHUP,
     E_ERR_TTY_TIMEOUT,
-    /* AT errors */
-    E_ERR_AT_CMD_RESEND,
-    /* Config file errors */
-    E_ERR_MISSING_FILE,
     /* Client */
     E_ERR_DISCONNECTED,
 } e_mmgr_errors_t;

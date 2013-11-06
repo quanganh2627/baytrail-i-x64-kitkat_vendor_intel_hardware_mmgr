@@ -54,7 +54,6 @@
  *
  * @return E_ERR_TTY_BAD_FD bad file descriptor
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
- * @return E_ERR_AT_CMD_RESEND  generic failure
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_handshake(int fd_tty, int retry)
@@ -161,7 +160,6 @@ out:
  * @param [in] mux mux configuration
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_AT_CMD_RESEND  generic failure
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_TTY_BAD_FD bad file descriptor
  * @return E_ERR_FAILED if AT+CMUX creation command failed
