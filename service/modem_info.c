@@ -34,7 +34,6 @@
 #include "mux.h"
 #include "tty.h"
 
-#define AT_MCDR_PROTOCOL "at@cdd:paramdump()\r"
 #define AT_XLOG_GET "AT+XLOG=0\r"
 #define AT_XLOG_RESET "AT+XLOG=2\r"
 #define AT_XLOG_TIMEOUT 2500

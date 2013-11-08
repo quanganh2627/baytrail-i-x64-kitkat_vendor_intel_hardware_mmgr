@@ -45,6 +45,7 @@
 #define ERROR_REASON "IPC error"
 
 #define AT_CFUN_RETRY 0
+/* NB: This timer shall not be higher than MAX_RADIO_WAIT_TIME (in seconds) */
 #define WAIT_FOR_WARM_BOOT_TIMEOUT 30000
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 
@@ -142,9 +143,6 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 
         switch (fw_result.id) {
         case E_MODEM_FW_BAD_FAMILY:
-            modem_shutdown(mmgr);
-            clients_inform_all(mmgr->clients,
-                               E_MMGR_EVENT_MODEM_OUT_OF_SERVICE, NULL);
             broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
             /* Set MMGR state to MDM_RESET to call the recovery module and
              * force modem recovery to OOS. By doing so, MMGR will turn off the
@@ -156,11 +154,8 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 
         case E_MODEM_FW_SUCCEED:
             /* @TODO: fix that into flash_modem/modem_specific */
-            if (mmgr->info.mdm_link == E_LINK_HSIC) {
-                /* @TODO: wait for IPC to appear after flash */
-                sleep(4);
+            if (mmgr->info.mdm_link == E_LINK_HSIC)
                 timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-            }
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
             ret = E_ERR_SUCCESS;
             break;

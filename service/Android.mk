@@ -44,7 +44,7 @@ LOCAL_REQUIRED_MODULES := \
     libmmgrcli \
     com.intel.internal.telephony.MmgrClient.xml \
     com.intel.internal.telephony.MmgrClient \
-    mmgr_$(TARGET_BOARD_PLATFORM)_xml \
+    mmgr_xml \
 
 ifneq (, $(findstring "$(TARGET_BUILD_VARIANT)", "eng" "userdebug"))
 LOCAL_REQUIRED_MODULES += \
