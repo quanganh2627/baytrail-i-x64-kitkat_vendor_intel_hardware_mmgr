@@ -881,6 +881,10 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
         resource_acquire_wakeup_modem;
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_RESOURCE_ACQUIRE] =
         resource_acquire;
+    mmgr->hdler_client[E_MMGR_MDM_START][E_MMGR_RESOURCE_ACQUIRE] =
+        resource_acquire;
+    mmgr->hdler_client[E_MMGR_MDM_CONF_ONGOING][E_MMGR_RESOURCE_ACQUIRE] =
+        resource_acquire;
     mmgr->hdler_client[E_MMGR_WAIT_COLD_ACK][E_MMGR_RESOURCE_ACQUIRE] =
         resource_acquire;
     mmgr->hdler_client[E_MMGR_WAIT_SHT_ACK][E_MMGR_RESOURCE_ACQUIRE] =
