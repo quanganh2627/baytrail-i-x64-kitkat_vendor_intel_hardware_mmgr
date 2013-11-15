@@ -32,11 +32,13 @@ e_mmgr_errors_t set_msg_modem_hw_id(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_hw_id_t *hw = request->data;
+    mmgr_cli_hw_id_t *hw = NULL;
     char *msg_data = NULL;
 
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
+
+    hw = request->data;
 
     /* msg->hdr.len is used to provide string lengh */
     size = sizeof(char) * hw->len;
@@ -60,11 +62,13 @@ e_mmgr_errors_t set_msg_fuse_info(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_fuse_info_t *fuse = request->data;
+    mmgr_cli_fuse_info_t *fuse = NULL;
     char *msg_data = NULL;
 
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
+
+    fuse = request->data;
 
     /* msg->hdr.len is used to provide string lengh */
     size = sizeof(char) * FUSE_LEN;
@@ -88,11 +92,13 @@ e_mmgr_errors_t set_msg_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_internal_ap_reset_t *ap = request->data;
+    mmgr_cli_internal_ap_reset_t *ap = NULL;
     char *msg_data = NULL;
 
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
+
+    ap = request->data;
 
     size = sizeof(uint32_t) + ap->len + ap->extra_len;
     ret = msg_prepare(msg, &msg_data, E_MMGR_NOTIFY_AP_RESET, &size);
@@ -124,11 +130,13 @@ e_mmgr_errors_t set_msg_modem_fw_result(msg_t *msg, mmgr_cli_event_t *request)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     uint32_t tmp;
     size_t size;
-    mmgr_cli_fw_update_result_t *result = request->data;
+    mmgr_cli_fw_update_result_t *result = NULL;
     char *msg_data = NULL;
 
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
+
+    result = request->data;
 
     size = sizeof(uint32_t);
     ret = msg_prepare(msg, &msg_data, E_MMGR_RESPONSE_MODEM_FW_RESULT, &size);
@@ -154,11 +162,13 @@ e_mmgr_errors_t set_msg_core_dump(msg_t *msg, mmgr_cli_event_t *request)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     uint32_t tmp;
     size_t size;
-    mmgr_cli_core_dump_t *cd = request->data;
+    mmgr_cli_core_dump_t *cd = NULL;
     char *msg_data = NULL;
 
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
+
+    cd = request->data;
 
     /* this structure is composed of 5 elements: 3 integers and two string */
     size = 3 * sizeof(uint32_t) +
@@ -191,11 +201,13 @@ e_mmgr_errors_t set_msg_error(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size;
-    mmgr_cli_error_t *err = request->data;
+    mmgr_cli_error_t *err = NULL;
     char *msg_data = NULL;
 
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
+
+    err = request->data;
 
     /* this structure is composed of 3 elements: 2 integers and a string */
     size = 2 * sizeof(uint32_t) + sizeof(char) * err->len;
