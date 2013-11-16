@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "common.h"
 #include "errors.h"
 #include "file.h"
 #include "mmgr.h"
@@ -35,21 +36,13 @@
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_self_reset(test_data_t *test)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(test, ret, out);
-
-    ret = at_self_reset(test);
-
-out:
-    return ret;
+    return at_self_reset(test);
 }
 
 /**
@@ -57,7 +50,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
@@ -66,13 +58,12 @@ e_mmgr_errors_t reset_with_cd(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     ret = at_core_dump(test);
     if (events_get(test) != E_EVENTS_SUCCEED)
         ret = E_ERR_FAILED;
 
-out:
     return ret;
 }
 
@@ -81,7 +72,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
@@ -90,7 +80,7 @@ e_mmgr_errors_t modem_recovery(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     if (test->option_string != NULL) {
         int num_extra_params;
@@ -136,7 +126,6 @@ e_mmgr_errors_t modem_recovery(test_data_t *test)
     if (events_get(test) != E_EVENTS_SUCCEED)
         ret = E_ERR_FAILED;
 
-out:
     return ret;
 }
 
@@ -145,23 +134,15 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_restart(test_data_t *test)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    CHECK_PARAM(test, ret, out);
-
-    ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RESTART,
-                                  E_MMGR_NOTIFY_MODEM_COLD_RESET,
-                                  E_MMGR_EVENT_MODEM_UP);
-
-out:
-    return ret;
+    return reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RESTART,
+                                   E_MMGR_NOTIFY_MODEM_COLD_RESET,
+                                   E_MMGR_EVENT_MODEM_UP);
 }
 
 /**
@@ -169,7 +150,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
@@ -183,7 +163,7 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
 
     MMGR_CLI_INIT_REQUEST(request, E_MMGR_REQUEST_MODEM_RECOVERY);
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     puts("\n*************************************************************\n"
          "To perform this test, you should have just boot your phone\n"
@@ -235,7 +215,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
@@ -247,12 +226,11 @@ e_mmgr_errors_t resource_acquire(test_data_t *test)
 
     MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
         ret = E_ERR_SUCCESS;
 
-out:
     return ret;
 }
 
@@ -262,7 +240,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
@@ -274,13 +251,13 @@ e_mmgr_errors_t start_modem(test_data_t *test)
 
     MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
         ret = E_ERR_SUCCESS;
 
     pause();
-out:
+
     return ret;
 }
 
@@ -289,7 +266,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
@@ -301,11 +277,11 @@ e_mmgr_errors_t resource_release(test_data_t *test)
 
     MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_RELEASE);
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     if (mmgr_cli_send_msg(test->lib, &request) == E_ERR_CLI_SUCCEED)
         ret = E_ERR_SUCCESS;
-out:
+
     return ret;
 }
 
@@ -315,7 +291,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
@@ -325,7 +300,7 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int counter;
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     property_set_int(PLATFORM_REBOOT_KEY, 123);
     LOG_DEBUG("waiting during %ds. Please, do not use your phone",
@@ -335,16 +310,15 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
     ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RECOVERY,
                                   E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                   E_MMGR_EVENT_MODEM_UP);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
 
-    property_get_int(PLATFORM_REBOOT_KEY, &counter);
-    if (counter != 0) {
-        LOG_DEBUG("reset escalation not reseted");
-        ret = E_ERR_FAILED;
+    if (ret == E_ERR_SUCCESS) {
+        property_get_int(PLATFORM_REBOOT_KEY, &counter);
+        if (counter != 0) {
+            LOG_DEBUG("reset escalation not reseted");
+            ret = E_ERR_FAILED;
+        }
     }
 
-out:
     return ret;
 }
 
@@ -353,7 +327,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
@@ -362,19 +335,18 @@ e_mmgr_errors_t turn_off_modem(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     ret = reset_by_client_request(test,
                                   E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN,
                                   E_MMGR_NOTIFY_MODEM_SHUTDOWN,
                                   E_MMGR_EVENT_MODEM_DOWN);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
 
-    LOG_DEBUG("stopping the RIL");
-    ret = property_set_int(RIL_PROPERTY, 1);
+    if (ret == E_ERR_SUCCESS) {
+        LOG_DEBUG("stopping the RIL");
+        ret = property_set_int(RIL_PROPERTY, 1);
+    }
 
-out:
     return ret;
 }
 
@@ -383,7 +355,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
@@ -395,28 +366,26 @@ e_mmgr_errors_t turn_on_modem(test_data_t *test)
 
     MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
                          TIMEOUT_MODEM_DOWN_AFTER_CMD);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is up");
-        goto out;
+    } else {
+        LOG_DEBUG("starting the RIL");
+        ret = property_set_int(RIL_PROPERTY, 0);
+
+        if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED)
+            ret = E_ERR_FAILED;
+        else
+            ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
+                                 TIMEOUT_MODEM_UP_AFTER_RESET);
+
+        if (ret == E_ERR_SUCCESS)
+            ret = check_wakelock(false);
     }
 
-    LOG_DEBUG("starting the RIL");
-    ret = property_set_int(RIL_PROPERTY, 0);
-
-    if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED)
-        ret = E_ERR_FAILED;
-    else
-        ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                             TIMEOUT_MODEM_UP_AFTER_RESET);
-
-    if (ret == E_ERR_SUCCESS)
-        ret = check_wakelock(false);
-
-out:
     return ret;
 }
 
@@ -425,7 +394,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED if test fails
  * @return E_ERR_SUCCESS if test succes
  */
@@ -436,7 +404,7 @@ e_mmgr_errors_t resource_check(test_data_t *test)
 
     MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     puts("\n*************************************************************\n"
          "This test is only possible if no clients have acquire the \n"
@@ -489,7 +457,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED if test fails
  * @return E_ERR_SUCCESS if test succes
  */
@@ -499,7 +466,7 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
     int line = -1;
     const char name[] = MODULE_NAME "_2";
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     mmgr_cli_requests_t request;
     MMGR_CLI_INIT_REQUEST(request, E_MMGR_NUM_REQUESTS);

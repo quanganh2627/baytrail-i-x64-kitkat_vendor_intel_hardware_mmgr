@@ -30,7 +30,7 @@
 #include <sys/wait.h>
 #include <cutils/sockets.h>
 #include "at.h"
-#include "client_events.h"
+#include "common.h"
 #include "errors.h"
 #include "file.h"
 #include "property.h"
@@ -68,21 +68,17 @@ const char *g_mmgr_events[] = {
  * @param [in,out] test_data thread handler
  * @param [in] state new test state
  *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t events_set(test_data_t *test_data, e_events_t state)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(test_data, ret, out);
+    ASSERT(test_data != NULL);
 
     pthread_mutex_lock(&test_data->mutex);
     test_data->events |= state;
     pthread_mutex_unlock(&test_data->mutex);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -112,21 +108,17 @@ e_events_t events_get(test_data_t *test_data)
  * @param [in,out] test_data thread handler
  * @param [in] state new modem state
  *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_state_set(test_data_t *test_data, e_mmgr_events_t state)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(test_data, ret, out);
+    ASSERT(test_data != NULL);
 
     pthread_mutex_lock(&test_data->mutex);
     test_data->modem_state = state;
     pthread_mutex_unlock(&test_data->mutex);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -135,23 +127,19 @@ out:
  * @param [in,out] test_data thread handler
  * @param [out] state current state
  *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if successful
  */
 static e_mmgr_errors_t modem_state_get(test_data_t *test_data,
                                        e_mmgr_events_t *state)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(test_data, ret, out);
-    CHECK_PARAM(state, ret, out);
+    ASSERT(test_data != NULL);
+    ASSERT(state != NULL);
 
     pthread_mutex_lock(&test_data->mutex);
     *state = test_data->modem_state;
     pthread_mutex_unlock(&test_data->mutex);
 
-out:
-    return ret;
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -162,26 +150,24 @@ out:
  * @param [in] command_size AT request size
  *
  * @return E_ERR_SUCCESS command sends and 'OK' received
- * @return E_ERR_AT_CMD_RESEND generic failure. Command to resend
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_TTY_BAD_FD if a bad file descriptor is provided
- * @return E_ERR_BAD_PARAMETER if command is NULL
  */
 e_mmgr_errors_t send_at_cmd(char *path, char *command, int command_size)
 {
     int fd_tty = CLOSED_FD;
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    CHECK_PARAM(command, ret, out);
+    ASSERT(command != NULL);
 
-    open_tty(path, &fd_tty);
+    tty_open(path, &fd_tty);
     if (fd_tty < 0) {
         LOG_ERROR("Failed to open %s", path);
-        goto out;
+    } else {
+        ret = send_at_retry(fd_tty, command, command_size, 4, 2500);
+        close(fd_tty);
     }
-    ret = send_at_retry(fd_tty, command, command_size, 4, 2500);
-    close(fd_tty);
-out:
+
     return ret;
 }
 
@@ -248,7 +234,6 @@ bool get_wakelock_state(void)
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
- * @return E_ERR_BAD_PARAMETER if filename or/and path is/are NULL
  */
 e_mmgr_errors_t is_core_dump_found(char *filename, const char *path)
 {
@@ -263,8 +248,8 @@ e_mmgr_errors_t is_core_dump_found(char *filename, const char *path)
 
     char not[] = "NOT";
 
-    CHECK_PARAM(filename, ret, out);
-    CHECK_PARAM(path, ret, out);
+    ASSERT(filename != NULL);
+    ASSERT(path != NULL);
 
     /* looking for all the crashlog subdirs. these folders contain */
     /* the core dump archives */
@@ -305,14 +290,14 @@ e_mmgr_errors_t is_core_dump_found(char *filename, const char *path)
         strncpy(not, "", sizeof(not));
 
     LOG_DEBUG("Core dump file (%s) %s found in (%s)", filename, not, path);
-out:
+
     return ret;
 }
 
 /**
  * Check if wakelock state was reached
  *
- * @param [in] wakelock wakelock state to reach
+ * @param [in] state wakelock state to reach
  *
  * @return E_ERR_SUCCESS if state reached
  * @return E_ERR_FAILED otherwise
@@ -347,10 +332,8 @@ e_mmgr_errors_t check_wakelock(bool state)
  *
  * @param [in] test_data test_data
  * @param [in] state state to reach
- * @param [in] wakelock wakelock state
  * @param [in] timeout timeout (in second)
  *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS if state reached
  * @return E_ERR_FAILED otherwise
  */
@@ -363,7 +346,7 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, int timeout)
     struct timeval current;
     int remaining = 0;
 
-    CHECK_PARAM(test_data, ret, out);
+    ASSERT(test_data != NULL);
 
     pthread_mutex_lock(&test_data->mutex);
     test_data->waited_state = state;
@@ -408,8 +391,6 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, int timeout)
         }
     } while ((remaining > 1) && (current_state != test_data->waited_state));
 
-out:
-
     return ret;
 }
 
@@ -419,15 +400,12 @@ out:
  * @param [in] id current event
  * @param [in] test_data test data
  *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS
  */
 static e_mmgr_errors_t set_and_notify(e_mmgr_events_t id,
                                       test_data_t *test_data)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    CHECK_PARAM(test_data, ret, out);
+    ASSERT(test_data != NULL);
 
     /* lock modem state update. the state can only be upgraded if read by
      * wait_for_state function */
@@ -441,8 +419,8 @@ static e_mmgr_errors_t set_and_notify(e_mmgr_events_t id,
 
     if (id < E_MMGR_NUM_EVENTS)
         LOG_DEBUG("current state: %s", g_mmgr_events[id]);
-out:
-    return ret;
+
+    return E_ERR_SUCCESS;
 }
 
 /**
@@ -460,7 +438,7 @@ static int event_error(mmgr_cli_event_t *ev)
     test_data_t *data = NULL;
     mmgr_cli_error_t *cli_err = NULL;
 
-    CHECK_PARAM(ev, err, out);
+    ASSERT(ev != NULL);
 
     data = (test_data_t *)ev->context;
     if (data == NULL)
@@ -502,7 +480,7 @@ static int event_ap_reset(mmgr_cli_event_t *ev)
     test_data_t *data = NULL;
     mmgr_cli_ap_reset_t *ap = NULL;
 
-    CHECK_PARAM(ev, err, out);
+    ASSERT(ev != NULL);
 
     data = (test_data_t *)ev->context;
     if (data == NULL)
@@ -539,16 +517,17 @@ out:
 static int event_core_dump(mmgr_cli_event_t *ev)
 {
     int ret = 1;
-    e_mmgr_errors_t err = E_ERR_FAILED;
     test_data_t *data = NULL;
     mmgr_cli_core_dump_t *cd = NULL;
+    bool found = false;
     const char *cd_state[] = {
 #undef X
 #define X(a) #a
         CORE_DUMP_STATE
     };
 
-    CHECK_PARAM(ev, err, out);
+    if (ev == NULL)
+        goto out;
 
     data = (test_data_t *)ev->context;
     if (data == NULL)
@@ -563,19 +542,23 @@ static int event_core_dump(mmgr_cli_event_t *ev)
     LOG_DEBUG("state: %s", cd_state[cd->state]);
 
     if (cd->state == E_CD_SUCCEED) {
-        if ((err = is_file_exists(cd->path, 0)) != E_ERR_SUCCESS) {
+        if (file_exist(cd->path, 0)) {
+            found = true;
+        } else {
             char *base_name = basename(cd->path);
             size_t i;
             char *folders[] = { "/mnt/shell/emulated/0/logs/", "/sdcard/" };
             for (i = 0; i < (sizeof(folders) / sizeof(*folders)); i++) {
                 LOG_DEBUG("look at: %s", folders[i]);
-                if ((err = is_core_dump_found(base_name,
-                                              folders[i])) == E_ERR_SUCCESS)
+                if (is_core_dump_found(base_name,
+                                       folders[i]) == E_ERR_SUCCESS) {
+                    found = true;
                     break;
+                }
             }
         }
 
-        if (err == E_ERR_SUCCESS) {
+        if (found) {
             LOG_DEBUG("core dump (%s) found", cd->path);
             ret = 0;
         } else {
@@ -610,7 +593,7 @@ static int event_fw_status(mmgr_cli_event_t *ev)
     test_data_t *data = NULL;
     mmgr_cli_fw_update_result_t *fw = NULL;
 
-    CHECK_PARAM(ev, err, out);
+    ASSERT(ev != NULL);
 
     data = (test_data_t *)ev->context;
     if (data == NULL)
@@ -646,7 +629,7 @@ int generic_mmgr_evt(mmgr_cli_event_t *ev)
     e_mmgr_errors_t err;
     test_data_t *test_data = NULL;
 
-    CHECK_PARAM(ev, err, out);
+    ASSERT(ev != NULL);
 
     test_data = (test_data_t *)ev->context;
     if (test_data == NULL)
@@ -707,14 +690,13 @@ out:
  *
  * @param [in] test_data test data
  *
- * @return E_ERR_BAD_PARAMETER if test_data is NULL
  * @return E_ERR_SUCCESS
  */
 e_mmgr_errors_t cleanup_client_library(test_data_t *test_data)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(test_data, ret, out);
+    ASSERT(test_data != NULL);
 
     /* release new_state_read mutex to prevent callback function deadlock */
     pthread_mutex_trylock(&test_data->new_state_read);
@@ -742,7 +724,6 @@ out:
  *
  * @param [in,out] test_data test data
  *
- * @return E_ERR_BAD_PARAMETER if event is NULL
  * @return E_ERR_FAILED if fails
  * @return E_ERR_SUCCESS if successsful
  */
@@ -751,12 +732,12 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     e_err_mmgr_cli_t err;
 
-    CHECK_PARAM(test_data, ret, out);
+    ASSERT(test_data != NULL);
 
     err = mmgr_cli_create_handle(&test_data->lib, MODULE_NAME, test_data);
     if (err != E_ERR_CLI_SUCCEED) {
         LOG_ERROR("Get client handle failed");
-        ret = E_ERR_BAD_PARAMETER;
+        ret = E_ERR_FAILED;
         goto out;
     }
 
@@ -837,7 +818,6 @@ out:
  * @param [in] notification expected notification after AT command
  * @param [in] final_state final state expected
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
@@ -853,7 +833,7 @@ e_mmgr_errors_t reset_by_client_request_with_data(test_data_t *data_test,
 
     MMGR_CLI_INIT_REQUEST(request, id);
 
-    CHECK_PARAM(data_test, ret, out);
+    ASSERT(data_test != NULL);
 
     /* Fill request with extra data information */
     request.len = data_len;
@@ -894,7 +874,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
@@ -903,7 +882,7 @@ e_mmgr_errors_t at_core_dump(test_data_t *test)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int err;
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     /* Wait modem up */
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
@@ -950,7 +929,6 @@ out:
  *
  * @param [in] test test data
  *
- * @return E_ERR_BAD_PARAMETER if test is NULL
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
@@ -959,7 +937,7 @@ e_mmgr_errors_t at_self_reset(test_data_t *test)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     e_mmgr_errors_t err;
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     /* Wait modem up */
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
@@ -1019,7 +997,7 @@ e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
 
     MMGR_CLI_INIT_REQUEST(request, id);
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     err = mmgr_cli_send_msg(test->lib, &request);
 
@@ -1041,6 +1019,6 @@ e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
                 ret = check_wakelock(false);
         }
     }
-out:
+
     return ret;
 }

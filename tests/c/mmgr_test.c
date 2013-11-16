@@ -88,7 +88,7 @@ enum {
  * This function initialize all MMGR modules.
  * It reads the current platform configuration via TCS
  *
- * @param [in, out] mmgr
+ * @param [in, out] cfg
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if failed
@@ -122,11 +122,11 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
  * Run selected test
  *
  * @param [in,out] test test data
+ * @param [in] option_string
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if test failed
  * @return E_ERR_OUT_OF_SERVICE if modem is out of service
- * @return E_ERR_BAD_PARAMETER if at least one bad parameter is given
  */
 e_mmgr_errors_t run_test(test_case_t *test, const char *option_string)
 {
@@ -140,7 +140,7 @@ e_mmgr_errors_t run_test(test_case_t *test, const char *option_string)
         TEST_RESULT
     };
 
-    CHECK_PARAM(test, ret, out);
+    ASSERT(test != NULL);
 
     test_data.lib = NULL;
     test_data.waited_state = E_MMGR_NUM_EVENTS;
@@ -181,10 +181,6 @@ e_mmgr_errors_t run_test(test_case_t *test, const char *option_string)
             else
                 result = E_TEST_FAILED;
             break;
-        case E_ERR_BAD_PARAMETER:
-            result = E_TEST_FAILED;
-            LOG_DEBUG("bad parameter");
-            break;
         default:
             result = E_TEST_FAILED;
             LOG_ERROR("bad returned value");
@@ -210,7 +206,6 @@ out:
  * @param [out] choice test selected
  *
  * @return E_ERR_SUCCESS if successful
- * @return E_ERR_BAD_PARAMETER if tests or/and choice is/are NULL
  */
 int choose_test(test_case_t *tests, int nb_test, int *choice)
 {
@@ -219,8 +214,8 @@ int choose_test(test_case_t *tests, int nb_test, int *choice)
     int i;
     int ret = E_ERR_SUCCESS;
 
-    CHECK_PARAM(tests, ret, out);
-    CHECK_PARAM(choice, ret, out);
+    ASSERT(tests != NULL);
+    ASSERT(choice != NULL);
 
     for (;; ) {
         printf("\n"
@@ -242,7 +237,7 @@ int choose_test(test_case_t *tests, int nb_test, int *choice)
             puts(INVALID_CHOICE);
     }
     (*choice)--;
-out:
+
     return ret;
 }
 

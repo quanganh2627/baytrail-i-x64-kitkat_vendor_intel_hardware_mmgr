@@ -3,23 +3,21 @@ LOCAL_PATH:= $(call my-dir)
 #############################################
 # General rules:
 #############################################
-MY_MODULE := mmgr-test
-MY_MODULE_TAGS := optional tests
+MY_MODULE := libmmgrcli
+MY_MODULE_TAGS := optional
 
 MY_INCLUDES := \
     $(LOCAL_PATH)/../../inc \
-
-MY_LOCAL_IMPORT := libtcs libmcdr
+    $(LOCAL_PATH)/../../service \
 
 MY_SRC_FILES := $(call all-c-files-under, .)
-MY_C_FLAGS := -Wall -Werror -Wvla -DSTDIO_LOGS -DMODULE_NAME=\"MMGR-TEST\"
 
+MY_C_FLAGS := -Wall -Werror -Wvla -DMODULE_NAME=\"MMGR_CLI\"
 MY_SHARED_LIBS := libcutils libc
-MY_LOCAL_IMPORT := libtcs libmmgr_utils libmmgrcli
-MY_LD_LIBS := -lpthread
+MY_LOCAL_IMPORT := libmmgr_utils libmmgr_cnx
 
 #############################################
-# MODEM MANAGER C application test
+# MODEM MANAGER C client library
 #############################################
 include $(CLEAR_VARS)
 LOCAL_MODULE := $(MY_MODULE)
@@ -29,14 +27,13 @@ LOCAL_C_INCLUDES := $(MY_INCLUDES)
 LOCAL_SRC_FILES := $(MY_SRC_FILES)
 LOCAL_CFLAGS += $(MY_C_FLAGS)
 
-# libmcdr is not linked. Only import the header
-LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_IMPORT) libmcdr
-LOCAL_LDLIBS += $(MY_LD_LIBS)
-LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_IMPORT)
-include $(BUILD_EXECUTABLE)
+LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_IMPORT)
+LOCAL_SYSTEM_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_IMPORT)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/../../inc
+include $(BUILD_SHARED_LIBRARY)
 
 #############################################
-# MODEM MANAGER C application test - GCOV
+# MODEM MANAGER C client library - GCOV
 #############################################
 ifeq ($(mmgr_gcov), true)
 
@@ -48,12 +45,11 @@ LOCAL_C_INCLUDES := $(MY_INCLUDES)
 LOCAL_SRC_FILES := $(MY_SRC_FILES)
 LOCAL_CFLAGS += $(MY_C_FLAGS) -fprofile-arcs -ftest-coverage
 
-MY_LOCAL_GCOV_IMPORT := $(foreach file,$(MY_LOCAL_IMPORT), $(addsuffix -gcov, $(file)))
-# libmcdr is not linked. Only import the header
-LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_GCOV_IMPORT) libmcdr
 LOCAL_LDFLAGS += -fprofile-arcs -ftest-coverage -lgcov
-LOCAL_LDLIBS += $(MY_LD_LIBS)
-LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_GCOV_IMPORT)
-include $(BUILD_EXECUTABLE)
+MY_LOCAL_GCOV_IMPORT := $(foreach file,$(MY_LOCAL_IMPORT), $(addsuffix -gcov, $(file)))
+LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_GCOV_IMPORT)
+LOCAL_SYSTEM_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_GCOV_IMPORT)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/../../inc
+include $(BUILD_SHARED_LIBRARY)
 
 endif
