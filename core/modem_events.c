@@ -587,12 +587,10 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
     /* send error notification with reason message */
-    if (mmgr->info.mdm_link == E_LINK_HSI) {
-        mmgr_cli_error_t err = { .id = ERROR_ID };
-        err.len = strlen(ERROR_REASON);
-        err.reason = (char *)ERROR_REASON;
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-    }
+    mmgr_cli_error_t err = { .id = ERROR_ID };
+    err.len = strlen(ERROR_REASON);
+    err.reason = (char *)ERROR_REASON;
+    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
 
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 
