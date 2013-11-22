@@ -128,9 +128,11 @@ e_mmgr_errors_t msg_set_header(msg_t *msg)
 {
     struct timeval ts;
     uint32_t tmp;
-    char *msg_data = msg->data;
+    char *msg_data = NULL;
 
     ASSERT(msg != NULL);
+
+    msg_data = msg->data;
 
     /* setting id */
     serialize_uint32(&msg_data, msg->hdr.id);
