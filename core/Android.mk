@@ -59,6 +59,11 @@ LOCAL_REQUIRED_MODULES += \
     nvm_client \
 
 endif
+
+ifeq ($(BUILD_WITH_SECURITY_FRAMEWORK),chaabi_token)
+LOCAL_SHARED_LIBRARIES += libdx_cc7
+endif
+
 include $(BUILD_EXECUTABLE)
 
 #############################################
