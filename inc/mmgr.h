@@ -156,7 +156,8 @@ typedef enum e_report_id {
     E_REPORT_CONF,
     E_REPORT_TLV,
     E_REPORT_FMMO,
-    E_REPORT_FAKE
+    E_REPORT_FAKE,
+    E_REPORT_SECURITY
 } e_report_id_t;
 
 typedef struct mmgr_cli_error {

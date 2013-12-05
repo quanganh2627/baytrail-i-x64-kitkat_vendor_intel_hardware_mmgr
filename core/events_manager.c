@@ -55,7 +55,18 @@ inline void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state)
 
 static e_mmgr_errors_t security_event(mmgr_data_t *mmgr)
 {
-    return secure_event(mmgr->secure);
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    ret = secure_event(mmgr->secure);
+
+    const char *err_msg = secure_get_error(mmgr->secure);
+    if (err_msg) {
+        mmgr_cli_error_t err =
+        { E_REPORT_SECURITY, strlen(err_msg), err_msg };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+    }
+
+    return ret;
 }
 
 /**

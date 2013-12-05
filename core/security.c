@@ -34,10 +34,17 @@
 #define MSG_TYPE_INDX 0
 #define MSG_LEN_INDX 2
 #define MSG_DATA_INDX 4
+#define MSGS_MAX 6
 #define AT_SECUR "xsecchannel"
 #define MSG_START_STR "+"AT_SECUR ":"
 #define MSG_ANSWER_START "+"AT_SECUR "="
 #define MAX_TLV_LEN 2 * 1024
+
+typedef struct sec_msg {
+    char *message; //buffer containing at+xsecchannel command
+    int length;    //length of the at+xsecchannel command
+    bool err;      //response to command was ERROR
+}sec_msg_t;
 
 typedef struct secure {
     bool enable;
@@ -45,14 +52,24 @@ typedef struct secure {
     int fd;
     void *hdle;
     secure_cb_t callback;
+    sec_msg_t send_queue[MSGS_MAX];
+    int nb_of_msgs;
+    const char *err_msg;
 } secure_t;
+
+typedef enum {
+    OK,
+    ERROR,
+    NONE
+} modem_rsp;
 
 /**
  * read the message provided by the modem
  *
  * @param [in] fd file descriptor
- * @param [out] received buffer containing the read data. should be freed by the
- *              user (even if function failed)
+ * @param [in] received buffer containing the message read from modem.
+ * @param [out] message buffer containing data from modem
+ *                                      should always be freed by the user
  * @param [out] send_id send message id
  * @param [out] req_id request id
  * @param [out] len received length
@@ -60,42 +77,29 @@ typedef struct secure {
  * @return E_ERR_FAILED
  * @return E_ERR_SUCCESS
  */
-static e_mmgr_errors_t read_msg(int fd, char **received, int *send_id,
-                                int *req_id, int *len)
+static e_mmgr_errors_t retrieve_data(int fd, char *received, char **message,
+                                     int *send_id, int *req_id, int *len)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    int read_size;
     int remain = 0;
     int tmp = 0;
-    char buffer[AT_SIZE + 1];
-    char *data = NULL;
-    int header_len = 0;
     int data_len = 0;
+    char *end = NULL;
 
     ASSERT(received != NULL);
+    ASSERT(message != NULL);
     ASSERT(send_id != NULL);
     ASSERT(req_id != NULL);
     ASSERT(len != NULL);
 
-    do {
-        read_size = AT_SIZE;
-        ret = tty_read(fd, buffer, &read_size, AT_READ_MAX_RETRIES);
-        if ((read_size <= 0) || (ret != E_ERR_SUCCESS))
-            goto out;
-        buffer[read_size] = '\0';
-        /* extract data +XSECCHANNEL: receiver/sender ID, request ID, length,
-         * data */
-        data = strcasestr(buffer, MSG_START_STR);
-    } while (data == NULL);
-    LOG_DEBUG("Received: %s", data);
-
-    ret = E_ERR_FAILED;
     /* extract sender, request IDs and length. If the pattern is not present in
-     * the chuck it will fail. But this should not happen as we should receive
-     * it in one chunck */
-    data += strlen(MSG_START_STR);
-    if (sscanf(data, "%d,%d,%d,", send_id, req_id, len) != 3)
+     * the chunk it will fail. But this should not happen as we should receive
+     * it in one chunk */
+    received += strlen(MSG_START_STR);
+    if (sscanf(received, "%d,%d,%d,", send_id, req_id, len) != 3) {
+        LOG_ERROR("Extraction of sender, request IDs and length failed");
         goto out;
+    }
 
     if (*len > MAX_TLV_LEN) {
         LOG_ERROR("TLV size is too high");
@@ -103,42 +107,41 @@ static e_mmgr_errors_t read_msg(int fd, char **received, int *send_id,
     }
 
     /* extract the data. it begins with " */
-    data = strstr(data, "\"");
-    if (!data)
+    received = strstr(received, "\"");
+    if (!received)
         goto out;
     /* remove " character */
-    data++;
+    received++;
 
     /* add +3 (\r, \n, and ") in case we haven't read everything yet */
-    *received = malloc(*len + 3);
-    if (!*received) {
+    *message = malloc(*len + 3);
+    if (!*message) {
         LOG_ERROR("memory allocation failed");
         goto out;
     }
 
-    header_len = data - buffer;
-    if (header_len > read_size)
-        goto out;
+    /* check for end of modem message */
+    end = strstr(received, "\r");
+    if (end)
+        data_len = end - received;
+    else
+        data_len = strlen(received);
 
-    data_len = read_size - header_len;
-    if (data_len < 0)
-        goto out;
-    /* remove useless received data */
     if (data_len > *len)
         data_len = *len;
 
-    memcpy(*received, data, data_len);
+    memcpy(*message, received, data_len);
 
     if (data_len != *len) {
-        remain = *len - data_len + 2;
+        remain = *len - data_len + 3;
         tmp = remain;
-        ret = tty_read(fd, *received + data_len, &tmp,
-                       AT_READ_MAX_RETRIES);
+        ret = tty_read(fd, *message + data_len, &tmp, AT_READ_MAX_RETRIES);
         if ((ret != E_ERR_SUCCESS) || (tmp != remain))
             goto out;
     }
 
-    memset(*received + *len, '\0', 1);
+    memset(*message + *len, '\0', 1);
+
     ret = E_ERR_SUCCESS;
 
 out:
@@ -259,7 +262,202 @@ out:
 }
 
 /**
- * Handle secur event type
+ * Send message to modem
+ *
+ * @param [in] secure security handler
+ *
+ * @return E_ERR_FAILED if failed
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t send_sec_msg(secure_t *secure)
+{
+    int i = 0;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    ASSERT(secure != NULL);
+
+    for (i = 0; i < AT_SEC_RETRY; i++) {
+        if ((ret =
+                 tty_write(secure->fd, secure->send_queue[0].message,
+                           secure->send_queue[0].length)) == E_ERR_SUCCESS)
+            break;
+    }
+
+    if (ret != E_ERR_SUCCESS)
+        LOG_ERROR("secure channel: Error when sending command to modem");
+
+    return ret;
+}
+
+/**
+ * Push message to the send queue
+ *
+ * @param [in] secure security handler
+ * @param [in] message "AT" command to be pushed in queue
+ * @param [in] len length of command
+ *
+ * @return E_ERR_FAILED if failed
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t push_msg(secure_t *secure, char *message, int len)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    ASSERT(message != NULL);
+    ASSERT(secure != NULL);
+
+    if (secure->nb_of_msgs < MSGS_MAX) {
+        secure->send_queue[secure->nb_of_msgs].message = malloc(len + 1);
+        ASSERT(secure->send_queue[secure->nb_of_msgs].message);
+        if (memcpy(secure->send_queue[secure->nb_of_msgs].message,
+                   message, len + 1) != NULL) {
+            secure->send_queue[secure->nb_of_msgs].length = len;
+            secure->send_queue[secure->nb_of_msgs].err = false;
+            secure->nb_of_msgs++;
+            ret = E_ERR_SUCCESS;
+        }
+    } else {
+        LOG_ERROR("Message can't be added to send list");
+    }
+
+    /* Send only the first at+xsecchannel command without waiting for a
+     * modem response */
+    if (secure->nb_of_msgs == 1) {
+        if (send_sec_msg(secure) != E_ERR_SUCCESS) {
+            free(secure->send_queue[0].message);
+            secure->nb_of_msgs--;
+        }
+    }
+
+    free(message);
+
+    return ret;
+}
+
+/**
+ * Remove message from the send queue
+ *
+ * @param [in] secure security handler
+ *
+ * @return E_ERR_FAILED if failed
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t pull_msg(secure_t *secure)
+{
+    ASSERT(secure != NULL);
+
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    if (secure->send_queue[0].message != NULL) {
+        free(secure->send_queue[0].message);
+        secure->nb_of_msgs--;
+        if (secure->nb_of_msgs > 0) {
+            int i = 0;
+            for (i = 0; i < secure->nb_of_msgs; i++)
+                secure->send_queue[i] = secure->send_queue[i + 1];
+            send_sec_msg(secure);
+        }
+        ret = E_ERR_SUCCESS;
+    }
+
+    return ret;
+}
+
+/**
+ * Check modem message for response to previous command
+ *
+ * @param [in] buffer modem message to be checked
+ *
+ * @return OK if "OK" string is present in the buffer
+ * @return ERROR if "ERROR" string is present in the buffer
+ * @return NONE if no modem response in the buffer
+ */
+static inline modem_rsp check_response(char *buffer)
+{
+    if (strstr(buffer, "OK")) {
+        LOG_INFO("secure channel: received OK response ");
+        return OK;
+    } else if (strstr(buffer, "ERROR")) {
+        LOG_INFO("secure channel: received ERROR response ");
+        return ERROR;
+    } else {
+        return NONE;
+    }
+}
+
+/**
+ * Handle message from modem
+ *
+ * @param [in] secure security handler
+ * @param [in] buffer modem message
+ * @param [out] send buffer containing "at+xsecchannel" command for modem
+ * @param [out] send_len length of "at+xsecchannel" command
+ *
+ * @return E_ERR_FAILED if failed
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t handle_message(secure_t *secure, char *buffer,
+                                      char **send, int *send_len)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    char *data = NULL;
+    uint32_t type = 0;
+    uint32_t length = 0;
+    uint8_t *conv = NULL;
+    uint8_t *p_conv = NULL;
+    int rec_len = 0;
+    int send_id = 0;
+    int req_id = 0;
+    int err = 0;
+
+    ASSERT(secure != NULL);
+    ASSERT(buffer != NULL);
+    ASSERT(send != NULL);
+    ASSERT(send_len != NULL);
+
+    ret = retrieve_data(secure->fd, buffer, &data, &send_id, &req_id,
+                        &rec_len);
+    if ((ret != E_ERR_SUCCESS) || (data == NULL)) {
+        LOG_ERROR("secure channel: data retrieval error.");
+        goto out;
+    }
+
+    ret = decode_data(data, rec_len, &type, &length, &conv);
+    if ((ret != E_ERR_SUCCESS) || (conv == NULL)) {
+        LOG_ERROR("secure channel: data decode error.");
+        goto out;
+    }
+
+    /* the secure library will overwrite the pointer. Save the pointer
+     * to be able to free the memory */
+    p_conv = conv;
+    if ((err = secure->callback(&type, &length, &conv)) < 0) {
+        LOG_ERROR("secure channel failed with err=%d", err);
+        goto out;
+    }
+
+    ret = encode_data(send_id, req_id, conv, length, send, send_len);
+    if ((ret != E_ERR_SUCCESS) || (send == NULL)) {
+        LOG_ERROR("secure channel: data encode error.");
+        goto out;
+    }
+
+    /* free memory allocation on secure lib side */
+    type = SECURE_CH_DATA_FREE_RETURN_DATA;
+    secure->callback(&type, NULL, NULL);
+
+    ret = E_ERR_SUCCESS;
+
+out:
+    if (data != NULL)
+        free(data);
+    if (p_conv != NULL)
+        free(p_conv);
+    return ret;
+}
+
+/**
+ * Handle event on the security channel
  *
  * @param [in] h security handler
  *
@@ -269,17 +467,11 @@ out:
 e_mmgr_errors_t secure_event(secure_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    char *received = NULL;
-    char *send = NULL;
-    int rec_len = 0;
-    int send_len = 0;
-    uint8_t *conv = NULL;
-    uint8_t *p_conv = NULL;
-    uint32_t type = 0;
-    uint32_t length = 0;
-    int send_id = 0;
-    int req_id = 0;
-    int err = 0;
+    char buffer[AT_SIZE + 1];
+    char *message = NULL;
+    char *msg_data = NULL;
+    int read_size = AT_SIZE;
+    int len_data = 0;
     secure_t *secur = (secure_t *)h;
 
     ASSERT(secur != NULL);
@@ -287,43 +479,73 @@ e_mmgr_errors_t secure_event(secure_handle_t *h)
     if (!secur->enable)
         goto out;
 
-    ret = read_msg(secur->fd, &received, &send_id, &req_id, &rec_len);
-    if ((ret != E_ERR_SUCCESS) || (received == NULL)) {
-        ret = E_ERR_FAILED;
-        goto out;
+    secur->err_msg = NULL;
+
+    for (;; ) {
+        read_size = AT_SIZE;
+        ret = tty_read(secur->fd, buffer, &read_size, AT_READ_MAX_RETRIES);
+
+        if (ret != E_ERR_SUCCESS) {
+            LOG_ERROR(
+                "secure channel: Error in tty read");
+            break;
+        }
+
+        if (read_size > AT_SIZE) {
+            LOG_ERROR(
+                "secure channel: Modem message bigger than %d bytes",
+                AT_SIZE);
+            ret = E_ERR_FAILED;
+            break;
+        } else if (read_size == 0) {
+            break;
+        }
+
+
+        buffer[read_size] = '\0';
+
+        LOG_DEBUG("Received: %s", buffer);
+
+        /* Retrieve +XSECCHANNEL data from the modem message and push it into
+         * the queue */
+        message = strcasestr(buffer, MSG_START_STR);
+        while (message != NULL) {
+            ret = handle_message(secur, message, &msg_data, &len_data);
+            if (ret != E_ERR_FAILED) {
+                if (push_msg(secur, msg_data, len_data) != E_ERR_SUCCESS)
+                    LOG_ERROR(
+                        "secure channel: Error pushing command to send queue");
+            } else {
+                LOG_ERROR(
+                    "secure channel: Error retrieving data from modem message");
+            }
+            message =
+                strcasestr(message + strlen(MSG_START_STR), MSG_START_STR);
+        }
+
+        /* Check the modem message for the response to a previous command */
+        if (secur->nb_of_msgs > 0) {
+            if (check_response(buffer) == OK) {
+                pull_msg(secur);
+            } else if (check_response(buffer) == ERROR) {
+                if (secur->send_queue[0].err == false) {
+                    /* If the modem response is "ERROR", the command will be
+                     * re-sent one time */
+                    LOG_DEBUG("secure channel: Resending the command");
+                    send_sec_msg(secur);
+                    secur->send_queue[0].err = true;
+                } else {
+                    /* If the modem response is still "ERROR", inform crashlog
+                     * and remove the command from the list */
+                    secur->err_msg = "AT+XSECCHANNEL command rejected";
+                    LOG_ERROR("secure channel: AT+XSECCHANNEL command rejected");
+                    pull_msg(secur);
+                }
+            }
+        }
     }
-
-    ret = decode_data(received, rec_len, &type, &length, &conv);
-    if ((ret != E_ERR_SUCCESS) || (conv == NULL)) {
-        ret = E_ERR_FAILED;
-        goto out;
-    }
-
-    /* the secure library will overwrite the pointer. Save the pointer to be
-     * able to free the memory */
-    p_conv = conv;
-    if ((err = secur->callback(&type, &length, &conv)) < 0) {
-        LOG_ERROR("secur channel failed with err=%d", err);
-        ret = E_ERR_FAILED;
-        goto out;
-    }
-
-    ret = encode_data(send_id, req_id, conv, length, &send, &send_len);
-    if (ret == E_ERR_SUCCESS)
-        ret = send_at_retry(secur->fd, send, send_len, AT_SEC_RETRY,
-                            AT_ANSWER_SHORT_TIMEOUT);
-
-    /* free memory allocation on secure lib side */
-    type = SECURE_CH_DATA_FREE_RETURN_DATA;
-    secur->callback(&type, NULL, NULL);
 
 out:
-    if (received != NULL)
-        free(received);
-    if (p_conv != NULL)
-        free(p_conv);
-    if (send)
-        free(send);
     return ret;
 }
 
@@ -373,6 +595,7 @@ e_mmgr_errors_t secure_start(secure_handle_t *h)
         /* The modem doesn't answer OK to this AT command. That's why this
          * function is used */
         ret = tty_write(secur->fd, at_cmd, strlen(at_cmd));
+        secur->nb_of_msgs = 0;
     }
 
     return ret;
@@ -469,13 +692,17 @@ e_mmgr_errors_t secure_dispose(secure_handle_t *h)
     secure_t *secur = (secure_t *)h;
 
     /* do not use ASSERT in dispose function */
-
     if (secur && secur->enable) {
         if (secur->hdle != NULL) {
             dlclose(secur->hdle);
             secur->hdle = NULL;
         } else {
             ret = E_ERR_FAILED;
+        }
+        if (secur->nb_of_msgs > 0) {
+            int i = 0;
+            for (i = 0; i < secur->nb_of_msgs; i++)
+                free(secur->send_queue[i].message);
         }
     }
 
@@ -519,4 +746,20 @@ int secure_get_fd(secure_handle_t *h)
     ASSERT(secur != NULL);
 
     return secur->fd;
+}
+
+/**
+ * Return security error message
+ *
+ * @param [in] h security handler
+ *
+ * @return valid err_msg
+ */
+const char *secure_get_error(secure_handle_t *h)
+{
+    secure_t *secur = (secure_t *)h;
+
+    ASSERT(secur != NULL);
+
+    return secur->err_msg;
 }

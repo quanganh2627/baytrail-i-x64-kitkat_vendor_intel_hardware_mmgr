@@ -122,6 +122,7 @@ end_set_signal_handler:
 static void mmgr_init(mmgr_data_t *mmgr)
 {
     tcs_handle_t *h = tcs_init();
+
     ASSERT(h != NULL);
 
     ASSERT(mmgr != NULL);
