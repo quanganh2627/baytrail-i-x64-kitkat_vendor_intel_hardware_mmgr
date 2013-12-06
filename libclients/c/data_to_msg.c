@@ -128,13 +128,14 @@ e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size = 0, string_size = 0;
     char *msg_data = NULL;
-    size_t i, req_size = request->len;
+    size_t i, req_size = 0;
     mmgr_cli_recovery_cause_t *req_extra_data = NULL;
 
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
 
     req_extra_data = request->data;
+    req_size = request->len;
 
     /* Some sanity checks */
     if ((req_size > (MMGR_CLI_MAX_RECOVERY_CAUSES *
