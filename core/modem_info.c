@@ -65,7 +65,8 @@ typedef enum e_switch_to_mux_states {
  */
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
                                 mmgr_mdm_link_t *mdm_link, channels_t *ch,
-                                mmgr_flashless_t *flash, modem_info_t *info)
+                                mmgr_flashless_t *flash, mmgr_mcd_t *mcd,
+                                modem_info_t *info)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -77,6 +78,7 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
     info->is_flashless = mdm_info->flashless;
     info->mux = com->mux;
+    info->ipc_ready_present = mcd->ipc_ready_present;
 
     info->cd_link = mdm_info->ipc_cd;
     info->mdm_link = mdm_info->ipc_mdm;

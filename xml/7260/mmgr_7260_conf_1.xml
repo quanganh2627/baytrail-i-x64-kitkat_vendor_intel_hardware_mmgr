@@ -19,7 +19,10 @@
 			reset="1"
 		/>
 	</modem_link>
-	<mdm_ctrl type="ioctl"/>
+	<mdm_ctrl
+		type="ioctl"
+		ipc_ready_present="true"
+	/>
 	<flashless>
 		<fw_backup
 			nvm_calib="/factory/telephony/calib.nvm"

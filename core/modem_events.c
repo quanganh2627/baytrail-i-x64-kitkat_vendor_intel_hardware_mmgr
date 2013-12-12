@@ -502,7 +502,7 @@ out_mdm_ev:
     recov_done(mmgr->reset);
 
     mdm_subscribe_start_ev(&mmgr->info);
-    if (!mmgr->info.is_flashless)
+    if (!mmgr->info.is_flashless && mmgr->info.ipc_ready_present)
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     if (mmgr->info.mdm_link == E_LINK_HSIC) {
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
@@ -541,7 +541,6 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         goto out;
     }
-
     set_mmgr_state(mmgr, E_MMGR_MDM_UP);
     update_modem_tty(mmgr);
 
@@ -754,7 +753,8 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
-        if (mmgr->events.link_state & E_MDM_LINK_IPC_READY)
+        if ((mmgr->events.link_state & E_MDM_LINK_IPC_READY) ||
+            (!mmgr->info.ipc_ready_present))
             ret = do_configure(mmgr);
     } else if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_FLASH_READY) &&
                (mmgr->state == E_MMGR_MDM_START)) {
