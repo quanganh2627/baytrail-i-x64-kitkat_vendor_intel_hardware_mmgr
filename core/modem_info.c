@@ -55,6 +55,7 @@ typedef enum e_switch_to_mux_states {
  *
  * @param [in] mdm_info mmgr config
  * @param [in] com
+ * @param [in] tlv
  * @param [in] mdm_link
  * @param [in] ch channel
  * @param [in] flash
@@ -64,6 +65,7 @@ typedef enum e_switch_to_mux_states {
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
+                                tlv_info_t *tlv,
                                 mmgr_mdm_link_t *mdm_link, channels_t *ch,
                                 mmgr_flashless_t *flash, mmgr_mcd_t *mcd,
                                 modem_info_t *info)
@@ -72,6 +74,7 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
 
     ASSERT(mdm_info != NULL);
     ASSERT(com != NULL);
+    ASSERT(tlv != NULL);
     ASSERT(mdm_link != NULL);
     ASSERT(info != NULL);
 
@@ -114,6 +117,13 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
     }
 
     strncpy(info->mdm_name, mdm_info->name, sizeof(info->mdm_name) - 1);
+    if (tlv->folder[0] == '\0') {
+        LOG_ERROR("TLV path not set");
+        ret = E_ERR_FAILED;
+        goto out;
+    } else {
+        strncpy(info->tlv_path, tlv->folder, sizeof(info->tlv_path) - 1);
+    }
 
     info->fl_conf = *flash;
     info->fd_mcd = open(MBD_DEV, O_RDWR);

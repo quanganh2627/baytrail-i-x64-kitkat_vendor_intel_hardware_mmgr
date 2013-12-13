@@ -18,7 +18,6 @@
 
 #define MMGR_FW_OPERATIONS
 #include <errno.h>
-#include <dirent.h>
 #include <fcntl.h>
 #include <libgen.h>
 #include <stdio.h>
@@ -171,38 +170,6 @@ e_mmgr_errors_t send_at_cmd(char *path, char *command, int command_size)
     return ret;
 }
 
-/**
- * This function is used by scandir to find crashlog folders
- * where core dump files are stored.
- */
-static int filter_folder(const struct dirent *d)
-{
-    const char *pattern = "crashlog";
-    char *found = strstr(d->d_name, pattern);
-
-    return found != NULL;
-}
-
-/**
- * This function is used by scandir to find core dump archives
- */
-static int filter_archive(const struct dirent *d)
-{
-    const char *pattern = ".tar.gz";
-    char *found = strstr(d->d_name, pattern);
-
-    /* check that the pattern is found at the end of the filename */
-    return found != NULL && strlen(found) == strlen(pattern);
-}
-
-/**
- * This function is used scandir to compare two elements (files or directory)
- */
-static int compare_function(const struct dirent **a, const struct dirent **b)
-{
-    return strncmp((*a)->d_name, (*b)->d_name, sizeof((*b)->d_name) - 1);
-}
-
 bool get_wakelock_state(void)
 {
     bool state = false;
@@ -225,74 +192,6 @@ bool get_wakelock_state(void)
     return state;
 }
 
-/**
- * This function will extract the last core dump archived logged in aplog
- * and check if the archive exist.
- *
- * @param [in] filename core dump file name
- * @param [in] path core dump path
- *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t is_core_dump_found(char *filename, const char *path)
-{
-    struct dirent **folder_list = NULL;
-    struct dirent **files_list = NULL;
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    int folders_number = -1;
-    int files_number = -1;
-    char folder_name[FILENAME_SIZE];
-    int i;
-    int j;
-
-    char not[] = "NOT";
-
-    ASSERT(filename != NULL);
-    ASSERT(path != NULL);
-
-    /* looking for all the crashlog subdirs. these folders contain */
-    /* the core dump archives */
-    folders_number = scandir(path, &folder_list, filter_folder,
-                             compare_function);
-
-    for (i = 0; i < folders_number; i++) {
-        snprintf(folder_name, sizeof(folder_name), "%s/%s", path,
-                 folder_list[i]->d_name);
-
-        /* looking for the core dump archive */
-        files_number = scandir(folder_name, &files_list, filter_archive,
-                               compare_function);
-        for (j = 0; j < files_number; j++) {
-            if (strncmp(filename, files_list[j]->d_name,
-                        strlen(filename)) == 0) {
-                ret = E_ERR_SUCCESS;
-                break;
-            }
-        }
-
-        for (j = 0; j < files_number; j++) {
-            if (files_list[j] != NULL)
-                free(files_list[j]);
-        }
-        if (files_list != NULL)
-            free(files_list);
-    }
-
-    for (i = 0; i < folders_number; i++) {
-        if (folder_list[i] != NULL)
-            free(folder_list[i]);
-    }
-    if (folder_list != NULL)
-        free(folder_list);
-
-    if (ret == E_ERR_SUCCESS)
-        strncpy(not, "", sizeof(not));
-
-    LOG_DEBUG("Core dump file (%s) %s found in (%s)", filename, not, path);
-
-    return ret;
-}
 
 /**
  * Check if wakelock state was reached
@@ -519,8 +418,7 @@ static int event_core_dump(mmgr_cli_event_t *ev)
     int ret = 1;
     test_data_t *data = NULL;
     mmgr_cli_core_dump_t *cd = NULL;
-    bool found = false;
-    const char *cd_state[] = {
+    static const char const *cd_state[] = {
 #undef X
 #define X(a) #a
         CORE_DUMP_STATE
@@ -543,27 +441,26 @@ static int event_core_dump(mmgr_cli_event_t *ev)
 
     if (cd->state == E_CD_SUCCEED) {
         if (file_exist(cd->path, 0)) {
-            found = true;
+            LOG_DEBUG("core dump found: %s", cd->path);
+            ret = 0;
         } else {
-            char *base_name = basename(cd->path);
-            size_t i;
+            char *filename = basename(cd->path);
             char *folders[] = { "/mnt/shell/emulated/0/logs/", "/sdcard/" };
-            for (i = 0; i < (sizeof(folders) / sizeof(*folders)); i++) {
+            size_t i;
+            for (i = 0; i < ARRAY_SIZE(folders); i++) {
                 LOG_DEBUG("look at: %s", folders[i]);
-                if (is_core_dump_found(base_name,
-                                       folders[i]) == E_ERR_SUCCESS) {
-                    found = true;
+                char *files[1];
+                if (!file_find(folders[i], filename, files,
+                               ARRAY_SIZE(files))) {
+                    LOG_DEBUG("core dump found: %s", files[0]);
+                    ret = 0;
+                    free(files[0]);
                     break;
                 }
             }
         }
-
-        if (found) {
-            LOG_DEBUG("core dump (%s) found", cd->path);
-            ret = 0;
-        } else {
-            LOG_ERROR("core dump (%s) NOT found", cd->path);
-        }
+        if (ret)
+            LOG_ERROR("core dump (%s) NOT found", basename(cd->path));
     } else {
         LOG_ERROR("core dump retrieval has failed with reason: (%s)",
                   cd->reason);

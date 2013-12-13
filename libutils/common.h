@@ -31,4 +31,6 @@
 #define PLATFORM_REBOOT_KEY "persist.service.mmgr.reboot"
 #define PROPERTY_BUILD_TYPE "ro.build.type"
 
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(*a))
+
 #endif /* __MMGR_COMMON_DATA_HEADER__ */

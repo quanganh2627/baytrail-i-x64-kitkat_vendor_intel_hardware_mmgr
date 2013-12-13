@@ -162,6 +162,7 @@ static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
         }
 
         if (E_ERR_SUCCESS != modem_info_init(&cfg->mdm_info, &cfg->mmgr.com,
+                                             &cfg->tlv,
                                              &cfg->mmgr.mdm_link,
                                              &cfg->channels,
                                              &cfg->mmgr.flash, &cfg->mmgr.mcd,

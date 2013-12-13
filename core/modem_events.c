@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include "at.h"
+#include "common.h"
 #include "errors.h"
 #include "file.h"
 #include "java_intent.h"
@@ -43,6 +44,8 @@
 
 #define ERROR_ID   1
 #define ERROR_REASON "IPC error"
+
+#define SEVERAL_TLV "Several TLV files found. Skipping NVM update"
 
 #define AT_CFUN_RETRY 0
 /* NB: This timer shall not be higher than MAX_RADIO_WAIT_TIME (in seconds) */
@@ -203,40 +206,50 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 }
 
 /**
- * do modem customization procedure
+ * Apply TLV update. A TLV update is applied only if one TLV file exists in the
+ * folder specified by TCS.
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
+ * @return true if a TLV file has been applied
+ * @return false otherwise
  */
-static e_mmgr_errors_t do_nvm_customization(mmgr_data_t *mmgr)
+static bool apply_tlv(mmgr_data_t *mmgr)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_nvm_update_result_t nvm_result = { .id =
-                                                    E_MODEM_NVM_ERROR_UNSPECIFIED };
+    bool applied = false;
+    mmgr_cli_nvm_update_result_t nvm_result =
+    { .id = E_MODEM_NVM_ERROR_UNSPECIFIED };
 
     ASSERT(mmgr != NULL);
 
     if (mmgr->info.is_flashless) {
-        LOG_DEBUG("checking for nvm patch existence at %s",
-                  mmgr->info.fl_conf.run.nvm_tlv);
-
-        if (file_exist(mmgr->info.fl_conf.run.nvm_tlv, 0)) {
-            LOG_DEBUG("nvm patch found");
-            ret = flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc,
-                                  &nvm_result.id, &nvm_result.sub_error_code);
-        } else {
-            ret = E_ERR_FAILED;
+        char *files[2];
+        int found = file_find(mmgr->info.tlv_path, ".tlv", files,
+                              ARRAY_SIZE(files));
+        if (found == 0) {
             nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
-            LOG_DEBUG("no nvm patch found at %s; skipping nvm update",
-                      mmgr->info.fl_conf.run.nvm_tlv);
+            LOG_DEBUG("no TLV file found at %s; skipping nvm update",
+                      mmgr->info.tlv_path);
+        } else if (found == 1) {
+            LOG_DEBUG("TLV file to apply: %s", files[0]);
+            flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc, files[0],
+                            &nvm_result.id, &nvm_result.sub_error_code);
+            applied = true;
+        } else {
+            LOG_ERROR(SEVERAL_TLV);
+            mmgr_cli_error_t err = { 0, strlen(SEVERAL_TLV), SEVERAL_TLV };
+            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
         }
+
+        int i;
+        for (i = 0; i < found; i++)
+            free(files[i]);
+
         clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,
                            &nvm_result);
     }
 
-    return ret;
+    return applied;
 }
 
 static void read_core_dump(mmgr_data_t *mmgr)
@@ -620,7 +633,7 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
     ASSERT(mmgr != NULL);
 
     if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS) {
-        if (do_nvm_customization(mmgr) == E_ERR_SUCCESS)
+        if (apply_tlv(mmgr))
             timer_start(mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
         else
             ret = launch_secur(mmgr);

@@ -36,7 +36,7 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
                                bool ch_sw, secure_handle_t *sec_dhle,
                                e_modem_fw_error_t *verdict);
 e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
-                                e_modem_nvm_error_t *verdict,
+                                char *tlv_file, e_modem_nvm_error_t *verdict,
                                 int *sub_error_code);
 e_mmgr_errors_t set_mcd_poll_states(modem_info_t *info);
 e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode);

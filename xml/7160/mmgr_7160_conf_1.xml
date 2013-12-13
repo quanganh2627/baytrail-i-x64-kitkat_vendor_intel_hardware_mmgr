@@ -34,7 +34,6 @@
 			nvm_static="/config/telephony/static.nvm"
 			nvm_dyn="/config/telephony/dynamic.nvm"
 			nvm_calib="/config/telephony/calib.nvm"
-			nvm_tlv="/config/telephony/patch_nvm.tlv"
 			rnd="/config/telephony/rnd_cert.bin"
 		/>
 	</flashless>

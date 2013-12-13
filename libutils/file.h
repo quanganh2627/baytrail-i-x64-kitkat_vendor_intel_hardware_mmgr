@@ -30,7 +30,9 @@
 
 e_mmgr_errors_t file_write(char *path, unsigned long mode, char *value,
                            size_t size);
+
 bool file_exist(const char *path, unsigned long rights);
+int file_find(const char *folder, const char *pattern, char **files, int max);
 
 e_mmgr_errors_t file_copy(const char *src, const char *dst, mode_t dst_mode);
 
