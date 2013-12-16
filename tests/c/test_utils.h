@@ -26,8 +26,9 @@
 #include "mmgr_cli.h"
 #include "tcs_mmgr.h"
 
-#define TIMEOUT_MODEM_DOWN_AFTER_CMD 30
-#define TIMEOUT_MODEM_UP_AFTER_RESET 1200
+#define FILENAME_SIZE 256
+#define MMGR_DELAY 5        /* in seconds */
+#define MDM_CONFIGURATION 5 /* in seconds */
 
 typedef enum e_events {
     E_EVENTS_NONE = 0x0,
@@ -37,6 +38,10 @@ typedef enum e_events {
 } e_events_t;
 
 typedef struct test_cfg {
+    int timeout_cd_detection;
+    int timeout_cd_complete;
+    int timeout_mdm_up;
+    int timeout_mdm_dwn;
     int cold_reset;
     int reboot;
     int reset_escalation_delay;

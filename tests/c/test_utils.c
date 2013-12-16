@@ -738,8 +738,7 @@ e_mmgr_errors_t reset_by_client_request_with_data(test_data_t *data_test,
     request.data = data;
 
     /* Wait modem up */
-    ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_UP,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_UP, MMGR_DELAY);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is down");
         goto out;
@@ -752,14 +751,14 @@ e_mmgr_errors_t reset_by_client_request_with_data(test_data_t *data_test,
 
     if (notification != E_MMGR_NUM_EVENTS) {
         ret = wait_for_state(data_test, notification,
-                             TIMEOUT_MODEM_DOWN_AFTER_CMD);
+                             data_test->cfg.timeout_mdm_dwn);
         if (ret != E_ERR_SUCCESS)
             goto out;
     }
 
-    /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds to end the
-     * test */
-    ret = wait_for_state(data_test, final_state, TIMEOUT_MODEM_UP_AFTER_RESET);
+    /* Wait modem up during X seconds. Timeout provided by TCS */
+    ret = wait_for_state(data_test, final_state,
+                         data_test->cfg.timeout_mdm_up);
     if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
 
@@ -783,8 +782,7 @@ e_mmgr_errors_t at_core_dump(test_data_t *test)
     ASSERT(test != NULL);
 
     /* Wait modem up */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, MMGR_DELAY);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is down");
         goto out;
@@ -796,25 +794,24 @@ e_mmgr_errors_t at_core_dump(test_data_t *test)
         LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, MMGR_DELAY);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
     ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+                         test->cfg.timeout_cd_detection);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
     ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
-                         TIMEOUT_MODEM_UP_AFTER_RESET);
+                         test->cfg.timeout_cd_complete);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds to end the
+    /* Wait modem up during test->cfg.timeout_mdm_up seconds to end the
      * test */
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+                         test->cfg.timeout_mdm_up);
 
     if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
@@ -838,8 +835,7 @@ e_mmgr_errors_t at_self_reset(test_data_t *test)
     ASSERT(test != NULL);
 
     /* Wait modem up */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, MMGR_DELAY);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is down");
         goto out;
@@ -854,19 +850,19 @@ e_mmgr_errors_t at_self_reset(test_data_t *test)
     }
 
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+                         test->cfg.timeout_mdm_dwn);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
     ret = wait_for_state(test, E_MMGR_NOTIFY_SELF_RESET,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+                         test->cfg.timeout_mdm_up);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    /* Wait modem up during TIMEOUT_MODEM_UP_AFTER_RESET seconds to end the
+    /* Wait modem up during test->cfg.timeout_mdm_up seconds to end the
      * test */
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                         TIMEOUT_MODEM_UP_AFTER_RESET);
+                         test->cfg.timeout_mdm_up);
 
     if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
@@ -906,16 +902,14 @@ e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
             LOG_DEBUG("fake request REJECTED in production");
             ret = E_ERR_SUCCESS;
         }
-    } else {
-        if (err == E_ERR_CLI_SUCCEED) {
-            ret = wait_for_state(test, answer, TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    } else if (err == E_ERR_CLI_SUCCEED) {
+        ret = wait_for_state(test, answer, MMGR_DELAY);
 
-            if (check_result && (events_get(test) != E_EVENTS_SUCCEED))
-                ret = E_ERR_FAILED;
+        if (check_result && (events_get(test) != E_EVENTS_SUCCEED))
+            ret = E_ERR_FAILED;
 
-            if (ret == E_ERR_SUCCESS)
-                ret = check_wakelock(false);
-        }
+        if (ret == E_ERR_SUCCESS)
+            ret = check_wakelock(false);
     }
 
     return ret;

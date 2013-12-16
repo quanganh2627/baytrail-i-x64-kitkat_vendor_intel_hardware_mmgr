@@ -206,10 +206,10 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
 
     if (reboot >= test->cfg.reboot)
         ret = wait_for_state(test, E_MMGR_EVENT_MODEM_OUT_OF_SERVICE,
-                             TIMEOUT_MODEM_DOWN_AFTER_CMD);
+                             test->cfg.timeout_mdm_up);
     else
         ret = wait_for_state(test, E_MMGR_NOTIFY_PLATFORM_REBOOT,
-                             TIMEOUT_MODEM_DOWN_AFTER_CMD);
+                             test->cfg.timeout_mdm_up);
 
     if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
@@ -376,8 +376,7 @@ e_mmgr_errors_t turn_on_modem(test_data_t *test)
 
     ASSERT(test != NULL);
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, MMGR_DELAY);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is up");
     } else {
@@ -388,7 +387,7 @@ e_mmgr_errors_t turn_on_modem(test_data_t *test)
             ret = E_ERR_FAILED;
         else
             ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                                 TIMEOUT_MODEM_UP_AFTER_RESET);
+                                 test->cfg.timeout_mdm_up);
 
         if (ret == E_ERR_SUCCESS)
             ret = check_wakelock(false);
@@ -420,7 +419,7 @@ e_mmgr_errors_t resource_check(test_data_t *test)
          "*************************************************************\n");
 
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+                         test->cfg.timeout_mdm_up);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
@@ -442,7 +441,7 @@ e_mmgr_errors_t resource_check(test_data_t *test)
         goto out;
 
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+                         test->cfg.timeout_mdm_dwn);
 
     request.id = E_MMGR_RESOURCE_ACQUIRE;
     if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
@@ -451,7 +450,7 @@ e_mmgr_errors_t resource_check(test_data_t *test)
     }
 
     ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                         TIMEOUT_MODEM_DOWN_AFTER_CMD);
+                         test->cfg.timeout_mdm_up);
 
     if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
@@ -686,7 +685,7 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    wait_for_state(test, E_MMGR_EVENT_MODEM_UP, TIMEOUT_MODEM_UP_AFTER_RESET);
+    wait_for_state(test, E_MMGR_EVENT_MODEM_UP, test->cfg.timeout_mdm_up);
 
     ret = E_ERR_SUCCESS;
 

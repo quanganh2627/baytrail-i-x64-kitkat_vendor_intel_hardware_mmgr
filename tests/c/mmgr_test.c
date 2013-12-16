@@ -112,6 +112,23 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
                 sizeof(cfg->shtdwn_dlc) - 1);
         cfg->shtdwn_dlc[sizeof(cfg->shtdwn_dlc) - 1] = '\0';
 
+        cfg->timeout_cd_detection = MMGR_DELAY +
+                                    mmgr_cfg->timings.cd_ipc_ready;
+        cfg->timeout_cd_complete = mmgr_cfg->mcdr.gnl.timeout;
+        cfg->timeout_mdm_dwn = mmgr_cfg->recov.cold_timeout +
+                               MMGR_DELAY;
+        /* After a modem recovery request, the modem should be up after:
+         * - MMGR_DELAY: MMGR delay to take into account the request
+         * - MMGR client timeout to acknowledge the reset
+         * - IPC READY: modem boot
+         * - modem configuration : #3s */
+        cfg->timeout_mdm_up = MMGR_DELAY + MDM_CONFIGURATION +
+                              mmgr_cfg->recov.cold_timeout +
+                              mmgr_cfg->timings.ipc_ready;
+
+        if (tcs_cfg->mdm_info.flashless)
+            cfg->timeout_mdm_up += mmgr_cfg->timings.mdm_flash;
+
         ret = E_ERR_SUCCESS;
     }
 
