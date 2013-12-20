@@ -40,9 +40,6 @@ typedef struct core_dump_thread {
     mcdr_lib_t *mcdr;
 } core_dump_thread_t;
 
-/* the recovery time must not exceed */
-#define CORE_DUMP_RECOVERY_MAX_TIME 1200
-
 #ifdef GOCV_MMGR
 #define MCDR_LIBRARY_NAME "libmcdr-gcov.so"
 #else
@@ -181,14 +178,12 @@ e_mmgr_errors_t mcdr_read(mcdr_handle_t *h, e_core_dump_state_t *state)
         goto out;
     }
 
-    /* The core dump read operation can't exceed two minutes. The thread will
-     * be interrupted with pthread_cond_timedwait */
-
-    /* Get the current time and add CORE_DUMP_RECOVERY_MAX_TIME. */
+    /* The core dump read operation can't exceed the timeout provided by TCS.
+     * The thread will be interrupted with pthread_cond_timedwait */
     gettimeofday(&tp, NULL);
     ts.tv_sec = tp.tv_sec;
     ts.tv_nsec = tp.tv_usec * 1000;
-    ts.tv_sec += CORE_DUMP_RECOVERY_MAX_TIME;
+    ts.tv_sec += mcdr->data.mcdr_info.gnl.timeout;
 
     /* launch time condition The mutex must be locked before calling
      * pthread_cond_timedwait. */
