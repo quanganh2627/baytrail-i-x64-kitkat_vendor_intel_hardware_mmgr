@@ -53,7 +53,7 @@ pm_handle_t pm_init(e_link_t mdm_type, power_t *mdm_power,
             goto err;
         }
     }
-    if ((mdm_type == E_LINK_HSIC) &&
+    if ((mdm_type == E_LINK_USB) &&
         !strncmp(mdm_power->device, "", sizeof(mdm_power->device))) {
         LOG_ERROR("bad device to handle modem power");
         goto err;
@@ -120,7 +120,7 @@ e_mmgr_errors_t pm_on_mdm_flash(pm_handle_t *h)
     case E_LINK_HSI:
         /* Nothing to do */
         break;
-    case E_LINK_HSIC:
+    case E_LINK_USB:
         /* Nothing to do */
         break;
     case E_LINK_UART:
@@ -153,7 +153,7 @@ e_mmgr_errors_t pm_on_mdm_up(pm_handle_t *h)
     case E_LINK_HSI:
         /* Nothing to do */
         break;
-    case E_LINK_HSIC:
+    case E_LINK_USB:
         ret = pm_set_state(&ctx->mdm.power, true);
         break;
     case E_LINK_UART:
@@ -186,7 +186,7 @@ e_mmgr_errors_t pm_on_mdm_oos(pm_handle_t *h)
     case E_LINK_HSI:
         /* Nothing to do */
         break;
-    case E_LINK_HSIC:
+    case E_LINK_USB:
         ret = pm_set_state(&ctx->mdm.power, true);
         break;
     case E_LINK_UART:
@@ -219,7 +219,7 @@ e_mmgr_errors_t pm_on_mdm_cd(pm_handle_t *h)
     case E_LINK_HSI:
         /* Nothing to do */
         break;
-    case E_LINK_HSIC:
+    case E_LINK_USB:
         /* Nothing to do */
         break;
     case E_LINK_UART:
@@ -252,7 +252,7 @@ e_mmgr_errors_t pm_on_mdm_cd_complete(pm_handle_t *h)
     case E_LINK_HSI:
         /* Nothing to do */
         break;
-    case E_LINK_HSIC:
+    case E_LINK_USB:
         ret = pm_set_state(&ctx->cd.power, true);
         break;
     case E_LINK_UART:

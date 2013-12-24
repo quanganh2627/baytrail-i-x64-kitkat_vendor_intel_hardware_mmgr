@@ -150,7 +150,7 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
     ret = set_mcd_poll_states(&mmgr->info);
     LOG_DEBUG("MCD driver added to poll list");
 
-    if (mmgr->info.mdm_link == E_LINK_HSIC) {
+    if (mmgr->info.mdm_link == E_LINK_USB) {
         if (E_ERR_SUCCESS != (ret = bus_ev_start(mmgr->events.bus_events)))
             goto out;
 

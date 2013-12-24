@@ -90,8 +90,8 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
         strncpy(info->mdm_ipc_path, mdm_link->baseband.hsi.device,
                 sizeof(info->mdm_ipc_path));
         break;
-    case E_LINK_HSIC:
-        strncpy(info->mdm_ipc_path, mdm_link->baseband.hsic.device,
+    case E_LINK_USB:
+        strncpy(info->mdm_ipc_path, mdm_link->baseband.usb.device,
                 sizeof(info->mdm_ipc_path));
         break;
     default:

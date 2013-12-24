@@ -120,7 +120,7 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
         if (mmgr->info.mdm_link == E_LINK_HSI) {
             flashing_interface = "/dev/ttyIFX1";
             ch_hw_sw = true;
-        } else if (mmgr->info.mdm_link == E_LINK_HSIC) {
+        } else if (mmgr->info.mdm_link == E_LINK_USB) {
             flashing_interface =
                 bus_ev_get_flash_interface(mmgr->events.bus_events);
             ch_hw_sw = false;
@@ -151,7 +151,7 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
 
         case E_MODEM_FW_SUCCEED:
             /* @TODO: fix that into flash_modem/modem_specific */
-            if (mmgr->info.mdm_link == E_LINK_HSIC)
+            if (mmgr->info.mdm_link == E_LINK_USB)
                 timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
             ret = E_ERR_SUCCESS;
@@ -283,7 +283,7 @@ static void read_core_dump(mmgr_data_t *mmgr)
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
         set_mcd_poll_states(&mmgr->info);
 
-        if (mmgr->info.mdm_link == E_LINK_HSIC)
+        if (mmgr->info.mdm_link == E_LINK_USB)
             mmgr->events.link_state = E_MDM_LINK_NONE;
     }
     /* The modem will be reset. No need to launch
@@ -352,7 +352,7 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
         broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
         clients_reset_ack_cold(mmgr->clients);
         mmgr->request.accept_request = false;
-        if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
+        if ((mmgr->info.mdm_link == E_LINK_USB) && mmgr->info.is_flashless)
             set_mmgr_state(mmgr, E_MMGR_MDM_START);
         else
             set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
@@ -531,7 +531,7 @@ out_mdm_ev:
     mdm_subscribe_start_ev(&mmgr->info);
     if (!mmgr->info.is_flashless && mmgr->info.ipc_ready_present)
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-    if (mmgr->info.mdm_link == E_LINK_HSIC) {
+    if (mmgr->info.mdm_link == E_LINK_USB) {
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state = E_MDM_LINK_NONE;
     }
@@ -682,7 +682,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
         set_mcd_poll_states(&mmgr->info);
 
-        if (((mmgr->info.mdm_link == E_LINK_HSIC) &&
+        if (((mmgr->info.mdm_link == E_LINK_USB) &&
              mmgr->events.link_state & E_MDM_LINK_FLASH_READY) ||
             (mmgr->info.mdm_link == E_LINK_HSI)) {
             ret = do_flash(mmgr);
@@ -720,7 +720,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
         broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
-        if ((mmgr->info.mdm_link == E_LINK_HSIC) &&
+        if ((mmgr->info.mdm_link == E_LINK_USB) &&
             !(mmgr->events.link_state & E_MDM_LINK_CORE_DUMP_READ_READY))
             LOG_DEBUG("waiting for bus enumeration");
         else
@@ -739,7 +739,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
 
             mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
             ret = set_mcd_poll_states(&mmgr->info);
-            if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
+            if ((mmgr->info.mdm_link == E_LINK_USB) && mmgr->info.is_flashless)
                 set_mmgr_state(mmgr, E_MMGR_MDM_START);
             else
                 set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);

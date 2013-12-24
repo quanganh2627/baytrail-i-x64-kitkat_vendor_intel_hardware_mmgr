@@ -206,7 +206,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         reset_modem(mmgr);
         ret = E_ERR_FAILED;
     } else if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
-        if ((mmgr->info.mdm_link == E_LINK_HSIC) && mmgr->info.is_flashless)
+        if ((mmgr->info.mdm_link == E_LINK_USB) && mmgr->info.is_flashless)
             set_mmgr_state(mmgr, E_MMGR_MDM_START);
         else
             set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
@@ -216,9 +216,9 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         if (!mmgr->info.is_flashless && mmgr->info.ipc_ready_present)
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
 
-        /* if the modem is hsic, add wait_for_bus_ready */
+        /* if the modem is usb, add wait_for_bus_ready */
         /* @TODO: push that into modem_specific */
-        if (mmgr->info.mdm_link == E_LINK_HSIC)
+        if (mmgr->info.mdm_link == E_LINK_USB)
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
     }
 

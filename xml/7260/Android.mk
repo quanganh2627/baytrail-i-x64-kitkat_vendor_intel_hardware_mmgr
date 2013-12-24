@@ -17,6 +17,14 @@ LOCAL_SRC_FILES := $(LOCAL_MODULE)
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
+LOCAL_MODULE := mmgr_7260_conf_3.xml
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)/telephony
+LOCAL_SRC_FILES := $(LOCAL_MODULE)
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
 LOCAL_MODULE := mmgr_7260_conf_4.xml
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := ETC
@@ -38,6 +46,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_REQUIRED_MODULES :=\
     mmgr_7260_conf_1.xml\
     mmgr_7260_conf_2.xml\
+    mmgr_7260_conf_3.xml\
     mmgr_7260_conf_4.xml\
     mmgr_7260_conf_5.xml\
 

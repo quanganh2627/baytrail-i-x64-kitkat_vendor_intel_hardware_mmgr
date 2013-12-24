@@ -328,33 +328,33 @@ bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr)
 
     bus_events->wd_fd = CLOSED_FD;
 
-    if (flash->type == E_LINK_HSIC) {
+    if (flash->type == E_LINK_USB) {
         usb = true;
-        if ((flash->hsic.pid != 0) && (flash->hsic.vid != 0)) {
-            bus_events->modem_flash_pid = flash->hsic.pid;
-            bus_events->modem_flash_vid = flash->hsic.vid;
+        if ((flash->usb.pid != 0) && (flash->usb.vid != 0)) {
+            bus_events->modem_flash_pid = flash->usb.pid;
+            bus_events->modem_flash_vid = flash->usb.vid;
         } else {
             LOG_ERROR("wrong PID/VID for the flashing interface");
             err = true;
         }
     }
 
-    if (bb->type == E_LINK_HSIC) {
+    if (bb->type == E_LINK_USB) {
         usb = true;
-        if ((bb->hsic.pid != 0) && (bb->hsic.vid != 0)) {
-            bus_events->modem_bb_pid = bb->hsic.pid;
-            bus_events->modem_bb_vid = bb->hsic.vid;
+        if ((bb->usb.pid != 0) && (bb->usb.vid != 0)) {
+            bus_events->modem_bb_pid = bb->usb.pid;
+            bus_events->modem_bb_vid = bb->usb.vid;
         } else {
             LOG_ERROR("wrong PID/VID for the baseband interface");
             err = true;
         }
     }
 
-    if (mcdr->type == E_LINK_HSIC) {
+    if (mcdr->type == E_LINK_USB) {
         usb = true;
-        if ((mcdr->hsic.pid != 0) && (mcdr->hsic.vid != 0)) {
-            bus_events->mcdr_bb_pid = mcdr->hsic.pid;
-            bus_events->mcdr_bb_vid = mcdr->hsic.vid;
+        if ((mcdr->usb.pid != 0) && (mcdr->usb.vid != 0)) {
+            bus_events->mcdr_bb_pid = mcdr->usb.pid;
+            bus_events->mcdr_bb_vid = mcdr->usb.vid;
         } else {
             LOG_ERROR("wrong PID/VID for the core dump interface");
             err = true;

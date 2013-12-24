@@ -101,7 +101,7 @@ typedef enum e_mmgr_events {
     /* core dump retrieval takes too much time. The operation has been */ \
     /* aborted by MMGR */ \
     X(TIMEOUT), \
-    /* MMGR is not able to open the fd (HSIC enumeration issue, device not */ \
+    /* MMGR is not able to open the fd (USB enumeration issue, device not */ \
     /* available, etc) */ \
     X(LINK_ERROR), \
     /* A protocol error happened during the core dump retrieval (PING not */ \

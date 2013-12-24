@@ -72,13 +72,13 @@ ctrl_handle_t ctrl_init(e_link_t mdm_type, link_ctrl_t *mdm_ctrl,
         }
     }
 
-    if ((mdm_type == E_LINK_HSIC) &&
+    if ((mdm_type == E_LINK_USB) &&
         !strncmp(mdm_ctrl->device, "", sizeof(mdm_ctrl->device))) {
         LOG_ERROR("wrong device for modem link control handling");
         goto err;
     }
 
-    if ((cd_type == E_LINK_HSIC) &&
+    if ((cd_type == E_LINK_USB) &&
         !strncmp(cd_ctrl->device, "", sizeof(cd_ctrl->device))) {
         LOG_ERROR("wrong device for core dump link control handling");
         goto err;
@@ -157,7 +157,7 @@ e_mmgr_errors_t ctrl_on_mdm_down(ctrl_handle_t *h)
     case E_LINK_HSI:
         /* Nothing to do */
         break;
-    case E_LINK_HSIC:
+    case E_LINK_USB:
         ret = ctrl_set_state(&ctx->mdm.ctrl, E_ACTION_OFF);
         break;
     case E_LINK_UART:
@@ -190,7 +190,7 @@ e_mmgr_errors_t ctrl_on_mdm_up(ctrl_handle_t *h)
     case E_LINK_HSI:
         /* Nothing to do */
         break;
-    case E_LINK_HSIC:
+    case E_LINK_USB:
         ret = ctrl_set_state(&ctx->mdm.ctrl, E_ACTION_ON);
         break;
     case E_LINK_UART:
@@ -223,7 +223,7 @@ e_mmgr_errors_t ctrl_on_mdm_flash(ctrl_handle_t *h)
     case E_LINK_HSI:
         /* Nothing to do */
         break;
-    case E_LINK_HSIC:
+    case E_LINK_USB:
         ret = ctrl_set_state(&ctx->mdm.ctrl, E_ACTION_RESET);
         break;
     case E_LINK_UART:
@@ -257,7 +257,7 @@ e_mmgr_errors_t ctrl_on_cd_ipc_failure(ctrl_handle_t *h)
     case E_LINK_HSI:
         /* Nothing to do */
         break;
-    case E_LINK_HSIC:
+    case E_LINK_USB:
         ret = ctrl_set_state(&ctx->cd.ctrl, E_ACTION_RESET);
         break;
     case E_LINK_UART:
