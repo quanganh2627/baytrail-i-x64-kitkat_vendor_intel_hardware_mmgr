@@ -312,7 +312,6 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
             ret = E_ERR_FAILED;
             *verdict = E_MODEM_NVM_FAIL;
             *sub_error_code = mup_ret;
-            LOG_ERROR("modem nvm update failed with error %d", mup_ret);
         } else {
             if (unlink(tlv_file) != 0)
                 LOG_ERROR("couldn't delete %s: %s", tlv_file, strerror(errno));

@@ -19,8 +19,7 @@
 #ifndef __MMGR_COMMON_DATA_HEADER__
 #define __MMGR_COMMON_DATA_HEADER__
 
-#define FAKE_ERROR_REASON "fake reason. Only for test purpose"
-#define FAKE_ERROR_ID 598
+#define FAKE_REPORT_REASON "fake reason. Only for test purpose"
 
 #define FAKE_CD_FILENAME "cd_fake_coredump.tgz"
 #define FAKE_CD_REASON "(fake reason)"

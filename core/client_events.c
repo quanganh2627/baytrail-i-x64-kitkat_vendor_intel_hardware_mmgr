@@ -776,22 +776,13 @@ static e_mmgr_errors_t request_fake_ap_reset(mmgr_data_t *mmgr)
 static e_mmgr_errors_t request_fake_error(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    mmgr_cli_error_t err = { .id = FAKE_ERROR_ID };
+    mmgr_cli_error_t err = { E_REPORT_FAKE, strlen(FAKE_REPORT_REASON),
+                             FAKE_REPORT_REASON };
 
     ASSERT(mmgr != NULL);
 
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
-
-    err.len = strlen(FAKE_ERROR_REASON);
-    err.reason = malloc(sizeof(char) * err.len);
-    if (err.reason == NULL) {
-        LOG_ERROR("memory allocation fails");
-        ret = E_ERR_FAILED;
-    } else {
-        strncpy(err.reason, FAKE_ERROR_REASON, err.len);
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-        free(err.reason);
-    }
+    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
 
     return ret;
 }

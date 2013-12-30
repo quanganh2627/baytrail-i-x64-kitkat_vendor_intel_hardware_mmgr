@@ -294,7 +294,7 @@ e_mmgr_errors_t set_data_error(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
     }
     msg_data = msg->data;
-    deserialize_int(&msg_data, &err->id);
+    deserialize_int(&msg_data, (int *)&err->id);
     deserialize_size_t(&msg_data, &err->len);
 
     if (err->len != (msg->hdr.len - (msg_data - msg->data))) {
@@ -309,8 +309,8 @@ e_mmgr_errors_t set_data_error(msg_t *msg, mmgr_cli_event_t *request)
         goto out;
     }
 
-    memcpy(err->reason, msg_data, err->len);
-    memset(err->reason + err->len, '\0', sizeof(char));
+    memcpy((char *)err->reason, msg_data, err->len);
+    memset((char *)err->reason + err->len, '\0', sizeof(char));
     ret = E_ERR_SUCCESS;
 
 out:
@@ -494,7 +494,7 @@ e_mmgr_errors_t free_data_error(mmgr_cli_event_t *request)
     err = request->data;
     if (err != NULL) {
         if (err->reason != NULL)
-            free(err->reason);
+            free((char *)err->reason);
         free(err);
     } else {
         LOG_ERROR("failed to free memory");

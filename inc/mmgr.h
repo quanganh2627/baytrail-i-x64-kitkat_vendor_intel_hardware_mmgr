@@ -150,10 +150,19 @@ typedef struct mmgr_cli_ap_reset {
     mmgr_cli_recovery_cause_t *recovery_causes;
 } mmgr_cli_ap_reset_t;
 
+typedef enum e_report_id {
+    E_REPORT_FLASH,
+    E_REPORT_IPC,
+    E_REPORT_CONF,
+    E_REPORT_TLV,
+    E_REPORT_FMMO,
+    E_REPORT_FAKE
+} e_report_id_t;
+
 typedef struct mmgr_cli_error {
-    int id;
+    e_report_id_t id;
     size_t len;
-    char *reason;
+    const char *reason;
 } mmgr_cli_error_t;
 
 typedef struct mmgr_cli_restart {

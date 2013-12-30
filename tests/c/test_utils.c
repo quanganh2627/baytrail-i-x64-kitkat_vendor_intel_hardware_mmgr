@@ -350,8 +350,9 @@ static int event_error(mmgr_cli_event_t *ev)
     }
     LOG_DEBUG("error {id:%d reason:\"%s\" len:%d}", cli_err->id,
               cli_err->reason, cli_err->len);
-    if ((cli_err->len == strlen(FAKE_ERROR_REASON))
-        && (strncmp(FAKE_ERROR_REASON, cli_err->reason, cli_err->len) == 0))
+    if ((cli_err->len == strlen(FAKE_REPORT_REASON))
+        && (strncmp(FAKE_REPORT_REASON, cli_err->reason, cli_err->len) == 0)
+        && (cli_err->id == E_REPORT_FAKE))
         events_set(data, E_EVENTS_SUCCEED);
 
     err = set_and_notify(ev->id, (test_data_t *)ev->context);

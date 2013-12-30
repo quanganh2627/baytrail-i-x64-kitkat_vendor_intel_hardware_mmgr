@@ -41,13 +41,8 @@
 #define POWER_OFF_MODEM "AT+CFUN=0\r"
 
 #define READ_SIZE 64
-
-#define ERROR_ID   1
-#define ERROR_REASON "IPC error"
-
-#define SEVERAL_TLV "Several TLV files found. Skipping NVM update"
-
 #define AT_CFUN_RETRY 0
+
 /* NB: This timer shall not be higher than MAX_RADIO_WAIT_TIME (in seconds) */
 #define WAIT_FOR_WARM_BOOT_TIMEOUT 30000
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
@@ -172,9 +167,13 @@ static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
             break;
 
         case E_MODEM_FW_ERROR_UNSPECIFIED:
-        case E_MODEM_FW_READY_TIMEOUT:
+        case E_MODEM_FW_READY_TIMEOUT: {
+            static const char *const msg = "Flashing timeout";
+            mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
+            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
             set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             break;
+        }
 
         case E_MODEM_FW_OUTDATED:
             broadcast_msg(E_MSG_INTENT_MODEM_FW_OUTDATED);
@@ -232,12 +231,23 @@ static bool apply_tlv(mmgr_data_t *mmgr)
                       mmgr->info.tlv_path);
         } else if (found == 1) {
             LOG_DEBUG("TLV file to apply: %s", files[0]);
-            flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc, files[0],
-                            &nvm_result.id, &nvm_result.sub_error_code);
-            applied = true;
+            if (E_ERR_SUCCESS != flash_modem_nvm(&mmgr->info,
+                                                 mmgr->info.mdm_custo_dlc,
+                                                 files[0],
+                                                 &nvm_result.id,
+                                                 &nvm_result.sub_error_code)) {
+                static const char *const msg =
+                    "TLV failure: failed to apply TLV";
+                LOG_ERROR("%s", msg);
+                mmgr_cli_error_t err = { E_REPORT_TLV, strlen(msg), msg };
+                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+            } else {
+                applied = true;
+            }
         } else {
-            LOG_ERROR(SEVERAL_TLV);
-            mmgr_cli_error_t err = { 0, strlen(SEVERAL_TLV), SEVERAL_TLV };
+            static const char *const msg = "TLV failure: too many files found";
+            LOG_ERROR("%s. Skipping NVM update", msg);
+            mmgr_cli_error_t err = { E_REPORT_TLV, strlen(msg), msg };
             clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
         }
 
@@ -435,10 +445,14 @@ e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
                       AT_CFUN_RETRY, AT_ANSWER_NO_TIMEOUT);
 
         LOG_DEBUG("Waiting for MDM_CTRL_STATE_WARM_BOOT");
-        if (!poll(&fds, 1, WAIT_FOR_WARM_BOOT_TIMEOUT))
-            LOG_ERROR("timeout");
-        else
+        if (!poll(&fds, 1, WAIT_FOR_WARM_BOOT_TIMEOUT)) {
+            static const char *const msg = "timeout during modem shutdown";
+            mmgr_cli_error_t err = { E_REPORT_FMMO, strlen(msg), msg };
+            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+            LOG_ERROR("%s", msg);
+        } else {
             LOG_DEBUG("Modem is down");
+        }
         tty_close(&fd);
     }
 
@@ -550,7 +564,10 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     if (ret == E_ERR_SUCCESS) {
         LOG_VERBOSE("Switch to MUX succeed");
     } else {
-        LOG_ERROR("MUX INIT FAILED. reason=%d", ret);
+        static const char *const msg = "MUX configuration failed";
+        LOG_ERROR("%s. reason=%d", msg, ret);
+        mmgr_cli_error_t err = { E_REPORT_CONF, strlen(msg), msg };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         goto out;
     }
@@ -560,7 +577,6 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     return ret;
 
 out:
-    LOG_DEBUG("Failed to configure modem. Reset on-going");
     return ret;
 }
 
@@ -587,21 +603,17 @@ static e_mmgr_errors_t cleanup_ipc_event(mmgr_data_t *mmgr)
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return E_ERR_TTY_BAD_FD failed to open tty. perform a modem reset
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
 {
-    ASSERT(mmgr != NULL);
+    static const char *const msg = "IPC hang-up";
+    mmgr_cli_error_t err = { E_REPORT_IPC, strlen(msg), msg };
 
+    ASSERT(mmgr != NULL);
     cleanup_ipc_event(mmgr);
 
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-
-    /* send error notification with reason message */
-    mmgr_cli_error_t err = { .id = ERROR_ID };
-    err.len = strlen(ERROR_REASON);
-    err.reason = (char *)ERROR_REASON;
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
 
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);

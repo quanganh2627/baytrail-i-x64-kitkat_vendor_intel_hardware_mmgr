@@ -209,19 +209,28 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
     }
 
     if (timer_is_elapsed(t, E_TIMER_WAIT_FOR_IPC_READY, &cur)) {
-        handled = true;
-        LOG_DEBUG("IPC READY not received. force modem reset");
-        timer_stop(h, E_TIMER_WAIT_FOR_IPC_READY);
-        *reset = true;
-
         mmgr_cli_fw_update_result_t result = { .id = E_MODEM_FW_READY_TIMEOUT };
+        static const char *const msg = "IPC READY not received";
+        mmgr_cli_error_t err = { E_REPORT_IPC, strlen(msg), msg };
+
+        LOG_DEBUG("%s. Force modem reset", msg);
         clients_inform_all(t->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
                            &result);
+        clients_inform_all(t->clients, E_MMGR_NOTIFY_ERROR, &err);
+
+        handled = true;
+        timer_stop(h, E_TIMER_WAIT_FOR_IPC_READY);
+        *reset = true;
     }
 
     if (timer_is_elapsed(t, E_TIMER_WAIT_FOR_BUS_READY, &cur)) {
+        static const char *const msg = "BUS READY not received";
+        mmgr_cli_error_t err = { E_REPORT_IPC, strlen(msg), msg };
+
+        LOG_DEBUG("%s. Force modem reset", msg);
+        clients_inform_all(t->clients, E_MMGR_NOTIFY_ERROR, &err);
+
         handled = true;
-        LOG_DEBUG("BUS READY not received. force modem reset");
         timer_stop(h, E_TIMER_WAIT_FOR_BUS_READY);
         *reset = true;
     }
