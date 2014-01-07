@@ -122,50 +122,53 @@ end_set_signal_handler:
 static void mmgr_init(mmgr_data_t *mmgr)
 {
     tcs_handle_t *h = tcs_init();
-
-    ASSERT(mmgr != NULL);
     ASSERT(h != NULL);
 
-    tcs_print(h);
-    tcs_cfg_t *cfg = tcs_get_config(h);
-    ASSERT(cfg != NULL);
+    ASSERT(mmgr != NULL);
 
-    ASSERT((mmgr->reset = recov_init(&cfg->mmgr.recov)) != NULL);
+    tcs_cfg_t *cfg = tcs_get_config(h);
+    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h);
+    ASSERT(cfg != NULL);
+    ASSERT(mmgr_cfg != NULL);
+
+    tcs_print(h);
+
+    ASSERT((mmgr->reset = recov_init(&mmgr_cfg->recov)) != NULL);
 
     ASSERT((mmgr->secure = secure_init(cfg->mdm_info.secured,
                                        &cfg->channels.secured)) != NULL);
 
-    ASSERT((mmgr->mcdr = mcdr_init(&cfg->mmgr.mcdr)) != NULL);
+    ASSERT((mmgr->mcdr = mcdr_init(&mmgr_cfg->mcdr)) != NULL);
 
-    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm_info, &cfg->mmgr.com,
+    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm_info, &mmgr_cfg->com,
                                             &cfg->tlv,
-                                            &cfg->mmgr.mdm_link,
+                                            &mmgr_cfg->mdm_link,
                                             &cfg->channels,
-                                            &cfg->mmgr.flash, &cfg->mmgr.mcd,
+                                            &mmgr_cfg->flash, &mmgr_cfg->mcd,
                                             &mmgr->info));
 
     ASSERT((mmgr->info.pm = pm_init(cfg->mdm_info.ipc_mdm,
-                                    &cfg->mmgr.mdm_link.power,
+                                    &mmgr_cfg->mdm_link.power,
                                     cfg->mdm_info.ipc_cd,
-                                    &cfg->mmgr.mcdr.power)) != NULL);
+                                    &mmgr_cfg->mcdr.power)) != NULL);
 
     ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm_info.ipc_mdm,
-                                        &cfg->mmgr.mdm_link.ctrl,
+                                        &mmgr_cfg->mdm_link.ctrl,
                                         cfg->mdm_info.ipc_cd,
-                                        &cfg->mmgr.mcdr.ctrl)) != NULL);
+                                        &mmgr_cfg->mcdr.ctrl)) != NULL);
 
     ASSERT(E_ERR_SUCCESS == modem_events_init(mmgr));
-    ASSERT(E_ERR_SUCCESS == client_events_init(cfg->mmgr.cli.max, mmgr));
+    ASSERT(E_ERR_SUCCESS == client_events_init(mmgr_cfg->cli.max, mmgr));
 
-    ASSERT((mmgr->timer = timer_init(&cfg->mmgr.recov, &cfg->mmgr.timings,
+    ASSERT((mmgr->timer = timer_init(&mmgr_cfg->recov, &mmgr_cfg->timings,
                                      mmgr->clients)) != NULL);
 
     ASSERT((mmgr->events.bus_events =
-                bus_ev_init(&cfg->mmgr.mdm_link.flash,
-                            &cfg->mmgr.mdm_link.baseband,
-                            &cfg->mmgr.mcdr.link)) != NULL);
+                bus_ev_init(&mmgr_cfg->mdm_link.flash,
+                            &mmgr_cfg->mdm_link.baseband,
+                            &mmgr_cfg->mcdr.link)) != NULL);
 
-    ASSERT(E_ERR_SUCCESS == events_init(cfg->mmgr.cli.max, mmgr));
+    ASSERT(E_ERR_SUCCESS == events_init(mmgr_cfg->cli.max, mmgr));
 
     tcs_dispose(h);
 }

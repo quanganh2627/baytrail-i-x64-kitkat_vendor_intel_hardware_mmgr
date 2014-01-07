@@ -101,16 +101,18 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
     h = tcs_init();
     if (h) {
         tcs_cfg_t *tcs_cfg = tcs_get_config(h);
-        if (tcs_cfg) {
-            cfg->cold_reset = tcs_cfg->mmgr.recov.cold_reset;
-            cfg->reboot = tcs_cfg->mmgr.recov.reboot;
-            cfg->reset_escalation_delay = tcs_cfg->mmgr.recov.reset_delay;
-            strncpy(cfg->shtdwn_dlc, tcs_cfg->channels.shutdown.device,
-                    sizeof(cfg->shtdwn_dlc) - 1);
-            cfg->shtdwn_dlc[sizeof(cfg->shtdwn_dlc) - 1] = '\0';
+        mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h);
+        ASSERT(tcs_cfg != NULL);
+        ASSERT(mmgr_cfg != NULL);
 
-            ret = E_ERR_SUCCESS;
-        }
+        cfg->cold_reset = mmgr_cfg->recov.cold_reset;
+        cfg->reboot = mmgr_cfg->recov.reboot;
+        cfg->reset_escalation_delay = mmgr_cfg->recov.reset_delay;
+        strncpy(cfg->shtdwn_dlc, tcs_cfg->channels.shutdown.device,
+                sizeof(cfg->shtdwn_dlc) - 1);
+        cfg->shtdwn_dlc[sizeof(cfg->shtdwn_dlc) - 1] = '\0';
+
+        ret = E_ERR_SUCCESS;
     }
 
     if (h && tcs_dispose(h))
