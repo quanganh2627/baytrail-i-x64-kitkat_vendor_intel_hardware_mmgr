@@ -2,7 +2,7 @@
 <mmgr_config>
 	<modem_link>
 		<flash>
-			<link_hsic device="![CDATA[/dev/ttyACM0]]" pid="0x0716" vid="0x8087"/>
+			<link_hsic device="![CDATA[/dev/ttyACM0]]" pid="0x07ef" vid="0x8087"/>
 		</flash>
 		<baseband>
 			<link_hsic device="![CDATA[/dev/ttyACM0]]" pid="0x0452" vid="0x1519"/>
