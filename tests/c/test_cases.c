@@ -79,48 +79,56 @@ e_mmgr_errors_t reset_with_cd(test_data_t *test)
 e_mmgr_errors_t modem_recovery(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
+    int num_extra_params = 0;
+    mmgr_cli_recovery_cause_t *causes = NULL;
 
     ASSERT(test != NULL);
 
-    if (test->option_string != NULL) {
-        int num_extra_params;
-        mmgr_cli_recovery_cause_t *causes = NULL;
+    if (test->option_string != NULL)
         num_extra_params = atoi(test->option_string);
+    else
+        num_extra_params = -1;
 
-        if (num_extra_params <= 0)
-            num_extra_params = 0;
-        if (num_extra_params > 0) {
-            int i;
+    if (num_extra_params > 0) {
+        int i;
 
-            causes =
-                malloc(num_extra_params * sizeof(mmgr_cli_recovery_cause_t));
+        causes =
+            malloc(num_extra_params * sizeof(mmgr_cli_recovery_cause_t));
+        ASSERT(causes != NULL);
 
-            for (i = 0; i < num_extra_params; i++) {
-                causes[i].cause = malloc(MAX_RECOVERY_CAUSE);
-                snprintf(causes[i].cause, MAX_RECOVERY_CAUSE - 1,
-                         "Recovery cause number %d !", i);
-                causes[i].cause[MAX_RECOVERY_CAUSE - 1] = '\0';
-                causes[i].len = strlen(causes[i].cause);
-            }
+        for (i = 0; i < num_extra_params; i++) {
+            causes[i].cause = malloc(MAX_RECOVERY_CAUSE);
+            ASSERT(causes[i].cause != NULL);
+            snprintf(causes[i].cause, MAX_RECOVERY_CAUSE - 1,
+                     "Recovery cause number %d !", i);
+            causes[i].cause[MAX_RECOVERY_CAUSE - 1] = '\0';
+            causes[i].len = strlen(causes[i].cause);
         }
-        ret = reset_by_client_request_with_data(test,
-                                                E_MMGR_REQUEST_MODEM_RECOVERY,
-                                                num_extra_params *
-                                                sizeof(mmgr_cli_recovery_cause_t),
-                                                causes,
-                                                E_MMGR_NUM_EVENTS,
-                                                E_MMGR_EVENT_MODEM_UP);
-
-        if (causes != NULL) {
-            int i;
-
-            for (i = 0; i < num_extra_params; i++)
-                free(causes[i].cause);
-            free(causes);
-        }
+    } else if (num_extra_params == -1) {
+        num_extra_params = 1;
+        causes = malloc(sizeof(mmgr_cli_recovery_cause_t));
+        ASSERT(causes != NULL);
+        causes[0].cause = strdup("Requested by mmgr-test application");
+        ASSERT(causes[0].cause != NULL);
+        causes[0].len = strlen(causes[0].cause);
     } else {
-        ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RECOVERY,
-                                      E_MMGR_NUM_EVENTS, E_MMGR_EVENT_MODEM_UP);
+        num_extra_params = 0;
+    }
+
+    ret = reset_by_client_request_with_data(test,
+                                            E_MMGR_REQUEST_MODEM_RECOVERY,
+                                            num_extra_params *
+                                            sizeof(mmgr_cli_recovery_cause_t),
+                                            causes,
+                                            E_MMGR_NUM_EVENTS,
+                                            E_MMGR_EVENT_MODEM_UP);
+
+    if (causes != NULL) {
+        int i;
+
+        for (i = 0; i < num_extra_params; i++)
+            free(causes[i].cause);
+        free(causes);
     }
 
     if (events_get(test) != E_EVENTS_SUCCEED)

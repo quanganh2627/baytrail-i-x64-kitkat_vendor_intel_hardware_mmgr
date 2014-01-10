@@ -192,7 +192,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
     if (mmgr->info.is_flashless)
         mmgr->info.polled_states |= MDM_CTRL_STATE_FW_DOWNLOAD_READY;
-    else
+    else if (mmgr->info.ipc_ready_present)
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
     set_mcd_poll_states(&mmgr->info);
 
@@ -213,7 +213,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         mmgr->events.cli_req = E_CLI_REQ_NONE;
 
         recov_reinit(mmgr->reset);
-        if (!mmgr->info.is_flashless)
+        if (!mmgr->info.is_flashless && mmgr->info.ipc_ready_present)
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
 
         /* if the modem is hsic, add wait_for_bus_ready */
