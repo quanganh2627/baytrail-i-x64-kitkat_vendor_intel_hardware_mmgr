@@ -243,32 +243,6 @@ static e_mmgr_errors_t resource_acquire(mmgr_data_t *mmgr)
 }
 
 /**
- * handle E_MMGR_RESOURCE_ACQUIRE request if state is WAIT_CLI_ACK
- *
- * @private
- *
- * @param [in,out] mmgr mmgr context
- *
- * @return E_ERR_SUCCESS if successful
- */
-static e_mmgr_errors_t resource_acquire_stop_down(mmgr_data_t *mmgr)
-{
-    ASSERT(mmgr != NULL);
-
-    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
-    client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
-
-    /* At least one client has acquired the resource and modem shutdown
-     * procedure is on going. Stop it */
-    mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
-    timer_stop(mmgr->timer, E_TIMER_MODEM_SHUTDOWN_ACK);
-    clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
-    set_mmgr_state(mmgr, E_MMGR_MDM_UP);
-
-    return E_ERR_SUCCESS;
-}
-
-/**
  * handle E_MMGR_RESOURCE_RELEASE request if state is MDM_OFF
  *
  * @private
@@ -878,8 +852,6 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
         resource_acquire;
     mmgr->hdler_client[E_MMGR_WAIT_COLD_ACK][E_MMGR_RESOURCE_ACQUIRE] =
         resource_acquire;
-    mmgr->hdler_client[E_MMGR_WAIT_SHT_ACK][E_MMGR_RESOURCE_ACQUIRE] =
-        resource_acquire_stop_down;
 
     /* E_MMGR_RESOURCE_RELEASE */
     mmgr->hdler_client[E_MMGR_MDM_OFF][E_MMGR_RESOURCE_RELEASE] =
