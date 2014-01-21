@@ -183,29 +183,27 @@ static void find(const char *folder, const char *pattern, char **files,
     dir = opendir(folder);
     if (!dir) {
         LOG_ERROR("wrong path: %s", folder);
-        goto out;
-    }
-
-    while ((entry = readdir(dir)) && *found < max) {
-        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
-            continue;
-        } else if (entry->d_type == DT_DIR) {
-            char subfolder[PATH_MAX] = "";
-            snprintf(subfolder, sizeof(subfolder) - 1, "%s/%s", folder,
-                     entry->d_name);
-            /* recursive call: will stop when the last subfolder is reached */
-            find(subfolder, pattern, files, found, max);
-        } else if (strstr(entry->d_name, pattern)) {
-            int size = strlen(folder) + strlen(entry->d_name) + 2;
-            files[*found] = malloc(sizeof(char) * size);
-            ASSERT(files[*found] != NULL);
-            snprintf(files[*found], size, "%s/%s", folder, entry->d_name);
-            (*found)++;
+    } else {
+        while ((entry = readdir(dir)) && *found < max) {
+            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
+                continue;
+            } else if (entry->d_type == DT_DIR) {
+                char subfolder[PATH_MAX] = "";
+                snprintf(subfolder, sizeof(subfolder) - 1, "%s/%s", folder,
+                         entry->d_name);
+                /* recursive call: will stop when the last subfolder is reached
+                **/
+                find(subfolder, pattern, files, found, max);
+            } else if (strstr(entry->d_name, pattern)) {
+                int size = strlen(folder) + strlen(entry->d_name) + 2;
+                files[*found] = malloc(sizeof(char) * size);
+                ASSERT(files[*found] != NULL);
+                snprintf(files[*found], size, "%s/%s", folder, entry->d_name);
+                (*found)++;
+            }
         }
+        closedir(dir);
     }
-
-out:
-    closedir(dir);
 }
 
 /**
