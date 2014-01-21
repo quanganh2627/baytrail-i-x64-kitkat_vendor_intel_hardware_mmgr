@@ -164,7 +164,7 @@ static void mmgr_init(mmgr_data_t *mmgr)
     ASSERT(E_ERR_SUCCESS == client_events_init(mmgr_cfg->cli.max, mmgr));
 
     ASSERT((mmgr->timer = timer_init(&mmgr_cfg->recov, &mmgr_cfg->timings,
-                                     mmgr->clients)) != NULL);
+                                     &mmgr_cfg->mcdr, mmgr->clients)) != NULL);
 
     ASSERT((mmgr->events.bus_events =
                 bus_ev_init(&mmgr_cfg->mdm_link.flash,

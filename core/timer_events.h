@@ -34,6 +34,7 @@ typedef void *timer_handle_t;
     X(CORE_DUMP_IPC_RESET), \
     X(WAIT_CORE_DUMP_READY), \
     X(MDM_FLASHING), \
+    X(CORE_DUMP_READING), \
     X(NUM)
 
 typedef enum e_timer_type {
@@ -44,13 +45,15 @@ typedef enum e_timer_type {
 
 timer_handle_t *timer_init(const mmgr_recovery_t *recov,
                            const mmgr_timings_t *timings,
+                           const mcdr_info_t *mcdr,
                            const clients_hdle_t *clients);
 e_mmgr_errors_t timer_dispose(timer_handle_t *h);
 
 e_mmgr_errors_t timer_start(timer_handle_t *h, e_timer_type_t type);
 e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type);
 e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
-                            bool *cd_reset, bool *stop_flashing);
+                            bool *cd_reset, bool *stop_flashing,
+                            bool *stop_mcdr);
 e_mmgr_errors_t timer_stop_all(timer_handle_t *h);
 
 int timer_get_timeout(timer_handle_t *h);

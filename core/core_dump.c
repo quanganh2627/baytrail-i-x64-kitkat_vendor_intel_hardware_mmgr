@@ -23,22 +23,24 @@
 #include "errors.h"
 #include "logs.h"
 
+#define WRITE 1
+#define READ 0
+
 typedef struct mcdr_lib {
-    bool enabled;
-    void *lib;
-    mcdr_data_t data;
+    void *hdle;
     void (*read)(mcdr_data_t *);
     void (*cleanup)(void);
     mcdr_status_t (*get_state)(void);
     char *(*get_reason)(void);
 } mcdr_lib_t;
 
-typedef struct core_dump_thread {
-    pthread_t thread_id;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    mcdr_lib_t *mcdr;
-} core_dump_thread_t;
+typedef struct mcdr_ctx {
+    bool enabled;
+    int fd_pipe[2];
+    pthread_t id;
+    mcdr_lib_t mcdr;
+    mcdr_data_t data;
+} mcdr_ctx_t;
 
 #ifdef GOCV_MMGR
 #define MCDR_LIBRARY_NAME "libmcdr-gcov.so"
@@ -62,42 +64,35 @@ typedef struct core_dump_thread {
  */
 mcdr_handle_t *mcdr_init(const mcdr_info_t *cfg)
 {
-    char *p = NULL;
-    mcdr_lib_t *mcdr = NULL;
+    mcdr_ctx_t *ctx = calloc(1, sizeof(mcdr_ctx_t));;
 
     ASSERT(cfg != NULL);
+    ASSERT(ctx != NULL);
 
-    mcdr = calloc(1, sizeof(mcdr_lib_t));
-    if (!mcdr) {
-        LOG_ERROR("memory allocation failed");
-    } else if (!cfg->gnl.enable) {
-        mcdr->enabled = false;
+    if (!cfg->gnl.enable) {
+        ctx->enabled = false;
         LOG_VERBOSE("MCDR is disabled");
     } else {
-        mcdr->lib = dlopen(MCDR_LIBRARY_NAME, RTLD_LAZY);
-        if (mcdr->lib == NULL) {
-            mcdr->enabled = false;
+        ctx->mcdr.hdle = dlopen(MCDR_LIBRARY_NAME, RTLD_LAZY);
+        if (ctx->mcdr.hdle == NULL) {
+            ctx->enabled = false;
             LOG_VERBOSE("failed to load the library");
             dlerror();
         } else {
-            mcdr->enabled = true;
-            mcdr->data.mcdr_info = *cfg;
+            ctx->enabled = true;
+            ctx->data.mcdr_info = *cfg;
 
-            mcdr->read = dlsym(mcdr->lib, MCDR_GET_CORE_DUMP);
-            mcdr->cleanup = dlsym(mcdr->lib, MCDR_CLEANUP);
-            mcdr->get_state = dlsym(mcdr->lib, MCDR_GET_STATE);
-            mcdr->get_reason = dlsym(mcdr->lib, MCDR_GET_REASON);
+            ctx->mcdr.read = dlsym(ctx->mcdr.hdle, MCDR_GET_CORE_DUMP);
+            ctx->mcdr.cleanup = dlsym(ctx->mcdr.hdle, MCDR_CLEANUP);
+            ctx->mcdr.get_state = dlsym(ctx->mcdr.hdle, MCDR_GET_STATE);
+            ctx->mcdr.get_reason = dlsym(ctx->mcdr.hdle, MCDR_GET_REASON);
 
-            p = (char *)dlerror();
-            if (p != NULL) {
-                LOG_ERROR("An error ocurred during symbol resolution");
-                mcdr_dispose((mcdr_handle_t *)mcdr);
-                mcdr = NULL;
-            }
+            ASSERT(dlerror() == NULL);
+            ASSERT(pipe(ctx->fd_pipe) == 0);
         }
     }
 
-    return (mcdr_handle_t *)mcdr;
+    return (mcdr_handle_t *)ctx;
 }
 
 /**
@@ -110,12 +105,14 @@ mcdr_handle_t *mcdr_init(const mcdr_info_t *cfg)
  */
 e_mmgr_errors_t mcdr_dispose(mcdr_handle_t *h)
 {
-    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    if (mcdr) {
-        dlclose(mcdr->lib);
-        free(mcdr);
+    if (ctx) {
+        dlclose(ctx->mcdr.hdle);
+        close(ctx->fd_pipe[READ]);
+        close(ctx->fd_pipe[WRITE]);
+        free(ctx);
     } else {
         ret = E_ERR_FAILED;
     }
@@ -129,115 +126,99 @@ e_mmgr_errors_t mcdr_dispose(mcdr_handle_t *h)
  *
  * @param [in,out] cd_reader core dump thread struct
  */
-static void thread_core_dump(core_dump_thread_t *cd_reader)
+static void mcdr_read(mcdr_ctx_t *ctx)
 {
-    cd_reader->mcdr->read(&cd_reader->mcdr->data);
-    /* the thread is finished. send the conditional signal waited by
-     * pthread_cond_timedwait */
-    pthread_mutex_lock(&cd_reader->mutex);
-    pthread_cond_signal(&cd_reader->cond);
-    pthread_mutex_unlock(&cd_reader->mutex);
-    return;
+    char msg = 0;
+
+    ASSERT(ctx != NULL);
+
+    ctx->mcdr.read(&ctx->data);
+    LOG_DEBUG("[SLAVE-MCDR] Core dump retrieved. Notify main thread");
+    write(ctx->fd_pipe[WRITE], &msg, sizeof(msg));
 }
 
 /**
  * Start core dump reader program.
  *
  * @param [in] h module handle
- * @param [out] state
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t mcdr_read(mcdr_handle_t *h, e_core_dump_state_t *state)
+e_mmgr_errors_t mcdr_start(mcdr_handle_t *h)
 {
-    int err = 0;
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    struct timespec ts;
-    struct timeval tp;
-    struct timeval tp_end;
-    core_dump_thread_t cd_reader;
-    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    ASSERT(mcdr != NULL);
-    ASSERT(state != NULL);
+    ASSERT(ctx != NULL);
 
-    /* initialize thread structure */
-    pthread_mutex_init(&cd_reader.mutex, NULL);
-    pthread_cond_init(&cd_reader.cond, NULL);
-    cd_reader.mcdr = mcdr;
-    cd_reader.thread_id = -1;
-    *state = E_CD_OTHER;
-
-    /* Start core dump reader */
-    LOG_DEBUG("starting MCDR");
-    err = pthread_create(&cd_reader.thread_id, NULL, (void *)thread_core_dump,
-                         (void *)&cd_reader);
-    if (err != 0) {
-        LOG_ERROR("Failed to launch MCDR");
-        goto out;
+    if (!ctx->id) {
+        pthread_create(&ctx->id, NULL, (void *)mcdr_read, (void *)ctx);
+    } else {
+        ret = E_ERR_FAILED;
+        LOG_ERROR("thread already running");
     }
 
-    /* The core dump read operation can't exceed the timeout provided by TCS.
-     * The thread will be interrupted with pthread_cond_timedwait */
-    gettimeofday(&tp, NULL);
-    ts.tv_sec = tp.tv_sec;
-    ts.tv_nsec = tp.tv_usec * 1000;
-    ts.tv_sec += mcdr->data.mcdr_info.gnl.timeout;
-
-    /* launch time condition The mutex must be locked before calling
-     * pthread_cond_timedwait. */
-    pthread_mutex_lock(&cd_reader.mutex);
-    err = pthread_cond_timedwait(&cd_reader.cond, &cd_reader.mutex, &ts);
-    pthread_mutex_unlock(&cd_reader.mutex);
-
-    if (err == ETIMEDOUT) {
-        if (MCDR_ARCHIVE_IN_PROGRESS == mcdr->get_state()) {
-            LOG_DEBUG("Archiving still on-going");
-            /* @TODO: perhaps a timeout can be usefull to prevent infinite
-             * archiving process */
-        } else {
-            LOG_ERROR("Core dump retrieval takes too much time. Aborting");
-            mcdr->cleanup();
-            *state = E_CD_TIMEOUT;
-        }
-    }
-
-    if (cd_reader.thread_id != -1) {
-        /* The thread exit normally. Join it */
-        if (pthread_join(cd_reader.thread_id, NULL) != 0)
-            LOG_ERROR("failed to join the thread");
-    }
-
-    if (*state != E_CD_TIMEOUT) {
-        switch (mcdr->get_state()) {
-        case MCDR_SUCCEED:
-            gettimeofday(&tp_end, NULL);
-            LOG_VERBOSE("Succeed (in %lus.) name:%s", tp_end.tv_sec -
-                        tp.tv_sec, mcdr->data.coredump_file);
-            *state = E_CD_SUCCEED;
-            ret = E_ERR_SUCCESS;
-            break;
-
-        case MCDR_FS_ERROR:
-        case MCDR_INIT_ERROR:
-        case MCDR_IO_ERROR:
-            *state = E_CD_LINK_ERROR;
-            break;
-
-        case MCDR_START_PROT_ERR:
-        case MCDR_PROT_ERROR:
-            *state = E_CD_PROTOCOL_ERROR;
-            break;
-
-        default:
-            /* nothing to do */
-            break;
-        }
-    }
-
-out:
     return ret;
+}
+
+/**
+ * Finalize core dump retrieval. It joins the thread
+ *
+ * @param [in] h module handle
+ *
+ */
+void mcdr_finalize(mcdr_handle_t *h)
+{
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
+
+    ASSERT(ctx != NULL);
+
+    if (ctx->id) {
+        pthread_join(ctx->id, NULL);
+        ctx->id = 0;
+        LOG_DEBUG("[MASTER] MCDR thread is stopped");
+    }
+}
+
+/**
+ * Sop the core dump retrieval
+ *
+ * @param [in] h module handle
+ *
+ */
+void mcdr_cancel(mcdr_handle_t *h)
+{
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
+
+    ASSERT(ctx != NULL);
+
+    if (MCDR_ARCHIVE_IN_PROGRESS == ctx->mcdr.get_state()) {
+        LOG_DEBUG("Archiving still on-going");
+    } else {
+        LOG_ERROR("Core dump retrieval takes too much time. Aborting");
+        ctx->mcdr.cleanup();
+    }
+
+    mcdr_finalize(h);
+}
+
+/**
+ * Returns the fd used by core dump module to raise events
+ *
+ * @param [in] h module handle
+ *
+ * @return a valid fd or CLOSED_FD
+ */
+int mcdr_get_fd(mcdr_handle_t *h)
+{
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
+    int fd = CLOSED_FD;
+
+    if (ctx)
+        fd = ctx->fd_pipe[READ];
+
+    return fd;
 }
 
 /**
@@ -247,17 +228,14 @@ out:
  * @param [in] h module handle
  *
  * @return path
- * @return NULL if h is NULL
  */
 const char *mcdr_get_path(mcdr_handle_t *h)
 {
-    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
-    char *path = NULL;
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
 
-    if (h)
-        path = mcdr->data.mcdr_info.gnl.path;
+    ASSERT(ctx != NULL);
 
-    return path;
+    return ctx->data.mcdr_info.gnl.path;
 }
 
 /**
@@ -267,17 +245,14 @@ const char *mcdr_get_path(mcdr_handle_t *h)
  * @param [in] h module handle
  *
  * @return filename
- * @return NULL if h is NULL
  */
 const char *mcdr_get_filename(mcdr_handle_t *h)
 {
-    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
-    char *filename = NULL;
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
 
-    if (h)
-        filename = mcdr->data.coredump_file;
+    ASSERT(ctx != NULL);
 
-    return filename;
+    return ctx->data.coredump_file;
 }
 
 /**
@@ -287,17 +262,14 @@ const char *mcdr_get_filename(mcdr_handle_t *h)
  * @param [in] h module handle
  *
  * @return error reason
- * @return NULL if h is NULL
  */
 const char *mcdr_get_error_reason(mcdr_handle_t *h)
 {
-    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
-    char *reason = NULL;
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
 
-    if (h)
-        reason = mcdr->get_reason();
+    ASSERT(ctx != NULL);
 
-    return reason;
+    return ctx->mcdr.get_reason();
 }
 
 /**
@@ -311,10 +283,49 @@ const char *mcdr_get_error_reason(mcdr_handle_t *h)
 bool mcdr_is_enabled(mcdr_handle_t *h)
 {
     bool enable = false;
-    mcdr_lib_t *mcdr = (mcdr_lib_t *)h;
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
 
-    if (h)
-        enable = mcdr->enabled;
+    if (ctx)
+        enable = ctx->enabled;
 
     return enable;
+}
+
+/**
+ * Return core dump retrieval operation status
+ *
+ * @param [in] h module handle
+ *
+ * @return e_core_dump_state_t. E_CD_OTHER if core dump is disabled
+ */
+e_core_dump_state_t mcdr_get_result(mcdr_handle_t *h)
+{
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
+    e_core_dump_state_t state = E_CD_OTHER;
+
+    if (ctx) {
+        switch (ctx->mcdr.get_state()) {
+        case MCDR_ARCHIVE_IN_PROGRESS:
+        case MCDR_SUCCEED:
+            state = E_CD_SUCCEED;
+            break;
+
+        case MCDR_FS_ERROR:
+        case MCDR_INIT_ERROR:
+        case MCDR_IO_ERROR:
+            state = E_CD_LINK_ERROR;
+            break;
+
+        case MCDR_START_PROT_ERR:
+        case MCDR_PROT_ERROR:
+            state = E_CD_PROTOCOL_ERROR;
+            break;
+
+        default:
+            /* nothing to do */
+            break;
+        }
+    }
+
+    return state;
 }

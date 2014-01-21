@@ -163,6 +163,10 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
+    ret = tty_listen_fd(mmgr->epollfd, mcdr_get_fd(mmgr->mcdr), EPOLLIN);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
     ret = set_mcd_poll_states(&mmgr->info);
     LOG_DEBUG("MCD driver added to poll list");
 
@@ -248,12 +252,21 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
             mmgr->events.state = E_EVENT_SECUR;
         else if (fd == mdm_flash_get_fd(mmgr->mdm_flash))
             mmgr->events.state = E_EVENT_FLASHING;
+        else if (fd == mcdr_get_fd(mmgr->mcdr))
+            mmgr->events.state = E_EVENT_MCDR;
         else
             mmgr->events.state = E_EVENT_CLIENT;
     }
 
 out:
     return ret;
+}
+
+static inline void flush_pipe(int fd)
+{
+    char msg;
+
+    read(fd, &msg, sizeof(msg));
 }
 
 /**
@@ -327,9 +340,10 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             bool mdm_off = false;
             bool cd_ipc = false;
             bool cancel_flashing = false;
+            bool stop_mcdr = false;
 
             ret = timer_event(mmgr->timer, &reset, &mdm_off, &cd_ipc,
-                              &cancel_flashing);
+                              &cancel_flashing, &stop_mcdr);
             if (reset)
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             if (mdm_off)
@@ -345,16 +359,26 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
                 mdm_flash_cancel(mmgr->mdm_flash);
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             }
+            if (stop_mcdr) {
+                mcdr_cancel(mmgr->mcdr);
+                core_dump_finalize(mmgr, E_CD_TIMEOUT);
+            }
 
             break;
         }
-        case E_EVENT_FLASHING: {
-            char msg;
-            read(mdm_flash_get_fd(mmgr->mdm_flash), &msg, sizeof(msg));
+        case E_EVENT_FLASHING:
+            flush_pipe(mdm_flash_get_fd(mmgr->mdm_flash));
             timer_stop(mmgr->timer, E_TIMER_MDM_FLASHING);
             mdm_flash_finalize(mmgr->mdm_flash);
             flash_verdict(mmgr, mdm_flash_get_verdict(mmgr->mdm_flash));
-        }
+            break;
+        case E_EVENT_MCDR:
+            flush_pipe(mcdr_get_fd(mmgr->mcdr));
+            timer_stop(mmgr->timer, E_TIMER_CORE_DUMP_READING);
+
+            mcdr_finalize(mmgr->mcdr);
+            core_dump_finalize(mmgr, mcdr_get_result(mmgr->mcdr));
+            break;
         }
     }
 

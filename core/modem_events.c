@@ -255,30 +255,39 @@ static bool apply_tlv(mmgr_data_t *mmgr)
     return applied;
 }
 
-static void read_core_dump(mmgr_data_t *mmgr)
+static void core_dump_prepare(mmgr_data_t *mmgr)
 {
-    e_core_dump_state_t state;
-
     ASSERT(mmgr != NULL);
 
     if (mcdr_is_enabled(mmgr->mcdr)) {
         timer_stop(mmgr->timer, E_TIMER_CORE_DUMP_IPC_RESET);
         timer_stop(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
+        timer_start(mmgr->timer, E_TIMER_CORE_DUMP_READING);
 
         pm_on_mdm_cd(mmgr->info.pm);
-        mcdr_read(mmgr->mcdr, &state);
-        pm_on_mdm_cd_complete(mmgr->info.pm);
-
-        broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
-        notify_core_dump(mmgr->clients, mmgr->mcdr, state);
-
-        mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-        mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
-        set_mcd_poll_states(&mmgr->info);
-
-        if (mmgr->info.mdm_link == E_LINK_USB)
-            mmgr->events.link_state = E_MDM_LINK_NONE;
+        mcdr_start(mmgr->mcdr);
+    } else {
+        timer_stop_all(mmgr->timer);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
+}
+
+void core_dump_finalize(mmgr_data_t *mmgr, e_core_dump_state_t state)
+{
+    ASSERT(mmgr != NULL);
+
+    pm_on_mdm_cd_complete(mmgr->info.pm);
+
+    broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
+    notify_core_dump(mmgr->clients, mmgr->mcdr, state);
+
+    mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
+    mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
+    set_mcd_poll_states(&mmgr->info);
+
+    if (mmgr->info.mdm_link == E_LINK_USB)
+        mmgr->events.link_state = E_MDM_LINK_NONE;
+
     /* The modem will be reset. No need to launch
      * a timer */
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
@@ -660,13 +669,13 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
 e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    e_modem_events_type_t state;
+    e_modem_events_type_t mcd_state;
 
     ASSERT(mmgr != NULL);
 
-    mdm_get_state(mmgr->info.fd_mcd, &state);
+    mdm_get_state(mmgr->info.fd_mcd, &mcd_state);
 
-    if (state & E_EV_FW_DOWNLOAD_READY) {
+    if (mcd_state & E_EV_FW_DOWNLOAD_READY) {
         /* manage fw update request */
         LOG_DEBUG("current state: E_EV_FW_DOWNLOAD_READY");
         mmgr->events.link_state |= E_MDM_LINK_FW_DL_READY;
@@ -681,7 +690,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
             ret = mdm_flash_start(mmgr->mdm_flash);
             timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
         }
-    } else if (state & E_EV_IPC_READY) {
+    } else if (mcd_state & E_EV_IPC_READY) {
         LOG_DEBUG("current state: E_EV_IPC_READY");
         timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         mmgr->events.link_state |= E_MDM_LINK_IPC_READY;
@@ -691,7 +700,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         if ((mmgr->events.link_state & E_MDM_LINK_BB_READY) &&
             (mmgr->state == E_MMGR_MDM_CONF_ONGOING))
             ret = do_configure(mmgr);
-    } else if (state & E_EV_CORE_DUMP) {
+    } else if (mcd_state & E_EV_CORE_DUMP) {
         LOG_DEBUG("current state: E_EV_CORE_DUMP");
         set_mmgr_state(mmgr, E_MMGR_MDM_CORE_DUMP);
         timer_stop_all(mmgr->timer);
@@ -716,40 +725,28 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
             !(mmgr->events.link_state & E_MDM_LINK_CORE_DUMP_READ_READY))
             LOG_DEBUG("waiting for bus enumeration");
         else
-            read_core_dump(mmgr);
-    } else if (state & E_EV_MODEM_OFF) {
-        if (state & E_EV_MODEM_SELF_RESET) {
-            LOG_DEBUG("Modem is booting up. Do nothing");
-        } else if ((state & E_EV_MODEM_OFF) &&
-                   (mmgr->events.cli_req & E_CLI_REQ_OFF)) {
-            LOG_DEBUG("Modem is OFF and should be. Do nothing");
-        } else {
-            LOG_DEBUG("Modem is OFF and should not be: powering on modem");
+            core_dump_prepare(mmgr);
+    } else if (mcd_state & E_EV_MODEM_SELF_RESET) {
+        /* Deregister to WARM boot event or MMGR will receive endlessly
+         * this event */
+        mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
+        set_mcd_poll_states(&mmgr->info);
 
-            if ((ret = mdm_up(&mmgr->info)) != E_ERR_SUCCESS)
-                goto out;
-
-            mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
-            ret = set_mcd_poll_states(&mmgr->info);
-            if ((mmgr->info.mdm_link == E_LINK_USB) && mmgr->info.is_flashless)
-                set_mmgr_state(mmgr, E_MMGR_MDM_START);
-            else
-                set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
-        }
-    } else {
-        if (state & E_EV_MODEM_SELF_RESET) {
-            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-            if (mmgr->state == E_MMGR_MDM_CORE_DUMP)
+        if (E_MMGR_MDM_CORE_DUMP == mmgr->state) {
+            if (E_CD_SUCCEED != mcdr_get_result(mmgr->mcdr)) {
                 notify_core_dump(mmgr->clients, NULL, E_CD_SELF_RESET);
-            else
-                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_SELF_RESET,
-                                   NULL);
+                set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+            }
+        } else {
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_SELF_RESET,
+                               NULL);
+            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         }
-        cleanup_ipc_event(mmgr);
-        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+    } else if (mcd_state & E_EV_MODEM_OFF) {
+        LOG_DEBUG("modem off. Nothing to do");
     }
 
-out:
     return ret;
 }
 
@@ -793,7 +790,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
 
         mmgr->events.link_state |= E_MDM_LINK_CORE_DUMP_READ_READY;
         if (mmgr->events.link_state & E_MDM_LINK_CORE_DUMP_READY)
-            read_core_dump(mmgr);
+            core_dump_prepare(mmgr);
     } else {
         LOG_DEBUG("Unhandled usb event");
     }

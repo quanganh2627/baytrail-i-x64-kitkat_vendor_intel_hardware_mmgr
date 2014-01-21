@@ -31,11 +31,16 @@ typedef void *mcdr_handle_t;
 mcdr_handle_t *mcdr_init(const mcdr_info_t *cfg);
 e_mmgr_errors_t mcdr_dispose(mcdr_handle_t *h);
 
-e_mmgr_errors_t mcdr_read(mcdr_handle_t *h, e_core_dump_state_t *st);
+e_mmgr_errors_t mcdr_start(mcdr_handle_t *h);
+void mcdr_finalize(mcdr_handle_t *h);
+void mcdr_cancel(mcdr_handle_t *h);
+
+int mcdr_get_fd(mcdr_handle_t *h);
 
 const char *mcdr_get_path(mcdr_handle_t *h);
 const char *mcdr_get_filename(mcdr_handle_t *h);
 const char *mcdr_get_error_reason(mcdr_handle_t *h);
 bool mcdr_is_enabled(mcdr_handle_t *h);
+e_core_dump_state_t mcdr_get_result(mcdr_handle_t *h);
 
 #endif                          /* __CORE_DUMP_HEADER__ */

@@ -41,6 +41,7 @@
     X(BUS), \
     X(SECUR), \
     X(FLASHING), \
+    X(MCDR), \
 
 #define MMGR_STATE \
     X(MDM_OFF), \

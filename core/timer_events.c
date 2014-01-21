@@ -177,7 +177,8 @@ e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
-                            bool *cd_err, bool *cancel_flashing)
+                            bool *cd_err, bool *cancel_flashing,
+                            bool *stop_mcdr)
 {
     struct timespec cur;
     mmgr_timer_t *t = (mmgr_timer_t *)h;
@@ -187,10 +188,12 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
     ASSERT(reset != NULL);
     ASSERT(mdm_off != NULL);
     ASSERT(cd_err != NULL);
+    ASSERT(stop_mcdr != NULL);
 
     *reset = false;
     *mdm_off = false;
     *cd_err = false;
+    *stop_mcdr = false;
 
     clock_gettime(CLOCK_BOOTTIME, &cur);
 
@@ -268,6 +271,12 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
         *cancel_flashing = true;
     }
 
+    if (timer_is_elapsed(t, E_TIMER_CORE_DUMP_READING, &cur)) {
+        handled = true;
+        timer_stop(h, E_TIMER_CORE_DUMP_READING);
+        *stop_mcdr = true;
+    }
+
     if (!handled)
         LOG_ERROR("timeout not handled");
 
@@ -286,7 +295,9 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
  */
 timer_handle_t *timer_init(const mmgr_recovery_t *recov,
                            const mmgr_timings_t *timings,
+                           const mcdr_info_t *mcdr,
                            const clients_hdle_t *clients)
+
 {
     mmgr_timer_t *timer = NULL;
 
@@ -308,6 +319,7 @@ timer_handle_t *timer_init(const mmgr_recovery_t *recov,
         timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY] =
             timings->cd_ipc_ready;
         timer->timeout[E_TIMER_MDM_FLASHING] = timings->mdm_flash;
+        timer->timeout[E_TIMER_CORE_DUMP_READING] = mcdr->gnl.timeout;
     }
 
     return (timer_handle_t *)timer;
