@@ -390,6 +390,14 @@ e_mmgr_errors_t mdm_cold_reset(modem_info_t *info)
         LOG_DEBUG("couldn't reset modem: %s", strerror(errno));
     }
 
+    /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
+    if (info->need_warmreset) {
+        LOG_DEBUG("Warm resetting the modem");
+        usleep(500000);
+        ioctl(info->fd_mcd, MDM_CTRL_WARM_RESET);
+        ioctl(info->fd_mcd, MDM_CTRL_SET_STATE, (int []) {MDM_CTRL_STATE_FW_DOWNLOAD_READY});
+    }
+
     return ret;
 }
 
@@ -444,6 +452,14 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
         if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {
             LOG_DEBUG("failed to power on the modem: %s", strerror(errno));
             ret = E_ERR_FAILED;
+        }
+
+        /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
+        if (info->need_warmreset) {
+            LOG_DEBUG("Warm resetting the modem");
+            usleep(500000);
+            ioctl(info->fd_mcd, MDM_CTRL_WARM_RESET);
+            ioctl(info->fd_mcd, MDM_CTRL_SET_STATE, (int []) {MDM_CTRL_STATE_FW_DOWNLOAD_READY});
         }
     } else {
         ret = mdm_cold_reset(info);

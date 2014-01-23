@@ -134,6 +134,10 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
         goto out;
     }
 
+    /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
+    info->need_warmreset = (strstr(mdm_info->name, "7260") != NULL &&
+            strcmp(mdm_info->hw_revision, "20") == 0);
+
     ret = mdm_specific_init(info);
 out:
     return ret;

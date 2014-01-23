@@ -82,6 +82,8 @@ typedef struct modem_info {
     pm_handle_t *pm;
     ctrl_handle_t *ctrl;
     bool ipc_ready_present;
+    /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
+    bool need_warmreset;
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
