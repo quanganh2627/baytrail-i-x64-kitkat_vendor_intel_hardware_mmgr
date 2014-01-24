@@ -793,8 +793,6 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
         goto out;
     }
 
-    /* Configure FSM: */
-
     /* NB: Never accept client request during MDM_RESET or MDM_CONF_ONGOING
      * event */
     property_get_string(PROPERTY_BUILD_TYPE, build_type);
@@ -809,14 +807,8 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
         for (j = 0; j < E_MMGR_NUM_REQUESTS; j++)
             mmgr->hdler_client[i][j] = client_nack;
 
-    /* A client is ALWAYS able to establish a connection, except during
-     * MDM_RESET, MDM_CONF_ONGOING and MDM_START. fake commands shall be
-     * accepted too */
+    /* A client is ALWAYS able to establish a connection */
     for (i = 0; i < E_MMGR_NUM; i++) {
-        if ((i == E_MMGR_MDM_RESET) || (i == E_MMGR_MDM_CONF_ONGOING)
-            || (i == E_MMGR_MDM_START))
-            continue;
-
         mmgr->hdler_client[i][E_MMGR_SET_NAME] = request_set_name;
         mmgr->hdler_client[i][E_MMGR_SET_EVENTS] = request_set_events;
         if (fake_requests) {
