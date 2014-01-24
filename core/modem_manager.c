@@ -16,6 +16,7 @@
 **
 */
 
+#define MMGR_FW_OPERATIONS
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -57,6 +58,7 @@ static void cleanup(void)
     bus_ev_dispose(g_mmgr->events.bus_events);
     pm_dispose(g_mmgr->info.pm);
     ctrl_dispose(g_mmgr->info.ctrl);
+    mdm_flash_dispose(g_mmgr->mdm_flash);
     LOG_VERBOSE("Exiting");
 }
 
@@ -170,6 +172,9 @@ static void mmgr_init(mmgr_data_t *mmgr)
                             &mmgr_cfg->mcdr.link)) != NULL);
 
     ASSERT(E_ERR_SUCCESS == events_init(mmgr_cfg->cli.max, mmgr));
+
+    ASSERT((mmgr->mdm_flash = mdm_flash_init(&mmgr->info, mmgr->secure,
+                                             mmgr->events.bus_events)));
 
     tcs_dispose(h);
 }

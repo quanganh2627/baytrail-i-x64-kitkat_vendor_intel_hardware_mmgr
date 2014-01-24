@@ -25,6 +25,7 @@
 #include "at.h"
 #include "common.h"
 #include "errors.h"
+#include "mdm_flash.h"
 #include "file.h"
 #include "java_intent.h"
 #include "logs.h"
@@ -96,133 +97,104 @@ out:
 }
 
 /**
- * do flashing modem procedure
+ * Checks if the modem flashing has succeed and informs MMGR clients
  *
- * @param [in,out] mmgr mmgr context
+ * @param [in] mmgr
+ * @param [in] verdict
  *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
+ * @return none
  */
-static e_mmgr_errors_t do_flash(mmgr_data_t *mmgr)
+void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
 {
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_fw_update_result_t fw_result =
-    { .id = E_MODEM_FW_ERROR_UNSPECIFIED };
-    const char *flashing_interface = NULL;
-    bool ch_hw_sw = true;
+    mmgr_cli_fw_update_result_t fw_result = { .id = verdict };
 
     ASSERT(mmgr != NULL);
 
-    if (mmgr->info.is_flashless) {
-        mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-        set_mcd_poll_states(&mmgr->info);
+    clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
+                       &fw_result);
 
-        if (mmgr->info.mdm_link == E_LINK_HSI) {
-            flashing_interface = "/dev/ttyIFX1";
-            ch_hw_sw = true;
-        } else if (mmgr->info.mdm_link == E_LINK_USB) {
-            flashing_interface =
-                bus_ev_get_flash_interface(mmgr->events.bus_events);
-            ch_hw_sw = false;
-        }
-
-        toggle_flashing_mode(&mmgr->info, true);
-        pm_on_mdm_flash(mmgr->info.pm);
-
-        flash_modem_fw(&mmgr->info, flashing_interface, ch_hw_sw,
-                       mmgr->secure, &fw_result.id);
-
-        toggle_flashing_mode(&mmgr->info, false);
-        /* the IPC power management will be enabled when the modem is UP */
-
-        clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
-                           &fw_result);
-
-        switch (fw_result.id) {
-        case E_MODEM_FW_BAD_FAMILY: {
-            broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
-            static const char *const msg = "Modem FW bad family";
-            mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-            /* Set MMGR state to MDM_RESET to call the recovery module and
-             * force modem recovery to OOS. By doing so, MMGR will turn off the
-             * modem and declare the modem OOS. Clients will not be able to turn
-             * on the modem */
-            recov_force(mmgr->reset, E_FORCE_OOS);
-            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-            break;
-        }
-
-        case E_MODEM_FW_SUCCEED: {
-            /* @TODO: fix that into flash_modem/modem_specific */
-            if (mmgr->info.mdm_link == E_LINK_USB)
-                timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-            timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-            /* @TODO: to review to report STATISTIC instead of ERROR event */
-            static const char *const msg = "Modem flashing succeed";
-            mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-            ret = E_ERR_SUCCESS;
-            break;
-        }
-
-        case E_MODEM_FW_SW_CORRUPTED: {
-            static const char *const msg = "Modem FW corrupted";
-            mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-            /* Set MMGR state to MDM_RESET to call the recovery module and
-             * force modem recovery to OOS. By doing so, MMGR will turn off the
-             * modem and declare the modem OOS. Clients will not be able to turn
-             * on the modem */
-            recov_force(mmgr->reset, E_FORCE_OOS);
-            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-            break;
-        }
-
-        case E_MODEM_FW_ERROR_UNSPECIFIED:
-        case E_MODEM_FW_READY_TIMEOUT: {
-            static const char *const msg = "Flashing timeout";
-            mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-            break;
-        }
-
-        case E_MODEM_FW_OUTDATED: {
-            broadcast_msg(E_MSG_INTENT_MODEM_FW_OUTDATED);
-            static const char *const msg = "Modem FW outdated";
-            mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-            /* Set MMGR state to MDM_RESET to call the recovery module and
-             * force modem recovery to OOS. By doing so, MMGR will turn off the
-             * modem and declare the modem OOS. Clients will not be able to turn
-             * on the modem */
-            recov_force(mmgr->reset, E_FORCE_OOS);
-            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-            break;
-        }
-
-        case E_MODEM_FW_SECURITY_CORRUPTED: {
-            broadcast_msg(E_MSG_INTENT_MODEM_FW_SECURITY_CORRUPTED);
-            static const char *const msg = "Modem FW security corrupted";
-            mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-            /* Set MMGR state to MDM_RESET to call the recovery module and
-             * force modem recovery to OOS. By doing so, MMGR will turn off the
-             * modem and declare the modem OOS. Clients will not be able to turn
-             * on the modem */
-            recov_force(mmgr->reset, E_FORCE_OOS);
-            set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-            break;
-        }
-
-        case E_MODEM_FW_NUM:
-            /* nothing to do */
-            break;
-        }
+    switch (fw_result.id) {
+    case E_MODEM_FW_BAD_FAMILY: {
+        broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
+        static const char *const msg = "Modem FW bad family";
+        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        /* Set MMGR state to MDM_RESET to call the recovery module and
+         * force modem recovery to OOS. By doing so, MMGR will turn off the
+         * modem and declare the modem OOS. Clients will not be able to turn
+         * on the modem */
+        recov_force(mmgr->reset, E_FORCE_OOS);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        break;
     }
 
-    return ret;
+    case E_MODEM_FW_SUCCEED: {
+        set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+        /* @TODO: fix that into flash_modem/modem_specific */
+        if (mmgr->info.mdm_link == E_LINK_USB)
+            timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+        timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+        /* @TODO: to review to report STATISTIC instead of ERROR event */
+        static const char *const msg = "Modem flashing succeed";
+        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        break;
+    }
+
+    case E_MODEM_FW_SW_CORRUPTED: {
+        static const char *const msg = "Modem FW corrupted";
+        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        /* Set MMGR state to MDM_RESET to call the recovery module and
+         * force modem recovery to OOS. By doing so, MMGR will turn off the
+         * modem and declare the modem OOS. Clients will not be able to turn
+         * on the modem */
+        recov_force(mmgr->reset, E_FORCE_OOS);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        break;
+    }
+
+    case E_MODEM_FW_ERROR_UNSPECIFIED:
+    case E_MODEM_FW_READY_TIMEOUT: {
+        static const char *const msg = "Flashing timeout";
+        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        break;
+    }
+
+    case E_MODEM_FW_OUTDATED: {
+        broadcast_msg(E_MSG_INTENT_MODEM_FW_OUTDATED);
+        static const char *const msg = "Modem FW outdated";
+        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        /* Set MMGR state to MDM_RESET to call the recovery module and
+         * force modem recovery to OOS. By doing so, MMGR will turn off the
+         * modem and declare the modem OOS. Clients will not be able to turn
+         * on the modem */
+        recov_force(mmgr->reset, E_FORCE_OOS);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        break;
+    }
+
+    case E_MODEM_FW_SECURITY_CORRUPTED: {
+        broadcast_msg(E_MSG_INTENT_MODEM_FW_SECURITY_CORRUPTED);
+        static const char *const msg = "Modem FW security corrupted";
+        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        /* Set MMGR state to MDM_RESET to call the recovery module and
+         * force modem recovery to OOS. By doing so, MMGR will turn off the
+         * modem and declare the modem OOS. Clients will not be able to turn
+         * on the modem */
+        recov_force(mmgr->reset, E_FORCE_OOS);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        break;
+    }
+
+    case E_MODEM_FW_NUM:
+        /* nothing to do */
+        break;
+    }
 }
 
 /**
@@ -706,9 +678,8 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         if (((mmgr->info.mdm_link == E_LINK_USB) &&
              mmgr->events.link_state & E_MDM_LINK_FLASH_READY) ||
             (mmgr->info.mdm_link == E_LINK_HSI)) {
-            ret = do_flash(mmgr);
-            if (ret != E_ERR_FAILED)
-                set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+            ret = mdm_flash_start(mmgr->mdm_flash);
+            timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
         }
     } else if (state & E_EV_IPC_READY) {
         LOG_DEBUG("current state: E_EV_IPC_READY");
@@ -809,9 +780,8 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
         if (mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) {
-            ret = do_flash(mmgr);
-            if (ret != E_ERR_FAILED)
-                set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+            timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
+            mdm_flash_start(mmgr->mdm_flash);
         }
     } else if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_CD_READY) &&
                (mmgr->state == E_MMGR_MDM_CORE_DUMP)) {

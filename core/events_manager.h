@@ -19,9 +19,11 @@
 #ifndef __MMGR_EVENTS_MANAGER_HEADER__
 #define __MMGR_EVENTS_MANAGER_HEADER__
 
+#define MMGR_FW_OPERATIONS
 #include "bus_events.h"
 #include "client.h"
 #include "core_dump.h"
+#include "mdm_flash.h"
 #include "mmgr.h"
 #include "modem_info.h"
 #include "bus_events.h"
@@ -38,6 +40,7 @@
     X(MCD), \
     X(BUS), \
     X(SECUR), \
+    X(FLASHING), \
 
 #define MMGR_STATE \
     X(MDM_OFF), \
@@ -98,6 +101,7 @@ typedef struct mmgr_data {
     reset_handle_t *reset;
     clients_hdle_t *clients;
     timer_handle_t *timer;
+    mdm_flash_handle_t *mdm_flash;
     mcdr_handle_t *mcdr;
     modem_info_t info;
     mmgr_events_t events;

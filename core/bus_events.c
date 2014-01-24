@@ -413,7 +413,7 @@ e_mmgr_errors_t bus_ev_dispose(bus_ev_hdle_t *h)
  * @return NULL if h is NULL
  * @return flash interface
  */
-const char *bus_ev_get_flash_interface(bus_ev_hdle_t *h)
+const char *bus_ev_get_flash_interface(const bus_ev_hdle_t *h)
 {
     bus_ev_t *bus_events = (bus_ev_t *)h;
     char *path = NULL;

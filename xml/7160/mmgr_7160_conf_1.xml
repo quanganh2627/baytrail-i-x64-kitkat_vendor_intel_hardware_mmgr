@@ -46,6 +46,7 @@
 	<modem_timings
 		ipc_ready="5"
 		cd_ipc_ready="10"
+		mdm_flash="3"
 	/>
 	<modem_recovery
 		enable="true"

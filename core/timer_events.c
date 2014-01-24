@@ -172,11 +172,12 @@ e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
  * @param [out] reset true if MMGR should reset the modem
  * @param [out] mdm_off true if MMGR should shutdown the modem
  * @param [out] cd_err true if MMGR should restart cd IPC
+ * @param [out] cancel_flashing flashing thread timeout. cancel the operation
  *
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
-                            bool *cd_err)
+                            bool *cd_err, bool *cancel_flashing)
 {
     struct timespec cur;
     mmgr_timer_t *t = (mmgr_timer_t *)h;
@@ -261,6 +262,12 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
                            &cd);
     }
 
+    if (timer_is_elapsed(t, E_TIMER_MDM_FLASHING, &cur)) {
+        handled = true;
+        timer_stop(h, E_TIMER_MDM_FLASHING);
+        *cancel_flashing = true;
+    }
+
     if (!handled)
         LOG_ERROR("timeout not handled");
 
@@ -300,6 +307,7 @@ timer_handle_t *timer_init(const mmgr_recovery_t *recov,
         timer->timeout[E_TIMER_CORE_DUMP_IPC_RESET] = timings->cd_ipc_reset;
         timer->timeout[E_TIMER_WAIT_CORE_DUMP_READY] =
             timings->cd_ipc_ready;
+        timer->timeout[E_TIMER_MDM_FLASHING] = timings->mdm_flash;
     }
 
     return (timer_handle_t *)timer;

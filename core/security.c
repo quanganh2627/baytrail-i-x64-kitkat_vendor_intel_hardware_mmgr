@@ -719,7 +719,7 @@ e_mmgr_errors_t secure_dispose(secure_handle_t *h)
  * @return a valid secure_cb_t
  * @return NULL otherwise
  */
-secure_cb_t secure_get_callback(secure_handle_t *h)
+secure_cb_t secure_get_callback(const secure_handle_t *h)
 {
     secure_t *secur = (secure_t *)h;
     secure_cb_t callback = NULL;

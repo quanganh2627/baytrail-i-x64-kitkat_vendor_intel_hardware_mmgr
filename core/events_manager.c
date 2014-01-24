@@ -158,6 +158,11 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
+    ret = tty_listen_fd(mmgr->epollfd, mdm_flash_get_fd(mmgr->mdm_flash),
+                        EPOLLIN);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
+
     ret = set_mcd_poll_states(&mmgr->info);
     LOG_DEBUG("MCD driver added to poll list");
 
@@ -241,6 +246,8 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
             mmgr->events.state = E_EVENT_BUS;
         else if (fd == secure_get_fd(mmgr->secure))
             mmgr->events.state = E_EVENT_SECUR;
+        else if (fd == mdm_flash_get_fd(mmgr->mdm_flash))
+            mmgr->events.state = E_EVENT_FLASHING;
         else
             mmgr->events.state = E_EVENT_CLIENT;
     }
@@ -319,15 +326,34 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             bool reset = false;
             bool mdm_off = false;
             bool cd_ipc = false;
-            ret = timer_event(mmgr->timer, &reset, &mdm_off, &cd_ipc);
+            bool cancel_flashing = false;
+
+            ret = timer_event(mmgr->timer, &reset, &mdm_off, &cd_ipc,
+                              &cancel_flashing);
             if (reset)
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             if (mdm_off)
                 mmgr->events.cli_req = E_CLI_REQ_OFF;
             if (cd_ipc)
                 ctrl_on_cd_ipc_failure(mmgr->info.ctrl);
+            if (cancel_flashing) {
+                static const char *const msg = "Timeout during modem flashing. "
+                                               "Operation cancelled";
+                mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
+                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+                LOG_INFO("%s", msg);
+                mdm_flash_cancel(mmgr->mdm_flash);
+                set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+            }
 
             break;
+        }
+        case E_EVENT_FLASHING: {
+            char msg;
+            read(mdm_flash_get_fd(mmgr->mdm_flash), &msg, sizeof(msg));
+            timer_stop(mmgr->timer, E_TIMER_MDM_FLASHING);
+            mdm_flash_finalize(mmgr->mdm_flash);
+            flash_verdict(mmgr, mdm_flash_get_verdict(mmgr->mdm_flash));
         }
         }
     }

@@ -35,6 +35,6 @@ int bus_ev_get_state(bus_ev_hdle_t *h);
 int bus_ev_get_fd(bus_ev_hdle_t *h);
 int bus_ev_read(bus_ev_hdle_t *h);
 e_mmgr_errors_t bus_ev_hdle_events(bus_ev_hdle_t *h);
-const char *bus_ev_get_flash_interface(bus_ev_hdle_t *h);
+const char *bus_ev_get_flash_interface(const bus_ev_hdle_t *h);
 
 #endif                          /* __MMGR_BUS_EV_MANAGER_HEADER__ */

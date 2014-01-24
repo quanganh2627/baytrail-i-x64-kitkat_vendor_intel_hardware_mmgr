@@ -57,9 +57,9 @@ typedef struct mup_op {
     e_mup_err_t (*update_nvm)(mup_nvm_update_params_t *params);
     e_mup_err_t (*read_nvm_id)(mup_nvm_read_id_params_t *params);
     e_mup_err_t (*dispose)(mup_interface_t *handle);
-    e_mup_err_t (*check_fw_version)(char *fw_path, char *version);
+    e_mup_err_t (*check_fw_version)(const char *fw_path, const char *version);
     e_mup_err_t (*config_secur_channel)(mup_interface_t *handle, void *func,
-                                        char *rnd_path, size_t l);
+                                        const char *rnd_path, size_t l);
     e_mup_err_t (*gen_fls)(const char *in, const char *out, const char *dir,
                            const char *certificate, const char *secur);
 } mup_op_t;

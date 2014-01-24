@@ -153,7 +153,8 @@ e_mmgr_errors_t mdm_specific_dispose(modem_info_t *info)
     return E_ERR_SUCCESS;
 }
 
-e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode)
+e_mmgr_errors_t toggle_flashing_mode(const modem_info_t *info,
+                                     bool flashing_mode)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -180,10 +181,9 @@ e_mmgr_errors_t toggle_flashing_mode(modem_info_t *info, bool flashing_mode)
  * @return E_ERR_FAILED if operation fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
-                               bool ch_sw,
-                               secure_handle_t *sec_hdle,
-                               e_modem_fw_error_t *verdict)
+e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *comport,
+                            bool ch_sw, const secure_handle_t *sec_hdle,
+                            e_modem_fw_error_t *verdict)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mup_interface_t *handle = NULL;
@@ -221,7 +221,7 @@ e_mmgr_errors_t flash_modem_fw(modem_info_t *info, const char *comport,
         goto out;
     }
 
-    char *rnd = NULL;
+    const char *rnd = NULL;
     size_t len = 0;
     if (file_exist(info->fl_conf.run.rnd, 0)) {
         rnd = info->fl_conf.run.rnd;
