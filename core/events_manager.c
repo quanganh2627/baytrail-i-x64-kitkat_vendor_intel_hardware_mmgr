@@ -252,7 +252,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     bool wakelock = false;
-    char *events_str[] = {
+    static const char const *events_str[] = {
 #undef X
 #define X(a) #a
         EVENTS

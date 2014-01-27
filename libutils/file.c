@@ -16,6 +16,7 @@
 **
 */
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -153,4 +154,75 @@ out:
     }
     umask(old_umask & 0777);
     return ret;
+}
+
+/**
+ * Private function.
+ * This function looks for all files matching a pattern in all subfolders.
+ * NB: Caller shall deallocate all pointer listed in files
+ *
+ * @param [in] folder
+ * @param [in] pattern
+ * @param [out] files list of files found files
+ * @param [out] found number of files found
+ * @param [in] max size of files
+ *
+ * @return none
+ */
+static void find(const char *folder, const char *pattern, char **files,
+                 int *found, int max)
+{
+    DIR *dir = NULL;
+    struct dirent *entry = NULL;
+
+    ASSERT(folder != NULL);
+    ASSERT(pattern != NULL);
+    ASSERT(files != NULL);
+    ASSERT(found != NULL);
+
+    dir = opendir(folder);
+    if (!dir) {
+        LOG_ERROR("wrong path: %s", folder);
+        goto out;
+    }
+
+    while ((entry = readdir(dir)) && *found < max) {
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
+            continue;
+        } else if (entry->d_type == DT_DIR) {
+            char subfolder[PATH_MAX] = "";
+            snprintf(subfolder, sizeof(subfolder) - 1, "%s/%s", folder,
+                     entry->d_name);
+            /* recursive call: will stop when the last subfolder is reached */
+            find(subfolder, pattern, files, found, max);
+        } else if (strstr(entry->d_name, pattern)) {
+            int size = strlen(folder) + strlen(entry->d_name) + 2;
+            files[*found] = malloc(sizeof(char) * size);
+            ASSERT(files[*found] != NULL);
+            snprintf(files[*found], size, "%s/%s", folder, entry->d_name);
+            (*found)++;
+        }
+    }
+
+out:
+    closedir(dir);
+}
+
+/**
+ * This function looks for all files matching the pattern in all subfolders.
+ * NB: Caller shall deallocate all pointers listed in files
+ *
+ * @param [in] folder
+ * @param [in] pattern
+ * @param [out] files list of files found files
+ * @param [in] max size of files
+ *
+ * @return the number of files found
+ */
+int file_find(const char *folder, const char *pattern, char **files, int max)
+{
+    int found = 0;
+
+    find(folder, pattern, files, &found, max);
+    return found;
 }

@@ -117,123 +117,60 @@ end_set_signal_handler:
  *
  * @param [in, out] mmgr
  *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED if failed
+ * @return void
  */
-static e_mmgr_errors_t mmgr_init(mmgr_data_t *mmgr)
+static void mmgr_init(mmgr_data_t *mmgr)
 {
-    tcs_handle_t *h = NULL;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    tcs_handle_t *h = tcs_init();
+    ASSERT(h != NULL);
 
-    h = tcs_init();
-    if (h) {
-        if (tcs_print(h)) {
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    ASSERT(mmgr != NULL);
 
-        tcs_cfg_t *cfg = tcs_get_config(h);
-        if (!cfg) {
-            LOG_ERROR("Failed to get current configuration");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    tcs_cfg_t *cfg = tcs_get_config(h);
+    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h);
+    ASSERT(cfg != NULL);
+    ASSERT(mmgr_cfg != NULL);
 
-        mmgr->reset = recov_init(&cfg->mmgr.recov);
-        if (!mmgr->reset) {
-            LOG_ERROR("Failed to configure modem recovery module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    tcs_print(h);
 
-        mmgr->secure = secure_init(cfg->mdm_info.secured,
-                                   &cfg->channels.secured);
-        if (!mmgr->secure) {
-            LOG_ERROR("Failed to configure the security module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    ASSERT((mmgr->reset = recov_init(&mmgr_cfg->recov)) != NULL);
 
-        mmgr->mcdr = mcdr_init(&cfg->mmgr.mcdr);
-        if (!mmgr->mcdr) {
-            LOG_ERROR("Failed to configure MCDR module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    ASSERT((mmgr->secure = secure_init(cfg->mdm_info.secured,
+                                       &cfg->channels.secured)) != NULL);
 
-        if (E_ERR_SUCCESS != modem_info_init(&cfg->mdm_info, &cfg->mmgr.com,
-                                             &cfg->mmgr.mdm_link,
-                                             &cfg->channels,
-                                             &cfg->mmgr.flash, &cfg->mmgr.mcd,
-                                             &mmgr->info)) {
-            LOG_ERROR("Failed to configure the modem info module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    ASSERT((mmgr->mcdr = mcdr_init(&mmgr_cfg->mcdr)) != NULL);
 
-        mmgr->info.pm = pm_init(cfg->mdm_info.ipc_mdm,
-                                &cfg->mmgr.mdm_link.power, cfg->mdm_info.ipc_cd,
-                                &cfg->mmgr.mcdr.power);
+    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm_info, &mmgr_cfg->com,
+                                            &cfg->tlv,
+                                            &mmgr_cfg->mdm_link,
+                                            &cfg->channels,
+                                            &mmgr_cfg->flash, &mmgr_cfg->mcd,
+                                            &mmgr->info));
 
-        if (mmgr->info.pm == NULL) {
-            LOG_ERROR("Failed to configure power management module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
-
-        mmgr->info.ctrl = ctrl_init(cfg->mdm_info.ipc_mdm,
-                                    &cfg->mmgr.mdm_link.ctrl,
+    ASSERT((mmgr->info.pm = pm_init(cfg->mdm_info.ipc_mdm,
+                                    &mmgr_cfg->mdm_link.power,
                                     cfg->mdm_info.ipc_cd,
-                                    &cfg->mmgr.mcdr.ctrl);
+                                    &mmgr_cfg->mcdr.power)) != NULL);
 
-        if (mmgr->info.ctrl == NULL) {
-            LOG_ERROR("Failed to configure link control module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm_info.ipc_mdm,
+                                        &mmgr_cfg->mdm_link.ctrl,
+                                        cfg->mdm_info.ipc_cd,
+                                        &mmgr_cfg->mcdr.ctrl)) != NULL);
 
-        if (E_ERR_SUCCESS != modem_events_init(mmgr)) {
-            LOG_ERROR("Failed to configure modem events module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    ASSERT(E_ERR_SUCCESS == modem_events_init(mmgr));
+    ASSERT(E_ERR_SUCCESS == client_events_init(mmgr_cfg->cli.max, mmgr));
 
-        if (E_ERR_SUCCESS != client_events_init(cfg->mmgr.cli.max, mmgr)) {
-            LOG_ERROR("Failed to configure client module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    ASSERT((mmgr->timer = timer_init(&mmgr_cfg->recov, &mmgr_cfg->timings,
+                                     mmgr->clients)) != NULL);
 
-        mmgr->timer = timer_init(&cfg->mmgr.recov, &cfg->mmgr.timings,
-                                 mmgr->clients);
-        if (!mmgr->timer) {
-            LOG_ERROR("Failed to configure timer module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    ASSERT((mmgr->events.bus_events =
+                bus_ev_init(&mmgr_cfg->mdm_link.flash,
+                            &mmgr_cfg->mdm_link.baseband,
+                            &mmgr_cfg->mcdr.link)) != NULL);
 
-        mmgr->events.bus_events = bus_ev_init(&cfg->mmgr.mdm_link.flash,
-                                              &cfg->mmgr.mdm_link.baseband,
-                                              &cfg->mmgr.mcdr.link);
-        if (!mmgr->events.bus_events) {
-            LOG_ERROR("Failed to configure bus module");
-            ret = E_ERR_FAILED;
-            goto out;
-        }
+    ASSERT(E_ERR_SUCCESS == events_init(mmgr_cfg->cli.max, mmgr));
 
-        if (E_ERR_SUCCESS != events_init(cfg->mmgr.cli.max, mmgr)) {
-            LOG_ERROR("Failed to configure events module");
-            ret = E_ERR_FAILED;
-        }
-    } else {
-        LOG_ERROR("Failed to init TCS");
-        ret = E_ERR_FAILED;
-    }
-
-out:
-    if (h && tcs_dispose(h))
-        ret = E_ERR_FAILED;
-    return ret;
+    tcs_dispose(h);
 }
 
 static void disable_telephony(mmgr_data_t *mmgr)
@@ -311,11 +248,7 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    if (E_ERR_SUCCESS != mmgr_init(&mmgr)) {
-        ret = EXIT_FAILURE;
-        goto out;
-    }
-
+    mmgr_init(&mmgr);
     disable_telephony(&mmgr);
 
     if (E_ERR_SUCCESS != events_start(&mmgr)) {

@@ -26,7 +26,6 @@
 #include "mmgr_cli.h"
 #include "tcs_mmgr.h"
 
-#define FILENAME_SIZE 256
 #define TIMEOUT_MODEM_DOWN_AFTER_CMD 30
 #define TIMEOUT_MODEM_UP_AFTER_RESET 1200
 
@@ -63,7 +62,7 @@ e_mmgr_errors_t compare_file_content(const char *path, const char *data,
                                      int len);
 e_mmgr_errors_t wait_for_state(test_data_t *thread_data, int state,
                                int timeout);
-e_mmgr_errors_t is_core_dump_found(char *filename, const char *core_dump_dir);
+
 e_mmgr_errors_t cleanup_modemcrash_dir(const char *path);
 e_mmgr_errors_t configure_client_library(test_data_t *data);
 e_mmgr_errors_t cleanup_client_library(test_data_t *data);

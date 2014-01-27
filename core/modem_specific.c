@@ -275,6 +275,7 @@ out:
  *
  * @param [in] info modem info
  * @param [in] comport modem communication port for flashing
+ * @param [in] tlv_file TLV file to apply
  * @param [out] verdict provides modem nvm update status
  * @param [out] sub_error_code
  *
@@ -282,6 +283,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
+                                char *tlv_file,
                                 e_modem_nvm_error_t *verdict,
                                 int *sub_error_code)
 {
@@ -291,6 +293,7 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
 
     ASSERT(info != NULL);
     ASSERT(comport != NULL);
+    ASSERT(tlv_file != NULL);
     ASSERT(verdict != NULL);
     ASSERT(sub_error_code != NULL);
 
@@ -301,20 +304,17 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
         mup_nvm_update_params_t params = {
             .handle            = handle,
             .mdm_com_port      = comport,
-            .nvm_file_path     = info->fl_conf.run.nvm_tlv,
-            .nvm_file_path_len = strnlen(info->fl_conf.run.nvm_tlv,
-                                         sizeof(info->fl_conf.run.nvm_tlv)),
+            .nvm_file_path     = tlv_file,
+            .nvm_file_path_len = strnlen(tlv_file,sizeof(tlv_file)),
         };
 
         if ((mup_ret = info->mup.update_nvm(&params)) != E_MUP_SUCCEED) {
             ret = E_ERR_FAILED;
             *verdict = E_MODEM_NVM_FAIL;
             *sub_error_code = mup_ret;
-            LOG_ERROR("modem nvm update failed with error %d", mup_ret);
         } else {
-            if (unlink(info->fl_conf.run.nvm_tlv) != 0)
-                LOG_ERROR("couldn't delete %s: %s", info->fl_conf.run.nvm_tlv,
-                          strerror(errno));
+            if (unlink(tlv_file) != 0)
+                LOG_ERROR("couldn't delete %s: %s", tlv_file, strerror(errno));
             /* for now consider a success even if nvm patch not deleted */
             *verdict = E_MODEM_NVM_SUCCEED;
         }
