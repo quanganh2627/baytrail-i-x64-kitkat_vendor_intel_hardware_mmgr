@@ -227,6 +227,16 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle);
  */
 e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
                                    const mmgr_cli_requests_t *request);
+/**
+ * For debug purpose only. Do not use it in production
+ *
+ * Gets file descriptor
+ *
+ * @param [in] handle library handle
+ *
+ * @return file descriptor
+ */
+int mmgr_cli_get_fd(mmgr_cli_handle_t *handle);
 
 /**
  * Example:

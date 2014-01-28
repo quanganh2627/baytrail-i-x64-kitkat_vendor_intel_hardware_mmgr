@@ -64,8 +64,7 @@
     "**     Invalid test choice       **\n" \
     "***********************************\n"
 
-#define DESCRIPTION_LEN 70
-#define INVALID_TEST    -2
+#define INVALID_TEST -2
 
 #define TEST_RESULT \
     X(SUCCEED), \
@@ -73,9 +72,9 @@
     X(INCONCLUSIVE)
 
 typedef struct test_case {
-    char desc[DESCRIPTION_LEN];
+    const char *desc;
     e_mmgr_errors_t (*func)(test_data_t *data);
-    char name[DESCRIPTION_LEN];
+    const char *name;
 } test_case_t;
 
 enum {
@@ -320,8 +319,8 @@ int main(int argc, char *argv[])
         { "Modem restart request (by-pass reset escalation)", modem_restart,
           "restart" },
         { "Modem reset with core dump", reset_with_cd, "cd" },
-        { "Force modem OFF and RIL", turn_off_modem, "off" },
-        { "Turn on modem and RIL", turn_on_modem, "on" },
+        { "monkey test during core dump (-o: specify number of monkey clients)",
+            monkey_cd, "monkey_cd" },
         { "Full reset escalation", full_recovery, "full" },
         { "Reset escalation counter", reset_counter, "timer" },
         { "Resource management (works only if no client is connected)",

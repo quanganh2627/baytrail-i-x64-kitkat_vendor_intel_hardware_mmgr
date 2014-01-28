@@ -35,6 +35,7 @@
 #include "property.h"
 #include "test_utils.h"
 #include "tty.h"
+#include "msg_format.h"
 
 #ifndef STDOUT_FILENO
 #define STDOUT_FILENO 1
@@ -49,6 +50,11 @@
 #define BZ_MSG "\n\n*** YOU SHOULD RAISE A BZ ***\n"
 #define WAKE_BUF_SIZE 1024
 
+/* define used by monkey test: */
+#define NB_REQUEST_MAX 128
+#define RANDOM_TIMEOUT_VALUE ((random() % 10) * 100000)
+
+
 const char *g_mmgr_requests[] = {
 #undef X
 #define X(a) #a
@@ -60,6 +66,102 @@ const char *g_mmgr_events[] = {
 #define X(a) #a
     MMGR_EVENTS
 };
+
+static inline void set_monkey_state(monkey_ctx_t *ctx, bool state)
+{
+    pthread_mutex_lock(&ctx->mtx);
+    ctx->state = state;
+    pthread_mutex_unlock(&ctx->mtx);
+}
+
+static inline bool get_monkey_state(monkey_ctx_t *ctx)
+{
+    bool state = false;
+
+    pthread_mutex_lock(&ctx->mtx);
+    state = ctx->state;
+    pthread_mutex_unlock(&ctx->mtx);
+
+    return state;
+}
+
+static void monkey_client(monkey_ctx_t *ctx)
+{
+    int tid = gettid();
+    char name[CLIENT_NAME_LEN];
+    mmgr_cli_handle_t *lib = NULL;
+    e_mmgr_requests_t ids[] = { E_MMGR_RESOURCE_ACQUIRE,
+                                E_MMGR_RESOURCE_RELEASE,
+                                E_MMGR_ACK_MODEM_COLD_RESET,
+                                E_MMGR_ACK_MODEM_SHUTDOWN,
+                                E_MMGR_REQUEST_MODEM_RESTART,};
+
+    ASSERT(ctx != NULL);
+
+    snprintf(name, sizeof(name), "monkey_tid_%d", tid);
+    ASSERT(E_ERR_CLI_SUCCEED == mmgr_cli_create_handle(&lib, name, NULL));
+
+    LOG_DEBUG("(tid:%d): start", tid);
+    srandom(time(NULL));
+
+    while (get_monkey_state(ctx)) {
+        usleep(RANDOM_TIMEOUT_VALUE);
+        while (E_ERR_CLI_SUCCEED != mmgr_cli_connect(lib)) ;
+        LOG_DEBUG("(tid:%d) CONNECTED", tid);
+        int fd = mmgr_cli_get_fd(lib);
+        int i = 0;
+        int nb_requests = random() % NB_REQUEST_MAX;
+
+        for (i = 0; (i < nb_requests) && get_monkey_state(ctx); i++) {
+            msg_t msg = { .data = NULL };
+            char *msg_data = NULL;
+            size_t size = 0;
+            e_mmgr_events_t id = ids[random() % ARRAY_SIZE(ids)];
+            LOG_DEBUG("(tid:%d) request:%d", tid, id);
+            msg_prepare(&msg, &msg_data, id, &size);
+            write(fd, msg.data, size);
+            msg_delete(&msg);
+            usleep(RANDOM_TIMEOUT_VALUE);
+        }
+        ASSERT(E_ERR_CLI_SUCCEED == mmgr_cli_disconnect(lib));
+        LOG_DEBUG("(tid:%d) DISCONNECTED", tid);
+    }
+
+    ASSERT(E_ERR_CLI_SUCCEED == mmgr_cli_delete_handle(lib));
+    LOG_DEBUG("(tid:%d) end", tid);
+}
+
+
+static void start_monkey(monkey_ctx_t *ctx)
+{
+    int i;
+
+    ASSERT(ctx != NULL);
+
+    LOG_DEBUG("nb threads: %d", ctx->nb_threads);
+    ctx->ids = malloc(sizeof(pthread_t) * ctx->nb_threads);
+    ASSERT(ctx->ids != NULL);
+
+    pthread_mutex_init(&ctx->mtx, NULL);
+    set_monkey_state(ctx, true);
+
+    for (i = 0; i < ctx->nb_threads; i++)
+        pthread_create(&ctx->ids[i], NULL, (void *)monkey_client, ctx);
+}
+
+static void stop_monkey(monkey_ctx_t *ctx)
+{
+    int i;
+
+    ASSERT(ctx != NULL);
+
+    set_monkey_state(ctx, false);
+
+    for (i = 0; i < ctx->nb_threads; i++)
+        pthread_join(ctx->ids[i], NULL);
+
+    free(ctx->ids);
+}
 
 /**
  * Update events variable
@@ -769,49 +871,54 @@ out:
 /**
  * Ask for a modem core dump
  *
- * @param [in] test test data
+ * @param [in] ctx test data
  *
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t at_core_dump(test_data_t *test)
+e_mmgr_errors_t at_core_dump(test_data_t *ctx)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    int err;
 
-    ASSERT(test != NULL);
+    ASSERT(ctx != NULL);
 
-    /* Wait modem up */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP, MMGR_DELAY);
+    ret = wait_for_state(ctx, E_MMGR_EVENT_MODEM_UP, MMGR_DELAY);
     if (ret != E_ERR_SUCCESS) {
         LOG_DEBUG("modem is down");
         goto out;
     }
 
-    err = send_at_cmd(test->cfg.shtdwn_dlc, AT_CORE_DUMP, strlen(AT_CORE_DUMP));
+    int err = send_at_cmd(ctx->cfg.shtdwn_dlc, AT_CORE_DUMP,
+                          strlen(AT_CORE_DUMP));
     if ((err != E_ERR_TTY_POLLHUP) && (err != E_ERR_SUCCESS)) {
         ret = E_ERR_FAILED;
         LOG_ERROR("send of AT commands fails ret=%d" BZ_MSG, ret);
     }
 
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, MMGR_DELAY);
+    ret = wait_for_state(ctx, E_MMGR_EVENT_MODEM_DOWN, MMGR_DELAY);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP,
-                         test->cfg.timeout_cd_detection);
+    ret = wait_for_state(ctx, E_MMGR_NOTIFY_CORE_DUMP,
+                         ctx->cfg.timeout_cd_detection);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = wait_for_state(test, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
-                         test->cfg.timeout_cd_complete);
+    if (ctx->monkey.nb_threads)
+        start_monkey(&ctx->monkey);
+
+    ret = wait_for_state(ctx, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+                         ctx->cfg.timeout_cd_complete);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    /* Wait modem up during test->cfg.timeout_mdm_up seconds to end the
-     * test */
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                         test->cfg.timeout_mdm_up);
+    /* Wait modem up during ctx->cfg.timeout_mdm_up seconds to end the
+     * ctx */
+    ret = wait_for_state(ctx, E_MMGR_EVENT_MODEM_UP,
+                         ctx->cfg.timeout_mdm_up);
+
+    if (ctx->monkey.nb_threads)
+        stop_monkey(&ctx->monkey);
 
     if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);

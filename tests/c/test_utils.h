@@ -48,6 +48,13 @@ typedef struct test_cfg {
     char shtdwn_dlc[PATH_MAX];
 } test_cfg_t;
 
+typedef struct monkey_ctx {
+    pthread_mutex_t mtx;
+    bool state;
+    int nb_threads;
+    pthread_t *ids;
+} monkey_ctx_t;
+
 typedef struct test_data {
     pthread_mutex_t new_state_read;
     pthread_mutex_t mutex;
@@ -59,6 +66,7 @@ typedef struct test_data {
     e_events_t events;
     test_cfg_t cfg;
     const char *option_string;
+    monkey_ctx_t monkey;
 } test_data_t;
 
 e_mmgr_errors_t modem_state_set(test_data_t *test_data, e_mmgr_events_t state);

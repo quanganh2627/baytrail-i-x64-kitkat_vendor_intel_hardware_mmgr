@@ -48,24 +48,52 @@ e_mmgr_errors_t modem_self_reset(test_data_t *test)
 /**
  * Test modem reset with core dump
  *
- * @param [in] test test data
+ * @param [in] ctx test data
  *
  * @return E_ERR_FAILED test fails
  * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t reset_with_cd(test_data_t *test)
+e_mmgr_errors_t reset_with_cd(test_data_t *ctx)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
-    ASSERT(test != NULL);
+    ASSERT(ctx != NULL);
 
-    ret = at_core_dump(test);
-    if (events_get(test) != E_EVENTS_SUCCEED)
+    ctx->monkey.nb_threads = 0;
+    ret = at_core_dump(ctx);
+    if (events_get(ctx) != E_EVENTS_SUCCEED)
         ret = E_ERR_FAILED;
 
     return ret;
 }
+
+e_mmgr_errors_t monkey_cd(test_data_t *ctx)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    ASSERT(ctx != NULL);
+
+    if (!ctx->option_string) {
+        ctx->monkey.nb_threads = 1;
+    } else {
+        char *endptr = NULL;
+        errno = 0;
+        ctx->monkey.nb_threads = strtol(ctx->option_string, &endptr, 10);
+        if (errno) {
+            LOG_ERROR("failed to get the number of threads");
+            goto out;
+        }
+    }
+
+    ret = at_core_dump(ctx);
+    if (events_get(ctx) != E_EVENTS_SUCCEED)
+        ret = E_ERR_FAILED;
+
+out:
+    return ret;
+}
+
 
 /**
  * Test modem reset with E_MMGR_REQUEST_MODEM_RECOVERY request
@@ -325,34 +353,6 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
             LOG_DEBUG("reset escalation not reseted");
             ret = E_ERR_FAILED;
         }
-    }
-
-    return ret;
-}
-
-/**
- * Turn off the modem
- *
- * @param [in] test test data
- *
- * @return E_ERR_FAILED test fails
- * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
- * @return E_ERR_SUCCESS if successful
- */
-e_mmgr_errors_t turn_off_modem(test_data_t *test)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-
-    ASSERT(test != NULL);
-
-    ret = reset_by_client_request(test,
-                                  E_MMGR_REQUEST_FORCE_MODEM_SHUTDOWN,
-                                  E_MMGR_NOTIFY_MODEM_SHUTDOWN,
-                                  E_MMGR_EVENT_MODEM_DOWN);
-
-    if (ret == E_ERR_SUCCESS) {
-        LOG_DEBUG("stopping the RIL");
-        ret = property_set_int(RIL_PROPERTY, 1);
     }
 
     return ret;

@@ -408,3 +408,17 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle)
 out:
     return ret;
 }
+
+/**
+ * @see mmgr_cli.h
+ */
+int mmgr_cli_get_fd(mmgr_cli_handle_t *hdle)
+{
+    int fd = CLOSED_FD;
+    mmgr_lib_context_t *ctx = (mmgr_lib_context_t *)hdle;
+
+    if (ctx)
+        fd = ctx->fd_socket;
+
+    return fd;
+}
