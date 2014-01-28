@@ -260,7 +260,7 @@ out:
  * @return E_ERR_CLI_BAD_HANDLE
  * @return E_ERR_CLI_SUCCEED if client is reconnected
  */
-static e_err_mmgr_cli_t handle_disconnection(mmgr_lib_context_t *p_lib)
+e_err_mmgr_cli_t handle_disconnection(mmgr_lib_context_t *p_lib)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     cnx_state_t state;
@@ -310,11 +310,16 @@ static e_err_mmgr_cli_t handle_disconnection(mmgr_lib_context_t *p_lib)
         pthread_mutex_unlock(&p_lib->mtx);
     } else {
         pthread_mutex_lock(&p_lib->mtx);
-        cnx_close(&p_lib->fd_socket);
-        close(p_lib->fd_pipe[READ]);
-        close(p_lib->fd_pipe[WRITE]);
-        p_lib->fd_pipe[READ] = CLOSED_FD;
-        p_lib->fd_pipe[WRITE] = CLOSED_FD;
+        if (p_lib->fd_socket != CLOSED_FD)
+            cnx_close(&p_lib->fd_socket);
+        if (p_lib->fd_pipe[READ] != CLOSED_FD) {
+            close(p_lib->fd_pipe[READ]);
+            p_lib->fd_pipe[READ] = CLOSED_FD;
+        }
+        if (p_lib->fd_pipe[WRITE] != CLOSED_FD) {
+            close(p_lib->fd_pipe[WRITE]);
+            p_lib->fd_pipe[WRITE] = CLOSED_FD;
+        }
         pthread_mutex_unlock(&p_lib->mtx);
 
         LOG_DEBUG("disconnected", p_lib);

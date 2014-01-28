@@ -312,6 +312,9 @@ e_err_mmgr_cli_t mmgr_cli_connect(mmgr_cli_handle_t *handle)
     }
 
 out:
+    if (ret != E_ERR_CLI_SUCCEED)
+        handle_disconnection(p_lib); // Clean all currently used resources
+
     return ret;
 }
 
