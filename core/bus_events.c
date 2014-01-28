@@ -135,19 +135,12 @@ static int device_rmed_cb(const char *path, void *ctx)
  * @return 1 if PID and VID are correct
  * @return 0 if PID and VID are not correct
  */
-int is_pid_and_vid(const char *path, uint16_t pid, uint16_t vid)
+int is_pid_and_vid(struct usb_device *dev, uint16_t pid, uint16_t vid)
 {
-    struct usb_device *dev = usb_device_open(path);
-
-    if (dev == NULL) {
-        LOG_ERROR("Failed to open path: %s", path);
-        return 0;
-    }
-
     uint16_t ppid = usb_device_get_product_id(dev);
     uint16_t pvid = usb_device_get_vendor_id(dev);
+
     LOG_DEBUG("Event bus pid 0x%.4x vid 0x%.4x", ppid, pvid);
-    usb_device_close(dev);
 
     return ppid == pid && pvid == vid;
 }
@@ -188,31 +181,42 @@ e_mmgr_errors_t bus_ev_hdle_events(bus_ev_hdle_t *h)
         LOG_DEBUG("Event: %s %d", bus_events->cli_ctx.evs[i].path,
                   bus_events->cli_ctx.evs[i].event);
         if (bus_events->cli_ctx.evs[i].event == EV_ADDED) {
+            struct usb_device *dev;
+
             LOG_DEBUG("EVENT ADDED");
-            if (is_pid_and_vid(bus_events->cli_ctx.evs[i].path,
-                               bus_events->modem_flash_pid,
-                               bus_events->modem_flash_vid)) {
-                bus_events->mdm_state |= MDM_FLASH_READY;
-                strncpy(bus_events->modem_flash_path,
-                        bus_events->cli_ctx.evs[i].path, PATH_MAX);
-                ret = E_ERR_SUCCESS;
-                LOG_DEBUG("+Modem flash is READY");
-            } else if (is_pid_and_vid(bus_events->cli_ctx.evs[i].path,
-                                      bus_events->modem_bb_pid,
-                                      bus_events->modem_bb_vid)) {
-                bus_events->mdm_state |= MDM_BB_READY;
-                strncpy(bus_events->modem_bb_path,
-                        bus_events->cli_ctx.evs[i].path, PATH_MAX);
-                ret = E_ERR_SUCCESS;
-                LOG_DEBUG("+Modem base band READY");
-            } else if (is_pid_and_vid(bus_events->cli_ctx.evs[i].path,
-                                      bus_events->mcdr_bb_pid,
-                                      bus_events->mcdr_bb_vid)) {
-                bus_events->mdm_state |= MDM_CD_READY;
-                strncpy(bus_events->modem_cd_path,
-                        bus_events->cli_ctx.evs[i].path, PATH_MAX);
-                ret = E_ERR_SUCCESS;
-                LOG_DEBUG("+Modem core dump READY");
+
+            dev = usb_device_open(bus_events->cli_ctx.evs[i].path);
+            if (dev == NULL) {
+                LOG_ERROR("Failed to open path: %s",
+                          bus_events->cli_ctx.evs[i].path);
+            } else {
+                if (is_pid_and_vid(dev,
+                                   bus_events->modem_flash_pid,
+                                   bus_events->modem_flash_vid)) {
+                    bus_events->mdm_state |= MDM_FLASH_READY;
+                    strncpy(bus_events->modem_flash_path,
+                            bus_events->cli_ctx.evs[i].path, PATH_MAX);
+                    ret = E_ERR_SUCCESS;
+                    LOG_DEBUG("+Modem flash is READY");
+                } else if (is_pid_and_vid(dev,
+                                          bus_events->modem_bb_pid,
+                                          bus_events->modem_bb_vid)) {
+                    bus_events->mdm_state |= MDM_BB_READY;
+                    strncpy(bus_events->modem_bb_path,
+                            bus_events->cli_ctx.evs[i].path, PATH_MAX);
+                    ret = E_ERR_SUCCESS;
+                    LOG_DEBUG("+Modem base band READY");
+                } else if (is_pid_and_vid(dev,
+                                          bus_events->mcdr_bb_pid,
+                                          bus_events->mcdr_bb_vid)) {
+                    bus_events->mdm_state |= MDM_CD_READY;
+                    strncpy(bus_events->modem_cd_path,
+                            bus_events->cli_ctx.evs[i].path, PATH_MAX);
+                    ret = E_ERR_SUCCESS;
+                    LOG_DEBUG("+Modem core dump READY");
+                }
+
+                usb_device_close(dev);
             }
         } else if (bus_events->cli_ctx.evs[i].event == EV_DELETED) {
             LOG_DEBUG("EVENT DELETED");
