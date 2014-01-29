@@ -8,7 +8,7 @@ MY_MODULE_TAGS := optional
 
 MY_SRC_FILES := $(call all-c-files-under, .)
 MY_INCLUDES := \
-    $(LOCAL_PATH)/../inc \
+    $(MMGR_PATH)/inc \
 
 MY_C_FLAGS := -Wall -Werror -Wvla -DMODULE_NAME=\"MMGR_UTILS\"
 MY_SHARED_LIBS := libcutils libc
