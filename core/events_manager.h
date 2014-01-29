@@ -53,6 +53,7 @@
     X(WAIT_COLD_ACK), \
     X(WAIT_SHT_ACK), \
     X(MDM_CORE_DUMP), \
+    X(MDM_PREPARE_OFF), \
     X(NUM)
 
 typedef enum e_events_type {

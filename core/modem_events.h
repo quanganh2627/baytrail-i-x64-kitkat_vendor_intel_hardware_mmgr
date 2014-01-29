@@ -27,7 +27,8 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr);
 e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr);
 e_mmgr_errors_t bus_events(mmgr_data_t *mmgr);
 e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr);
-e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr);
+e_mmgr_errors_t mdm_start_shtdwn(mmgr_data_t *mmgr);
+e_mmgr_errors_t mdm_finalize_shtdwn(mmgr_data_t *mmgr);
 
 void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict);
 void core_dump_finalize(mmgr_data_t *mmgr, e_core_dump_state_t state);

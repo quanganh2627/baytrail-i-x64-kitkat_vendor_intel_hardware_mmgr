@@ -170,13 +170,16 @@ e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
  *
  * @param [in] h timer module handle
  * @param [out] reset true if MMGR should reset the modem
- * @param [out] mdm_off true if MMGR should shutdown the modem
+ * @param [out] start_mdm_off true if MMGR should start the modem shutdown
+ * @param [out] finalize_mdm_off true if MMGR should finalize the modem shutdown
  * @param [out] cd_err true if MMGR should restart cd IPC
  * @param [out] cancel_flashing flashing thread timeout. cancel the operation
+ * @param [out] stop_mcdr stop mcdr thread.
  *
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
+e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset,
+                            bool *start_mdm_off, bool *finalize_mdm_off,
                             bool *cd_err, bool *cancel_flashing,
                             bool *stop_mcdr)
 {
@@ -186,12 +189,14 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
 
     ASSERT(t != NULL);
     ASSERT(reset != NULL);
-    ASSERT(mdm_off != NULL);
+    ASSERT(start_mdm_off != NULL);
+    ASSERT(finalize_mdm_off != NULL);
     ASSERT(cd_err != NULL);
     ASSERT(stop_mcdr != NULL);
 
     *reset = false;
-    *mdm_off = false;
+    *start_mdm_off = false;
+    *finalize_mdm_off = false;
     *cd_err = false;
     *stop_mcdr = false;
 
@@ -209,7 +214,7 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
         clients_has_ack_shtdwn(t->clients, E_PRINT);
         timer_stop(h, E_TIMER_MODEM_SHUTDOWN_ACK);
         *reset = true;
-        *mdm_off = true;
+        *start_mdm_off = true;
     }
 
     if (timer_is_elapsed(t, E_TIMER_WAIT_FOR_IPC_READY, &cur)) {
@@ -277,6 +282,12 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *mdm_off,
         *stop_mcdr = true;
     }
 
+    if (timer_is_elapsed(t, E_TIMER_FMMO, &cur)) {
+        handled = true;
+        timer_stop(h, E_TIMER_FMMO);
+        *finalize_mdm_off = true;
+    }
+
     if (!handled)
         LOG_ERROR("timeout not handled");
 
@@ -320,6 +331,7 @@ timer_handle_t *timer_init(const mmgr_recovery_t *recov,
             timings->cd_ipc_ready;
         timer->timeout[E_TIMER_MDM_FLASHING] = timings->mdm_flash;
         timer->timeout[E_TIMER_CORE_DUMP_READING] = mcdr->gnl.timeout;
+        timer->timeout[E_TIMER_FMMO] = timings->fmmo;
     }
 
     return (timer_handle_t *)timer;

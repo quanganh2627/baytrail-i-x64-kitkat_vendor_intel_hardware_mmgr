@@ -48,6 +48,7 @@
 		cd_ipc_reset="6"
 		cd_ipc_ready="10"
 		mdm_flash="3"
+		fmmo="30"
 	/>
 	<modem_recovery
 		enable="true"

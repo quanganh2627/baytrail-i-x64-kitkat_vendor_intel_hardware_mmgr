@@ -21,7 +21,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <poll.h>
 #include "at.h"
 #include "common.h"
 #include "errors.h"
@@ -44,8 +43,6 @@
 #define READ_SIZE 64
 #define AT_CFUN_RETRY 0
 
-/* NB: This timer shall not be higher than MAX_RADIO_WAIT_TIME (in seconds) */
-#define WAIT_FOR_WARM_BOOT_TIMEOUT 30000
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 
 static inline void mdm_close_fds(mmgr_data_t *mmgr)
@@ -419,45 +416,40 @@ static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr)
 }
 
 /**
- * shutdown the modem
+ * starts the modem shutdown
  *
  * @param [in,out] mmgr mmgr context
  *
  * @return E_ERR_FAILED if reset not performed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_shutdown(mmgr_data_t *mmgr)
+e_mmgr_errors_t mdm_start_shtdwn(mmgr_data_t *mmgr)
 {
     int fd = CLOSED_FD;
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     ASSERT(mmgr != NULL);
 
-    mmgr->info.polled_states = MDM_CTRL_STATE_WARM_BOOT;
+    mmgr->info.polled_states = MDM_CTRL_STATE_WARM_BOOT |
+                               MDM_CTRL_STATE_COREDUMP;
     set_mcd_poll_states(&mmgr->info);
 
     tty_open(mmgr->info.shtdwn_dlc, &fd);
     if (fd < 0) {
         LOG_ERROR("operation FAILED");
+        ret = E_ERR_FAILED;
     } else {
-        struct pollfd fds;
-        fds.fd = mmgr->info.fd_mcd;
-        fds.events = POLLHUP;
-
         send_at_retry(fd, POWER_OFF_MODEM, strlen(POWER_OFF_MODEM),
                       AT_CFUN_RETRY, AT_ANSWER_NO_TIMEOUT);
-
-        LOG_DEBUG("Waiting for MDM_CTRL_STATE_WARM_BOOT");
-        if (!poll(&fds, 1, WAIT_FOR_WARM_BOOT_TIMEOUT)) {
-            static const char *const msg = "timeout during modem shutdown";
-            mmgr_cli_error_t err = { E_REPORT_FMMO, strlen(msg), msg };
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-            LOG_ERROR("%s", msg);
-        } else {
-            LOG_DEBUG("Modem is down");
-        }
         tty_close(&fd);
     }
 
+    return ret;
+}
+
+e_mmgr_errors_t mdm_finalize_shtdwn(mmgr_data_t *mmgr)
+{
+    ASSERT(mmgr != NULL);
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
 
     mdm_close_fds(mmgr);
@@ -737,6 +729,11 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
                 notify_core_dump(mmgr->clients, NULL, E_CD_SELF_RESET);
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             }
+        } else if (E_MMGR_MDM_PREPARE_OFF == mmgr->state) {
+            LOG_DEBUG("FMMO: modem is down");
+            timer_stop(mmgr->timer, E_TIMER_FMMO);
+            mdm_finalize_shtdwn(mmgr);
+            set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
         } else {
             clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
             clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_SELF_RESET,

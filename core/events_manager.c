@@ -294,8 +294,9 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
     for (;; ) {
         if (mmgr->events.cli_req & E_CLI_REQ_OFF) {
             clients_reset_ack_shtdwn(mmgr->clients);
-            modem_shutdown(mmgr);
-            set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
+            timer_start(mmgr->timer, E_TIMER_FMMO);
+            mdm_start_shtdwn(mmgr);
+            set_mmgr_state(mmgr, E_MMGR_MDM_PREPARE_OFF);
             mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
         } else if (mmgr->state == E_MMGR_MDM_RESET) {
             LOG_DEBUG("restoring modem");
@@ -337,17 +338,17 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             break;
         case E_EVENT_TIMEOUT: {
             bool reset = false;
-            bool mdm_off = false;
+            bool start_mdm_off = false;
+            bool finalize_mdm_off = false;
             bool cd_ipc = false;
             bool cancel_flashing = false;
             bool stop_mcdr = false;
 
-            ret = timer_event(mmgr->timer, &reset, &mdm_off, &cd_ipc,
+            ret = timer_event(mmgr->timer, &reset, &start_mdm_off,
+                              &finalize_mdm_off, &cd_ipc,
                               &cancel_flashing, &stop_mcdr);
             if (reset)
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-            if (mdm_off)
-                mmgr->events.cli_req = E_CLI_REQ_OFF;
             if (cd_ipc)
                 ctrl_on_cd_ipc_failure(mmgr->info.ctrl);
             if (cancel_flashing) {
@@ -362,6 +363,17 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             if (stop_mcdr) {
                 mcdr_cancel(mmgr->mcdr);
                 core_dump_finalize(mmgr, E_CD_TIMEOUT);
+            }
+            if (start_mdm_off) {
+                mmgr->events.cli_req = E_CLI_REQ_OFF;
+            } else if (finalize_mdm_off) {
+                static const char *const msg = "Timeout during FMMO. Force "
+                                               "modem shutdown";
+                mmgr_cli_error_t err = { E_REPORT_FMMO, strlen(msg), msg };
+                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+                LOG_INFO("%s", msg);
+                mdm_finalize_shtdwn(mmgr);
+                set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
             }
 
             break;
