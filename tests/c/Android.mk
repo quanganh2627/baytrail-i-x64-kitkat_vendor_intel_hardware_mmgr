@@ -7,7 +7,7 @@ MY_MODULE := mmgr-test
 MY_MODULE_TAGS := optional tests
 
 MY_INCLUDES := \
-    $(LOCAL_PATH)/../../inc \
+    $(MMGR_PATH)/inc \
 
 MY_SRC_FILES := $(call all-c-files-under, .)
 MY_C_FLAGS := -Wall -Werror -Wvla -DSTDIO_LOGS -DMODULE_NAME=\"MMGR-TEST\"

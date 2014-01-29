@@ -7,7 +7,7 @@ MY_MODULE := mmgr
 MY_MODULE_TAGS := optional
 
 MY_INCLUDES := \
-    $(LOCAL_PATH)/../inc \
+    $(MMGR_PATH)/inc \
     $(LOCAL_PATH)/link \
     $(call include-path-for, libusb) \
     $(call include-path-for, libpower) \
@@ -15,7 +15,7 @@ MY_INCLUDES := \
 MY_SRC_FILES := $(call all-c-files-under, .)
 
 # Extract commit id
-COMMIT_ID := $(shell git --git-dir=$(LOCAL_PATH)/../.git \
+COMMIT_ID := $(shell git --git-dir=$(MMGR_PATH)/.git \
         --work-tree=$(LOCAL_PATH) log --oneline -n1 \
         | sed -e 's:\s\{1,\}:\\ :g' -e 's:["&{}]::g' \
         -e "s:'::g")
@@ -42,26 +42,10 @@ LOCAL_CFLAGS += $(MY_C_FLAGS)
 LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_IMPORT) libmcdr
 LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_IMPORT)
 LOCAL_LDLIBS += $(MY_LDLIBS)
-#-------------------------------------------
-# module dependency rules
-#-------------------------------------------
-LOCAL_REQUIRED_MODULES := \
-    libmmgrcli \
-    com.intel.internal.telephony.MmgrClient.xml \
-    com.intel.internal.telephony.MmgrClient \
-    mmgr_xml \
+LOCAL_REQUIRED_MODULES := mmgr_xml
 
-ifneq (, $(findstring "$(TARGET_BUILD_VARIANT)", "eng" "userdebug"))
-LOCAL_REQUIRED_MODULES += \
-    libmcdr \
-    mmgr-test \
-    MMGR_test \
-    nvm_client \
-
-endif
-
-ifeq ($(BUILD_WITH_SECURITY_FRAMEWORK),chaabi_token)
-LOCAL_SHARED_LIBRARIES += libdx_cc7
+ifeq ($(BUILD_WITH_SECURITY_FRAMEWORK), chaabi_token)
+LOCAL_REQUIRED_MODULES += libdx_cc7
 endif
 
 include $(BUILD_EXECUTABLE)
