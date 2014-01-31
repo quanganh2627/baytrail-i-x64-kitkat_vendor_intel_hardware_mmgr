@@ -30,6 +30,7 @@
 #define MAX_MOVING_FILE_SLEEP 20
 #define RIL_PROPERTY "persist.ril-daemon.disable"
 #define MAX_RECOVERY_CAUSE 64
+#define APIMR_CAUSE_STRING "Requested by mmgr-test application"
 
 /**
  * Test modem reset without core dump
@@ -112,42 +113,54 @@ e_mmgr_errors_t modem_recovery(test_data_t *test)
 
     ASSERT(test != NULL);
 
-    if (test->option_string != NULL)
-        num_extra_params = atoi(test->option_string);
-    else
-        num_extra_params = -1;
+    if (test->option_string != NULL) {
+        char *end_ptr = NULL;
+        num_extra_params = strtol(test->option_string, &end_ptr, 10);
+        if (*end_ptr != '\0') {
+            LOG_ERROR("As test 'recovery' only accepts numerical arguments, "
+                      "ignore invalid option string '%s'.",
+                      test->option_string);
+            num_extra_params = 2;
+        }
+    } else {
+        num_extra_params = 2;
+    }
+
+    if (num_extra_params < 0)
+        num_extra_params = 0;
 
     if (num_extra_params > 0) {
-        causes =
-            malloc(num_extra_params * sizeof(mmgr_cli_recovery_cause_t));
+        causes = malloc(num_extra_params * sizeof(mmgr_cli_recovery_cause_t));
         ASSERT(causes != NULL);
 
         for (int i = 0; i < num_extra_params; i++) {
             causes[i].cause = malloc(MAX_RECOVERY_CAUSE);
             ASSERT(causes[i].cause != NULL);
-            snprintf(causes[i].cause, MAX_RECOVERY_CAUSE - 1,
-                     "Recovery cause number %d !", i);
-            causes[i].cause[MAX_RECOVERY_CAUSE - 1] = '\0';
+            switch (i) {
+            case 0:
+                snprintf(causes[i].cause, MAX_RECOVERY_CAUSE,
+                         APIMR_CAUSE_STRING);
+                break;
+            case 1:
+                snprintf(causes[i].cause, MAX_RECOVERY_CAUSE,
+                         __FUNCTION__);
+                break;
+            default:
+                snprintf(causes[i].cause, MAX_RECOVERY_CAUSE,
+                         "Recovery cause number %d !", i - 2);
+                break;
+            }
             causes[i].len = strlen(causes[i].cause);
         }
-    } else if (num_extra_params == -1) {
-        num_extra_params = 1;
-        causes = malloc(sizeof(mmgr_cli_recovery_cause_t));
-        ASSERT(causes != NULL);
-        causes[0].cause = strdup("Requested by mmgr-test application");
-        ASSERT(causes[0].cause != NULL);
-        causes[0].len = strlen(causes[0].cause);
-    } else {
-        num_extra_params = 0;
     }
 
-    ret = reset_by_client_request_with_data(test,
-                                            E_MMGR_REQUEST_MODEM_RECOVERY,
-                                            num_extra_params *
-                                            sizeof(mmgr_cli_recovery_cause_t),
-                                            causes,
-                                            E_MMGR_NUM_EVENTS,
-                                            E_MMGR_EVENT_MODEM_UP);
+    ret = reset_by_client_request(test,
+                                  E_MMGR_REQUEST_MODEM_RECOVERY,
+                                  num_extra_params *
+                                  sizeof(mmgr_cli_recovery_cause_t),
+                                  causes,
+                                  E_MMGR_NUM_EVENTS,
+                                  E_MMGR_EVENT_MODEM_UP);
 
     if (causes != NULL) {
         for (int i = 0; i < num_extra_params; i++)
@@ -173,6 +186,7 @@ e_mmgr_errors_t modem_recovery(test_data_t *test)
 e_mmgr_errors_t modem_restart(test_data_t *test)
 {
     return reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RESTART,
+                                   0, NULL,
                                    E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                    E_MMGR_EVENT_MODEM_UP);
 }
@@ -192,8 +206,6 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
     int reboot;
     mmgr_cli_requests_t request;
 
-    MMGR_CLI_INIT_REQUEST(request, E_MMGR_REQUEST_MODEM_RECOVERY);
-
     ASSERT(test != NULL);
 
     puts("\n*************************************************************\n"
@@ -204,12 +216,19 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
 
     if (test->cfg.cold_reset > 0) {
         for (int i = 1; i <= test->cfg.cold_reset; i++) {
+            mmgr_cli_recovery_cause_t causes[] = {
+                { strlen(APIMR_CAUSE_STRING), (char *)APIMR_CAUSE_STRING },
+                { strlen(__FUNCTION__), (char *)__FUNCTION__ }
+            };
+
             printf("\nCheck #%d COLD reset\n", i);
             pthread_mutex_lock(&test->mutex);
             test->events &= ~E_EVENTS_SUCCEED;
             pthread_mutex_unlock(&test->mutex);
             ret = reset_by_client_request(test,
                                           E_MMGR_REQUEST_MODEM_RECOVERY,
+                                          sizeof(causes),
+                                          causes,
                                           E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                           E_MMGR_EVENT_MODEM_UP);
             if ((ret != E_ERR_SUCCESS)
@@ -330,6 +349,10 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int counter;
+    mmgr_cli_recovery_cause_t causes[] = {
+        { strlen(APIMR_CAUSE_STRING), (char *)APIMR_CAUSE_STRING },
+        { strlen(__FUNCTION__), (char *)__FUNCTION__ }
+    };
 
     ASSERT(test != NULL);
 
@@ -338,7 +361,10 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
               test->cfg.reset_escalation_delay + 1);
     sleep(test->cfg.reset_escalation_delay + 1);
 
-    ret = reset_by_client_request(test, E_MMGR_REQUEST_MODEM_RECOVERY,
+    ret = reset_by_client_request(test,
+                                  E_MMGR_REQUEST_MODEM_RECOVERY,
+                                  sizeof(causes),
+                                  causes,
                                   E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                   E_MMGR_EVENT_MODEM_UP);
 

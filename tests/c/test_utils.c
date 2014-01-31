@@ -815,12 +815,12 @@ out:
  * @return E_ERR_FAILED test fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t reset_by_client_request_with_data(test_data_t *data_test,
-                                                  e_mmgr_requests_t id,
-                                                  size_t data_len,
-                                                  void *data,
-                                                  e_mmgr_events_t notification,
-                                                  e_mmgr_events_t final_state)
+e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
+                                        e_mmgr_requests_t id,
+                                        size_t data_len,
+                                        void *data,
+                                        e_mmgr_events_t notification,
+                                        e_mmgr_events_t final_state)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mmgr_cli_requests_t request;
