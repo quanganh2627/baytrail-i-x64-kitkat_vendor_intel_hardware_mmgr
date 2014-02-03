@@ -64,7 +64,9 @@
     "**     Invalid test choice       **\n" \
     "***********************************\n"
 
+
 #define INVALID_TEST -2
+#define CRASHLOG_FAKE_REPORT "crashreport.events"
 
 #define TEST_RESULT \
     X(SUCCEED), \
@@ -400,11 +402,22 @@ int main(int argc, char *argv[])
             goto out;
     if (test_id == INVALID_TEST)
         choose_test(tests, sizeof(tests) / sizeof(*tests), &test_id);
-    if ((test_id >= 0) && (test_id < nb_tests))
+    if ((test_id >= 0) && (test_id < nb_tests)) {
+        if (property_set(CRASHLOG_FAKE_REPORT ".fake",
+                         "modem") ||
+            property_set(CRASHLOG_FAKE_REPORT ".countdown", "")) {
+            LOG_ERROR(
+                "unable to set fake event property to crashtool - Exiting");
+            goto out;
+        }
+
         err = run_test(&tests[test_id], option_string);
-    else
-    if (test_id != -1)
+        property_set(CRASHLOG_FAKE_REPORT, "");
+    } else
+    if (test_id != -1) {
         puts(INVALID_CHOICE);
+    }
+
 
 out:
     if (long_opts != NULL)
