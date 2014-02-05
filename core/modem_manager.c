@@ -130,34 +130,43 @@ static void mmgr_init(mmgr_data_t *mmgr)
     ASSERT(mmgr != NULL);
 
     tcs_cfg_t *cfg = tcs_get_config(h);
-    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h);
     ASSERT(cfg != NULL);
+    ASSERT(cfg->mdms.nb >= 1);
+    ASSERT(cfg->mdms.mdm_info != NULL);
+    ASSERT(cfg->channels.nb >= 1);
+    ASSERT(cfg->channels.ch != NULL);
+    ASSERT(cfg->tlvs.nb >= 1);
+    ASSERT(cfg->tlvs.tlv != NULL);
+
+    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h, &cfg->mdms.mdm_info[0]);
     ASSERT(mmgr_cfg != NULL);
 
     tcs_print(h);
 
     ASSERT((mmgr->reset = recov_init(&mmgr_cfg->recov)) != NULL);
 
-    ASSERT((mmgr->secure = secure_init(cfg->mdm_info.secured,
-                                       &cfg->channels.secured)) != NULL);
+    ASSERT((mmgr->secure = secure_init(cfg->mdms.mdm_info[0].secured,
+                                       &cfg->channels.ch[0].mmgr.secured)) !=
+           NULL);
 
     ASSERT((mmgr->mcdr = mcdr_init(&mmgr_cfg->mcdr)) != NULL);
 
-    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm_info, &mmgr_cfg->com,
-                                            &cfg->tlv,
+    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdms.mdm_info[0],
+                                            &mmgr_cfg->com,
+                                            &cfg->tlvs.tlv[0],
                                             &mmgr_cfg->mdm_link,
-                                            &cfg->channels,
+                                            &cfg->channels.ch[0].mmgr,
                                             &mmgr_cfg->flash, &mmgr_cfg->mcd,
                                             &mmgr->info));
 
-    ASSERT((mmgr->info.pm = pm_init(cfg->mdm_info.ipc_mdm,
+    ASSERT((mmgr->info.pm = pm_init(cfg->mdms.mdm_info[0].ipc_mdm,
                                     &mmgr_cfg->mdm_link.power,
-                                    cfg->mdm_info.ipc_cd,
+                                    cfg->mdms.mdm_info[0].ipc_cd,
                                     &mmgr_cfg->mcdr.power)) != NULL);
 
-    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm_info.ipc_mdm,
+    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdms.mdm_info[0].ipc_mdm,
                                         &mmgr_cfg->mdm_link.ctrl,
-                                        cfg->mdm_info.ipc_cd,
+                                        cfg->mdms.mdm_info[0].ipc_cd,
                                         &mmgr_cfg->mcdr.ctrl)) != NULL);
 
     ASSERT(E_ERR_SUCCESS == modem_events_init(mmgr));
