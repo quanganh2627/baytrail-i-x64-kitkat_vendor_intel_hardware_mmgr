@@ -44,7 +44,6 @@ e_mmgr_errors_t file_write(char *path, unsigned long mode, char *value,
 {
     int fd;
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    ssize_t write_size = 0;
 
     ASSERT(path != NULL);
     ASSERT(value != NULL);
@@ -53,6 +52,7 @@ e_mmgr_errors_t file_write(char *path, unsigned long mode, char *value,
     if (fd < 0) {
         LOG_ERROR("open of (%s) failed (%s)", path, strerror(errno));
     } else {
+        ssize_t write_size = 0;
         if (size > 0)
             write_size = write(fd, value, size);
         if ((close(fd) == 0) && ((size_t)write_size == size)) {
@@ -173,7 +173,6 @@ static void find(const char *folder, const char *pattern, char **files,
                  int *found, int max)
 {
     DIR *dir = NULL;
-    struct dirent *entry = NULL;
 
     ASSERT(folder != NULL);
     ASSERT(pattern != NULL);
@@ -184,6 +183,7 @@ static void find(const char *folder, const char *pattern, char **files,
     if (!dir) {
         LOG_ERROR("wrong path: %s", folder);
     } else {
+        struct dirent *entry = NULL;
         while ((entry = readdir(dir)) && *found < max) {
             if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
                 continue;

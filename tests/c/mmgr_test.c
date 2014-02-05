@@ -237,7 +237,6 @@ int choose_test(test_case_t *tests, int nb_test, int *choice)
 {
     char data[64];
     char *end_ptr = NULL;
-    int i;
     int ret = E_ERR_SUCCESS;
 
     ASSERT(tests != NULL);
@@ -248,7 +247,7 @@ int choose_test(test_case_t *tests, int nb_test, int *choice)
                "***********************************\n"
                "***   %s - TEST APPLICATION   ***\n"
                "***********************************\n", MODULE_NAME);
-        for (i = 0; i < nb_test; i++)
+        for (int i = 0; i < nb_test; i++)
             printf("%-2d - %s\n", i + 1, tests[i].desc);
 
         printf("0 - Quit the test application.\n\n"
@@ -290,10 +289,8 @@ bool agree_caution(void)
 
 void usage(test_case_t *test, int nb)
 {
-    int i;
-
     puts(USAGE);
-    for (i = 0; i < nb; i++)
+    for (int i = 0; i < nb; i++)
         printf("--%-16s %s\n", test[i].name, test[i].desc);
 }
 
@@ -317,7 +314,6 @@ int main(int argc, char *argv[])
     struct option *long_opts = NULL;
     int nb_tests = 0;
     int index = 0;
-    int i;
     char *option_string = NULL;
 
     /* *INDENT-OFF* */
@@ -359,7 +355,7 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    for (i = 0; i < nb_tests; i++) {
+    for (int i = 0; i < nb_tests; i++) {
         long_opts[i].name = tests[i].name;
         long_opts[i].has_arg = 0;
         long_opts[i].flag = NULL;

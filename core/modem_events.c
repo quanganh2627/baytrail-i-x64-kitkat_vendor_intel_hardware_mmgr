@@ -314,8 +314,7 @@ static bool apply_tlv(mmgr_data_t *mmgr)
             clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
         }
 
-        int i;
-        for (i = 0; i < found; i++)
+        for (int i = 0; i < found; i++)
             free(files[i]);
 
         clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,

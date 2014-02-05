@@ -268,7 +268,6 @@ out:
  */
 reset_handle_t *recov_init(const mmgr_recovery_t *recov)
 {
-    int i = 0;
     reset_operation_t *p_process = NULL;
     reset_management_t *reset = calloc(1, sizeof(reset_management_t));
 
@@ -287,7 +286,7 @@ reset_handle_t *recov_init(const mmgr_recovery_t *recov)
     reset->reset_delay = recov->reset_delay;
 
     /* initialize structure */
-    for (i = 0; i < E_EL_NUMBER_OF; i++) {
+    for (int i = 0; i < E_EL_NUMBER_OF; i++) {
         reset->process[i].retry_allowed = 0;
         reset->process[i].next_level = E_EL_MODEM_OUT_OF_SERVICE;
     }

@@ -132,7 +132,6 @@ out:
 e_mmgr_errors_t tty_read(int fd, char *data, int *data_size,
                          int max_retries)
 {
-    int i;
     int err;
     int read_size = 0;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -141,7 +140,7 @@ e_mmgr_errors_t tty_read(int fd, char *data, int *data_size,
     ASSERT(data_size != NULL);
 
     memset(data, 0, *data_size);
-    for (i = 0; i < max_retries; i++) {
+    for (int i = 0; i < max_retries; i++) {
         err = read(fd, data + read_size, *data_size - read_size);
         if (err < 0) {
             LOG_ERROR("Read failed (%s)", strerror(errno));
@@ -262,7 +261,6 @@ out:
 e_mmgr_errors_t tty_open(const char *tty_name, int *fd)
 {
     e_mmgr_errors_t ret = E_ERR_TTY_BAD_FD;
-    int count;
 
     ASSERT(tty_name != NULL);
     ASSERT(fd != NULL);
@@ -271,7 +269,7 @@ e_mmgr_errors_t tty_open(const char *tty_name, int *fd)
         goto out;
 
     LOG_DEBUG("trying to open tty device: %s", tty_name);
-    for (count = 0; count < MAX_OPEN_RETRY; count++) {
+    for (int count = 0; count < MAX_OPEN_RETRY; count++) {
         *fd = open(tty_name, O_RDWR);
         if (*fd > 0) {
             break;

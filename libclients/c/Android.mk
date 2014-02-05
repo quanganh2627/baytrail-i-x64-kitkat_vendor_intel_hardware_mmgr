@@ -12,7 +12,7 @@ MY_INCLUDES := \
 
 MY_SRC_FILES := $(call all-c-files-under, .)
 
-MY_C_FLAGS := -Wall -Werror -Wvla -DMODULE_NAME=\"MMGR_CLI\"
+MY_C_FLAGS := -Wall -Werror -Wvla -DMODULE_NAME=\"MMGR_CLI\" -std=c99
 MY_SHARED_LIBS := libcutils libc
 MY_LOCAL_IMPORT := libmmgr_utils libmmgr_cnx
 

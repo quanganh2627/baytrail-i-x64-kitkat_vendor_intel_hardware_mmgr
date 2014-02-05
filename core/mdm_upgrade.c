@@ -205,14 +205,12 @@ e_mmgr_errors_t mdm_upgrade(mdm_upgrade_hdle_t *hdle)
     if (found > 2) {
         ret = E_ERR_FAILED;
         LOG_ERROR("more than two files have been detected. Update rejected");
-        int i;
-        for (i = 0; i < found; i++) {
+        for (int i = 0; i < found; i++) {
             unlink(files[i]);
             free(files[i]);
         }
     } else {
-        int i;
-        for (i = 0; i < found; i++) {
+        for (int i = 0; i < found; i++) {
             LOG_DEBUG("file found: %s", files[i]);
             prepare_update(update, files[i]);
             free(files[i]);

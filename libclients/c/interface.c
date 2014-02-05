@@ -95,7 +95,6 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
     mmgr_lib_context_t *p_lib = NULL;
-    int i;
 
     CHECK_CLI_PARAM(handle, ret, out);
 
@@ -133,10 +132,10 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->ack = E_MMGR_NUM_REQUESTS;
     strncpy(p_lib->cli_name, client_name, CLIENT_NAME_LEN - 1);
 
-    for (i = 0; i < E_MMGR_NUM_REQUESTS; i++)
+    for (int i = 0; i < E_MMGR_NUM_REQUESTS; i++)
         p_lib->set_msg[i] = msg_set_empty;
 
-    for (i = 0; i < E_MMGR_NUM_EVENTS; i++) {
+    for (int i = 0; i < E_MMGR_NUM_EVENTS; i++) {
         p_lib->set_data[i] = set_data_empty;
         p_lib->free_data[i] = free_data_empty;
     }

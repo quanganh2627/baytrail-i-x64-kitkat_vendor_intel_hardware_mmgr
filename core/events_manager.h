@@ -120,6 +120,6 @@ e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr);
 
 e_mmgr_errors_t events_manager(mmgr_data_t *mmgr);
 e_mmgr_errors_t events_start(mmgr_data_t *mmgr);
-inline void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state);
+void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state);
 
 #endif                          /* __MMGR_EVENTS_MANAGER_HEADER__ */

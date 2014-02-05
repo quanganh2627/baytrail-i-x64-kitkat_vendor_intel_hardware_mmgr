@@ -203,7 +203,6 @@ e_mmgr_errors_t set_msg_tft_event(msg_t *msg, mmgr_cli_event_t *request)
     size_t size;
     mmgr_cli_tft_event_t *ev = NULL;
     char *msg_data = NULL;
-    size_t i;
 
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
@@ -214,7 +213,7 @@ e_mmgr_errors_t set_msg_tft_event(msg_t *msg, mmgr_cli_event_t *request)
      * an array of a structure composed of one integer and a string can be added
      */
     size = 4 * sizeof(uint32_t) + sizeof(char) * ev->name_len;
-    for (i = 0; i < ev->num_data; i++) {
+    for (size_t i = 0; i < ev->num_data; i++) {
         size += sizeof(uint32_t) + sizeof(char) * ev->data[i].len;
     }
 
@@ -229,7 +228,7 @@ e_mmgr_errors_t set_msg_tft_event(msg_t *msg, mmgr_cli_event_t *request)
 
         ASSERT(ev->num_data <= MMGR_CLI_MAX_TFT_EVENT_DATA);
 
-        for (i = 0; i < ev->num_data; i++) {
+        for (size_t i = 0; i < ev->num_data; i++) {
             ASSERT(ev->data[i].len < MMGR_CLI_MAX_RECOVERY_CAUSE_LEN);
             serialize_size_t(&msg_data, ev->data[i].len);
             memcpy(msg_data, ev->data[i].value, sizeof(char) * ev->data[i].len);

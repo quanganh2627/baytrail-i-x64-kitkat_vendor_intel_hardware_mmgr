@@ -10,7 +10,7 @@ MY_INCLUDES := \
     $(MMGR_PATH)/inc \
 
 MY_SRC_FILES := $(call all-c-files-under, .)
-MY_C_FLAGS := -Wall -Werror -Wvla -DSTDIO_LOGS -DMODULE_NAME=\"MMGR-TEST\"
+MY_C_FLAGS := -Wall -Werror -Wvla -DSTDIO_LOGS -DMODULE_NAME=\"MMGR-TEST\" -std=c99
 
 MY_SHARED_LIBS := libcutils libc
 MY_LOCAL_IMPORT := libtcs libmmgr_utils libmmgrcli libmmgr_cnx

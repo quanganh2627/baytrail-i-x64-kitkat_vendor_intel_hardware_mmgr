@@ -128,7 +128,7 @@ e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request)
     e_mmgr_errors_t ret = E_ERR_FAILED;
     size_t size = 0, string_size = 0;
     char *msg_data = NULL;
-    size_t i, req_size = 0;
+    size_t req_size = 0;
     mmgr_cli_recovery_cause_t *req_extra_data = NULL;
 
     ASSERT(msg != NULL);
@@ -152,7 +152,7 @@ e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request)
         req_size = 0;
     }
     req_size /= sizeof(mmgr_cli_recovery_cause_t);
-    for (i = 0; i < req_size; i++) {
+    for (size_t i = 0; i < req_size; i++) {
         if ((req_extra_data[i].len > MMGR_CLI_MAX_RECOVERY_CAUSE_LEN) ||
             (req_extra_data[i].cause == NULL)) {
             LOG_ERROR("invalid extra data entry (index %d, len %d, ptr %p)", i,
@@ -171,7 +171,7 @@ e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request)
         /* Serialize client request */
         if (req_size != 0) {
             serialize_size_t(&msg_data, req_size);
-            for (i = 0; i < req_size; i++) {
+            for (size_t i = 0; i < req_size; i++) {
                 serialize_size_t(&msg_data, req_extra_data[i].len);
                 memcpy(msg_data, req_extra_data[i].cause,
                        req_extra_data[i].len);

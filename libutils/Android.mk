@@ -11,7 +11,7 @@ MY_INCLUDES := \
     $(MMGR_PATH)/inc \
     $(call include-path-for, recovery) \
 
-MY_C_FLAGS := -Wall -Werror -Wvla -DMODULE_NAME=\"MMGR_UTILS\"
+MY_C_FLAGS := -Wall -Werror -Wvla -DMODULE_NAME=\"MMGR_UTILS\" -std=c99
 MY_SHARED_LIBS := libcutils libc
 MY_STATIC_LIBS := libminzip libz libselinux
 

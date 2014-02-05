@@ -97,7 +97,6 @@ static bool check_all_clients_ack(const clients_hdle_t *h,
                                   e_print_t print)
 {
     bool answer = true;
-    int i = 0;
     client_list_t *clients = (client_list_t *)h;
 
     ASSERT(clients != NULL);
@@ -105,7 +104,7 @@ static bool check_all_clients_ack(const clients_hdle_t *h,
     if (ev > E_MMGR_NUM_EVENTS) {
         answer = false;
     } else {
-        for (i = 0; i < clients->list_size; i++) {
+        for (int i = 0; i < clients->list_size; i++) {
             if (clients->list[i].fd != CLOSED_FD) {
                 if ((clients->list[i].subscription & (0x1 << ev)) &&
                     ((clients->list[i].cnx & filter) != filter)) {
@@ -138,11 +137,10 @@ static inline e_mmgr_errors_t reset_ack(clients_hdle_t *h,
                                         e_cnx_requests_t filter)
 {
     client_list_t *clients = (client_list_t *)h;
-    int i = 0;
 
     ASSERT(clients != NULL);
 
-    for (i = 0; i < clients->list_size; i++) {
+    for (int i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD)
             clients->list[i].cnx &= ~filter;
     }
@@ -187,12 +185,11 @@ static inline void init_client(client_t *client, int fd)
 static e_mmgr_errors_t remove_from_list(client_list_t *clients, int fd)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    int i = 0;
 
     ASSERT(clients != NULL);
 
     if (CLOSED_FD != fd) {
-        for (i = 0; i < clients->list_size; i++) {
+        for (int i = 0; i < clients->list_size; i++) {
             if (fd == clients->list[i].fd) {
                 clients->connected--;
                 LOG_INFO("client (fd=%d name=%s) removed. still connected: %d",
@@ -218,7 +215,6 @@ static e_mmgr_errors_t remove_from_list(client_list_t *clients, int fd)
  */
 clients_hdle_t *clients_init(int list_size)
 {
-    int i = 0;
     client_list_t *clients = NULL;
 
     clients = calloc(1, sizeof(client_list_t));
@@ -231,12 +227,12 @@ clients_hdle_t *clients_init(int list_size)
 
     clients->connected = 0;
     clients->list_size = list_size;
-    for (i = 0; i < list_size; i++) {
+    for (int i = 0; i < list_size; i++) {
         init_client(&clients->list[i], CLOSED_FD);
         clients->list[i].set_data = clients->set_data;
     }
 
-    for (i = 0; i < E_MMGR_NUM_EVENTS; i++)
+    for (int i = 0; i < E_MMGR_NUM_EVENTS; i++)
         clients->set_data[i] = msg_set_empty;
     clients->set_data[E_MMGR_RESPONSE_MODEM_HW_ID] = set_msg_modem_hw_id;
     clients->set_data[E_MMGR_RESPONSE_FUSE_INFO] = set_msg_fuse_info;
@@ -287,13 +283,12 @@ e_mmgr_errors_t clients_dispose(clients_hdle_t *h)
  */
 e_mmgr_errors_t client_add(clients_hdle_t *h, int fd)
 {
-    int i = 0;
     e_mmgr_errors_t ret = E_ERR_FAILED;
     client_list_t *clients = (client_list_t *)h;
 
     ASSERT(clients != NULL);
 
-    for (i = 0; i < clients->list_size; i++) {
+    for (int i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd == CLOSED_FD) {
             init_client(&clients->list[i], fd);
             clients->connected++;
@@ -393,14 +388,13 @@ e_mmgr_errors_t client_set_filter(client_hdle_t *h, uint32_t subscription)
  */
 client_hdle_t *client_find(const clients_hdle_t *h, int fd)
 {
-    int i = 0;
     client_list_t *clients = (client_list_t *)h;
     client_t *client = NULL;
 
     ASSERT(clients != NULL);
 
     if (fd != CLOSED_FD) {
-        for (i = 0; i < clients->list_size; i++) {
+        for (int i = 0; i < clients->list_size; i++) {
             if (fd == clients->list[i].fd) {
                 client = &clients->list[i];
                 break;
@@ -475,7 +469,6 @@ e_mmgr_errors_t clients_inform_all(const clients_hdle_t *h,
                                    e_mmgr_events_t state, void *data)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int i = 0;
     static bool down_state = false;
     client_list_t *clients = (client_list_t *)h;
 
@@ -491,7 +484,7 @@ e_mmgr_errors_t clients_inform_all(const clients_hdle_t *h,
     ASSERT(clients != NULL);
     /* do not check data because it can be NULL on purpose */
 
-    for (i = 0; i < clients->list_size; i++) {
+    for (int i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD)
             ret = client_inform((client_hdle_t *)&clients->list[i], state,
                                 data);
@@ -510,11 +503,9 @@ out:
  */
 static e_mmgr_errors_t client_close(client_list_t *clients)
 {
-    int i;
-
     ASSERT(clients != NULL);
 
-    for (i = 0; i < clients->list_size; i++) {
+    for (int i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD) {
             LOG_DEBUG("i=%d fd=%d", i, clients->list[i].fd);
             cnx_close(&clients->list[i].fd);
@@ -566,12 +557,11 @@ bool clients_has_ack_shtdwn(const clients_hdle_t *h, e_print_t print)
 bool clients_has_resource(const clients_hdle_t *h, e_print_t print)
 {
     bool answer = false;
-    int i = 0;
     client_list_t *clients = (client_list_t *)h;
 
     ASSERT(clients != NULL);
 
-    for (i = 0; i < clients->list_size; i++) {
+    for (int i = 0; i < clients->list_size; i++) {
         if (clients->list[i].fd != CLOSED_FD) {
             if ((clients->list[i].cnx & E_CNX_RESOURCE_RELEASED)
                 != E_CNX_RESOURCE_RELEASED) {

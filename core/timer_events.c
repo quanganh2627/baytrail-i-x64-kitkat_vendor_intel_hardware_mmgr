@@ -74,11 +74,10 @@ int timer_get_timeout(timer_handle_t *h)
     ASSERT(t != NULL);
 
     if (t->type != 0x0) {
-        int i = 0;
         struct timespec cur;
         clock_gettime(CLOCK_BOOTTIME, &cur);
 
-        for (i = 0; i < E_TIMER_NUM; i++) {
+        for (int i = 0; i < E_TIMER_NUM; i++) {
             if (t->type & (0x1 << i)) {
                 long diff = timer_get_elapsed(cur, t->end[i]);
                 if (diff < 0)

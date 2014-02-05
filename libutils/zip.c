@@ -98,8 +98,7 @@ e_mmgr_errors_t zip_extract_entry(const char *zip_filename,
         LOG_DEBUG("Archive %s opened successfully. String match: %s",
                   zip_filename, filter);
 
-        size_t i = 0;
-        for (i = 0; i < mzZipEntryCount(&zip); i++) {
+        for (size_t i = 0; i < mzZipEntryCount(&zip); i++) {
             const ZipEntry *zip_entry = mzGetZipEntryAt(&zip, i);
             int err = extract(&zip, zip_entry, filter, dest, dst_mode);
             if (err != -2) {

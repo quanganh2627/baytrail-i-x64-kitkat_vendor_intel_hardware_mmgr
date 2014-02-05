@@ -47,7 +47,7 @@ static const char const *g_mmgr_st[] = {
     MMGR_STATE
 };
 
-inline void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state)
+void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state)
 {
     mmgr->state = state;
     LOG_VERBOSE("new STATE: %s", g_mmgr_st[mmgr->state]);

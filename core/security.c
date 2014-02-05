@@ -271,12 +271,11 @@ out:
  */
 static e_mmgr_errors_t send_sec_msg(secure_t *secure)
 {
-    int i = 0;
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
     ASSERT(secure != NULL);
 
-    for (i = 0; i < AT_SEC_RETRY; i++) {
+    for (int i = 0; i < AT_SEC_RETRY; i++) {
         if ((ret =
                  tty_write(secure->fd, secure->send_queue[0].message,
                            secure->send_queue[0].length)) == E_ERR_SUCCESS)
@@ -352,8 +351,7 @@ static e_mmgr_errors_t pull_msg(secure_t *secure)
         free(secure->send_queue[0].message);
         secure->nb_of_msgs--;
         if (secure->nb_of_msgs > 0) {
-            int i = 0;
-            for (i = 0; i < secure->nb_of_msgs; i++)
+            for (int i = 0; i < secure->nb_of_msgs; i++)
                 secure->send_queue[i] = secure->send_queue[i + 1];
             send_sec_msg(secure);
         }
@@ -699,11 +697,9 @@ e_mmgr_errors_t secure_dispose(secure_handle_t *h)
         } else {
             ret = E_ERR_FAILED;
         }
-        if (secur->nb_of_msgs > 0) {
-            int i = 0;
-            for (i = 0; i < secur->nb_of_msgs; i++)
+        if (secur->nb_of_msgs > 0)
+            for (int i = 0; i < secur->nb_of_msgs; i++)
                 free(secur->send_queue[i].message);
-        }
     }
 
     free(secur);

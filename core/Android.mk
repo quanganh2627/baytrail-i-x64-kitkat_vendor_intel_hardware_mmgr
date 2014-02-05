@@ -21,7 +21,7 @@ COMMIT_ID := $(shell git --git-dir=$(MMGR_PATH)/.git \
         -e "s:'::g")
 
 MY_C_FLAGS := -Wall -Werror -Wvla -DLIBUSBHOST \
-    -DGIT_COMMIT_ID=\"$(COMMIT_ID)\" -DMODULE_NAME=\"MMGR\"
+    -DGIT_COMMIT_ID=\"$(COMMIT_ID)\" -DMODULE_NAME=\"MMGR\" -std=c99
 
 MY_SHARED_LIBS := libc libcutils libdl libusbhost liblog libpower
 MY_LOCAL_IMPORT := libtcs libmmgr_utils libmmgr_cnx

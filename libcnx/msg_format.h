@@ -36,13 +36,13 @@ typedef struct msg {
     char *data;
 } msg_t;
 
-inline void deserialize_uint32(char **buffer, uint32_t *value);
-inline void deserialize_int(char **buffer, int *value);
-inline void deserialize_size_t(char **buffer, size_t *value);
+void deserialize_uint32(char **buffer, uint32_t *value);
+void deserialize_int(char **buffer, int *value);
+void deserialize_size_t(char **buffer, size_t *value);
 
-inline void serialize_uint32(char **buffer, uint32_t value);
-inline void serialize_int(char **buffer, int value);
-inline void serialize_size_t(char **buffer, size_t value);
+void serialize_uint32(char **buffer, uint32_t value);
+void serialize_int(char **buffer, int value);
+void serialize_size_t(char **buffer, size_t value);
 
 e_mmgr_errors_t msg_prepare(msg_t *msg, char **msg_data, e_mmgr_events_t id,
                             size_t *size);

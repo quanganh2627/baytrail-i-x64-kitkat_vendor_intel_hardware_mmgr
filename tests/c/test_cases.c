@@ -118,13 +118,11 @@ e_mmgr_errors_t modem_recovery(test_data_t *test)
         num_extra_params = -1;
 
     if (num_extra_params > 0) {
-        int i;
-
         causes =
             malloc(num_extra_params * sizeof(mmgr_cli_recovery_cause_t));
         ASSERT(causes != NULL);
 
-        for (i = 0; i < num_extra_params; i++) {
+        for (int i = 0; i < num_extra_params; i++) {
             causes[i].cause = malloc(MAX_RECOVERY_CAUSE);
             ASSERT(causes[i].cause != NULL);
             snprintf(causes[i].cause, MAX_RECOVERY_CAUSE - 1,
@@ -152,9 +150,7 @@ e_mmgr_errors_t modem_recovery(test_data_t *test)
                                             E_MMGR_EVENT_MODEM_UP);
 
     if (causes != NULL) {
-        int i;
-
-        for (i = 0; i < num_extra_params; i++)
+        for (int i = 0; i < num_extra_params; i++)
             free(causes[i].cause);
         free(causes);
     }
@@ -193,7 +189,6 @@ e_mmgr_errors_t modem_restart(test_data_t *test)
 e_mmgr_errors_t full_recovery(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    int i;
     int reboot;
     mmgr_cli_requests_t request;
 
@@ -208,7 +203,7 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
          "*************************************************************\n\n");
 
     if (test->cfg.cold_reset > 0) {
-        for (i = 1; i <= test->cfg.cold_reset; i++) {
+        for (int i = 1; i <= test->cfg.cold_reset; i++) {
             printf("\nCheck #%d COLD reset\n", i);
             pthread_mutex_lock(&test->mutex);
             test->events &= ~E_EVENTS_SUCCEED;

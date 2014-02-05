@@ -109,10 +109,9 @@ static void monkey_client(monkey_ctx_t *ctx)
         while (E_ERR_CLI_SUCCEED != mmgr_cli_connect(lib)) ;
         LOG_DEBUG("(tid:%d) CONNECTED", tid);
         int fd = mmgr_cli_get_fd(lib);
-        int i = 0;
         int nb_requests = random() % NB_REQUEST_MAX;
 
-        for (i = 0; (i < nb_requests) && get_monkey_state(ctx); i++) {
+        for (int i = 0; (i < nb_requests) && get_monkey_state(ctx); i++) {
             msg_t msg = { .data = NULL };
             char *msg_data = NULL;
             size_t size = 0;
@@ -134,8 +133,6 @@ static void monkey_client(monkey_ctx_t *ctx)
 
 static void start_monkey(monkey_ctx_t *ctx)
 {
-    int i;
-
     ASSERT(ctx != NULL);
 
     LOG_DEBUG("nb threads: %d", ctx->nb_threads);
@@ -145,19 +142,17 @@ static void start_monkey(monkey_ctx_t *ctx)
     pthread_mutex_init(&ctx->mtx, NULL);
     set_monkey_state(ctx, true);
 
-    for (i = 0; i < ctx->nb_threads; i++)
+    for (int i = 0; i < ctx->nb_threads; i++)
         pthread_create(&ctx->ids[i], NULL, (void *)monkey_client, ctx);
 }
 
 static void stop_monkey(monkey_ctx_t *ctx)
 {
-    int i;
-
     ASSERT(ctx != NULL);
 
     set_monkey_state(ctx, false);
 
-    for (i = 0; i < ctx->nb_threads; i++)
+    for (int i = 0; i < ctx->nb_threads; i++)
         pthread_join(ctx->ids[i], NULL);
 
     free(ctx->ids);
@@ -427,7 +422,6 @@ static e_mmgr_errors_t set_and_notify(e_mmgr_events_t id,
 static int event_tft(mmgr_cli_event_t *ev)
 {
     int ret = 1;
-    size_t i;
     e_mmgr_errors_t err = E_ERR_FAILED;
     test_data_t *data = NULL;
     mmgr_cli_tft_event_t *cli_ev = NULL;
@@ -448,7 +442,7 @@ static int event_tft(mmgr_cli_event_t *ev)
         "tft event {type:%d name_len:%d name:\"%s\" log:0x%X, num_data:%d}",
         cli_ev->type,
         cli_ev->name_len, cli_ev->name, cli_ev->log, cli_ev->num_data);
-    for (i = 0; i < cli_ev->num_data; i++) {
+    for (size_t i = 0; i < cli_ev->num_data; i++) {
         LOG_DEBUG("data[%d] {len:%d value:\"%s\"}", i, cli_ev->data[i].len,
                   cli_ev->data[i].value);
     }
@@ -550,8 +544,7 @@ static int event_core_dump(mmgr_cli_event_t *ev)
         } else {
             char *filename = basename(cd->path);
             char *folders[] = { "/mnt/shell/emulated/0/logs/", "/sdcard/" };
-            size_t i;
-            for (i = 0; i < ARRAY_SIZE(folders); i++) {
+            for (size_t i = 0; i < ARRAY_SIZE(folders); i++) {
                 LOG_DEBUG("look at: %s", folders[i]);
                 char *files[1];
                 if (!file_find(folders[i], filename, files,

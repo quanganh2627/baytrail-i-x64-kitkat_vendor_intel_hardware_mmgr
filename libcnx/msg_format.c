@@ -30,7 +30,7 @@
  *
  * @return none
  */
-inline void deserialize_uint32(char **buffer, uint32_t *value)
+void deserialize_uint32(char **buffer, uint32_t *value)
 {
     memcpy(value, *buffer, sizeof(uint32_t));
     *value = ntohl(*value);
@@ -45,7 +45,7 @@ inline void deserialize_uint32(char **buffer, uint32_t *value)
  *
  * @return none
  */
-inline void deserialize_int(char **buffer, int *value)
+void deserialize_int(char **buffer, int *value)
 {
     uint32_t tmp = 0;
 
@@ -61,7 +61,7 @@ inline void deserialize_int(char **buffer, int *value)
  *
  * @return none
  */
-inline void deserialize_size_t(char **buffer, size_t *value)
+void deserialize_size_t(char **buffer, size_t *value)
 {
     uint32_t tmp = 0;
 
@@ -78,7 +78,7 @@ inline void deserialize_size_t(char **buffer, size_t *value)
  *
  * @return none
  */
-inline void serialize_uint32(char **buffer, uint32_t value)
+void serialize_uint32(char **buffer, uint32_t value)
 {
     value = htonl(value);
     memcpy(*buffer, &value, sizeof(uint32_t));
@@ -93,7 +93,7 @@ inline void serialize_uint32(char **buffer, uint32_t value)
  *
  * @return none
  */
-inline void serialize_int(char **buffer, int value)
+void serialize_int(char **buffer, int value)
 {
     uint32_t tmp;
 
@@ -109,7 +109,7 @@ inline void serialize_int(char **buffer, int value)
  *
  * @return none
  */
-inline void serialize_size_t(char **buffer, size_t value)
+void serialize_size_t(char **buffer, size_t value)
 {
     uint32_t tmp;
 

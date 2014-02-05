@@ -11,7 +11,7 @@ MY_SRC_FILES := $(call all-c-files-under, .)
 MY_INCLUDES := \
     $(LOCAL_PATH)/../inc \
 
-MY_C_FLAGS := -Wall -Werror -Wvla -DMODULE_NAME=\"MMGR_CNX\"
+MY_C_FLAGS := -Wall -Werror -Wvla -DMODULE_NAME=\"MMGR_CNX\" -std=c99
 MY_SHARED_LIBS := libcutils libc
 MY_LOCAL_IMPORT := libmmgr_utils
 

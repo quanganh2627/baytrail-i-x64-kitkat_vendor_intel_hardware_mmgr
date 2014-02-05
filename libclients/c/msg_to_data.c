@@ -130,7 +130,7 @@ e_mmgr_errors_t set_data_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
     mmgr_cli_ap_reset_t *ap = NULL;
     mmgr_cli_recovery_cause_t *causes = NULL;
     char *msg_data = NULL, *name;
-    size_t len_name, num_cause_entries = 0, i;
+    size_t len_name, num_cause_entries = 0;
 
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
@@ -168,7 +168,7 @@ e_mmgr_errors_t set_data_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
     ap->num_causes = num_cause_entries;
     ap->recovery_causes = causes;
 
-    for (i = 0; i < num_cause_entries; i++) {
+    for (size_t i = 0; i < num_cause_entries; i++) {
         deserialize_size_t(&msg_data, &ap->recovery_causes[i].len);
         ap->recovery_causes[i].cause =
             malloc((ap->recovery_causes[i].len + 1) * sizeof(char));
@@ -315,7 +315,6 @@ e_mmgr_errors_t set_data_tft_event(msg_t *msg, mmgr_cli_event_t *request)
     deserialize_size_t(&msg_data, &ev->num_data);
 
     if (ev->num_data > 0) {
-        size_t i = 0;
         /* calloc is used to be sure that values are NULL the buffer will be
          * freed by
          * the matching freed function */
@@ -326,7 +325,7 @@ e_mmgr_errors_t set_data_tft_event(msg_t *msg, mmgr_cli_event_t *request)
         }
         ev->data = data;
 
-        for (i = 0; i < ev->num_data; i++) {
+        for (size_t i = 0; i < ev->num_data; i++) {
             char *value;
             deserialize_size_t(&msg_data, &data[i].len);
 
@@ -492,9 +491,7 @@ e_mmgr_errors_t free_data_ap_reset(mmgr_cli_event_t *request)
     if (ap_rst != NULL) {
         free(ap_rst->name);
         if (ap_rst->recovery_causes) {
-            size_t i;
-
-            for (i = 0; i < ap_rst->num_causes; i++)
+            for (size_t i = 0; i < ap_rst->num_causes; i++)
                 free(ap_rst->recovery_causes[i].cause);
             free(ap_rst->recovery_causes);
         }
@@ -519,7 +516,6 @@ e_mmgr_errors_t free_data_tft_event(mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mmgr_cli_tft_event_t *ev = NULL;
-    size_t i = 0;
 
     ASSERT(request != NULL);
 
@@ -528,7 +524,7 @@ e_mmgr_errors_t free_data_tft_event(mmgr_cli_event_t *request)
         if (ev->name != NULL)
             free((char *)ev->name);
         if (ev->data != NULL) {
-            for (i = 0; i < ev->num_data; i++) {
+            for (size_t i = 0; i < ev->num_data; i++) {
                 if (ev->data[i].value != NULL)
                     free((char *)ev->data[i].value);
             }

@@ -365,7 +365,6 @@ bool is_connected(mmgr_lib_context_t *ctx)
 static e_err_mmgr_cli_t register_client(mmgr_lib_context_t *p_lib)
 {
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
-    int i;
     mmgr_cli_requests_t request[2];
     int timeout = DEF_MMGR_RESPONSIVE_TIMEOUT;
     struct timespec start, ts;
@@ -381,7 +380,7 @@ static e_err_mmgr_cli_t register_client(mmgr_lib_context_t *p_lib)
     request[1].data = &p_lib->events;
 
     clock_gettime(CLOCK_REALTIME, &start);
-    for (i = 0; i < 2; i++) {
+    for (int i = 0; i < 2; i++) {
         if ((ret = send_msg(p_lib, &request[i], E_SEND_SINGLE, timeout)) !=
             E_ERR_CLI_SUCCEED)
             break;

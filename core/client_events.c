@@ -119,11 +119,11 @@ static e_mmgr_errors_t request_set_name(mmgr_data_t *mmgr)
 static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    uint32_t filter;
 
     ASSERT(mmgr != NULL);
 
     if (mmgr->request.msg.hdr.len == sizeof(uint32_t)) {
+        uint32_t filter;
         memcpy(&filter, mmgr->request.msg.data, sizeof(uint32_t));
         filter = ntohl(filter);
         ret = client_set_filter(mmgr->request.client, filter);
@@ -757,11 +757,10 @@ static e_mmgr_errors_t request_fake_tft_event(mmgr_data_t *mmgr)
                                 MMGR_CLI_TFT_AP_LOG_MASK |
                                 MMGR_CLI_TFT_BP_LOG_MASK,
                                 MMGR_CLI_MAX_TFT_EVENT_DATA, data };
-    int i;
 
     ASSERT(mmgr != NULL);
 
-    for (i = 0; i < MMGR_CLI_MAX_TFT_EVENT_DATA; i++) {
+    for (int i = 0; i < MMGR_CLI_MAX_TFT_EVENT_DATA; i++) {
         char *value;
         value = calloc(MMGR_CLI_MAX_TFT_EVENT_DATA_LEN, sizeof(char));
         if (value == NULL) {
@@ -777,7 +776,7 @@ static e_mmgr_errors_t request_fake_tft_event(mmgr_data_t *mmgr)
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
-    for (i = 0; i < MMGR_CLI_MAX_TFT_EVENT_DATA; i++) {
+    for (int i = 0; i < MMGR_CLI_MAX_TFT_EVENT_DATA; i++) {
         if (data[i].value != NULL)
             free((char *)data[i].value);
     }
@@ -803,7 +802,6 @@ e_mmgr_errors_t client_nack(mmgr_data_t *mmgr)
 e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int i, j;
     bool fake_requests = false;
     char build_type[PROPERTY_VALUE_MAX];
 
@@ -826,12 +824,12 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
         fake_requests = true;
 
     /* set default behavior */
-    for (i = 0; i < E_MMGR_NUM; i++)
-        for (j = 0; j < E_MMGR_NUM_REQUESTS; j++)
+    for (int i = 0; i < E_MMGR_NUM; i++)
+        for (int j = 0; j < E_MMGR_NUM_REQUESTS; j++)
             mmgr->hdler_client[i][j] = client_nack;
 
     /* A client is ALWAYS able to establish a connection */
-    for (i = 0; i < E_MMGR_NUM; i++) {
+    for (int i = 0; i < E_MMGR_NUM; i++) {
         mmgr->hdler_client[i][E_MMGR_SET_NAME] = request_set_name;
         mmgr->hdler_client[i][E_MMGR_SET_EVENTS] = request_set_events;
         if (fake_requests) {

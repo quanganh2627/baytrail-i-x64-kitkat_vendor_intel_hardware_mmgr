@@ -175,9 +175,8 @@ e_mmgr_errors_t bus_ev_hdle_events(bus_ev_hdle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     bus_ev_t *bus_events = (bus_ev_t *)h;
-    int i;
 
-    for (i = 0; i < bus_events->cli_ctx.i; i++) {
+    for (int i = 0; i < bus_events->cli_ctx.i; i++) {
         LOG_DEBUG("Event: %s %d", bus_events->cli_ctx.evs[i].path,
                   bus_events->cli_ctx.evs[i].event);
         if (bus_events->cli_ctx.evs[i].event == EV_ADDED) {

@@ -49,8 +49,6 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
                                int timeout)
 {
     e_mmgr_errors_t ret;
-    int data_size = AT_SIZE;
-    char data[AT_SIZE + 1];
 
     ASSERT(command != NULL);
 
@@ -68,6 +66,9 @@ static e_mmgr_errors_t send_at(int fd, const char *command, int command_size,
 
     LOG_DEBUG("Wait answer...");
     for (;; ) {
+        int data_size = AT_SIZE;
+        char data[AT_SIZE + 1];
+
         /* Give time to receive response or POLLHUP. */
         ret = tty_wait_for_event(fd, timeout);
         if (ret != E_ERR_SUCCESS)
