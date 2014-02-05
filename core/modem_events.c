@@ -686,11 +686,26 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
 
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
     static const char *const ev_type = "TFT_ERROR_IPC";
-    mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+    mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg },
+                                         { 0, NULL } };
     mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
                                 strlen(ev_type), ev_type,
                                 MMGR_CLI_TFT_AP_LOG_MASK,
-                                1, data };
+                                2, data };
+
+    switch (mmgr->info.wakeup_cfg) {
+    case E_MDM_WAKEUP_OUTBAND:
+        data[1].value = "Streamline OUTBAND";
+        break;
+    case E_MDM_WAKEUP_INBAND:
+        data[1].value = "Streamline INBAND";
+        break;
+    default:
+        data[1].value = "Streamline UNKNOWN";
+        break;
+    }
+    data[1].len = strlen(data[1].value);
+
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);

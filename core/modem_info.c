@@ -40,6 +40,13 @@
 #define AT_XLOG_TIMEOUT 2500
 #define AT_ANSWER_SIZE 254
 
+#define AT_STREAMLINE_GET \
+    "at@usbmwtestfw:usb_profile_get_nvm_configuration(USBPOW_ID_HSIC)\r"
+#define AT_STREAMLINE_TIMEOUT 1000
+#define AT_STREAMLINE_REPLY_SIZE 2048
+#define AT_STREAMLINE_LOG_SPLIT 512
+#define AT_STREAMLINE_LINE_SEPARATOR "\r\n"
+
 /* switch to MUX timings */
 #define STAT_DELAY 250          /* in milliseconds */
 #define MAX_TIME_DELAY 4        /* in seconds */
@@ -47,6 +54,7 @@
 typedef enum e_switch_to_mux_states {
     E_MUX_HANDSHAKE,
     E_MUX_XLOG,
+    E_MUX_GET_STREAMLINE,
     E_MUX_AT_CMD,
     E_MUX_DRIVER,
 } e_switch_to_mux_states_t;
@@ -134,6 +142,8 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
         ret = E_ERR_FAILED;
         goto out;
     }
+
+    info->wakeup_cfg = E_MDM_WAKEUP_UNKNOWN;
 
     /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
     info->need_warmreset = (strstr(mdm_info->name, "7260") != NULL &&
@@ -230,6 +240,128 @@ out_xlog:
 }
 
 /**
+ * Retrieve streamline configuration
+ *
+ * @param [in] fd_tty tty file descriptor
+ *
+ * @return E_ERR_TTY_BAD_FD
+ * @return E_ERR_TTY_POLLHUP if a pollhup occurs
+ * @return E_ERR_FAILED error during write
+ * @return E_ERR_TTY_TIMEOUT no response from modem
+ * @return E_ERR_SUCCESS if successful
+ */
+static e_mmgr_errors_t retrieve_streamline_cfg(int fd_tty, modem_info_t *info)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    struct timespec current, start;
+    char data[AT_STREAMLINE_REPLY_SIZE + 1];
+    int in_buffer = 0;
+
+    tcflush(fd_tty, TCIOFLUSH);
+
+    LOG_DEBUG("Sending %s", AT_STREAMLINE_GET);
+
+    ret = tty_write(fd_tty, AT_STREAMLINE_GET, strlen(AT_STREAMLINE_GET));
+    if (ret != E_ERR_SUCCESS)
+        goto out_streamline;
+
+    clock_gettime(CLOCK_BOOTTIME, &start);
+    while (1) {
+        int timeout;
+        int read_size;
+
+        clock_gettime(CLOCK_BOOTTIME, &current);
+        timeout = AT_STREAMLINE_TIMEOUT -
+                  ((current.tv_sec - start.tv_sec) * 1000 +
+                   ((current.tv_nsec - start.tv_nsec) / 1000000));
+        if (timeout < 0) {
+            ret = E_ERR_TTY_TIMEOUT;
+            break;
+        }
+
+        ret = tty_wait_for_event(fd_tty, timeout);
+        if (ret != E_ERR_SUCCESS)
+            goto out_streamline;
+
+        do {
+            read_size = AT_STREAMLINE_REPLY_SIZE - in_buffer;
+
+            if (read_size <= 0) {
+                LOG_ERROR("streamline reply bigger than allocated buffer "
+                          "(%d bytes).\n", AT_STREAMLINE_REPLY_SIZE);
+                goto out_streamline;
+            }
+
+            ret = tty_read(fd_tty, &data[in_buffer], &read_size,
+                           AT_READ_MAX_RETRIES);
+            if (ret != E_ERR_SUCCESS)
+                goto out_streamline;
+
+            if (read_size > 0) {
+                char *cr = data;
+
+                read_size += in_buffer;
+                in_buffer = 0;
+                data[read_size] = '\0';
+
+                while (1) {
+                    char *end_cr = strstr(cr, AT_STREAMLINE_LINE_SEPARATOR);
+                    if (end_cr != NULL) {
+                        *end_cr = '\0';
+                        if (*cr != '\0') {
+                            int len = strlen(cr);
+                            int base = 0;
+                            while (len > 0) {
+                                const char *ellipsis = "";
+                                char save = '\0';
+                                if (len > AT_STREAMLINE_LOG_SPLIT) {
+                                    ellipsis = "...";
+                                    save = cr[base + AT_STREAMLINE_LOG_SPLIT];
+                                    cr[base + AT_STREAMLINE_LOG_SPLIT] = '\0';
+                                }
+                                LOG_INFO("received from modem: '%s'%s",
+                                         &cr[base], ellipsis);
+                                if (save != '\0')
+                                    cr[base + AT_STREAMLINE_LOG_SPLIT] = save;
+                                base += AT_STREAMLINE_LOG_SPLIT;
+                                len -= AT_STREAMLINE_LOG_SPLIT;
+                            }
+                            if ((!strcmp(cr, "OK")) || (!strcmp(cr, "ERROR"))) {
+                                goto out_streamline;
+                            } else if (strstr(cr,
+                                              "current_configuration") !=
+                                       NULL) {
+                                if (strstr(cr, "NO_REMOTE_WAKEUP") != NULL) {
+                                    LOG_INFO("OUTBAND configuration detected");
+                                    info->wakeup_cfg = E_MDM_WAKEUP_OUTBAND;
+                                } else {
+                                    LOG_INFO("INBAND configuration detected");
+                                    info->wakeup_cfg = E_MDM_WAKEUP_INBAND;
+                                }
+                            }
+                        }
+                        cr = end_cr + strlen(AT_STREAMLINE_LINE_SEPARATOR);
+                    } else {
+                        if (*cr != '\0') {
+                            in_buffer = strlen(cr);
+                            memmove(data, cr, strlen(cr));
+                        }
+                        break;
+                    }
+                }
+            }
+        } while (read_size > 0);
+    }
+
+out_streamline:
+    tcflush(fd_tty, TCIOFLUSH);
+
+    // Do not consider failure to get streamline configuration an error
+    return E_ERR_SUCCESS;
+}
+
+
+/**
  * Activate the MUX
  *
  * To activate the MUX this function will do the following step
@@ -265,6 +397,13 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
             break;
         case E_MUX_XLOG:
             ret = run_at_xlog(*fd_tty, info->mux.retry);
+            break;
+        case E_MUX_GET_STREAMLINE:
+            // Only do the streamline step for HSIC-based modems
+            if (info->mdm_link == E_LINK_USB)
+                ret = retrieve_streamline_cfg(*fd_tty, info);
+            else
+                ret = E_ERR_SUCCESS;
             break;
         case E_MUX_AT_CMD:
             ret = send_at_cmux(*fd_tty, &info->mux);

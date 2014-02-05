@@ -48,6 +48,12 @@ typedef enum e_mdm_link_state {
         E_MDM_LINK_CORE_DUMP_READ_READY = 0x1 << 5,
 } e_mdm_link_state_t;
 
+typedef enum e_mdm_wakeup_cfg {
+    E_MDM_WAKEUP_UNKNOWN,
+    E_MDM_WAKEUP_INBAND,
+    E_MDM_WAKEUP_OUTBAND,
+} e_mdm_wakeup_cfg_t;
+
 typedef struct mup_op {
     void *hdle;
     e_mup_err_t (*initialize)(mup_interface_t **handle,
@@ -84,6 +90,7 @@ typedef struct modem_info {
     ctrl_handle_t *ctrl;
     bool ipc_ready_present;
     mdm_upgrade_hdle_t *mdm_upgrade;
+    e_mdm_wakeup_cfg_t wakeup_cfg;
     /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
     bool need_warmreset;
 } modem_info_t;
