@@ -182,8 +182,9 @@ static void mmgr_init(mmgr_data_t *mmgr)
 
     ASSERT(E_ERR_SUCCESS == events_init(mmgr_cfg->cli.max, mmgr));
 
-    ASSERT((mmgr->mdm_flash = mdm_flash_init(&mmgr->info, mmgr->secure,
-                                             mmgr->events.bus_events)));
+    if (mmgr->info.is_flashless)
+        ASSERT((mmgr->mdm_flash = mdm_flash_init(&mmgr->info, mmgr->secure,
+                                                 mmgr->events.bus_events)));
 
     tcs_dispose(h);
 }

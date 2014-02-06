@@ -162,10 +162,12 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = tty_listen_fd(mmgr->epollfd, mdm_flash_get_fd(mmgr->mdm_flash),
-                        EPOLLIN);
-    if (ret != E_ERR_SUCCESS)
-        goto out;
+    if (mmgr->info.is_flashless) {
+        ret = tty_listen_fd(mmgr->epollfd, mdm_flash_get_fd(mmgr->mdm_flash),
+                            EPOLLIN);
+        if (ret != E_ERR_SUCCESS)
+            goto out;
+    }
 
     if (mcdr_is_enabled(mmgr->mcdr)) {
         ret = tty_listen_fd(mmgr->epollfd, mcdr_get_fd(mmgr->mcdr), EPOLLIN);
