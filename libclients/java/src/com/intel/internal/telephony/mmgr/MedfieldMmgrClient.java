@@ -567,8 +567,8 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     }
 
     @Override
-    public void recoverModem() throws MmgrClientException {
-        MmgrModemRecoveryRequest request = new MmgrModemRecoveryRequest();
+    public void recoverModem(String[] causes) throws MmgrClientException {
+        MmgrModemRecoveryRequest request = new MmgrModemRecoveryRequest(causes);
 
         this.sendRequest(request);
 

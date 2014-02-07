@@ -47,7 +47,7 @@ public interface ModemStatusMonitor extends Callback {
 
     public void restartModem() throws MmgrClientException;
 
-    public void recoverModem() throws MmgrClientException;
+    public void recoverModem(String[] causes) throws MmgrClientException;
 
     public boolean waitForStatus(ModemStatus status, long timeout) throws MmgrClientException;
 

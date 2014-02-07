@@ -214,7 +214,7 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
     }
 
     @Override
-    public void recoverModem() throws MmgrClientException {
+    public void recoverModem(String[] causes) throws MmgrClientException {
         throw new UnsupportedOperationException("Not supported yet");
     }
 

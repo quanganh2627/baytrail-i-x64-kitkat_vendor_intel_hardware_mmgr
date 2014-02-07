@@ -122,8 +122,21 @@ public class ModemStatusManager implements Callback {
      *             occurred between the client and the service.
      */
     public void recoverModem() throws MmgrClientException {
+        recoverModem(null);
+    }
+
+    /**
+     * Requests a modem recover to the Modem Status Monitor service.
+     *
+     * @param causes array of string that will be reported to crashlogd
+     *
+     * @throws MmgrClientException
+     *             if the service returned an error or if a communication error
+     *             occurred between the client and the service.
+     */
+    public void recoverModem(String[] causes) throws MmgrClientException {
         if (this.modemStatusMonitor != null) {
-            this.modemStatusMonitor.recoverModem();
+            this.modemStatusMonitor.recoverModem(causes);
         }
     }
 
@@ -133,8 +146,19 @@ public class ModemStatusManager implements Callback {
      * @param listener The listener to get notified upon operation result.
      */
     public void recoverModemAsync(final AsyncOperationResultListener listener) {
+        recoverModemAsync(listener, null);
+    }
+
+    /**
+     * Requests a modem recover asynchronously (call is not blocking).
+     *
+     * @param listener The listener to get notified upon operation result.
+     * @param causes array of string that will be reported to crashlogd
+     */
+    public void recoverModemAsync(final AsyncOperationResultListener listener,
+                                  String[] causes) {
         new AsyncOperationTask(AsyncOperationTask.OPERATION_RECOVER_MODEM,
-                               listener).execute();
+                               listener, causes).execute();
     }
 
     /**
@@ -397,6 +421,7 @@ public class ModemStatusManager implements Callback {
     private class AsyncOperationTask extends AsyncTask<Object, Void, Exception> {
         private AsyncOperationResultListener listener = null;
         private int requiredOperation = 0;
+        private String[] causes = null;
 
         public static final int OPERATION_ACQUIRE_MODEM = 1;
         public static final int OPERATION_RELEASE_MODEM = 2;
@@ -410,6 +435,14 @@ public class ModemStatusManager implements Callback {
                                   AsyncOperationResultListener listener) {
             this.listener = listener;
             this.requiredOperation = requiredOperation;
+        }
+
+        public AsyncOperationTask(int requiredOperation,
+                                  AsyncOperationResultListener listener,
+                                  String[] causes) {
+            this.listener = listener;
+            this.requiredOperation = requiredOperation;
+            this.causes = causes;
         }
 
         @Override
@@ -428,7 +461,7 @@ public class ModemStatusManager implements Callback {
                     ModemStatusManager.this.restartModem();
                     break;
                 case AsyncOperationTask.OPERATION_RECOVER_MODEM:
-                    ModemStatusManager.this.recoverModem();
+                    ModemStatusManager.this.recoverModem(causes);
                     break;
                 case AsyncOperationTask.OPERATION_CONNECT:
                     if (params != null && params.length > 0) {

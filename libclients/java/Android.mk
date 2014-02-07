@@ -1,5 +1,5 @@
 #############################################
-# MODEM MANGER java client library
+# MODEM MANAGER java client library
 #############################################
 LOCAL_PATH := $(call my-dir)
 
