@@ -204,6 +204,10 @@ ModemEventListener, OnClickListener {
 
     private void doRecoverModem() {
         if (this.modemManager != null) {
+            String[] causes = new String[2];
+            causes[0] = "Requested by mmgr-test Java application";
+            causes[1] = "doRecoverModem";
+
             this.modemManager.recoverModemAsync(new AsyncOperationResultListener() {
                                                     @Override
                                                     public void onOperationError(Exception ex) {
@@ -217,7 +221,7 @@ ModemEventListener, OnClickListener {
                                                                        "Recover request sent",
                                                                        Toast.LENGTH_SHORT).show();
                                                     }
-                                                });
+                                                }, causes);
         }
     }
 

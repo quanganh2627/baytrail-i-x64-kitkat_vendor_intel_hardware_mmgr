@@ -20,9 +20,14 @@ package com.intel.internal.telephony.mmgr.requests;
 
 import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 
+import java.nio.ByteBuffer;
+
 public class MmgrModemRecoveryRequest extends MmgrBaseRequest {
-    public MmgrModemRecoveryRequest() {
+    private String[] causes;
+
+    public MmgrModemRecoveryRequest(String[] causes) {
         super(MedfieldMmgrClient.REQUEST_MODEM_RECOVERY);
+        this.causes = causes;
     }
 
     @Override
@@ -32,6 +37,21 @@ public class MmgrModemRecoveryRequest extends MmgrBaseRequest {
 
     @Override
     protected byte[] getPayload() {
-        return new byte[0];
+        if (causes == null) {
+            return new byte[0];
+        } else {
+            int size = 4;
+            for (int i = 0; i < causes.length; i++) {
+                size += 4;
+                size += causes[i].length();
+            }
+            ByteBuffer ret = ByteBuffer.allocate(size);
+            ret.putInt(causes.length);
+            for (int i = 0; i < causes.length; i++) {
+                ret.putInt(causes[i].length());
+                ret.put(causes[i].getBytes());
+            }
+            return ret.array();
+        }
     }
 }
