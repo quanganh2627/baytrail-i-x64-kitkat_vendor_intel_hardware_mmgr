@@ -45,6 +45,7 @@ import com.intel.internal.telephony.mmgr.responses.MmgrBaseResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.Object;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
@@ -95,6 +96,9 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     private ModemStatus currentStatus = ModemStatus.NONE;
     private ModemStatus waitedStatus = ModemStatus.NONE;
 
+    Object syncObject = new Object();
+    volatile boolean bReady = false;
+
     public MedfieldMmgrClient(Handler handler) {
         this(handler, 4000);
     }
@@ -129,14 +133,28 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             Log.e(Constants.LOG_TAG, ex.toString());
 
             this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-            .sendToTarget();
+                    .sendToTarget();
             this.cleanUp();
             throw ex;
         }
 
+        this.bReady = false;
         this.thread = new Thread(this);
         this.thread.setName("MMGR Client for " + clientName);
         this.thread.start();
+
+        try {
+            synchronized(this.syncObject) {
+                if (!this.bReady) {
+                    this.bReady = true;
+                    /* Waiting for run function is ready to read from input stream */
+                    this.syncObject.wait();
+                }
+            }
+        } catch (InterruptedException ex) {
+            this.stop();
+            throw new MmgrClientException("MMGR name subscribtion failed.");
+        }
 
         this.sendRequest(new MmgrRegisterNameRequest(clientName));
 
@@ -280,32 +298,51 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
         try {
             inputStream = this.clientSocket.getInputStream();
-            Log.d(Constants.LOG_TAG, "Socket output stream open.");
+            if (inputStream != null) {
+                Log.d(Constants.LOG_TAG, "Socket output stream open.");
+            } else {
+                Log.e(Constants.LOG_TAG, "Socket output stream null.");
+                this.cleanUp();
+                return;
+            }
         } catch (IOException ex) {
             Log.e(Constants.LOG_TAG, ex.toString());
 
             this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-            .sendToTarget();
+                    .sendToTarget();
             this.cleanUp();
             return;
         }
 
+        synchronized(this.syncObject) {
+            if (this.bReady) {
+                this.syncObject.notifyAll();
+            } else {
+                this.bReady = true;
+            }
+        }
+
         while (!this.stopRequested) {
             try {
-                readCount = inputStream.read(recvBuffer, 0, recvBuffer.length);
-                Log.d(Constants.LOG_TAG, String.format(
-                          "Received %d bytes from service.", readCount));
+                if (inputStream != null) {
+                    readCount = inputStream.read(recvBuffer, 0, recvBuffer.length);
+                    Log.d(Constants.LOG_TAG, String.format(
+                            "Received %d bytes from service.", readCount));
 
-                if (readCount > 0) {
-                    this.handleResponse(recvBuffer, 0, readCount);
+                    if (readCount > 0) {
+                        this.handleResponse(recvBuffer, 0, readCount);
+                    } else {
+                        return;
+                    }
                 } else {
-                    return;
+                    Log.d(Constants.LOG_TAG, String.format(
+                            "inputStream is null."));
                 }
             } catch (IOException ex) {
                 Log.e(Constants.LOG_TAG, ex.toString());
 
                 this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-                .sendToTarget();
+                        .sendToTarget();
                 this.cleanUp();
                 return;
             }
