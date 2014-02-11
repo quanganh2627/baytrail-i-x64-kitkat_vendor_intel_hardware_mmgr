@@ -187,7 +187,7 @@ e_mmgr_errors_t pm_on_mdm_oos(pm_handle_t *h)
         /* Nothing to do */
         break;
     case E_LINK_USB:
-        ret = pm_set_state(&ctx->mdm.power, true);
+        /* Nothing to do */
         break;
     case E_LINK_UART:
         /* Nothing to do */
@@ -253,7 +253,7 @@ e_mmgr_errors_t pm_on_mdm_cd_complete(pm_handle_t *h)
         /* Nothing to do */
         break;
     case E_LINK_USB:
-        ret = pm_set_state(&ctx->cd.power, true);
+        /* Nothing to do */
         break;
     case E_LINK_UART:
         ret = pm_set_state(&ctx->cd.power, true);
