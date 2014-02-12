@@ -380,7 +380,7 @@ static e_mmgr_errors_t request_modem_restart(mmgr_data_t *mmgr)
      * optional value is deliberately obfuscated */
     name = client_get_name(mmgr->request.client);
     if ((optional == CARE_CENTER) && name &&
-        !(strncmp(name, "NVM_MANAGER", CLIENT_NAME_LEN))) {
+        !(strncmp(name, "MMB_NVM", CLIENT_NAME_LEN))) {
         LOG_ERROR("NVM server has declared the modem unrecoverable");
         /* Set MMGR state to MDM_RESET to call the recovery module and force
          * OOS state. By doing so, MMGR will turn off the modem and declare the
