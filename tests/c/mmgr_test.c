@@ -102,20 +102,14 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
     h = tcs_init();
     if (h) {
         tcs_cfg_t *tcs_cfg = tcs_get_config(h);
+        mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h);
         ASSERT(tcs_cfg != NULL);
-        ASSERT(tcs_cfg->mdms.nb >= 1);
-        ASSERT(tcs_cfg->mdms.mdm_info != NULL);
-        ASSERT(tcs_cfg->channels.nb >= 1);
-        ASSERT(tcs_cfg->channels.ch != NULL);
-
-        mmgr_info_t *mmgr_cfg =
-            tcs_get_mmgr_config(h, &tcs_cfg->mdms.mdm_info[0]);
         ASSERT(mmgr_cfg != NULL);
 
         cfg->cold_reset = mmgr_cfg->recov.cold_reset;
         cfg->reboot = mmgr_cfg->recov.reboot;
         cfg->reset_escalation_delay = mmgr_cfg->recov.reset_delay;
-        strncpy(cfg->shtdwn_dlc, tcs_cfg->channels.ch[0].mmgr.shutdown.device,
+        strncpy(cfg->shtdwn_dlc, tcs_cfg->channels.shutdown.device,
                 sizeof(cfg->shtdwn_dlc) - 1);
         cfg->shtdwn_dlc[sizeof(cfg->shtdwn_dlc) - 1] = '\0';
 
@@ -133,7 +127,7 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
                               mmgr_cfg->recov.cold_timeout +
                               mmgr_cfg->timings.ipc_ready;
 
-        if (tcs_cfg->mdms.mdm_info[0].flashless)
+        if (tcs_cfg->mdm_info.flashless)
             cfg->timeout_mdm_up += mmgr_cfg->timings.mdm_flash;
 
         ret = E_ERR_SUCCESS;
