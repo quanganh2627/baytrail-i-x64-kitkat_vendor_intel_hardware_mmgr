@@ -206,14 +206,14 @@ e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *comport,
     }
 
     mup_fw_update_params_t params = {
-        .handle           = handle,
-        .mdm_com_port     = comport,
-        .channel_hw_sw    = ch_sw,
-        .fw_file_path     = info->fl_conf.run.mdm_inj_fw,
+        .handle = handle,
+        .mdm_com_port = comport,
+        .channel_hw_sw = ch_sw,
+        .fw_file_path = info->fl_conf.run.mdm_inj_fw,
         .fw_file_path_len = strnlen(info->fl_conf.run.mdm_inj_fw,
                                     sizeof(info->fl_conf.run.mdm_inj_fw)),
         /* for flashless modem, this should be false */
-        .erase_all        = false
+        .erase_all = false
     };
 
     if (E_MUP_SUCCEED != info->mup.open_device(&params)) {
@@ -302,10 +302,10 @@ e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
         LOG_ERROR("modem updater initialization failed");
     } else {
         mup_nvm_update_params_t params = {
-            .handle            = handle,
-            .mdm_com_port      = comport,
-            .nvm_file_path     = tlv_file,
-            .nvm_file_path_len = strnlen(tlv_file,sizeof(tlv_file)),
+            .handle = handle,
+            .mdm_com_port = comport,
+            .nvm_file_path = tlv_file,
+            .nvm_file_path_len = strnlen(tlv_file, sizeof(tlv_file)),
         };
 
         if ((mup_ret = info->mup.update_nvm(&params)) != E_MUP_SUCCEED) {

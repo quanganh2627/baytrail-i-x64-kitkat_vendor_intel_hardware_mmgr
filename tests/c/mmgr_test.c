@@ -315,7 +315,8 @@ int main(int argc, char *argv[])
     /* *INDENT-OFF* */
     test_case_t tests[] = {
         { "Modem self-reset", modem_self_reset, "self-reset" },
-        { "Modem recovery request", modem_recovery, "recovery" },
+        { "Modem recovery request (-o: specify number of extra parameters)",
+            modem_recovery, "recovery" },
         { "Modem restart request (by-pass reset escalation)", modem_restart,
           "restart" },
         { "Modem reset with core dump", reset_with_cd, "cd" },
@@ -338,6 +339,7 @@ int main(int argc, char *argv[])
         { "FAKE REQUEST: platform reboot", fake_reboot, "fake_reboot" },
         { "FAKE REQUEST: modem out of service", fake_modem_hs, "fake_oos" },
         { "FAKE REQUEST: error", fake_error, "fake_error" },
+        { "FAKE REQUEST: tft event", fake_tft_event, "fake_tft_event" },
         { "ENDLESS TEST: start the modem and keep it alive", start_modem,
           "start_modem" }
     };

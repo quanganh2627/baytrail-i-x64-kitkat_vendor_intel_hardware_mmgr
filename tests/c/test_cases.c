@@ -737,6 +737,12 @@ e_mmgr_errors_t fake_error(test_data_t *test)
                            E_MMGR_NOTIFY_ERROR, true);
 }
 
+e_mmgr_errors_t fake_tft_event(test_data_t *test)
+{
+    return request_fake_ev(test, E_MMGR_REQUEST_FAKE_TFT_EVENT,
+                           E_MMGR_NOTIFY_TFT_EVENT, true);
+}
+
 e_mmgr_errors_t fake_ap_reset(test_data_t *test)
 {
     return request_fake_ev(test, E_MMGR_REQUEST_FAKE_AP_RESET,

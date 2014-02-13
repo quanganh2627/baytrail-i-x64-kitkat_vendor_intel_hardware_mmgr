@@ -94,7 +94,7 @@ static void monkey_client(monkey_ctx_t *ctx)
                                 E_MMGR_RESOURCE_RELEASE,
                                 E_MMGR_ACK_MODEM_COLD_RESET,
                                 E_MMGR_ACK_MODEM_SHUTDOWN,
-                                E_MMGR_REQUEST_MODEM_RESTART,};
+                                E_MMGR_REQUEST_MODEM_RESTART, };
 
     ASSERT(ctx != NULL);
 
@@ -467,6 +467,50 @@ out:
     return ret;
 }
 
+static int event_tft(mmgr_cli_event_t *ev)
+{
+    int ret = 1;
+    size_t i;
+    e_mmgr_errors_t err = E_ERR_FAILED;
+    test_data_t *data = NULL;
+    mmgr_cli_tft_event_t *cli_ev = NULL;
+    static const char *const ev_name = "TFT_EVENT_TEST";
+
+    ASSERT(ev != NULL);
+
+    data = (test_data_t *)ev->context;
+    if (data == NULL)
+        goto out;
+
+    cli_ev = (mmgr_cli_tft_event_t *)ev->data;
+    if (cli_ev == NULL) {
+        LOG_ERROR("empty data");
+        goto out;
+    }
+    LOG_DEBUG(
+        "tft event {type:%d name_len:%d name:\"%s\" log:0x%X, num_data:%d}",
+        cli_ev->type,
+        cli_ev->name_len, cli_ev->name, cli_ev->log, cli_ev->num_data);
+    for (i = 0; i < cli_ev->num_data; i++) {
+        LOG_DEBUG("data[%d] {len:%d value:\"%s\"}", i, cli_ev->data[i].len,
+                  cli_ev->data[i].value);
+    }
+    if ((cli_ev->name_len == strlen(ev_name))
+        && (strncmp(ev_name, cli_ev->name, cli_ev->name_len) == 0)
+        && (cli_ev->num_data == MMGR_CLI_MAX_TFT_EVENT_DATA))
+        events_set(data, E_EVENTS_SUCCEED);
+
+    err = set_and_notify(ev->id, (test_data_t *)ev->context);
+    if (err == E_ERR_SUCCESS)
+        ret = 0;
+
+out:
+    if (ret == 1)
+        events_set(data, E_EVENTS_ERROR_OCCURED);
+    return ret;
+}
+
+
 /**
  * callback for ap reset
  *
@@ -788,6 +832,10 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
 
     if (mmgr_cli_subscribe_event(test_data->lib, event_error,
                                  E_MMGR_NOTIFY_ERROR) != E_ERR_CLI_SUCCEED)
+        goto out;
+
+    if (mmgr_cli_subscribe_event(test_data->lib, event_tft,
+                                 E_MMGR_NOTIFY_TFT_EVENT) != E_ERR_CLI_SUCCEED)
         goto out;
 
     if (mmgr_cli_subscribe_event(test_data->lib, event_fw_status,

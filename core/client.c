@@ -243,6 +243,7 @@ clients_hdle_t *clients_init(int list_size)
     clients->set_data[E_MMGR_NOTIFY_AP_RESET] = set_msg_ap_reset;
     clients->set_data[E_MMGR_NOTIFY_CORE_DUMP_COMPLETE] = set_msg_core_dump;
     clients->set_data[E_MMGR_NOTIFY_ERROR] = set_msg_error;
+    clients->set_data[E_MMGR_NOTIFY_TFT_EVENT] = set_msg_tft_event;
     clients->set_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] =
         set_msg_modem_fw_result;
 
