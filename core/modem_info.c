@@ -66,7 +66,7 @@ typedef enum e_switch_to_mux_states {
  */
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
                                 tlv_info_t *tlv,
-                                mmgr_mdm_link_t *mdm_link, channels_mmgr_t *ch,
+                                mmgr_mdm_link_t *mdm_link, channels_t *ch,
                                 mmgr_flashless_t *flash, mmgr_mcd_t *mcd,
                                 modem_info_t *info)
 {
@@ -136,7 +136,7 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
 
     /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
     info->need_warmreset = (strstr(mdm_info->name, "7260") != NULL &&
-                            strcmp(mdm_info->hw_revision, "20") == 0);
+            strcmp(mdm_info->hw_revision, "20") == 0);
 
     ret = mdm_specific_init(info);
 out:
