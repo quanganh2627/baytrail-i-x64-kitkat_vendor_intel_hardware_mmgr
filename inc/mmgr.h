@@ -56,6 +56,7 @@
     X(REQUEST_FAKE_CORE_DUMP_COMPLETE), \
     X(REQUEST_FAKE_PLATFORM_REBOOT), \
     X(REQUEST_FAKE_ERROR), \
+    X(REQUEST_FAKE_TFT_EVENT), \
     X(NUM_REQUESTS)
 
 #define MMGR_EVENTS \
@@ -76,6 +77,7 @@
     X(NOTIFY_AP_RESET), \
     X(NOTIFY_SELF_RESET), \
     X(NOTIFY_ERROR), \
+    X(NOTIFY_TFT_EVENT), \
     /* flashing notifications */ \
     X(RESPONSE_MODEM_HW_ID), \
     X(RESPONSE_MODEM_FW_RESULT), \
@@ -165,6 +167,36 @@ typedef struct mmgr_cli_error {
     size_t len;
     const char *reason;
 } mmgr_cli_error_t;
+
+#define MMGR_CLI_MAX_TFT_EVENT_DATA 6
+#define MMGR_CLI_MAX_TFT_EVENT_DATA_LEN 512
+
+#define MMGR_CLI_TFT_AP_LOG_MASK 0x01
+#define MMGR_CLI_TFT_BP_LOG_MASK 0x02
+
+typedef enum e_event_type {
+    E_EVENT_ERROR,
+    E_EVENT_STATS,
+    E_EVENT_INFO
+} e_event_type_t;
+
+typedef struct mmgr_cli_tft_event_data {
+    size_t len;
+    /* Maximum string length is MMGR_CLI_MAX_TFT_EVENT_DATA_LEN */
+    const char *value;
+} mmgr_cli_tft_event_data_t;
+
+typedef struct mmgr_cli_tft_event {
+    e_event_type_t type;
+    size_t name_len;
+    const char *name;
+    /* log is a bitmap of MMGR_CLI_TFT_[AP|BP]_LOG_MASK */
+    int log;
+    size_t num_data;
+    /* Size of 'data' array is given in 'num_data'.
+     * Maximum value is MMGR_CLI_MAX_TFT_EVENT_DATA */
+    mmgr_cli_tft_event_data_t *data;
+} mmgr_cli_tft_event_t;
 
 typedef struct mmgr_cli_restart {
     /* This parameter can be used by clients to provide additional information

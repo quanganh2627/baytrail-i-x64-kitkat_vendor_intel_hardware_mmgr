@@ -220,3 +220,55 @@ e_mmgr_errors_t set_msg_error(msg_t *msg, mmgr_cli_event_t *request)
 
     return ret;
 }
+
+/**
+ * handle E_MMGR_NOTIFY_TFT_EVENT message allocation
+ *
+ * @param [in,out] msg data to send
+ * @param [in] request data to send
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t set_msg_tft_event(msg_t *msg, mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    size_t size;
+    mmgr_cli_tft_event_t *ev = NULL;
+    char *msg_data = NULL;
+    size_t i;
+
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
+
+    ev = request->data;
+
+    /* this structure is composed of 5 elements: 4 integers and a string
+     * an array of a structure composed of one integer and a string can be added
+     */
+    size = 4 * sizeof(uint32_t) + sizeof(char) * ev->name_len;
+    for (i = 0; i < ev->num_data; i++) {
+        size += sizeof(uint32_t) + sizeof(char) * ev->data[i].len;
+    }
+
+    ret = msg_prepare(msg, &msg_data, E_MMGR_NOTIFY_TFT_EVENT, &size);
+    if (ret == E_ERR_SUCCESS) {
+        serialize_int(&msg_data, ev->type);
+        serialize_size_t(&msg_data, ev->name_len);
+        memcpy(msg_data, ev->name, sizeof(char) * ev->name_len);
+        msg_data += ev->name_len;
+        serialize_int(&msg_data, ev->log);
+        serialize_size_t(&msg_data, ev->num_data);
+
+        ASSERT(ev->num_data <= MMGR_CLI_MAX_TFT_EVENT_DATA);
+
+        for (i = 0; i < ev->num_data; i++) {
+            ASSERT(ev->data[i].len < MMGR_CLI_MAX_RECOVERY_CAUSE_LEN);
+            serialize_size_t(&msg_data, ev->data[i].len);
+            memcpy(msg_data, ev->data[i].value, sizeof(char) * ev->data[i].len);
+            msg_data += ev->data[i].len;
+        }
+    }
+
+    return ret;
+}

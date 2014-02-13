@@ -762,6 +762,43 @@ static e_mmgr_errors_t request_fake_error(mmgr_data_t *mmgr)
     return ret;
 }
 
+static e_mmgr_errors_t request_fake_tft_event(mmgr_data_t *mmgr)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    static const char *const ev_name = "TFT_EVENT_TEST";
+    mmgr_cli_tft_event_data_t data[MMGR_CLI_MAX_TFT_EVENT_DATA];
+    mmgr_cli_tft_event_t ev = { E_EVENT_STATS, strlen(ev_name), ev_name,
+                                MMGR_CLI_TFT_AP_LOG_MASK |
+                                MMGR_CLI_TFT_BP_LOG_MASK,
+                                MMGR_CLI_MAX_TFT_EVENT_DATA, data };
+    int i;
+
+    ASSERT(mmgr != NULL);
+
+    for (i = 0; i < MMGR_CLI_MAX_TFT_EVENT_DATA; i++) {
+        char *value;
+        value = calloc(MMGR_CLI_MAX_TFT_EVENT_DATA_LEN, sizeof(char));
+        if (value == NULL) {
+            LOG_ERROR("Error during memory allocation for data %d", i);
+            data[i].value = 0;
+            data[i].len = 0;
+        } else {
+            data[i].len = sprintf(value, "Test data %d", i);
+            data[i].value = value;
+        }
+    }
+
+    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
+    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+
+    for (i = 0; i < MMGR_CLI_MAX_TFT_EVENT_DATA; i++) {
+        if (data[i].value != NULL)
+            free((char *)data[i].value);
+    }
+
+    return ret;
+}
+
 e_mmgr_errors_t client_nack(mmgr_data_t *mmgr)
 {
     ASSERT(mmgr != NULL);
@@ -831,6 +868,8 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
                 request_fake_self_reset;
             mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_ERROR] =
                 request_fake_error;
+            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_TFT_EVENT] =
+                request_fake_tft_event;
         }
     }
 

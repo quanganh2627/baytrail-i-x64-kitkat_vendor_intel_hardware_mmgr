@@ -319,6 +319,93 @@ out:
 }
 
 /**
+ * extract data from E_MMGR_NOTIFY_TFT_EVENT message
+ *
+ * @param [in] msg message received
+ * @param [in] request
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t set_data_tft_event(msg_t *msg, mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mmgr_cli_tft_event_t *ev = NULL;
+    mmgr_cli_tft_event_data_t *data = NULL;
+    char *msg_data = NULL, *name;
+
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
+
+    /* this structure is composed at least of 5 elements: 4 integer and a string
+    **/
+    if (msg->hdr.len < (4 * sizeof(uint32_t))) {
+        LOG_ERROR("mandatory data is missing");
+        goto out;
+    }
+
+    /* calloc is used to be sure that name is NULL the buffer will be freed by
+     * the matching freed function */
+    ev = calloc(1, sizeof(mmgr_cli_tft_event_t));
+    if (ev == NULL) {
+        LOG_ERROR("memory allocation failed");
+        goto out;
+    }
+
+    msg_data = msg->data;
+
+    deserialize_int(&msg_data, (int *)&ev->type);
+    deserialize_size_t(&msg_data, &ev->name_len);
+    name = malloc((ev->name_len + 1) * sizeof(char));
+    if (name == NULL) {
+        LOG_ERROR("memory allocation failed for name");
+        goto out;
+    }
+    memcpy(name, msg_data, ev->name_len);
+    name[ev->name_len] = '\0';
+    ev->name = name;
+
+    msg_data += ev->name_len;
+
+    deserialize_int(&msg_data, &ev->log);
+    deserialize_size_t(&msg_data, &ev->num_data);
+
+    if (ev->num_data > 0) {
+        size_t i = 0;
+        /* calloc is used to be sure that values are NULL the buffer will be
+         * freed by
+         * the matching freed function */
+        data = calloc(ev->num_data, sizeof(mmgr_cli_tft_event_data_t));
+        if (data == NULL) {
+            LOG_ERROR("memory allocation failed for data array");
+            goto out;
+        }
+        ev->data = data;
+
+        for (i = 0; i < ev->num_data; i++) {
+            char *value;
+            deserialize_size_t(&msg_data, &data[i].len);
+
+            value = malloc((data[i].len + 1) * sizeof(char));
+            if (value == NULL) {
+                LOG_ERROR("memory allocation failed for data %d", i);
+                goto out;
+            }
+            memcpy(value, msg_data, data[i].len);
+            value[data[i].len] = '\0';
+            data[i].value = value;
+            msg_data += data[i].len;
+        }
+    }
+
+    ret = E_ERR_SUCCESS;
+
+out:
+    request->data = ev;
+    return ret;
+}
+
+/**
  * set client structure for RESPONSE_MODEM_FW_RESULT message
  *
  * @param [in,out] msg data received
@@ -496,6 +583,42 @@ e_mmgr_errors_t free_data_error(mmgr_cli_event_t *request)
         if (err->reason != NULL)
             free((char *)err->reason);
         free(err);
+    } else {
+        LOG_ERROR("failed to free memory");
+        ret = E_ERR_FAILED;
+    }
+
+    return ret;
+}
+
+/**
+ * free client structure for message NOTIFY_TFT_EVENT message
+ *
+ * @param [in] request data to delete
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t free_data_tft_event(mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    mmgr_cli_tft_event_t *ev = NULL;
+    size_t i = 0;
+
+    ASSERT(request != NULL);
+
+    ev = request->data;
+    if (ev != NULL) {
+        if (ev->name != NULL)
+            free((char *)ev->name);
+        if (ev->data != NULL) {
+            for (i = 0; i < ev->num_data; i++) {
+                if (ev->data[i].value != NULL)
+                    free((char *)ev->data[i].value);
+            }
+            free(ev->data);
+        }
+        free(ev);
     } else {
         LOG_ERROR("failed to free memory");
         ret = E_ERR_FAILED;
