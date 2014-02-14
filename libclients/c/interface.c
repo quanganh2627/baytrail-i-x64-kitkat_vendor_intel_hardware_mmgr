@@ -158,9 +158,6 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->set_data[E_MMGR_NOTIFY_CORE_DUMP_COMPLETE] = set_data_core_dump;
     p_lib->free_data[E_MMGR_NOTIFY_CORE_DUMP_COMPLETE] = free_data_core_dump;
 
-    p_lib->set_data[E_MMGR_NOTIFY_ERROR] = set_data_error;
-    p_lib->free_data[E_MMGR_NOTIFY_ERROR] = free_data_error;
-
     p_lib->set_data[E_MMGR_NOTIFY_TFT_EVENT] = set_data_tft_event;
     p_lib->free_data[E_MMGR_NOTIFY_TFT_EVENT] = free_data_tft_event;
 

@@ -346,7 +346,6 @@ int main(int argc, char *argv[])
         { "FAKE REQUEST: modem shutdown", fake_modem_shtdwn, "fake_shutdown" },
         { "FAKE REQUEST: platform reboot", fake_reboot, "fake_reboot" },
         { "FAKE REQUEST: modem out of service", fake_modem_hs, "fake_oos" },
-        { "FAKE REQUEST: error", fake_error, "fake_error" },
         { "FAKE REQUEST: tft event", fake_tft_event, "fake_tft_event" },
         { "ENDLESS TEST: start the modem and keep it alive", start_modem,
           "start_modem" }

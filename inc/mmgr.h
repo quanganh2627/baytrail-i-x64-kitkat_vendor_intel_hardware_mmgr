@@ -55,7 +55,6 @@
     X(REQUEST_FAKE_CORE_DUMP), \
     X(REQUEST_FAKE_CORE_DUMP_COMPLETE), \
     X(REQUEST_FAKE_PLATFORM_REBOOT), \
-    X(REQUEST_FAKE_ERROR), \
     X(REQUEST_FAKE_TFT_EVENT), \
     X(NUM_REQUESTS)
 
@@ -76,7 +75,6 @@
     X(NOTIFY_CORE_DUMP_COMPLETE), \
     X(NOTIFY_AP_RESET), \
     X(NOTIFY_SELF_RESET), \
-    X(NOTIFY_ERROR), \
     X(NOTIFY_TFT_EVENT), \
     /* flashing notifications */ \
     X(RESPONSE_MODEM_HW_ID), \
@@ -151,22 +149,6 @@ typedef struct mmgr_cli_ap_reset {
      * Maximum value is MMGR_CLI_MAX_RECOVERY_CAUSES */
     mmgr_cli_recovery_cause_t *recovery_causes;
 } mmgr_cli_ap_reset_t;
-
-typedef enum e_report_id {
-    E_REPORT_FLASH,
-    E_REPORT_IPC,
-    E_REPORT_CONF,
-    E_REPORT_TLV,
-    E_REPORT_FMMO,
-    E_REPORT_FAKE,
-    E_REPORT_SECURITY
-} e_report_id_t;
-
-typedef struct mmgr_cli_error {
-    e_report_id_t id;
-    size_t len;
-    const char *reason;
-} mmgr_cli_error_t;
 
 #define MMGR_CLI_MAX_TFT_EVENT_DATA 6
 #define MMGR_CLI_MAX_TFT_EVENT_DATA_LEN 512

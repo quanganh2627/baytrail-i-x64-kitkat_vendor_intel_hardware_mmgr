@@ -424,49 +424,6 @@ static e_mmgr_errors_t set_and_notify(e_mmgr_events_t id,
     return E_ERR_SUCCESS;
 }
 
-/**
- * callback for event error
- *
- * @param [in] ev current info callback data
- *
- * @return 0 if successful
- * @return 1 otherwise
- */
-static int event_error(mmgr_cli_event_t *ev)
-{
-    int ret = 1;
-    e_mmgr_errors_t err = E_ERR_FAILED;
-    test_data_t *data = NULL;
-    mmgr_cli_error_t *cli_err = NULL;
-
-    ASSERT(ev != NULL);
-
-    data = (test_data_t *)ev->context;
-    if (data == NULL)
-        goto out;
-
-    cli_err = (mmgr_cli_error_t *)ev->data;
-    if (cli_err == NULL) {
-        LOG_ERROR("empty data");
-        goto out;
-    }
-    LOG_DEBUG("error {id:%d reason:\"%s\" len:%d}", cli_err->id,
-              cli_err->reason, cli_err->len);
-    if ((cli_err->len == strlen(FAKE_REPORT_REASON))
-        && (strncmp(FAKE_REPORT_REASON, cli_err->reason, cli_err->len) == 0)
-        && (cli_err->id == E_REPORT_FAKE))
-        events_set(data, E_EVENTS_SUCCEED);
-
-    err = set_and_notify(ev->id, (test_data_t *)ev->context);
-    if (err == E_ERR_SUCCESS)
-        ret = 0;
-
-out:
-    if (ret == 1)
-        events_set(data, E_EVENTS_ERROR_OCCURED);
-    return ret;
-}
-
 static int event_tft(mmgr_cli_event_t *ev)
 {
     int ret = 1;
@@ -828,10 +785,6 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
 
     if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_NOTIFY_SELF_RESET) != E_ERR_CLI_SUCCEED)
-        goto out;
-
-    if (mmgr_cli_subscribe_event(test_data->lib, event_error,
-                                 E_MMGR_NOTIFY_ERROR) != E_ERR_CLI_SUCCEED)
         goto out;
 
     if (mmgr_cli_subscribe_event(test_data->lib, event_tft,

@@ -220,12 +220,17 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset,
     if (timer_is_elapsed(t, E_TIMER_WAIT_FOR_IPC_READY, &cur)) {
         mmgr_cli_fw_update_result_t result = { .id = E_MODEM_FW_READY_TIMEOUT };
         static const char *const msg = "IPC READY not received";
-        mmgr_cli_error_t err = { E_REPORT_IPC, strlen(msg), msg };
 
         LOG_DEBUG("%s. Force modem reset", msg);
         clients_inform_all(t->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
                            &result);
-        clients_inform_all(t->clients, E_MMGR_NOTIFY_ERROR, &err);
+        static const char *const ev_type = "TFT_ERROR_IPC";
+        mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+        mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                    strlen(ev_type), ev_type,
+                                    MMGR_CLI_TFT_AP_LOG_MASK,
+                                    1, data };
+        clients_inform_all(t->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
         handled = true;
         timer_stop(h, E_TIMER_WAIT_FOR_IPC_READY);
@@ -234,10 +239,15 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset,
 
     if (timer_is_elapsed(t, E_TIMER_WAIT_FOR_BUS_READY, &cur)) {
         static const char *const msg = "BUS READY not received";
-        mmgr_cli_error_t err = { E_REPORT_IPC, strlen(msg), msg };
 
         LOG_DEBUG("%s. Force modem reset", msg);
-        clients_inform_all(t->clients, E_MMGR_NOTIFY_ERROR, &err);
+        static const char *const ev_type = "TFT_ERROR_USB";
+        mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+        mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                    strlen(ev_type), ev_type,
+                                    MMGR_CLI_TFT_AP_LOG_MASK,
+                                    1, data };
+        clients_inform_all(t->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
         handled = true;
         timer_stop(h, E_TIMER_WAIT_FOR_BUS_READY);
@@ -353,4 +363,24 @@ e_mmgr_errors_t timer_dispose(timer_handle_t *h)
     free(timer);
 
     return E_ERR_SUCCESS;
+}
+
+/**
+ * Returns the time elapsed since starting of the timer for a specific event
+ *
+ * @param [in] h timer module handle
+ * @param [in] type type of event
+ *
+ * @return time elapsed since starting in milliseconds
+ */
+long timer_get_value(timer_handle_t *h, e_timer_type_t type)
+{
+    struct timespec current;
+    mmgr_timer_t *t = (mmgr_timer_t *)h;
+
+    ASSERT(t != NULL);
+
+    clock_gettime(CLOCK_BOOTTIME, &current);
+
+    return t->timeout[type] * 1000 - timer_get_elapsed(current, t->end[type]);
 }

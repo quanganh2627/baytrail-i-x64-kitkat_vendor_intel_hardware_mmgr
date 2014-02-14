@@ -731,12 +731,6 @@ e_mmgr_errors_t fake_cd_complete(test_data_t *test)
                            E_MMGR_NOTIFY_CORE_DUMP_COMPLETE, true);
 }
 
-e_mmgr_errors_t fake_error(test_data_t *test)
-{
-    return request_fake_ev(test, E_MMGR_REQUEST_FAKE_ERROR,
-                           E_MMGR_NOTIFY_ERROR, true);
-}
-
 e_mmgr_errors_t fake_tft_event(test_data_t *test)
 {
     return request_fake_ev(test, E_MMGR_REQUEST_FAKE_TFT_EVENT,
