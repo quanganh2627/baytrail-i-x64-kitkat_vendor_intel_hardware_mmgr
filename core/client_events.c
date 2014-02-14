@@ -751,20 +751,6 @@ static e_mmgr_errors_t request_fake_ap_reset(mmgr_data_t *mmgr)
     return notify_ap_reset(mmgr);
 }
 
-static e_mmgr_errors_t request_fake_error(mmgr_data_t *mmgr)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    mmgr_cli_error_t err = { E_REPORT_FAKE, strlen(FAKE_REPORT_REASON),
-                             FAKE_REPORT_REASON };
-
-    ASSERT(mmgr != NULL);
-
-    client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
-    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
-
-    return ret;
-}
-
 static e_mmgr_errors_t request_fake_tft_event(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
@@ -869,8 +855,6 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
                 request_fake_ap_reset;
             mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_SELF_RESET] =
                 request_fake_self_reset;
-            mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_ERROR] =
-                request_fake_error;
             mmgr->hdler_client[i][E_MMGR_REQUEST_FAKE_TFT_EVENT] =
                 request_fake_tft_event;
         }

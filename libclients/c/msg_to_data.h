@@ -28,7 +28,6 @@ e_mmgr_errors_t set_data_fuse_info(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_hw_id(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_ap_reset(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_core_dump(msg_t *msg, mmgr_cli_event_t *request);
-e_mmgr_errors_t set_data_error(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_tft_event(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request);
 
@@ -37,7 +36,6 @@ e_mmgr_errors_t free_one_element_struct(mmgr_cli_event_t *request);
 e_mmgr_errors_t free_data_hw_id(mmgr_cli_event_t *request);
 e_mmgr_errors_t free_data_ap_reset(mmgr_cli_event_t *request);
 e_mmgr_errors_t free_data_core_dump(mmgr_cli_event_t *request);
-e_mmgr_errors_t free_data_error(mmgr_cli_event_t *request);
 e_mmgr_errors_t free_data_tft_event(mmgr_cli_event_t *request);
 
 e_mmgr_errors_t set_data_empty(msg_t *msg, mmgr_cli_event_t *event);

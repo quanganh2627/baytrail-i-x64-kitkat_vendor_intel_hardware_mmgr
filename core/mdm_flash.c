@@ -36,6 +36,7 @@ typedef struct mdm_flash_ctx {
     int fd_pipe[2];
     pthread_t id;
     pthread_mutex_t mtx;
+    int attempts;
 } mdm_flash_ctx_t;
 
 static e_modem_fw_error_t get_verdict(mdm_flash_ctx_t *ctx)
@@ -123,6 +124,7 @@ mdm_flash_handle_t *mdm_flash_init(const modem_info_t *mdm_info,
         ctx->secure = secure;
         ctx->bus_ev = bus_ev;
         pthread_mutex_init(&ctx->mtx, NULL);
+        ctx->attempts = 0;
 
         if (mdm_info->mdm_link == E_LINK_HSI)
             ctx->ch_hw_sw = true;
@@ -151,6 +153,7 @@ e_mmgr_errors_t mdm_flash_start(mdm_flash_handle_t *hdle)
     ASSERT(ctx != NULL);
 
     if (!ctx->id) {
+        ctx->attempts++;
         pthread_create(&ctx->id, NULL, (void *)mdm_flash, (void *)ctx);
     } else {
         ret = E_ERR_FAILED;
@@ -230,4 +233,35 @@ void mdm_flash_dispose(mdm_flash_handle_t *hdle)
 
         free(ctx);
     }
+}
+
+/**
+ * Returns the number of flashing attempts
+ *
+ * @param [in] hdle flashing module
+ *
+ * @return the number of flashing attempts
+ */
+int mdm_flash_get_attempts(mdm_flash_handle_t *hdle)
+{
+    mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
+
+    ASSERT(ctx != NULL);
+
+    return ctx->attempts;
+}
+
+/**
+ * Reset the attempts number of flashing
+ *
+ * @param [in] hdle flashing module
+ *
+ */
+void mdm_flash_reset_attempts(mdm_flash_handle_t *hdle)
+{
+    mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
+
+    ASSERT(ctx != NULL);
+
+    ctx->attempts = 0;
 }

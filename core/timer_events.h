@@ -58,5 +58,6 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *start_mdm_off,
 e_mmgr_errors_t timer_stop_all(timer_handle_t *h);
 
 int timer_get_timeout(timer_handle_t *h);
+long timer_get_value(timer_handle_t *h, e_timer_type_t type);
 
 #endif                          /* __MMGR_TIMER_HEADER__ */

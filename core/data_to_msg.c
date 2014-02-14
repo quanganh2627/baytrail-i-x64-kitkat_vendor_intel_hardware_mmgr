@@ -189,39 +189,6 @@ e_mmgr_errors_t set_msg_core_dump(msg_t *msg, mmgr_cli_event_t *request)
 }
 
 /**
- * handle E_MMGR_NOTIFY_ERROR message allocation
- *
- * @param [in,out] msg data to send
- * @param [in] request data to send
- *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t set_msg_error(msg_t *msg, mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    size_t size;
-    mmgr_cli_error_t *err = NULL;
-    char *msg_data = NULL;
-
-    ASSERT(msg != NULL);
-    ASSERT(request != NULL);
-
-    err = request->data;
-
-    /* this structure is composed of 3 elements: 2 integers and a string */
-    size = 2 * sizeof(uint32_t) + sizeof(char) * err->len;
-    ret = msg_prepare(msg, &msg_data, E_MMGR_NOTIFY_ERROR, &size);
-    if (ret == E_ERR_SUCCESS) {
-        serialize_int(&msg_data, err->id);
-        serialize_size_t(&msg_data, err->len);
-        memcpy(msg_data, err->reason, sizeof(char) * err->len);
-    }
-
-    return ret;
-}
-
-/**
  * handle E_MMGR_NOTIFY_TFT_EVENT message allocation
  *
  * @param [in,out] msg data to send

@@ -104,6 +104,7 @@ out:
 void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
 {
     mmgr_cli_fw_update_result_t fw_result = { .id = verdict };
+    static const char *const ev_type = "TFT_STAT_FLASH";
 
     ASSERT(mmgr != NULL);
 
@@ -113,9 +114,13 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
     switch (fw_result.id) {
     case E_MODEM_FW_BAD_FAMILY: {
         broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
+
         static const char *const msg = "Modem FW bad family";
-        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+        mmgr_cli_tft_event_t ev =
+        { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+
         /* Set MMGR state to MDM_RESET to call the recovery module and
          * force modem recovery to OOS. By doing so, MMGR will turn off the
          * modem and declare the modem OOS. Clients will not be able to turn
@@ -131,17 +136,55 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
         if (mmgr->info.mdm_link == E_LINK_USB)
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-        /* @TODO: to review to report STATISTIC instead of ERROR event */
+
         static const char *const msg = "Modem flashing succeed";
-        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        mmgr_cli_tft_event_data_t data[] =
+        { { strlen(msg), msg }, { 0, NULL }, { 0, NULL } };
+        mmgr_cli_tft_event_t ev =
+        { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 3, data };
+
+        data[1].value = calloc(MMGR_CLI_MAX_TFT_EVENT_DATA_LEN, sizeof(char));
+        if (data[1].value != NULL) {
+            data[1].len = snprintf((char *)data[1].value,
+                                   MMGR_CLI_MAX_TFT_EVENT_DATA_LEN, "%d",
+                                   mdm_flash_get_attempts(mmgr->mdm_flash));
+
+            data[2].value =
+                calloc(MMGR_CLI_MAX_TFT_EVENT_DATA_LEN, sizeof(char));
+            if (data[2].value != NULL) {
+                data[2].len = snprintf((char *)data[2].value,
+                                       MMGR_CLI_MAX_TFT_EVENT_DATA_LEN,
+                                       "%ld",
+                                       timer_get_value(mmgr->timer,
+                                                       E_TIMER_MDM_FLASHING));
+            } else {
+                LOG_DEBUG("Memory allocation failed for data 2. Data 2 not set.");
+                ev.num_data = 2;
+            }
+        } else {
+            LOG_DEBUG(
+                "Memory allocation failed for data 1. Data 1 and 2 not set.");
+            ev.num_data = 1;
+        }
+
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+        mdm_flash_reset_attempts(mmgr->mdm_flash);
+
+        if (data[1].value != NULL)
+            free((char *)data[1].value);
+        if (data[2].value != NULL)
+            free((char *)data[2].value);
+
         break;
     }
 
     case E_MODEM_FW_SW_CORRUPTED: {
         static const char *const msg = "Modem FW corrupted";
-        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+        mmgr_cli_tft_event_t ev =
+        { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+
         /* Set MMGR state to MDM_RESET to call the recovery module and
          * force modem recovery to OOS. By doing so, MMGR will turn off the
          * modem and declare the modem OOS. Clients will not be able to turn
@@ -154,8 +197,11 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
     case E_MODEM_FW_ERROR_UNSPECIFIED:
     case E_MODEM_FW_READY_TIMEOUT: {
         static const char *const msg = "Flashing timeout";
-        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+        mmgr_cli_tft_event_t ev =
+        { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         break;
     }
@@ -163,8 +209,11 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
     case E_MODEM_FW_OUTDATED: {
         broadcast_msg(E_MSG_INTENT_MODEM_FW_OUTDATED);
         static const char *const msg = "Modem FW outdated";
-        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+        mmgr_cli_tft_event_t ev =
+        { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+
         /* Set MMGR state to MDM_RESET to call the recovery module and
          * force modem recovery to OOS. By doing so, MMGR will turn off the
          * modem and declare the modem OOS. Clients will not be able to turn
@@ -177,8 +226,11 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
     case E_MODEM_FW_SECURITY_CORRUPTED: {
         broadcast_msg(E_MSG_INTENT_MODEM_FW_SECURITY_CORRUPTED);
         static const char *const msg = "Modem FW security corrupted";
-        mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+        mmgr_cli_tft_event_t ev =
+        { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+
         /* Set MMGR state to MDM_RESET to call the recovery module and
          * force modem recovery to OOS. By doing so, MMGR will turn off the
          * modem and declare the modem OOS. Clients will not be able to turn
@@ -208,6 +260,7 @@ static bool apply_tlv(mmgr_data_t *mmgr)
     bool applied = false;
     mmgr_cli_nvm_update_result_t nvm_result =
     { .id = E_MODEM_NVM_ERROR_UNSPECIFIED };
+    static const char *const ev_type = "TFT_ERROR_TLV";
 
     ASSERT(mmgr != NULL);
 
@@ -229,16 +282,26 @@ static bool apply_tlv(mmgr_data_t *mmgr)
                 static const char *const msg =
                     "TLV failure: failed to apply TLV";
                 LOG_ERROR("%s", msg);
-                mmgr_cli_error_t err = { E_REPORT_TLV, strlen(msg), msg };
-                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+
+                mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+                mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                            strlen(ev_type), ev_type,
+                                            MMGR_CLI_TFT_AP_LOG_MASK,
+                                            1, data };
+                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
             } else {
                 applied = true;
             }
         } else {
             static const char *const msg = "TLV failure: too many files found";
             LOG_ERROR("%s. Skipping NVM update", msg);
-            mmgr_cli_error_t err = { E_REPORT_TLV, strlen(msg), msg };
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+            mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+            mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                        strlen(ev_type), ev_type,
+                                        MMGR_CLI_TFT_AP_LOG_MASK |
+                                        MMGR_CLI_TFT_BP_LOG_MASK,
+                                        1, data };
+            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
         }
 
         int i;
@@ -560,8 +623,14 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     } else {
         static const char *const msg = "MUX configuration failed";
         LOG_ERROR("%s. reason=%d", msg, ret);
-        mmgr_cli_error_t err = { E_REPORT_CONF, strlen(msg), msg };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        static const char *const ev_type = "TFT_ERROR_IPC";
+        mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+        mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                    strlen(ev_type), ev_type,
+                                    MMGR_CLI_TFT_AP_LOG_MASK |
+                                    MMGR_CLI_TFT_BP_LOG_MASK,
+                                    1, data };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         goto out;
     }
@@ -602,13 +671,18 @@ static e_mmgr_errors_t cleanup_ipc_event(mmgr_data_t *mmgr)
 e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
 {
     static const char *const msg = "IPC hang-up";
-    mmgr_cli_error_t err = { E_REPORT_IPC, strlen(msg), msg };
 
     ASSERT(mmgr != NULL);
     cleanup_ipc_event(mmgr);
 
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+    static const char *const ev_type = "TFT_ERROR_IPC";
+    mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+    mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                strlen(ev_type), ev_type,
+                                MMGR_CLI_TFT_AP_LOG_MASK,
+                                1, data };
+    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 

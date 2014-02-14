@@ -263,62 +263,6 @@ out:
 }
 
 /**
- * extract data from E_MMGR_NOTIFY_ERROR message
- *
- * @param [in] msg message received
- * @param [in] request
- *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t set_data_error(msg_t *msg, mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_error_t *err = NULL;
-    char *msg_data = NULL;
-
-    ASSERT(msg != NULL);
-    ASSERT(request != NULL);
-
-    /* this structure is composed of 3 elements: 2 integer and a string */
-    if (msg->hdr.len < (2 * sizeof(uint32_t))) {
-        LOG_ERROR("mandatory data is missing");
-        goto out;
-    }
-
-    /* calloc is used to be sure that reason is NULL the buffer will be freed
-     * by the matching freed function */
-    err = calloc(1, sizeof(mmgr_cli_error_t));
-    if (err == NULL) {
-        LOG_ERROR("memory allocation failed");
-        goto out;
-    }
-    msg_data = msg->data;
-    deserialize_int(&msg_data, (int *)&err->id);
-    deserialize_size_t(&msg_data, &err->len);
-
-    if (err->len != (msg->hdr.len - (msg_data - msg->data))) {
-        LOG_ERROR("bad string length");
-        goto out;
-    }
-
-    /* the buffer will be freed by the matching freed function */
-    err->reason = malloc((err->len + 1) * sizeof(char));
-    if ((err == NULL) || (err->reason == NULL)) {
-        LOG_ERROR("memory allocation failed");
-        goto out;
-    }
-
-    memcpy((char *)err->reason, msg_data, err->len);
-    memset((char *)err->reason + err->len, '\0', sizeof(char));
-    ret = E_ERR_SUCCESS;
-
-out:
-    request->data = err;
-    return ret;
-}
-
-/**
  * extract data from E_MMGR_NOTIFY_TFT_EVENT message
  *
  * @param [in] msg message received
@@ -555,34 +499,6 @@ e_mmgr_errors_t free_data_ap_reset(mmgr_cli_event_t *request)
             free(ap_rst->recovery_causes);
         }
         free(ap_rst);
-    } else {
-        LOG_ERROR("failed to free memory");
-        ret = E_ERR_FAILED;
-    }
-
-    return ret;
-}
-
-/**
- * free client structure for message NOTIFY_ERROR message
- *
- * @param [in] request data to delete
- *
- * @return E_ERR_SUCCESS if successful
- * @return E_ERR_FAILED otherwise
- */
-e_mmgr_errors_t free_data_error(mmgr_cli_event_t *request)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    mmgr_cli_error_t *err = NULL;
-
-    ASSERT(request != NULL);
-
-    err = request->data;
-    if (err != NULL) {
-        if (err->reason != NULL)
-            free((char *)err->reason);
-        free(err);
     } else {
         LOG_ERROR("failed to free memory");
         ret = E_ERR_FAILED;

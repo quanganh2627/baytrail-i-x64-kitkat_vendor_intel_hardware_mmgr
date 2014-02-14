@@ -36,6 +36,8 @@ void mdm_flash_finalize(mdm_flash_handle_t *hdle);
 
 int mdm_flash_get_fd(mdm_flash_handle_t *hdle);
 e_modem_fw_error_t mdm_flash_get_verdict(mdm_flash_handle_t *hdle);
+int mdm_flash_get_attempts(mdm_flash_handle_t *hdle);
+void mdm_flash_reset_attempts(mdm_flash_handle_t *hdle);
 
 void mdm_flash_cancel(mdm_flash_handle_t *hdle);
 void mdm_flash_dispose(mdm_flash_handle_t *hdle);

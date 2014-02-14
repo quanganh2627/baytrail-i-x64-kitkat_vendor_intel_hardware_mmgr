@@ -61,9 +61,14 @@ static e_mmgr_errors_t security_event(mmgr_data_t *mmgr)
 
     const char *err_msg = secure_get_error(mmgr->secure);
     if (err_msg) {
-        mmgr_cli_error_t err =
-        { E_REPORT_SECURITY, strlen(err_msg), err_msg };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+        static const char *const ev_type = "TFT_ERROR_MISC";
+        mmgr_cli_tft_event_data_t data[] = { { strlen(err_msg), err_msg } };
+        mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                    strlen(ev_type), ev_type,
+                                    MMGR_CLI_TFT_AP_LOG_MASK |
+                                    MMGR_CLI_TFT_BP_LOG_MASK,
+                                    1, data };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
     }
 
     return ret;
@@ -355,8 +360,12 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             if (cancel_flashing) {
                 static const char *const msg = "Timeout during modem flashing. "
                                                "Operation cancelled";
-                mmgr_cli_error_t err = { E_REPORT_FLASH, strlen(msg), msg };
-                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+                static const char *const ev_type = "TFT_STATS_FLASH";
+                mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+                mmgr_cli_tft_event_t ev =
+                { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
+                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+
                 LOG_INFO("%s", msg);
                 mdm_flash_cancel(mmgr->mdm_flash);
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
@@ -370,8 +379,13 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             } else if (finalize_mdm_off) {
                 static const char *const msg = "Timeout during FMMO. Force "
                                                "modem shutdown";
-                mmgr_cli_error_t err = { E_REPORT_FMMO, strlen(msg), msg };
-                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_ERROR, &err);
+                static const char *const ev_type = "TFT_ERROR_MISC";
+                mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+                mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                            strlen(ev_type), ev_type,
+                                            MMGR_CLI_TFT_AP_LOG_MASK,
+                                            1, data };
+                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
                 LOG_INFO("%s", msg);
                 mdm_finalize_shtdwn(mmgr);
                 set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
