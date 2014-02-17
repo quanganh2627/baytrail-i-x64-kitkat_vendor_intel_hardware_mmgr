@@ -29,6 +29,7 @@
 #include "errors.h"
 #include "logs.h"
 #include "modem_info.h"
+#include "mdm_upgrade.h"
 #include "modem_specific.h"
 #include "reset_escalation.h"
 #include "mux.h"
@@ -139,6 +140,9 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
                             strcmp(mdm_info->hw_revision, "20") == 0 &&
                             strcmp(mdm_info->sw_revision, "1.0") == 0);
 
+    ASSERT((info->mdm_upgrade = mdm_upgrade_init(tlv, mdm_info,
+                                                 info->fl_conf.run.mdm_fw)) !=
+           NULL);
     ret = mdm_specific_init(info);
 out:
     return ret;
@@ -162,6 +166,7 @@ e_mmgr_errors_t modem_info_dispose(modem_info_t *info)
         info->fd_mcd = CLOSED_FD;
     }
 
+    mdm_upgrade_dispose(info->mdm_upgrade);
     return mdm_specific_dispose(info);
 }
 

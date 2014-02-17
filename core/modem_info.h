@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include "modem_update.h"
+#include "mdm_upgrade.h"
 #include "tcs_config.h"
 #include "tcs_mmgr.h"
 #include "pm.h"
@@ -82,6 +83,7 @@ typedef struct modem_info {
     pm_handle_t *pm;
     ctrl_handle_t *ctrl;
     bool ipc_ready_present;
+    mdm_upgrade_hdle_t *mdm_upgrade;
     /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
     bool need_warmreset;
 } modem_info_t;

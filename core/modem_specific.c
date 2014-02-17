@@ -21,6 +21,7 @@
 #include "mmgr.h"
 #include "timer_events.h"
 #include "file.h"
+#include "mdm_upgrade.h"
 #include "modem_update.h"
 #include "pm.h"
 #include "ctrl.h"
@@ -573,6 +574,8 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     ASSERT(info != NULL);
+
+    mdm_upgrade(info->mdm_upgrade);
 
     if (info->is_flashless) {
         /* Restore calibration file from backup if missing */
