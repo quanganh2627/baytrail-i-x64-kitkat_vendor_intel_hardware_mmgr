@@ -109,7 +109,10 @@ e_mmgr_errors_t mcdr_dispose(mcdr_handle_t *h)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     if (ctx) {
-        dlclose(ctx->mcdr.hdle);
+        if (ctx->mcdr.hdle != NULL) {
+            dlclose(ctx->mcdr.hdle);
+            ctx->mcdr.hdle = NULL;
+        }
         close(ctx->fd_pipe[READ]);
         close(ctx->fd_pipe[WRITE]);
         free(ctx);
