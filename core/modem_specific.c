@@ -25,6 +25,7 @@
 #include "modem_update.h"
 #include "pm.h"
 #include "ctrl.h"
+#include "delay_do.h"
 
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -448,7 +449,22 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     ASSERT(info != NULL);
 
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
-    ctrl_on_mdm_up(info->ctrl);
+
+    if (info->need_ssic_po_wa) {
+        /* the link is expected to be started 20 secs after the actual mdm power
+         *on */
+        pthread_t thr;
+        static delay_t mdm_up;
+        mdm_up.delay_sec = 20;
+        mdm_up.h = info->ctrl;
+        mdm_up.fn = (void (*)(void *))(ctrl_on_mdm_up);
+
+        pthread_create(&thr, NULL, delay_do, &mdm_up);
+        pthread_detach(thr);
+    } else {
+        ctrl_on_mdm_up(info->ctrl);
+    }
+
 
     if (state & MDM_CTRL_STATE_OFF) {
         if (ioctl(info->fd_mcd, MDM_CTRL_POWER_ON) == -1) {

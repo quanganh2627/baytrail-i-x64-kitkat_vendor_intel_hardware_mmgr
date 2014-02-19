@@ -36,6 +36,8 @@
 #include "timer_events.h"
 #include "tty.h"
 #include "modem_specific.h"
+#include "ctrl.h"
+#include "delay_do.h"
 
 #include "hardware_legacy/power.h"
 
@@ -406,6 +408,18 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             flush_pipe(mdm_flash_get_fd(mmgr->mdm_flash));
             timer_stop(mmgr->timer, E_TIMER_MDM_FLASHING);
             mdm_flash_finalize(mmgr->mdm_flash);
+            if (mmgr->info.need_ssic_po_wa) {
+                /* the link is expected to be restarted 10 secs after the
+                 *flashing */
+                pthread_t thr;
+                static delay_t mdm_up;
+                mdm_up.delay_sec = 10;
+                mdm_up.h = mmgr->info.ctrl;
+                mdm_up.fn = (void (*)(void *))(ctrl_on_mdm_up);
+                pthread_create(&thr, NULL, delay_do, &mdm_up);
+                pthread_detach(thr);
+            }
+
             flash_verdict(mmgr, mdm_flash_get_verdict(mmgr->mdm_flash));
             break;
         case E_EVENT_MCDR:

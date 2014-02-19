@@ -92,6 +92,8 @@ typedef struct modem_info {
     e_mdm_wakeup_cfg_t wakeup_cfg;
     /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
     bool need_warmreset;
+    /* SSIC power on work around */
+    bool need_ssic_po_wa;
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
