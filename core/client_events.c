@@ -143,6 +143,7 @@ static e_mmgr_errors_t request_set_events(mmgr_data_t *mmgr)
         case E_MMGR_MDM_RESET:
         case E_MMGR_MDM_OFF:
         case E_MMGR_MDM_PREPARE_OFF:
+        case E_MMGR_MDM_LINK_USB_DISC:
             notification = E_MMGR_EVENT_MODEM_DOWN;
             break;
         case E_MMGR_MDM_UP:

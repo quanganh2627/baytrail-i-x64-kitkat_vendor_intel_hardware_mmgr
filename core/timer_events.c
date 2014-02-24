@@ -174,13 +174,14 @@ e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
  * @param [out] cd_err true if MMGR should restart cd IPC
  * @param [out] cancel_flashing flashing thread timeout. cancel the operation
  * @param [out] stop_mcdr stop mcdr thread.
- *
+ * @param [in] core_dump_signal_hw_working core dump hw signal is working or not
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset,
                             bool *start_mdm_off, bool *finalize_mdm_off,
                             bool *cd_err, bool *cancel_flashing,
-                            bool *stop_mcdr)
+                            bool *stop_mcdr,
+                            bool core_dump_signal_hw_working)
 {
     struct timespec cur;
     mmgr_timer_t *t = (mmgr_timer_t *)h;
@@ -272,11 +273,16 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset,
         timer_stop(h, E_TIMER_WAIT_CORE_DUMP_READY);
         *reset = true;
 
-        mmgr_cli_core_dump_t cd = { .state = E_CD_LINK_ERROR };
-        cd.reason = "modem enumeration failure";
-        cd.reason_len = strlen(cd.reason);
-        clients_inform_all(t->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
-                           &cd);
+        if (!core_dump_signal_hw_working) {
+            /* core dump hw signal is neither present nor working,
+             *  timeout mean no core dump has ever happened, inform nothing*/
+        } else {
+            mmgr_cli_core_dump_t cd = { .state = E_CD_LINK_ERROR };
+            cd.reason = "modem enumeration failure";
+            cd.reason_len = strlen(cd.reason);
+            clients_inform_all(t->clients, E_MMGR_NOTIFY_CORE_DUMP_COMPLETE,
+                               &cd);
+        }
     }
 
     if (timer_is_elapsed(t, E_TIMER_MDM_FLASHING, &cur)) {

@@ -351,10 +351,15 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             bool cd_ipc = false;
             bool cancel_flashing = false;
             bool stop_mcdr = false;
+            bool core_dump_signal_hw_working = true;
+
+            if (mmgr->state == E_MMGR_MDM_LINK_USB_DISC)
+                core_dump_signal_hw_working = false;
 
             ret = timer_event(mmgr->timer, &reset, &start_mdm_off,
                               &finalize_mdm_off, &cd_ipc,
-                              &cancel_flashing, &stop_mcdr);
+                              &cancel_flashing, &stop_mcdr,
+                              core_dump_signal_hw_working);
             if (reset)
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             if (cd_ipc)

@@ -54,6 +54,7 @@
     X(WAIT_SHT_ACK), \
     X(MDM_CORE_DUMP), \
     X(MDM_PREPARE_OFF), \
+    X(MDM_LINK_USB_DISC), \
     X(NUM)
 
 typedef enum e_events_type {

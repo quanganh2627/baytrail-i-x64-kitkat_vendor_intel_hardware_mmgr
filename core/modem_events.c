@@ -833,6 +833,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
 e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    static bool is_mdm_bb_ready = false;
 
     ASSERT(mmgr != NULL);
 
@@ -843,9 +844,20 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
     }
     if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) &&
         (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
+        is_mdm_bb_ready = true;
         LOG_DEBUG("ready to configure modem");
         timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
+        mmgr->events.link_state |= E_MDM_LINK_BB_READY;
+        if ((mmgr->events.link_state & E_MDM_LINK_IPC_READY) ||
+            (!mmgr->info.ipc_ready_present))
+            ret = do_configure(mmgr);
+    } else if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) &&
+               (mmgr->state == E_MMGR_MDM_LINK_USB_DISC)) {
+        is_mdm_bb_ready = true;
+        LOG_DEBUG("ready to configure modem which is not flashless");
+        timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+        timer_stop(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
         if ((mmgr->events.link_state & E_MDM_LINK_IPC_READY) ||
             (!mmgr->info.ipc_ready_present))
@@ -871,6 +883,40 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         mmgr->events.link_state |= E_MDM_LINK_CORE_DUMP_READ_READY;
         if (mmgr->events.link_state & E_MDM_LINK_CORE_DUMP_READY)
             core_dump_prepare(mmgr);
+    } else if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_CD_READY) &&
+               (mmgr->state == E_MMGR_MDM_LINK_USB_DISC)) {
+        LOG_DEBUG("ready to read a core dump for modem whose "
+                  "core dump hardware signal is absent or failed to work");
+        set_mmgr_state(mmgr, E_MMGR_MDM_CORE_DUMP);
+        timer_stop_all(mmgr->timer);
+
+        if (mmgr->fd_tty != CLOSED_FD) {
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+            mdm_close_fds(mmgr);
+        }
+
+        timer_start(mmgr->timer, E_TIMER_CORE_DUMP_IPC_RESET);
+
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
+        broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
+
+        mmgr->events.link_state |= E_MDM_LINK_CORE_DUMP_READY;
+        core_dump_prepare(mmgr);
+    } else if (!(bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) &&
+               is_mdm_bb_ready) {
+        is_mdm_bb_ready = false;
+        if ((mmgr->state == E_MMGR_MDM_UP) ||
+            (mmgr->state == E_MMGR_WAIT_COLD_ACK) ||
+            (mmgr->state == E_MMGR_WAIT_SHT_ACK) ||
+            (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
+            LOG_DEBUG("found Modem base band USB disconnection");
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+            if (mmgr->fd_tty != CLOSED_FD)
+                mdm_close_fds(mmgr);
+            timer_stop(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
+            timer_start(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
+            set_mmgr_state(mmgr, E_MMGR_MDM_LINK_USB_DISC);
+        }
     } else {
         LOG_DEBUG("Unhandled usb event");
     }

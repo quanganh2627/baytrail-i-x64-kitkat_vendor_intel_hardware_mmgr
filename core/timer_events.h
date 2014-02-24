@@ -54,7 +54,8 @@ e_mmgr_errors_t timer_start(timer_handle_t *h, e_timer_type_t type);
 e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type);
 e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *start_mdm_off,
                             bool *finalize_mdm_off, bool *cd_reset,
-                            bool *stop_flashing, bool *stop_mcdr);
+                            bool *stop_flashing, bool *stop_mcdr,
+                            bool core_dump_signal_hw_working);
 e_mmgr_errors_t timer_stop_all(timer_handle_t *h);
 
 int timer_get_timeout(timer_handle_t *h);
