@@ -160,6 +160,7 @@ mdm_upgrade_hdle_t *mdm_upgrade_init(tlv_info_t *tlv, mdm_info_t *mdm_info,
     ASSERT(fls_file != NULL);
 
     mdm_upgrade_t *update = calloc(1, sizeof(mdm_upgrade_t));
+    ASSERT(update != NULL);
 
     get_tlv_filter(update->tlv_filter, tlv->filename);
     get_fls_filter(update->fls_filter, mdm_info->name, mdm_info->hw_revision,

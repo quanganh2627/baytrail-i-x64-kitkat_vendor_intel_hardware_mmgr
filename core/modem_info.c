@@ -161,12 +161,14 @@ e_mmgr_errors_t modem_info_dispose(modem_info_t *info)
 {
     /* do not use ASSERT in dispose function */
 
-    if (info && info->fd_mcd != CLOSED_FD) {
-        close(info->fd_mcd);
-        info->fd_mcd = CLOSED_FD;
+    if (info) {
+        if (info->fd_mcd != CLOSED_FD) {
+            close(info->fd_mcd);
+            info->fd_mcd = CLOSED_FD;
+        }
+        mdm_upgrade_dispose(info->mdm_upgrade);
     }
 
-    mdm_upgrade_dispose(info->mdm_upgrade);
     return mdm_specific_dispose(info);
 }
 
