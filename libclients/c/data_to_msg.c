@@ -141,12 +141,12 @@ e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request)
     if ((req_size > (MMGR_CLI_MAX_RECOVERY_CAUSES *
                      sizeof(mmgr_cli_recovery_cause_t))) ||
         ((req_size % sizeof(mmgr_cli_recovery_cause_t)) != 0)) {
-        LOG_ERROR("invalid extra data size (%d), ignoring", req_size);
+        LOG_ERROR("invalid extra data size (%zu), ignoring", req_size);
         req_size = 0;
     }
     if ((req_size != 0) &&
         ((req_extra_data == NULL) ||
-         ((((int)req_extra_data) %
+         ((((intptr_t)req_extra_data) %
            __alignof__(mmgr_cli_recovery_cause_t)) != 0))) {
         LOG_ERROR("invalid extra data pointer (%p), ignoring", req_extra_data);
         req_size = 0;
@@ -155,7 +155,7 @@ e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request)
     for (size_t i = 0; i < req_size; i++) {
         if ((req_extra_data[i].len > MMGR_CLI_MAX_RECOVERY_CAUSE_LEN) ||
             (req_extra_data[i].cause == NULL)) {
-            LOG_ERROR("invalid extra data entry (index %d, len %d, ptr %p)", i,
+            LOG_ERROR("invalid extra data entry (index %zu, len %zu, ptr %p)", i,
                       req_extra_data[i].len, req_extra_data[i].cause);
             req_size = 0;
             break;

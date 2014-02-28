@@ -173,7 +173,7 @@ static e_err_mmgr_cli_t read_msg(mmgr_lib_context_t *p_lib, msg_t *msg)
                 size_t read_size = size;
                 err = cnx_read(p_lib->fd_socket, msg->data, &read_size);
                 if ((err != E_ERR_SUCCESS) || (read_size != size))
-                    LOG_ERROR("Read error. Size: %d/%d", p_lib, read_size,
+                    LOG_ERROR("Read error. Size: %zu/%zu", p_lib, read_size,
                               size);
                 else
                     ret = E_ERR_CLI_SUCCEED;

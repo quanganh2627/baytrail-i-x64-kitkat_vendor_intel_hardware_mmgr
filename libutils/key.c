@@ -40,20 +40,20 @@ key_hdle_t *key_init(size_t inst_id)
 
     ASSERT(key != NULL);
 
-    snprintf(key->blob, sizeof(key->blob), "persist.sys.mmgr%d.blob_hash",
+    snprintf(key->blob, sizeof(key->blob), "persist.sys.mmgr%zu.blob_hash",
              inst_id);
-    snprintf(key->cfg, sizeof(key->cfg), "persist.sys.mmgr%d.config_hash",
+    snprintf(key->cfg, sizeof(key->cfg), "persist.sys.mmgr%zu.config_hash",
              inst_id);
-    snprintf(key->reboot, sizeof(key->reboot), "persist.sys.mmgr%d.reboot",
+    snprintf(key->reboot, sizeof(key->reboot), "persist.sys.mmgr%zu.reboot",
              inst_id);
 
-    snprintf(key->amtl, sizeof(key->amtl), "service.amtl%d.cfg", inst_id);
+    snprintf(key->amtl, sizeof(key->amtl), "service.amtl%zu.cfg", inst_id);
 
     if (1 == inst_id)
         snprintf(key->mdm_version, sizeof(key->mdm_version), "%s",
                  MDM_VERSION_KEY);
     else
-        snprintf(key->mdm_version, sizeof(key->mdm_version), "%s%d",
+        snprintf(key->mdm_version, sizeof(key->mdm_version), "%s%zu",
                  MDM_VERSION_KEY, inst_id);
 
     return (key_hdle_t *)key;

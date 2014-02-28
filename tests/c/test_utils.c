@@ -440,11 +440,11 @@ static int event_tft(mmgr_cli_event_t *ev)
         goto out;
     }
     LOG_DEBUG(
-        "tft event {type:%d name_len:%d name:\"%s\" log:0x%X, num_data:%d}",
+        "tft event {type:%d name_len:%zu name:\"%s\" log:0x%X, num_data:%zu}",
         cli_ev->type,
         cli_ev->name_len, cli_ev->name, cli_ev->log, cli_ev->num_data);
     for (size_t i = 0; i < cli_ev->num_data; i++) {
-        LOG_DEBUG("data[%d] {len:%d value:\"%s\"}", i, cli_ev->data[i].len,
+        LOG_DEBUG("data[%zu] {len:%zu value:\"%s\"}", i, cli_ev->data[i].len,
                   cli_ev->data[i].value);
     }
     if ((cli_ev->name_len == strlen(ev_name))
@@ -489,7 +489,7 @@ static int event_ap_reset(mmgr_cli_event_t *ev)
         LOG_ERROR("empty data");
         goto out;
     }
-    LOG_DEBUG("AP reset asked by: %s (len: %d)", ap->name, ap->len);
+    LOG_DEBUG("AP reset asked by: %s (len: %zu)", ap->name, ap->len);
     if ((ap->len == strlen(MODULE_NAME)) &&
         (strncmp(MODULE_NAME, ap->name, ap->len) == 0))
         events_set(data, E_EVENTS_SUCCEED);

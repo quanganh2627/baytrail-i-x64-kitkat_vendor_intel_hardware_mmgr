@@ -349,7 +349,7 @@ int read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct)
         /* Safe because buffer length is AT_DEFAULT_RESPONSE_SIZE+1 */
         data[nOffsetBytes + read_size] = '\0';
         totalLength = strlen(data);
-        LOG_DEBUG("Data buffer length=%d bytes", totalLength);
+        LOG_DEBUG("Data buffer length=%zu bytes", totalLength);
         cr = data;
         /* Find pointer to end of line */
         while ((pEndLine = strstr(cr, AT_DEFAULT_LINE_SEPARATOR)) != NULL) {
@@ -363,7 +363,7 @@ int read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct)
             /* Call parsing function with received data */
             int res = parseFct(&fd_fs, cr, &lineLen);
 
-            LOG_DEBUG("Wrote %d bytes onto log file", lineLen);
+            LOG_DEBUG("Wrote %zu bytes onto log file", lineLen);
 
             /* Check if end of data detected */
             if (res > 0) {
@@ -381,7 +381,7 @@ int read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct)
         if (pEndLine == NULL) {
             /* Move the rest of data onto beginning of buffer */
             nOffsetBytes = strlen(cr);
-            LOG_DEBUG("Processing remaining data:%d Bytes.", nOffsetBytes);
+            LOG_DEBUG("Processing remaining data:%zu Bytes.", nOffsetBytes);
             if (nOffsetBytes > 0)
                 if ((cr != data) && (nOffsetBytes < sizeof(data)))
                     memmove(data, cr, nOffsetBytes);

@@ -55,19 +55,17 @@ e_mmgr_errors_t set_data_empty(msg_t *msg, mmgr_cli_event_t *event)
 e_mmgr_errors_t set_data_fuse_info(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    size_t len;
     mmgr_cli_fuse_info_t *fuse = NULL;
 
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
 
-    memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
     /* the buffer will be freed by the matching freed function */
     fuse = malloc(sizeof(mmgr_cli_fuse_info_t));
     if (fuse == NULL) {
         LOG_ERROR("memory allocation fails");
     } else {
-        memcpy(fuse->id, msg->data, len);
+        memcpy(fuse->id, msg->data, msg->hdr.len);
         ret = E_ERR_SUCCESS;
     }
 
@@ -98,7 +96,7 @@ e_mmgr_errors_t set_data_hw_id(msg_t *msg, mmgr_cli_event_t *request)
     if (hw == NULL) {
         LOG_ERROR("memory allocation fails");
     } else {
-        memcpy(&hw->len, &msg->hdr.len, sizeof(size_t));
+        hw->len = msg->hdr.len;
 
         /* the buffer will be freed by the matching freed function */
         hw->id = malloc((hw->len + 1) * sizeof(char));
@@ -173,7 +171,7 @@ e_mmgr_errors_t set_data_ap_reset(msg_t *msg, mmgr_cli_event_t *request)
         ap->recovery_causes[i].cause =
             malloc((ap->recovery_causes[i].len + 1) * sizeof(char));
         if (ap->recovery_causes[i].cause == NULL) {
-            LOG_ERROR("memory allocation failed for cause %d", i);
+            LOG_ERROR("memory allocation failed for cause %zu", i);
             ap->num_causes = i;
             break;
         }
@@ -229,7 +227,7 @@ e_mmgr_errors_t set_data_core_dump(msg_t *msg, mmgr_cli_event_t *request)
     deserialize_size_t(&msg_data, &cd->reason_len);
 
     if ((cd->path_len + cd->reason_len) !=
-        (msg->hdr.len - (msg_data - msg->data))) {
+        (size_t)(msg->hdr.len - (ptrdiff_t)(msg_data - msg->data))) {
         LOG_ERROR("bad string length");
         goto out;
     }
@@ -331,7 +329,7 @@ e_mmgr_errors_t set_data_tft_event(msg_t *msg, mmgr_cli_event_t *request)
 
             value = malloc((data[i].len + 1) * sizeof(char));
             if (value == NULL) {
-                LOG_ERROR("memory allocation failed for data %d", i);
+                LOG_ERROR("memory allocation failed for data %zu", i);
                 goto out;
             }
             memcpy(value, msg_data, data[i].len);
@@ -360,7 +358,6 @@ out:
 e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    size_t len;
     mmgr_cli_fw_update_result_t *result = NULL;
     uint32_t tmp = 0;
     char *msg_data = NULL;
@@ -368,8 +365,7 @@ e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request)
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
 
-    memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
-    if (len != sizeof(e_modem_fw_error_t)) {
+    if (msg->hdr.len != sizeof(e_modem_fw_error_t)) {
         LOG_ERROR("bad message size");
     } else {
         /* the buffer will be freed by the matching freed function */
@@ -400,7 +396,6 @@ e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request)
 e_mmgr_errors_t set_data_nvm_result(msg_t *msg, mmgr_cli_event_t *request)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    size_t len;
     mmgr_cli_nvm_update_result_t *result = NULL;
     uint32_t tmp = 0;
     char *msg_data = NULL;
@@ -408,8 +403,7 @@ e_mmgr_errors_t set_data_nvm_result(msg_t *msg, mmgr_cli_event_t *request)
     ASSERT(msg != NULL);
     ASSERT(request != NULL);
 
-    memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
-    if (len != (sizeof(e_modem_nvm_error_t) + sizeof(int))) {
+    if (msg->hdr.len != (sizeof(e_modem_nvm_error_t) + sizeof(int))) {
         LOG_ERROR("bad message size");
     } else {
         /* the buffer will be freed by the matching freed function */

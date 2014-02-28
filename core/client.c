@@ -439,7 +439,7 @@ e_mmgr_errors_t client_inform(const client_hdle_t *h, e_mmgr_events_t state,
         if ((ret = cnx_write(client->fd, msg.data, &write_size)) ==
             E_ERR_SUCCESS) {
             if (size != write_size) {
-                LOG_ERROR("send failed for client (fd=%d name=%s) send=%d/%d",
+                LOG_ERROR("send failed for client (fd=%d name=%s) send=%zu/%zu",
                           client->fd, client->name, write_size, size);
                 ret = E_ERR_FAILED;
             } else {

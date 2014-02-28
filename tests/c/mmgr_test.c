@@ -405,7 +405,7 @@ int main(int argc, char *argv[])
                               "<max mmgr instance>");
                     goto out;
                 }
-                LOG_DEBUG("instance id: %d", inst_id);
+                LOG_DEBUG("instance id: %zu", inst_id);
                 break;
             case 'h':
             default:

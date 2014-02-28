@@ -375,7 +375,7 @@ int write_to_cd_log_file(void *ctx, const char *pszResp, size_t *len)
                  cd_log_termination);
     }
 
-    LOG_DEBUG("Trying to write %d Bytes...", *len);
+    LOG_DEBUG("Trying to write %zu Bytes...", *len);
 
     fs_fd = *(int *)ctx;
     if (fs_fd > 0) {
@@ -386,9 +386,9 @@ int write_to_cd_log_file(void *ctx, const char *pszResp, size_t *len)
             // Add line separator onto file
             written = write(fs_fd, line_separator, strlen(line_separator));
             *len += written;
-            LOG_INFO("Success to write %d Bytes onto CD log file.", *len);
+            LOG_INFO("Success to write %zu Bytes onto CD log file.", *len);
         } else {
-            LOG_ERROR("Failed to write %d Bytes onto CD log file. Error %d:%s",
+            LOG_ERROR("Failed to write %zu Bytes onto CD log file. Error %d:%s",
                       *len, errno, strerror(errno));
             *len = 0;
             ret = -1;
