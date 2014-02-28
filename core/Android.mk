@@ -44,6 +44,11 @@ LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_IMPORT)
 LOCAL_LDLIBS += $(MY_LDLIBS)
 LOCAL_REQUIRED_MODULES := mmgr_xml
 
+# libmcdr is used by mmgr in userdebug and eng builds only
+ifneq (, $(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
+    LOCAL_REQUIRED_MODULES += libmcdr
+endif
+
 ifeq ($(BUILD_WITH_SECURITY_FRAMEWORK), chaabi_token)
 LOCAL_REQUIRED_MODULES += libdx_cc7
 endif
