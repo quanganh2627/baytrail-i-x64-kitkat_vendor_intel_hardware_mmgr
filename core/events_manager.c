@@ -124,7 +124,6 @@ e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr)
         ret = E_ERR_FAILED;
     } else {
         mmgr->events.cur_ev = FIRST_EVENT;
-        mmgr->events.link_state = E_MDM_LINK_NONE;
         mmgr->request.accept_request = true;
     }
 

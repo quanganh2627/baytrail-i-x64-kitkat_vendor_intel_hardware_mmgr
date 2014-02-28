@@ -201,20 +201,20 @@ int mdm_flash_get_fd(mdm_flash_handle_t *hdle)
 }
 
 /**
- * Cancel flashing operation. This function might be called if flashing
- * operation hangs
+ * Cancel flashing operation. This function will be called
+ * when the flashing operation reaches timeout.
+ * Because it isn't possible to properly stop the flashing
+ * thread, MMGR is stopped here in order to be re-launched by the
+ * Android framework, because it is a persistent service.
  *
  * @param [in] hdle flashing module
  *
  */
 void mdm_flash_cancel(mdm_flash_handle_t *hdle)
 {
-    mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
+    ASSERT(hdle != NULL);
 
-    ASSERT(ctx != NULL);
-
-    if (ctx->id && !pthread_kill(ctx->id, SIGUSR1))
-        ctx->id = 0;
+    exit(EXIT_FAILURE);
 }
 
 /**
