@@ -196,6 +196,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     else if (mmgr->info.ipc_ready_present)
         mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
     set_mcd_poll_states(&mmgr->info);
+    mmgr->events.link_state = E_MDM_LINK_NONE;
 
     if (E_ERR_SUCCESS != mdm_prepare(&mmgr->info)) {
         LOG_ERROR("modem fw is corrupted. Declare modem OOS");
@@ -207,10 +208,12 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         reset_modem(mmgr);
         ret = E_ERR_FAILED;
     } else if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
-        if ((mmgr->info.mdm_link == E_LINK_USB) && mmgr->info.is_flashless)
+        if ((mmgr->info.mdm_link == E_LINK_USB) &&
+            mmgr->info.is_flashless)
             set_mmgr_state(mmgr, E_MMGR_MDM_START);
         else
             set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+
         mmgr->events.cli_req = E_CLI_REQ_NONE;
 
         recov_reinit(mmgr->reset);
