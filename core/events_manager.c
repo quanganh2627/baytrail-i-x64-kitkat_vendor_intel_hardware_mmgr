@@ -373,6 +373,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             if (stop_mcdr) {
                 mcdr_cancel(mmgr->mcdr);
                 core_dump_finalize(mmgr, E_CD_TIMEOUT);
+                flush_pipe(mcdr_get_fd(mmgr->mcdr));
             }
             if (start_mdm_off) {
                 mmgr->events.cli_req = E_CLI_REQ_OFF;
@@ -400,11 +401,14 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             flash_verdict(mmgr, mdm_flash_get_verdict(mmgr->mdm_flash));
             break;
         case E_EVENT_MCDR:
+            /* For safety */
             flush_pipe(mcdr_get_fd(mmgr->mcdr));
             timer_stop(mmgr->timer, E_TIMER_CORE_DUMP_READING);
-
-            mcdr_finalize(mmgr->mcdr);
-            core_dump_finalize(mmgr, mcdr_get_result(mmgr->mcdr));
+            /* Check if MMGR was not interrupted while downloading core dump */
+            if (mmgr->state == E_MMGR_MDM_CORE_DUMP) {
+                mcdr_finalize(mmgr->mcdr);
+                core_dump_finalize(mmgr, mcdr_get_result(mmgr->mcdr));
+            }
             break;
         }
     }

@@ -307,12 +307,14 @@ e_core_dump_state_t mcdr_get_result(mcdr_handle_t *h)
     e_core_dump_state_t state = E_CD_OTHER;
 
     if (ctx) {
+        LOG_DEBUG("MCDR state:%d", ctx->mcdr.get_state());
         switch (ctx->mcdr.get_state()) {
         case MCDR_ARCHIVE_IN_PROGRESS:
         case MCDR_SUCCEED:
             state = E_CD_SUCCEED;
             break;
 
+        case MCDR_CLEANING_UP:
         case MCDR_FS_ERROR:
         case MCDR_INIT_ERROR:
         case MCDR_IO_ERROR:
