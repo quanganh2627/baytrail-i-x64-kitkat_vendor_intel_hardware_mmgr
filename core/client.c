@@ -241,7 +241,8 @@ clients_hdle_t *clients_init(int list_size)
     clients->set_data[E_MMGR_NOTIFY_TFT_EVENT] = set_msg_tft_event;
     clients->set_data[E_MMGR_RESPONSE_MODEM_FW_RESULT] =
         set_msg_modem_fw_result;
-
+    clients->set_data[E_MMGR_RESPONSE_MODEM_NVM_RESULT] =
+        set_msg_modem_nvm_result;
     return (clients_hdle_t *)clients;
 
 err:

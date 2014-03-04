@@ -389,6 +389,47 @@ e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request)
 }
 
 /**
+ * set client structure for E_MMGR_RESPONSE_MODEM_NVM_RESULT message
+ *
+ * @param [in,out] msg data received
+ * @param [in] request data to provide to MMGR client
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t set_data_nvm_result(msg_t *msg, mmgr_cli_event_t *request)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    size_t len;
+    mmgr_cli_nvm_update_result_t *result = NULL;
+    uint32_t tmp = 0;
+    char *msg_data = NULL;
+
+    ASSERT(msg != NULL);
+    ASSERT(request != NULL);
+
+    memcpy(&len, &msg->hdr.len, sizeof(uint32_t));
+    if (len != (sizeof(e_modem_nvm_error_t) + sizeof(int))) {
+        LOG_ERROR("bad message size");
+    } else {
+        /* the buffer will be freed by the matching freed function */
+        result = malloc(sizeof(mmgr_cli_nvm_update_result_t));
+        if (result == NULL) {
+            LOG_ERROR("memory allocation fails");
+        } else {
+            msg_data = msg->data;
+            deserialize_uint32(&msg_data, &tmp);
+            memcpy(&result->id, &tmp, sizeof(e_modem_nvm_error_t));
+            deserialize_int(&msg_data, &result->sub_error_code);
+            ret = E_ERR_SUCCESS;
+        }
+    }
+
+    request->data = result;
+    return ret;
+}
+
+/**
  * free client structure for message with one element structure
  *
  * @param [in] request data to provide to MMGR client

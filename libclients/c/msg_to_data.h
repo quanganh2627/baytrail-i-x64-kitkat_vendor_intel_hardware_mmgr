@@ -30,6 +30,7 @@ e_mmgr_errors_t set_data_ap_reset(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_core_dump(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_tft_event(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_data_fw_result(msg_t *msg, mmgr_cli_event_t *request);
+e_mmgr_errors_t set_data_nvm_result(msg_t *msg, mmgr_cli_event_t *request);
 
 e_mmgr_errors_t free_data_fuse_info(mmgr_cli_event_t *request);
 e_mmgr_errors_t free_one_element_struct(mmgr_cli_event_t *request);

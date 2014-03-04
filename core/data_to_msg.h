@@ -33,6 +33,7 @@ typedef struct mmgr_cli_internal_ap_reset {
 e_mmgr_errors_t set_msg_modem_hw_id(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_fuse_info(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_modem_fw_result(msg_t *msg, mmgr_cli_event_t *request);
+e_mmgr_errors_t set_msg_modem_nvm_result(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_ap_reset(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_core_dump(msg_t *msg, mmgr_cli_event_t *request);
 e_mmgr_errors_t set_msg_tft_event(msg_t *msg, mmgr_cli_event_t *request);
