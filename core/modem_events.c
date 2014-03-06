@@ -194,14 +194,20 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
         break;
     }
 
-    case E_MODEM_FW_ERROR_UNSPECIFIED:
-    case E_MODEM_FW_READY_TIMEOUT: {
-        static const char *const msg = "Flashing timeout";
+    case E_MODEM_FW_ERROR_UNSPECIFIED: {
+        static const char *const msg = "Modem FW unspecified error";
         mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
         mmgr_cli_tft_event_t ev =
-        { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
+        { E_EVENT_STATS, strlen(ev_type), ev_type, MMGR_CLI_TFT_AP_LOG_MASK, 1,
+          data };
         clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        break;
+    }
+
+    case E_MODEM_FW_READY_TIMEOUT: {
+        /* This error is already reported: "IPC ready not received" */
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         break;
     }
@@ -283,11 +289,13 @@ static bool apply_tlv(mmgr_data_t *mmgr)
                     "TLV failure: failed to apply TLV";
                 LOG_ERROR("%s", msg);
 
-                mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+                mmgr_cli_tft_event_data_t data[] =
+                { { strlen(msg), msg }, { strlen(files[0]), files[0] } };
                 mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
                                             strlen(ev_type), ev_type,
-                                            MMGR_CLI_TFT_AP_LOG_MASK,
-                                            1, data };
+                                            MMGR_CLI_TFT_AP_LOG_MASK |
+                                            MMGR_CLI_TFT_BP_LOG_MASK,
+                                            2, data };
                 clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
             } else {
                 applied = true;
@@ -295,12 +303,14 @@ static bool apply_tlv(mmgr_data_t *mmgr)
         } else {
             static const char *const msg = "TLV failure: too many files found";
             LOG_ERROR("%s. Skipping NVM update", msg);
-            mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+            mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg },
+                                                 { strlen(files[0]), files[0] },
+                                                 { strlen(files[1]),
+                                                   files[1] } };
             mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
                                         strlen(ev_type), ev_type,
-                                        MMGR_CLI_TFT_AP_LOG_MASK |
-                                        MMGR_CLI_TFT_BP_LOG_MASK,
-                                        1, data };
+                                        MMGR_CLI_TFT_AP_LOG_MASK,
+                                        3, data };
             clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
         }
 

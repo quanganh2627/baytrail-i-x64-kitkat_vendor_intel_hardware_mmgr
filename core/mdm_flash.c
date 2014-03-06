@@ -252,7 +252,7 @@ int mdm_flash_get_attempts(mdm_flash_handle_t *hdle)
 }
 
 /**
- * Reset the attempts number of flashing
+ * Reset the number of flashing attempts
  *
  * @param [in] hdle flashing module
  *

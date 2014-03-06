@@ -361,7 +361,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             if (cancel_flashing) {
                 static const char *const msg = "Timeout during modem flashing. "
                                                "Operation cancelled";
-                static const char *const ev_type = "TFT_STATS_FLASH";
+                static const char *const ev_type = "TFT_STAT_FLASH";
                 mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
                 mmgr_cli_tft_event_t ev =
                 { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
