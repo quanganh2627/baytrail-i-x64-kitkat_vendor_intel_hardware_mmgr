@@ -32,6 +32,7 @@ typedef struct mdm_update {
     char fls_filter[FILTER_SIZE];
     char provisioning[MY_PATH_MAX];
     char *fls_file;
+    char *tlv_folder;
     char tlv_file[MY_PATH_MAX];
 } mdm_upgrade_t;
 
@@ -120,8 +121,10 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
         fw_update = true;
         rename(file, update->fls_file);
     } else if (strstr(file, ".tlv")) {
+        char dst[MY_PATH_MAX];
+        snprintf(dst, MY_PATH_MAX, "%s/%s", update->tlv_folder, basename(file));
         tlv_update = true;
-        rename(file, update->tlv_file);
+        rename(file, dst);
     } else if (zip_is_valid(file)) {
         if (E_ERR_SUCCESS == zip_extract_entry(file, update->tlv_filter,
                                                update->tlv_file,
@@ -171,6 +174,8 @@ mdm_upgrade_hdle_t *mdm_upgrade_init(tlv_info_t *tlv, mdm_info_t *mdm_info,
     snprintf(update->tlv_file, sizeof(update->tlv_file), "%s/%s", tlv->folder,
              tlv->filename);
     update->fls_file = strdup(fls_file);
+    update->tlv_folder = strdup(tlv->folder);
+
     return (mdm_upgrade_hdle_t *)update;
 }
 
@@ -181,6 +186,7 @@ void mdm_upgrade_dispose(mdm_upgrade_hdle_t *hdle)
     ASSERT(update != NULL);
 
     free(update->fls_file);
+    free(update->tlv_folder);
     free(update);
 }
 
