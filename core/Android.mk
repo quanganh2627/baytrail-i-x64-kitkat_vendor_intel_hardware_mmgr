@@ -9,6 +9,8 @@ MY_MODULE_TAGS := optional
 MY_INCLUDES := \
     $(MMGR_PATH)/inc \
     $(LOCAL_PATH)/link \
+    $(TARGET_OUT_HEADERS)/libtcs \
+    $(TARGET_OUT_HEADERS)/libmcdr \
     $(call include-path-for, libusb) \
     $(call include-path-for, libpower) \
 
