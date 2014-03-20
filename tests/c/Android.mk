@@ -8,6 +8,8 @@ MY_MODULE_TAGS := optional tests
 
 MY_INCLUDES := \
     $(MMGR_PATH)/inc \
+    $(TARGET_OUT_HEADERS)/libtcs \
+    $(TARGET_OUT_HEADERS)/libmcdr \
 
 MY_SRC_FILES := $(call all-c-files-under, .)
 MY_C_FLAGS := -Wall -Werror -Wvla -DSTDIO_LOGS -DMODULE_NAME=\"MMGR-TEST\" -std=c99
