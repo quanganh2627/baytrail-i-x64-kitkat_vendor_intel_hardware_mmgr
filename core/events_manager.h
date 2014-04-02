@@ -31,6 +31,7 @@
 #include "security.h"
 #include "timer_events.h"
 #include "msg_format.h"
+#include "states.h"
 
 #define EVENTS \
     X(IPC), \
@@ -42,20 +43,6 @@
     X(SECUR), \
     X(FLASHING), \
     X(MCDR), \
-
-#define MMGR_STATE \
-    X(MDM_OFF), \
-    X(MDM_RESET), \
-    X(MDM_START), \
-    X(MDM_CONF_ONGOING), \
-    X(MDM_UP), \
-    X(MDM_OOS), \
-    X(WAIT_COLD_ACK), \
-    X(WAIT_SHT_ACK), \
-    X(MDM_CORE_DUMP), \
-    X(MDM_PREPARE_OFF), \
-    X(MDM_LINK_USB_DISC), \
-    X(NUM)
 
 typedef enum e_events_type {
 #undef X
@@ -69,12 +56,6 @@ typedef enum e_client_req {
         E_CLI_REQ_OFF = 0x1 << 2,
         E_CLI_REQ_PROD = 0x1 << 3,
 } e_client_req_t;
-
-typedef enum e_mmgr_state {
-#undef X
-#define X(a) E_MMGR_ ## a
-    MMGR_STATE
-} e_mmgr_state_t;
 
 typedef struct mmgr_events {
     int nfds;
@@ -121,6 +102,6 @@ e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr);
 
 e_mmgr_errors_t events_manager(mmgr_data_t *mmgr);
 e_mmgr_errors_t events_start(mmgr_data_t *mmgr);
-void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state);
+void set_mmgr_state(mmgr_data_t *mmgr, e_mmgr_state_t state);
 
 #endif                          /* __MMGR_EVENTS_MANAGER_HEADER__ */

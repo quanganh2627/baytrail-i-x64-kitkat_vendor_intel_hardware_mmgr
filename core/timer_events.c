@@ -168,6 +168,7 @@ e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
  * handle timeout cases
  *
  * @param [in] h timer module handle
+ * @param [in] state current state of MMGR
  * @param [out] reset true if MMGR should reset the modem
  * @param [out] start_mdm_off true if MMGR should start the modem shutdown
  * @param [out] finalize_mdm_off true if MMGR should finalize the modem shutdown
@@ -177,10 +178,10 @@ e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
  * @param [in] core_dump_signal_hw_working core dump hw signal is working or not
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset,
-                            bool *start_mdm_off, bool *finalize_mdm_off,
-                            bool *cd_err, bool *cancel_flashing,
-                            bool *stop_mcdr,
+e_mmgr_errors_t timer_event(timer_handle_t *h, e_mmgr_state_t state,
+                            bool *reset, bool *start_mdm_off,
+                            bool *finalize_mdm_off, bool *cd_err,
+                            bool *cancel_flashing, bool *stop_mcdr,
                             bool core_dump_signal_hw_working)
 {
     struct timespec cur;
@@ -238,7 +239,10 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset,
     }
 
     if (timer_is_elapsed(t, E_TIMER_WAIT_FOR_BUS_READY, &cur)) {
-        static const char *const msg = "BUS READY not received";
+        const char *msg = "BUS READY (Flash Mode) not received";
+
+        if (state == E_MMGR_MDM_CONF_ONGOING)
+            msg = "BUS READY (Modem Mode) not received";
 
         LOG_DEBUG("%s. Force modem reset", msg);
         static const char *const ev_type = "TFT_ERROR_USB";
@@ -247,6 +251,7 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset,
                                     strlen(ev_type), ev_type,
                                     MMGR_CLI_TFT_AP_LOG_MASK,
                                     1, data };
+
         clients_inform_all(t->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
         handled = true;

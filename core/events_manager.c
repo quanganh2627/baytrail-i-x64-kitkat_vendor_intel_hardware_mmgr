@@ -47,7 +47,7 @@ static const char const *g_mmgr_st[] = {
     MMGR_STATE
 };
 
-void set_mmgr_state(mmgr_data_t *mmgr, e_timer_type_t state)
+void set_mmgr_state(mmgr_data_t *mmgr, e_mmgr_state_t state)
 {
     mmgr->state = state;
     LOG_VERBOSE("new STATE: %s", g_mmgr_st[mmgr->state]);
@@ -356,7 +356,8 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             if (mmgr->state == E_MMGR_MDM_LINK_USB_DISC)
                 core_dump_signal_hw_working = false;
 
-            ret = timer_event(mmgr->timer, &reset, &start_mdm_off,
+            ret = timer_event(mmgr->timer, mmgr->state,
+                              &reset, &start_mdm_off,
                               &finalize_mdm_off, &cd_ipc,
                               &cancel_flashing, &stop_mcdr,
                               core_dump_signal_hw_working);

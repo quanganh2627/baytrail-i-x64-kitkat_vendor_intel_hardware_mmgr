@@ -22,6 +22,7 @@
 #include "client.h"
 #include "errors.h"
 #include "tcs_mmgr.h"
+#include "states.h"
 
 typedef void *timer_handle_t;
 
@@ -52,9 +53,10 @@ e_mmgr_errors_t timer_dispose(timer_handle_t *h);
 
 e_mmgr_errors_t timer_start(timer_handle_t *h, e_timer_type_t type);
 e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type);
-e_mmgr_errors_t timer_event(timer_handle_t *h, bool *reset, bool *start_mdm_off,
-                            bool *finalize_mdm_off, bool *cd_reset,
-                            bool *stop_flashing, bool *stop_mcdr,
+e_mmgr_errors_t timer_event(timer_handle_t *h, e_mmgr_state_t state,
+                            bool *reset, bool *start_mdm_off,
+                            bool *finalize_mdm_off, bool *cd_err,
+                            bool *cancel_flashing, bool *stop_mcdr,
                             bool core_dump_signal_hw_working);
 e_mmgr_errors_t timer_stop_all(timer_handle_t *h);
 
