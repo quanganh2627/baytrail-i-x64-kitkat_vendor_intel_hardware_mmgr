@@ -39,7 +39,13 @@ typedef struct mdm_update {
     char *run_folder;
     tlv_updates_t *tlvs;
     size_t nb_tlv;
+    int upgrade_err;
 } mdm_upgrade_t;
+
+typedef enum err_type {
+    ERR_FLS,
+    ERR_TLV,
+} err_type_t;
 
 /**
  * Replace tlv extension by a regexp used by sscanf
@@ -69,6 +75,32 @@ static e_mmgr_errors_t get_tlv_filter(char *filter, const char *file)
     }
 
     return ret;
+}
+
+static void mdm_upgrade_set_error(mdm_upgrade_t *upgrade, err_type_t type)
+{
+    ASSERT(upgrade != NULL);
+
+    switch (type) {
+    case ERR_FLS:
+        upgrade->upgrade_err |= MDM_UPGRADE_FLS_ERROR;
+        break;
+    case ERR_TLV:
+        upgrade->upgrade_err |= MDM_UPGRADE_TLV_ERROR;
+        break;
+    default:
+        break;
+    }
+}
+
+
+int mdm_upgrade_get_error(mdm_upgrade_hdle_t *hdle)
+{
+    mdm_upgrade_t *upgrade = (mdm_upgrade_t *)hdle;
+
+    ASSERT(upgrade != NULL);
+
+    return upgrade->upgrade_err;
 }
 
 /**
@@ -122,32 +154,42 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
     bool tlv_update = false;
 
     if (strstr(file, ".fls")) {
-        fw_update = true;
-        rename(file, update->fls_file);
+        if (rename(file, update->fls_file))
+            mdm_upgrade_set_error(update, ERR_FLS);
+        else
+            fw_update = true;
     } else if (strstr(file, ".tlv")) {
         char dst[MY_PATH_MAX];
         snprintf(dst, MY_PATH_MAX, "%s/%s", update->run_folder, basename(file));
-        tlv_update = true;
-        rename(file, dst);
+        if (rename(file, dst))
+            mdm_upgrade_set_error(update, ERR_TLV);
+        else
+            tlv_update = true;
     } else if (zip_is_valid(file)) {
         for (size_t i = 0; i < update->nb_tlv; i++) {
             if (E_ERR_SUCCESS == zip_extract_entry(file, update->tlvs[i].filter,
                                                    update->tlvs[i].file,
                                                    FILE_PERMISSION))
                 tlv_update = true;
+            else
+                mdm_upgrade_set_error(update, ERR_TLV);
         }
         if (E_ERR_SUCCESS == zip_extract_entry(file, update->fls_filter,
                                                update->fls_file,
                                                FILE_PERMISSION))
             fw_update = true;
+        else
+            mdm_upgrade_set_error(update, ERR_FLS);
         unlink(file);
     } else if (strstr(file, "package")) {
         /* This is not a zip file and the file is called package. It might be a
          * fls file */
         LOG_DEBUG("Update detected with no extension. "
                   "Let's assume this is a fls file");
-        fw_update = true;
-        rename(file, update->fls_file);
+        if (rename(file, update->fls_file))
+            mdm_upgrade_set_error(update, ERR_FLS);
+        else
+            fw_update = true;
     } else {
         LOG_ERROR("unknown file type: %s", file);
         unlink(file);
@@ -221,6 +263,9 @@ e_mmgr_errors_t mdm_upgrade(mdm_upgrade_hdle_t *hdle)
     mdm_upgrade_t *update = (mdm_upgrade_t *)hdle;
 
     ASSERT(update != NULL);
+
+    //reset modem upgrade error flag
+    update->upgrade_err = 0;
 
     char *files[10];
     int found = file_find(update->provisioning, "", files, ARRAY_SIZE(files));

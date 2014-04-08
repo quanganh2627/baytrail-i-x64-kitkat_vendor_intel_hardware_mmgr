@@ -125,6 +125,7 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
     info->mux = com->mux;
     /* @TODO: handle BOARD_PCIE */
     info->ipc_ready_present = (mcd->board == BOARD_AOB);
+    info->upgrade_err = 0;
 
     info->cd_link = mdm_info->ipc_cd;
     info->mdm_link = mdm_info->ipc_mdm;

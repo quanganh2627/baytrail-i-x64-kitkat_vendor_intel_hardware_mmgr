@@ -591,7 +591,8 @@ e_mmgr_errors_t mdm_prepare(modem_info_t *info)
 
     ASSERT(info != NULL);
 
-    mdm_upgrade(info->mdm_upgrade);
+    if (E_ERR_SUCCESS == mdm_upgrade(info->mdm_upgrade))
+        info->upgrade_err = mdm_upgrade_get_error(info->mdm_upgrade);
 
     if (info->is_flashless) {
         /* Restore calibration file from backup if missing */

@@ -146,9 +146,6 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
 
     ASSERT(mmgr != NULL);
 
-    if ((ret = mdm_prepare(&mmgr->info)) != E_ERR_SUCCESS)
-        goto out;
-
     ret = cnx_open(&mmgr->fd_cnx);
     if (ret != E_ERR_SUCCESS)
         goto out;
@@ -419,7 +416,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
                 pthread_create(&thr, NULL, delay_do, &mdm_up);
                 pthread_detach(thr);
             }
-
+            update_verdict(mmgr);
             flash_verdict(mmgr, mdm_flash_get_verdict(mmgr->mdm_flash));
             break;
         case E_EVENT_MCDR:

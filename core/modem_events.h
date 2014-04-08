@@ -31,6 +31,7 @@ e_mmgr_errors_t mdm_start_shtdwn(mmgr_data_t *mmgr);
 e_mmgr_errors_t mdm_finalize_shtdwn(mmgr_data_t *mmgr);
 
 void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict);
+void update_verdict(mmgr_data_t *mmgr);
 void core_dump_finalize(mmgr_data_t *mmgr, e_core_dump_state_t state);
 
 #endif                          /* __MMGR_MODEM_EVENTS_HEADER__ */

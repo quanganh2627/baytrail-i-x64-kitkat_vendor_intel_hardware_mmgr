@@ -254,6 +254,43 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
 }
 
 /**
+ * Check if FLS and TLV files update has failed and inform clients
+ *
+ * @param [in] mmgr
+ *
+ * @return none
+ */
+void update_verdict(mmgr_data_t *mmgr)
+{
+    ASSERT(mmgr != NULL);
+
+    if (mmgr->info.upgrade_err) {
+        static const char *const ev_type = "TFT_MDM_UPDATE";
+        mmgr_cli_tft_event_data_t data[] = { { 0, NULL }, { 0, NULL } };
+        int elem_nb = 0;
+
+        if (mmgr->info.upgrade_err & MDM_UPGRADE_FLS_ERROR) {
+            broadcast_msg(E_MSG_INTENT_MODEM_FW_UPDATE_FAILURE);
+            data[elem_nb].value = "FLS UPDATE FAILURE";
+            data[elem_nb].len = strlen(data[elem_nb].value);
+            elem_nb++;
+        }
+
+        if (mmgr->info.upgrade_err & MDM_UPGRADE_TLV_ERROR) {
+            data[elem_nb].value = "TLV UPDATE FAILURE";
+            data[elem_nb].len = strlen(data[elem_nb].value);
+            elem_nb++;
+        }
+
+        mmgr_cli_tft_event_t ev =
+        { E_EVENT_ERROR, strlen(ev_type), ev_type, MMGR_CLI_TFT_AP_LOG_MASK,
+          elem_nb, data };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+    }
+}
+
+
+/**
  * Apply TLV update. A TLV update is applied only if one TLV file exists in the
  * folder specified by TCS.
  *

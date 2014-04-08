@@ -94,6 +94,7 @@ typedef struct modem_info {
     bool need_warmreset;
     /* SSIC power on work around */
     bool need_ssic_po_wa;
+    int upgrade_err;
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
