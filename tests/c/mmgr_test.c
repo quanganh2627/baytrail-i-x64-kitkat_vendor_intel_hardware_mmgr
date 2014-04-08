@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "property.h"
 #include "errors.h"
 #include "test_cases.h"
 #include "mmgr.h"
