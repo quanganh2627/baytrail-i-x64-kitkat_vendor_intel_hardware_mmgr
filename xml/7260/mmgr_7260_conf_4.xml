@@ -21,7 +21,7 @@
 	</modem_link>
 	<mdm_ctrl
 		type="ioctl"
-		ipc_ready_present="true"
+		board="aob"
 	/>
 	<flashless>
 		<fw_backup

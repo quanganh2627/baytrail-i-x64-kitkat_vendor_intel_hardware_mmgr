@@ -7,7 +7,7 @@
 	</modem_link>
 	<mdm_ctrl
 		type="ioctl"
-		ipc_ready_present="true"
+		board="aob"
 	/>
 	<modem_comm>
 		<mux

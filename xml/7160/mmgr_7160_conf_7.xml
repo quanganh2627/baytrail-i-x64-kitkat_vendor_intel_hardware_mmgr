@@ -18,7 +18,7 @@
 	</modem_link>
 	<mdm_ctrl
 		type="ioctl"
-		ipc_ready_present="false"
+		board="ngff"
 	/>
 	<modem_comm>
 		<mux

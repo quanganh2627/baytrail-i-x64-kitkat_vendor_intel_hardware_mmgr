@@ -59,6 +59,39 @@ typedef enum e_switch_to_mux_states {
     E_MUX_DRIVER,
 } e_switch_to_mux_states_t;
 
+static e_mmgr_errors_t mcd_configure(int fd, enum mdm_ctrl_board_type board,
+                                     const char *mdm_name)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    errno = 0;
+    if (ioctl(fd, MDM_CTRL_SET_BOARD, &board)) {
+        if (ENOTTY == errno) {
+            LOG_DEBUG("MCD already initialized");
+            goto out;
+        }
+        LOG_ERROR("failed to set board type: %d", board);
+        ret = E_ERR_FAILED;
+        goto out;
+    }
+
+    enum mdm_ctrl_mdm_type family = MODEM_UNSUP;
+    if (!strcmp(mdm_name, "6360"))
+        family = MODEM_6360;
+    else if (!strcmp(mdm_name, "7160"))
+        family = MODEM_7160;
+    else if (!strcmp(mdm_name, "7260"))
+        family = MODEM_7260;
+
+    if (ioctl(fd, MDM_CTRL_SET_MDM, &family)) {
+        LOG_ERROR("failed to set modem family: %d", family);
+        ret = E_ERR_FAILED;
+    }
+
+out:
+    return ret;
+}
+
 /**
  * initialize modem info structure and mcdr
  *
@@ -90,7 +123,8 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
     info->is_flashless = mdm_info->flashless;
     info->mux = com->mux;
-    info->ipc_ready_present = mcd->ipc_ready_present;
+    /* @TODO: handle BOARD_PCIE */
+    info->ipc_ready_present = (mcd->board == BOARD_AOB);
 
     info->cd_link = mdm_info->ipc_cd;
     info->mdm_link = mdm_info->ipc_mdm;
@@ -136,12 +170,16 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
 
     info->fl_conf = *flash;
     info->fd_mcd = open(MBD_DEV, O_RDWR);
+
     if (info->fd_mcd == -1) {
         LOG_DEBUG("failed to open Modem Control Driver interface: %s",
                   strerror(errno));
         ret = E_ERR_FAILED;
         goto out;
     }
+    if ((ret = mcd_configure(info->fd_mcd, mcd->board, info->mdm_name))
+        != E_ERR_SUCCESS)
+        goto out;
 
     info->wakeup_cfg = E_MDM_WAKEUP_UNKNOWN;
 
