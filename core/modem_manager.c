@@ -38,6 +38,7 @@
     "-h\t\t: Show help options\n" \
 
 #define TEL_STACK_PROPERTY "persist.service.telephony.off"
+#define AMTL_PROPERTY "service.amtl.config"
 
 /* global values used to cleanup */
 mmgr_data_t *g_mmgr = NULL;
@@ -113,6 +114,21 @@ end_set_signal_handler:
     return err;
 }
 
+static void set_amtl_cfg(tcs_cfg_t *cfg)
+{
+    char platform[PROPERTY_VALUE_MAX] = { "" };
+    char amtl[PROPERTY_VALUE_MAX] = { "" };
+
+    property_get_string(AMTL_PROPERTY, amtl);
+    if (amtl[0] == '\0') {
+        LOG_DEBUG("amtl property not set");
+        property_get_string("ro.board.platform", platform);
+        snprintf(amtl, sizeof(amtl), "%s_XMM_%s", platform,
+                cfg->mdms.mdm_info[0].name);
+        property_set(AMTL_PROPERTY, amtl);
+    }
+}
+
 /**
  * This function initialize all MMGR modules.
  * It reads the current platform configuration via TCS
@@ -185,6 +201,8 @@ static void mmgr_init(mmgr_data_t *mmgr)
     if (mmgr->info.is_flashless)
         ASSERT((mmgr->mdm_flash = mdm_flash_init(&mmgr->info, mmgr->secure,
                                                  mmgr->events.bus_events)));
+
+    set_amtl_cfg(cfg);
 
     tcs_dispose(h);
 }
