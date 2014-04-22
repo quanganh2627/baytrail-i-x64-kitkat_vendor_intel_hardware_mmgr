@@ -22,11 +22,14 @@
 
 typedef void *mdm_upgrade_hdle_t;
 
-mdm_upgrade_hdle_t *mdm_upgrade_init(tlv_info_t *tlv, mdm_info_t *mdm_info,
-                                     const char *fls_file);
+mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, mdm_info_t *mdm_info,
+                                     const char *fls_file,
+                                     const char *run_folder);
 
 void mdm_upgrade_dispose(mdm_upgrade_hdle_t *hdle);
 
 e_mmgr_errors_t mdm_upgrade(mdm_upgrade_hdle_t *hdle);
+
+char *mdm_upgrade_get_tlv_path(mdm_upgrade_hdle_t *hdle);
 
 #endif /* __MODEM_UPGRADE_HEADER__ */

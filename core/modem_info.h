@@ -83,7 +83,6 @@ typedef struct modem_info {
     char sanity_check_dlc[PATH_MAX];
     char mdm_custo_dlc[PATH_MAX];
     char shtdwn_dlc[PATH_MAX];
-    char tlv_path[PATH_MAX];
     mux_t mux;
     char mdm_name[NAME];
     pm_handle_t *pm;
@@ -96,7 +95,7 @@ typedef struct modem_info {
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
-                                tlv_info_t *tlv, mmgr_mdm_link_t *mdm_link,
+                                tlvs_info_t *tlv, mmgr_mdm_link_t *mdm_link,
                                 channels_mmgr_t *ch, mmgr_flashless_t *flash,
                                 mmgr_mcd_t *mcd, modem_info_t *info);
 e_mmgr_errors_t modem_info_dispose(modem_info_t *info);

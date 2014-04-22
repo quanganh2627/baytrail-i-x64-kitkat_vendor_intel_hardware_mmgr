@@ -124,7 +124,7 @@ static void set_amtl_cfg(tcs_cfg_t *cfg)
         LOG_DEBUG("amtl property not set");
         property_get_string("ro.board.platform", platform);
         snprintf(amtl, sizeof(amtl), "%s_XMM_%s", platform,
-                cfg->mdms.mdm_info[0].name);
+                 cfg->mdms.mdm_info[0].name);
         property_set(AMTL_PROPERTY, amtl);
     }
 }
@@ -169,7 +169,7 @@ static void mmgr_init(mmgr_data_t *mmgr)
 
     ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdms.mdm_info[0],
                                             &mmgr_cfg->com,
-                                            &cfg->tlvs.tlv[0],
+                                            &cfg->tlvs,
                                             &mmgr_cfg->mdm_link,
                                             &cfg->channels.ch[0].mmgr,
                                             &mmgr_cfg->flash, &mmgr_cfg->mcd,

@@ -107,7 +107,7 @@ out:
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
-                                tlv_info_t *tlv,
+                                tlvs_info_t *tlvs,
                                 mmgr_mdm_link_t *mdm_link, channels_mmgr_t *ch,
                                 mmgr_flashless_t *flash, mmgr_mcd_t *mcd,
                                 modem_info_t *info)
@@ -116,7 +116,7 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
 
     ASSERT(mdm_info != NULL);
     ASSERT(com != NULL);
-    ASSERT(tlv != NULL);
+    ASSERT(tlvs != NULL);
     ASSERT(mdm_link != NULL);
     ASSERT(info != NULL);
 
@@ -160,13 +160,6 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
     }
 
     strncpy(info->mdm_name, mdm_info->name, sizeof(info->mdm_name) - 1);
-    if (tlv->folder[0] == '\0') {
-        LOG_ERROR("TLV path not set");
-        ret = E_ERR_FAILED;
-        goto out;
-    } else {
-        strncpy(info->tlv_path, tlv->folder, sizeof(info->tlv_path) - 1);
-    }
 
     info->fl_conf = *flash;
     info->fd_mcd = open(MBD_DEV, O_RDWR);
@@ -188,9 +181,9 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
                             strcmp(mdm_info->hw_revision, "20") == 0 &&
                             strcmp(mdm_info->sw_revision, "1.0") == 0);
 
-    ASSERT((info->mdm_upgrade = mdm_upgrade_init(tlv, mdm_info,
-                                                 info->fl_conf.run.mdm_fw)) !=
-           NULL);
+    ASSERT((info->mdm_upgrade =
+                mdm_upgrade_init(tlvs, mdm_info, info->fl_conf.run.mdm_fw,
+                                 info->fl_conf.run.path)) != NULL);
     ret = mdm_specific_init(info);
 out:
     return ret;

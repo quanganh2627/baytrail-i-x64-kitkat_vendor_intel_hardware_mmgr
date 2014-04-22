@@ -42,6 +42,7 @@
 
 #define READ_SIZE 64
 #define AT_CFUN_RETRY 0
+#define MAX_TLV 20
 
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 
@@ -271,51 +272,41 @@ static bool apply_tlv(mmgr_data_t *mmgr)
     ASSERT(mmgr != NULL);
 
     if (mmgr->info.is_flashless) {
-        char *files[2];
-        int found = file_find(mmgr->info.tlv_path, ".tlv", files,
-                              ARRAY_SIZE(files));
+        char *files[MAX_TLV + 1];
+        char *path = mdm_upgrade_get_tlv_path(mmgr->info.mdm_upgrade);
+        ASSERT(path != NULL);
+
+        int found = file_find(path, ".tlv", files, ARRAY_SIZE(files));
         if (found == 0) {
             nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
-            LOG_DEBUG("no TLV file found at %s; skipping nvm update",
-                      mmgr->info.tlv_path);
-        } else if (found == 1) {
-            LOG_DEBUG("TLV file to apply: %s", files[0]);
-            if (E_ERR_SUCCESS != flash_modem_nvm(&mmgr->info,
-                                                 mmgr->info.mdm_custo_dlc,
-                                                 files[0],
-                                                 &nvm_result.id,
-                                                 &nvm_result.sub_error_code)) {
-                static const char *const msg =
-                    "TLV failure: failed to apply TLV";
-                LOG_ERROR("%s", msg);
+            LOG_DEBUG("no TLV file found at %s; skipping nvm update", path);
+        } else if (found > 1) {
+            ASSERT(found <= MAX_TLV);
+            for (int i = 0; i < found; i++) {
+                LOG_DEBUG("TLV file to apply: %s", files[i]);
+                if (E_ERR_SUCCESS !=
+                    flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc,
+                                    files[i], &nvm_result.id,
+                                    &nvm_result.sub_error_code)) {
+                    static const char *const msg =
+                        "TLV failure: failed to apply TLV";
+                    LOG_ERROR("%s", msg);
 
-                mmgr_cli_tft_event_data_t data[] =
-                { { strlen(msg), msg }, { strlen(files[0]), files[0] } };
-                mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
-                                            strlen(ev_type), ev_type,
-                                            MMGR_CLI_TFT_AP_LOG_MASK |
-                                            MMGR_CLI_TFT_BP_LOG_MASK,
-                                            2, data };
-                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
-            } else {
-                applied = true;
+                    mmgr_cli_tft_event_data_t data[] =
+                    { { strlen(msg), msg }, { strlen(files[i]), files[i] } };
+                    mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                                strlen(ev_type), ev_type,
+                                                MMGR_CLI_TFT_AP_LOG_MASK |
+                                                MMGR_CLI_TFT_BP_LOG_MASK,
+                                                2, data };
+                    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT,
+                                       &ev);
+                } else {
+                    applied = true;
+                }
+                free(files[i]);
             }
-        } else {
-            static const char *const msg = "TLV failure: too many files found";
-            LOG_ERROR("%s. Skipping NVM update", msg);
-            mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg },
-                                                 { strlen(files[0]), files[0] },
-                                                 { strlen(files[1]),
-                                                   files[1] } };
-            mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
-                                        strlen(ev_type), ev_type,
-                                        MMGR_CLI_TFT_AP_LOG_MASK,
-                                        3, data };
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
         }
-
-        for (int i = 0; i < found; i++)
-            free(files[i]);
 
         clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,
                            &nvm_result);

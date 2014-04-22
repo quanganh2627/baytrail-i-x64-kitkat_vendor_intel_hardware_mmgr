@@ -27,13 +27,18 @@
 #define FILE_PERMISSION (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 #define FILTER_SIZE 128
 
+typedef struct tlv_updates {
+    char filter[FILTER_SIZE];
+    char file[MY_PATH_MAX];
+} tlv_updates_t;
+
 typedef struct mdm_update {
-    char tlv_filter[FILTER_SIZE];
     char fls_filter[FILTER_SIZE];
     char provisioning[MY_PATH_MAX];
     char *fls_file;
-    char *tlv_folder;
-    char tlv_file[MY_PATH_MAX];
+    char *run_folder;
+    tlv_updates_t *tlvs;
+    size_t nb_tlv;
 } mdm_upgrade_t;
 
 /**
@@ -51,7 +56,6 @@ static e_mmgr_errors_t get_tlv_filter(char *filter, const char *file)
 
     ASSERT(filter != NULL);
     ASSERT(file != NULL);
-
 
     strncpy(filter, file, FILTER_SIZE);
     filter[FILTER_SIZE - 1] = '\0';
@@ -122,14 +126,16 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
         rename(file, update->fls_file);
     } else if (strstr(file, ".tlv")) {
         char dst[MY_PATH_MAX];
-        snprintf(dst, MY_PATH_MAX, "%s/%s", update->tlv_folder, basename(file));
+        snprintf(dst, MY_PATH_MAX, "%s/%s", update->run_folder, basename(file));
         tlv_update = true;
         rename(file, dst);
     } else if (zip_is_valid(file)) {
-        if (E_ERR_SUCCESS == zip_extract_entry(file, update->tlv_filter,
-                                               update->tlv_file,
-                                               FILE_PERMISSION))
-            tlv_update = true;
+        for (size_t i = 0; i < update->nb_tlv; i++) {
+            if (E_ERR_SUCCESS == zip_extract_entry(file, update->tlvs[i].filter,
+                                                   update->tlvs[i].file,
+                                                   FILE_PERMISSION))
+                tlv_update = true;
+        }
         if (E_ERR_SUCCESS == zip_extract_entry(file, update->fls_filter,
                                                update->fls_file,
                                                FILE_PERMISSION))
@@ -155,26 +161,35 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
     return E_ERR_SUCCESS;
 }
 
-mdm_upgrade_hdle_t *mdm_upgrade_init(tlv_info_t *tlv, mdm_info_t *mdm_info,
-                                     const char *fls_file)
+mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, mdm_info_t *mdm_info,
+                                     const char *fls_file,
+                                     const char *run_folder)
 {
-    ASSERT(tlv != NULL);
+    ASSERT(tlvs != NULL);
     ASSERT(mdm_info != NULL);
     ASSERT(fls_file != NULL);
+    ASSERT(run_folder != NULL);
 
     mdm_upgrade_t *update = calloc(1, sizeof(mdm_upgrade_t));
     ASSERT(update != NULL);
 
-    get_tlv_filter(update->tlv_filter, tlv->filename);
+    update->tlvs = calloc(tlvs->nb, sizeof(tlv_updates_t));
+    ASSERT((update->tlvs != NULL) || (tlvs->nb == 0));
+
+    update->nb_tlv = tlvs->nb;
+    for (size_t i = 0; i < tlvs->nb; i++) {
+        get_tlv_filter(update->tlvs[i].filter, tlvs->tlv[i].filename);
+        snprintf(update->tlvs[i].file, sizeof(update->tlvs[i].file), "%s/%s",
+                 run_folder, tlvs->tlv[i].filename);
+    }
+
     get_fls_filter(update->fls_filter, mdm_info->name, mdm_info->hw_revision,
                    mdm_info->sw_revision);
     snprintf(update->provisioning, sizeof(update->provisioning),
-             "%s/provisioning", tlv->folder);
+             "%s/provisioning", run_folder);
 
-    snprintf(update->tlv_file, sizeof(update->tlv_file), "%s/%s", tlv->folder,
-             tlv->filename);
     update->fls_file = strdup(fls_file);
-    update->tlv_folder = strdup(tlv->folder);
+    update->run_folder = strdup(run_folder);
 
     return (mdm_upgrade_hdle_t *)update;
 }
@@ -186,7 +201,8 @@ void mdm_upgrade_dispose(mdm_upgrade_hdle_t *hdle)
     ASSERT(update != NULL);
 
     free(update->fls_file);
-    free(update->tlv_folder);
+    free(update->run_folder);
+    free(update->tlvs);
     free(update);
 }
 
@@ -224,4 +240,15 @@ e_mmgr_errors_t mdm_upgrade(mdm_upgrade_hdle_t *hdle)
     }
 
     return ret;
+}
+
+char *mdm_upgrade_get_tlv_path(mdm_upgrade_hdle_t *hdle)
+{
+    char *path = NULL;
+    mdm_upgrade_t *update = (mdm_upgrade_t *)hdle;
+
+    if (update)
+        path = update->run_folder;
+
+    return path;
 }
