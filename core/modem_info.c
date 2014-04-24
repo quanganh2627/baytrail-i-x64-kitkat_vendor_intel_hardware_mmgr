@@ -306,89 +306,106 @@ static e_mmgr_errors_t retrieve_streamline_cfg(int fd_tty, modem_info_t *info)
     clock_gettime(CLOCK_BOOTTIME, &start);
     while (1) {
         int timeout;
-        int read_size;
 
+        /* Wait for modem reply. */
         clock_gettime(CLOCK_BOOTTIME, &current);
         timeout = AT_STREAMLINE_TIMEOUT -
                   ((current.tv_sec - start.tv_sec) * 1000 +
                    ((current.tv_nsec - start.tv_nsec) / 1000000));
         if (timeout < 0) {
             ret = E_ERR_TTY_TIMEOUT;
-            break;
+            goto out_streamline;
         }
-
         ret = tty_wait_for_event(fd_tty, timeout);
         if (ret != E_ERR_SUCCESS)
             goto out_streamline;
 
-        do {
-            read_size = AT_STREAMLINE_REPLY_SIZE - in_buffer;
+        while (1) {
+            char *cr;
 
+            int read_size = AT_STREAMLINE_REPLY_SIZE - in_buffer;
             if (read_size <= 0) {
                 LOG_ERROR("streamline reply bigger than allocated buffer "
                           "(%d bytes).\n", AT_STREAMLINE_REPLY_SIZE);
                 goto out_streamline;
             }
 
-            ret = tty_read(fd_tty, &data[in_buffer], &read_size,
-                           AT_READ_MAX_RETRIES);
+            /* max_retries is set to 1 as retries are handled in this loop. */
+            ret = tty_read(fd_tty, &data[in_buffer], &read_size, 1);
             if (ret != E_ERR_SUCCESS)
                 goto out_streamline;
+            if (read_size <= 0)
+                break;
 
-            if (read_size > 0) {
-                char *cr = data;
+            data[in_buffer + read_size] = '\0';
 
-                read_size += in_buffer;
-                in_buffer = 0;
-                data[read_size] = '\0';
+            /* Parse modem reply line by line, with 'cr' pointing to the
+             * beginning of a line (starting with 'data').
+             */
+            cr = data;
+            while (1) {
+                char *end_cr = strstr(cr, AT_STREAMLINE_LINE_SEPARATOR);
+                if (end_cr != NULL) {
+                    /* Found a complete line, parse it and quit the processing
+                     * if OK or ERROR are found.
+                     */
+                    int base = 0;
+                    int len;
 
-                while (1) {
-                    char *end_cr = strstr(cr, AT_STREAMLINE_LINE_SEPARATOR);
-                    if (end_cr != NULL) {
-                        *end_cr = '\0';
-                        if (*cr != '\0') {
-                            int len = strlen(cr);
-                            int base = 0;
-                            while (len > 0) {
-                                const char *ellipsis = "";
-                                char save = '\0';
-                                if (len > AT_STREAMLINE_LOG_SPLIT) {
-                                    ellipsis = "...";
-                                    save = cr[base + AT_STREAMLINE_LOG_SPLIT];
-                                    cr[base + AT_STREAMLINE_LOG_SPLIT] = '\0';
-                                }
-                                LOG_INFO("received from modem: '%s'%s",
-                                         &cr[base], ellipsis);
-                                if (save != '\0')
-                                    cr[base + AT_STREAMLINE_LOG_SPLIT] = save;
-                                base += AT_STREAMLINE_LOG_SPLIT;
-                                len -= AT_STREAMLINE_LOG_SPLIT;
-                            }
-                            if ((!strcmp(cr, "OK")) || (!strcmp(cr, "ERROR"))) {
-                                goto out_streamline;
-                            } else if (strstr(cr,
-                                              "current_configuration") !=
-                                       NULL) {
-                                if (strstr(cr, "NO_REMOTE_WAKEUP") != NULL) {
-                                    LOG_INFO("OUTBAND configuration detected");
-                                    info->wakeup_cfg = E_MDM_WAKEUP_OUTBAND;
-                                } else {
-                                    LOG_INFO("INBAND configuration detected");
-                                    info->wakeup_cfg = E_MDM_WAKEUP_INBAND;
-                                }
-                            }
+                    /* Zero-terminate the just found complete line. */
+                    *end_cr = '\0';
+                    len = strlen(cr);
+
+                    /* Debug output of the line (with splitting to not send too
+                     * much data to Android's logging framework).
+                     */
+                    while (len > 0) {
+                        const char *ellipsis = "";
+                        char save = '\0';
+                        if (len > AT_STREAMLINE_LOG_SPLIT) {
+                            ellipsis = "...";
+                            save = cr[base + AT_STREAMLINE_LOG_SPLIT];
+                            cr[base + AT_STREAMLINE_LOG_SPLIT] = '\0';
                         }
-                        cr = end_cr + strlen(AT_STREAMLINE_LINE_SEPARATOR);
-                    } else {
-                        if (*cr != '\0') {
-                            in_buffer = strlen(cr);
-                            memmove(data, cr, strlen(cr));
-                        }
-                        break;
+                        LOG_INFO("received from modem: '%s'%s",
+                                 &cr[base], ellipsis);
+                        if (save != '\0')
+                            cr[base + AT_STREAMLINE_LOG_SPLIT] = save;
+                        base += AT_STREAMLINE_LOG_SPLIT;
+                        len -= AT_STREAMLINE_LOG_SPLIT;
                     }
+
+                    if ((!strcmp(cr, "OK")) || (!strcmp(cr, "ERROR"))) {
+                        goto out_streamline;
+                    } else if (strstr(cr, "current_configuration") != NULL) {
+                        /* The line contains the USB configuration, search for
+                         * INBAND vs OUTBAND.
+                         */
+                        if (strstr(cr, "NO_REMOTE_WAKEUP") != NULL) {
+                            LOG_INFO("OUTBAND configuration detected");
+                            info->wakeup_cfg = E_MDM_WAKEUP_OUTBAND;
+                        } else {
+                            LOG_INFO("INBAND configuration detected");
+                            info->wakeup_cfg = E_MDM_WAKEUP_INBAND;
+                        }
+                    }
+
+                    /* Line fully parsed, move to the beginning of the next
+                     * one.
+                     */
+                    cr = end_cr + strlen(AT_STREAMLINE_LINE_SEPARATOR);
+                } else {
+                    /* As current line is not complete, move it to the beginning
+                     * of the data buffer to append subsequent reads.
+                     */
+                    in_buffer = strlen(cr);
+                    if ((in_buffer != 0) && (cr != data) &&
+                        (in_buffer < (ssize_t)sizeof(data)))   // Added for KW
+                        memmove(data, cr, in_buffer);
+                    break;
                 }
             }
-        } while (read_size > 0);
+        }
     }
 
 out_streamline:
