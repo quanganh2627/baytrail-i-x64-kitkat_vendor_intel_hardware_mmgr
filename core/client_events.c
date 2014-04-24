@@ -802,11 +802,18 @@ static e_mmgr_errors_t request_fake_tft_event(mmgr_data_t *mmgr)
     return ret;
 }
 
-e_mmgr_errors_t client_nack(mmgr_data_t *mmgr)
+static e_mmgr_errors_t client_nack(mmgr_data_t *mmgr)
 {
     ASSERT(mmgr != NULL);
 
     return client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
+}
+
+static e_mmgr_errors_t client_ack(mmgr_data_t *mmgr)
+{
+    ASSERT(mmgr != NULL);
+
+    return client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 }
 
 /**
@@ -898,6 +905,8 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
     /* E_MMGR_REQUEST_MODEM_RECOVERY */
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_RECOVERY] =
         request_modem_recovery;
+    mmgr->hdler_client[E_MMGR_WAIT_COLD_ACK][E_MMGR_REQUEST_MODEM_RECOVERY] =
+        client_ack; // As modem is already being reset, ACK recovery request
 
     /* E_MMGR_REQUEST_MODEM_RESTART */
     mmgr->hdler_client[E_MMGR_MDM_UP][E_MMGR_REQUEST_MODEM_RESTART] =
