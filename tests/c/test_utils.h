@@ -77,7 +77,8 @@ e_mmgr_errors_t wait_for_state(test_data_t *thread_data, int state,
                                int timeout);
 
 e_mmgr_errors_t cleanup_modemcrash_dir(const char *path);
-e_mmgr_errors_t configure_client_library(test_data_t *data);
+e_mmgr_errors_t configure_client_library(test_data_t *data,
+                                         const char *test_name);
 e_mmgr_errors_t cleanup_client_library(test_data_t *data);
 int generic_mmgr_evt(mmgr_cli_event_t *ev);
 int bad_callback(mmgr_cli_event_t *ev);

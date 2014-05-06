@@ -721,7 +721,8 @@ out:
  * @return E_ERR_FAILED if fails
  * @return E_ERR_SUCCESS if successsful
  */
-e_mmgr_errors_t configure_client_library(test_data_t *test_data)
+e_mmgr_errors_t configure_client_library(test_data_t *test_data,
+                                         const char *test_name)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     e_err_mmgr_cli_t err;
@@ -752,10 +753,12 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
                                  E_MMGR_NOTIFY_CORE_DUMP) != E_ERR_CLI_SUCCEED)
         goto out;
 
-    if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
-                                 E_MMGR_NOTIFY_MODEM_COLD_RESET) !=
-        E_ERR_CLI_SUCCEED)
-        goto out;
+    if (strcmp(test_name, "start_modem")) {
+        if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
+                                     E_MMGR_NOTIFY_MODEM_COLD_RESET) !=
+            E_ERR_CLI_SUCCEED)
+            goto out;
+    }
 
     if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_NOTIFY_MODEM_SHUTDOWN) !=
