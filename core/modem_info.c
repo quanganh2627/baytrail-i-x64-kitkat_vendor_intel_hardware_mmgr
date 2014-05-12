@@ -292,7 +292,7 @@ static e_mmgr_errors_t retrieve_streamline_cfg(int fd_tty, modem_info_t *info)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     struct timespec current, start;
     char data[AT_STREAMLINE_REPLY_SIZE + 1];
-    int in_buffer = 0;
+    size_t in_buffer = 0;
 
     tcflush(fd_tty, TCIOFLUSH);
 
@@ -322,7 +322,7 @@ static e_mmgr_errors_t retrieve_streamline_cfg(int fd_tty, modem_info_t *info)
         while (1) {
             char *cr;
 
-            int read_size = AT_STREAMLINE_REPLY_SIZE - in_buffer;
+            int read_size = AT_STREAMLINE_REPLY_SIZE - (int)in_buffer;
             if (read_size <= 0) {
                 LOG_ERROR("streamline reply bigger than allocated buffer "
                           "(%d bytes).\n", AT_STREAMLINE_REPLY_SIZE);
@@ -399,7 +399,7 @@ static e_mmgr_errors_t retrieve_streamline_cfg(int fd_tty, modem_info_t *info)
                      */
                     in_buffer = strlen(cr);
                     if ((in_buffer != 0) && (cr != data) &&
-                        (in_buffer < (ssize_t)sizeof(data)))   // Added for KW
+                        (in_buffer < sizeof(data)))   // Added for KW
                         memmove(data, cr, in_buffer);
                     break;
                 }
