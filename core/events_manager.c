@@ -407,7 +407,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             mdm_flash_finalize(mmgr->mdm_flash);
             if (mmgr->info.need_ssic_po_wa) {
                 /* the link is expected to be restarted 10 secs after the
-                 *flashing */
+                 * flashing */
                 pthread_t thr;
                 static delay_t mdm_up;
                 mdm_up.delay_sec = 10;

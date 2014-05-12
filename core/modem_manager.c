@@ -124,7 +124,7 @@ static void set_amtl_cfg(tcs_cfg_t *cfg)
         LOG_DEBUG("amtl property not set");
         property_get_string("ro.board.platform", platform);
         snprintf(amtl, sizeof(amtl), "%s_XMM_%s", platform,
-                 cfg->mdms.mdm_info[0].name);
+                 cfg->mdm[0].core.name);
         property_set(AMTL_PROPERTY, amtl);
     }
 }
@@ -147,42 +147,42 @@ static void mmgr_init(mmgr_data_t *mmgr)
 
     tcs_cfg_t *cfg = tcs_get_config(h);
     ASSERT(cfg != NULL);
-    ASSERT(cfg->mdms.nb >= 1);
-    ASSERT(cfg->mdms.mdm_info != NULL);
-    ASSERT(cfg->channels.nb >= 1);
-    ASSERT(cfg->channels.ch != NULL);
-    ASSERT(cfg->tlvs.nb >= 1);
-    ASSERT(cfg->tlvs.tlv != NULL);
+    ASSERT(cfg->nb >= 1);
+    ASSERT(cfg->mdm != NULL);
+    ASSERT(cfg->mdm[0].tlvs.nb >= 1);
+    ASSERT(cfg->mdm[0].tlvs.tlv != NULL);
+    ASSERT(cfg->mdm[0].chs.nb >= 1);
+    ASSERT(cfg->mdm[0].chs.ch != NULL);
 
-    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h, &cfg->mdms.mdm_info[0]);
+    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h, &cfg->mdm[0]);
     ASSERT(mmgr_cfg != NULL);
 
     tcs_print(h);
 
     ASSERT((mmgr->reset = recov_init(&mmgr_cfg->recov)) != NULL);
 
-    ASSERT((mmgr->secure = secure_init(cfg->mdms.mdm_info[0].secured,
-                                       &cfg->channels.ch[0].mmgr.secured)) !=
-           NULL);
+    ASSERT((mmgr->secure =
+                secure_init(cfg->mdm[0].core.secured,
+                            &cfg->mdm[0].chs.ch[0].mmgr.secured)) != NULL);
 
     ASSERT((mmgr->mcdr = mcdr_init(&mmgr_cfg->mcdr)) != NULL);
 
-    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdms.mdm_info[0],
+    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm[0],
                                             &mmgr_cfg->com,
-                                            &cfg->tlvs,
+                                            &cfg->mdm[0].tlvs,
                                             &mmgr_cfg->mdm_link,
-                                            &cfg->channels.ch[0].mmgr,
+                                            &cfg->mdm[0].chs.ch[0].mmgr,
                                             &mmgr_cfg->flash, &mmgr_cfg->mcd,
                                             &mmgr->info));
 
-    ASSERT((mmgr->info.pm = pm_init(cfg->mdms.mdm_info[0].ipc_mdm,
+    ASSERT((mmgr->info.pm = pm_init(cfg->mdm[0].core.ipc_mdm,
                                     &mmgr_cfg->mdm_link.power,
-                                    cfg->mdms.mdm_info[0].ipc_cd,
+                                    cfg->mdm[0].core.ipc_cd,
                                     &mmgr_cfg->mcdr.power)) != NULL);
 
-    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdms.mdm_info[0].ipc_mdm,
+    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm[0].core.ipc_mdm,
                                         &mmgr_cfg->mdm_link.ctrl,
-                                        cfg->mdms.mdm_info[0].ipc_cd,
+                                        cfg->mdm[0].core.ipc_cd,
                                         &mmgr_cfg->mcdr.ctrl)) != NULL);
 
     ASSERT(E_ERR_SUCCESS == modem_events_init(mmgr));

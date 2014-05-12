@@ -203,12 +203,12 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
     return E_ERR_SUCCESS;
 }
 
-mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, mdm_info_t *mdm_info,
+mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, mdm_info_t *mdm,
                                      const char *fls_file,
                                      const char *run_folder)
 {
     ASSERT(tlvs != NULL);
-    ASSERT(mdm_info != NULL);
+    ASSERT(mdm != NULL);
     ASSERT(fls_file != NULL);
     ASSERT(run_folder != NULL);
 
@@ -225,8 +225,8 @@ mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, mdm_info_t *mdm_info,
                  run_folder, tlvs->tlv[i].filename);
     }
 
-    get_fls_filter(update->fls_filter, mdm_info->name, mdm_info->hw_revision,
-                   mdm_info->sw_revision);
+    get_fls_filter(update->fls_filter, mdm->core.name,
+                   mdm->core.hw_revision, mdm->core.sw_revision);
     snprintf(update->provisioning, sizeof(update->provisioning),
              "%s/provisioning", run_folder);
 

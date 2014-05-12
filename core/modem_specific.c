@@ -452,7 +452,7 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
 
     if (info->need_ssic_po_wa) {
         /* the link is expected to be started 20 secs after the actual mdm power
-         *on */
+         * on */
         pthread_t thr;
         static delay_t mdm_up;
         mdm_up.delay_sec = 20;

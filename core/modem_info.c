@@ -121,14 +121,14 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
     ASSERT(info != NULL);
 
     info->polled_states = MDM_CTRL_STATE_COREDUMP;
-    info->is_flashless = mdm_info->flashless;
+    info->is_flashless = mdm_info->core.flashless;
     info->mux = com->mux;
     /* @TODO: handle BOARD_PCIE */
     info->ipc_ready_present = (mcd->board == BOARD_AOB);
     info->upgrade_err = 0;
 
-    info->cd_link = mdm_info->ipc_cd;
-    info->mdm_link = mdm_info->ipc_mdm;
+    info->cd_link = mdm_info->core.ipc_cd;
+    info->mdm_link = mdm_info->core.ipc_mdm;
     switch (mdm_link->baseband.type) {
     case E_LINK_HSI:
         strncpy(info->mdm_ipc_path, mdm_link->baseband.hsi.device,
@@ -160,7 +160,7 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
         goto out;
     }
 
-    strncpy(info->mdm_name, mdm_info->name, sizeof(info->mdm_name) - 1);
+    strncpy(info->mdm_name, mdm_info->core.name, sizeof(info->mdm_name) - 1);
 
     info->fl_conf = *flash;
     info->fd_mcd = open(MBD_DEV, O_RDWR);
@@ -178,14 +178,14 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
     info->wakeup_cfg = E_MDM_WAKEUP_UNKNOWN;
 
     /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
-    info->need_warmreset = (strstr(mdm_info->name, "7260") != NULL &&
-                            strcmp(mdm_info->hw_revision, "20") == 0 &&
-                            strcmp(mdm_info->sw_revision, "1.0") == 0);
+    info->need_warmreset = (strstr(mdm_info->core.name, "7260") != NULL &&
+                            strcmp(mdm_info->core.hw_revision, "20") == 0 &&
+                            strcmp(mdm_info->core.sw_revision, "1.0") == 0);
 
     /* SSIC power on work around */
     info->need_ssic_po_wa =
-        !strcmp(mdm_info->mmgr_xml, "mmgr_7260_conf_3.xml") ||
-        !strcmp(mdm_info->mmgr_xml, "mmgr_7260_conf_7.xml");
+        !strcmp(mdm_info->mod.mmgr_xml, "mmgr_7260_conf_3.xml") ||
+        !strcmp(mdm_info->mod.mmgr_xml, "mmgr_7260_conf_7.xml");
 
     ASSERT((info->mdm_upgrade =
                 mdm_upgrade_init(tlvs, mdm_info, info->fl_conf.run.mdm_fw,
