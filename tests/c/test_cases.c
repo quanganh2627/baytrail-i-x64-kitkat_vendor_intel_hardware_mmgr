@@ -204,9 +204,17 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     int reboot;
+    mmgr_cli_recovery_cause_t causes[] = {
+        { strlen(APIMR_CAUSE_STRING), (char *)APIMR_CAUSE_STRING },
+        { strlen(__FUNCTION__), (char *)__FUNCTION__ }
+    };
     mmgr_cli_requests_t request;
 
     ASSERT(test != NULL);
+
+    MMGR_CLI_INIT_REQUEST(request, E_MMGR_REQUEST_MODEM_RECOVERY);
+    request.data = causes;
+    request.len = sizeof(causes);
 
     puts("\n*************************************************************\n"
          "To perform this test, you should have just boot your phone\n"
@@ -216,19 +224,14 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
 
     if (test->cfg.cold_reset > 0) {
         for (int i = 1; i <= test->cfg.cold_reset; i++) {
-            mmgr_cli_recovery_cause_t causes[] = {
-                { strlen(APIMR_CAUSE_STRING), (char *)APIMR_CAUSE_STRING },
-                { strlen(__FUNCTION__), (char *)__FUNCTION__ }
-            };
-
             printf("\nCheck #%d COLD reset\n", i);
             pthread_mutex_lock(&test->mutex);
             test->events &= ~E_EVENTS_SUCCEED;
             pthread_mutex_unlock(&test->mutex);
             ret = reset_by_client_request(test,
-                                          E_MMGR_REQUEST_MODEM_RECOVERY,
-                                          sizeof(causes),
-                                          causes,
+                                          request.id,
+                                          request.len,
+                                          request.data,
                                           E_MMGR_NOTIFY_MODEM_COLD_RESET,
                                           E_MMGR_EVENT_MODEM_UP);
             if ((ret != E_ERR_SUCCESS)
