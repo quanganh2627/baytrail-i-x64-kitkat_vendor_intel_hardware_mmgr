@@ -71,6 +71,15 @@ typedef struct mup_op {
                            const char *certificate, const char *secur);
 } mup_op_t;
 
+typedef enum e_cd_status {
+    /* General */
+    E_STATUS_COMPLETE = 0,  /** CD was generated successfully */
+    E_STATUS_UNCOMPLETED,   /** Time-out occured during CD generation or more
+                             * data must be read */
+    E_STATUS_FAILED,        /** Failure while generating core dump */
+    E_STATUS_NONE           /** No core dump was generated */
+} e_cd_status_t;
+
 typedef struct modem_info {
     mup_op_t mup;
     int fd_mcd;
@@ -79,6 +88,8 @@ typedef struct modem_info {
     bool is_flashless;
     e_link_t mdm_link;          /* modem link */
     e_link_t cd_link;           /* core dump link */
+    e_cd_status_t cd_generated; /* Indicates the core dump status before the
+                                 * last mdm_reset */
     char mdm_ipc_path[PATH_MAX];
     char sanity_check_dlc[PATH_MAX];
     char mdm_custo_dlc[PATH_MAX];
@@ -101,6 +112,15 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int inst_id, bool dsda,
                                 mmgr_mdm_link_t *mdm_link, channels_mmgr_t *ch,
                                 mmgr_flashless_t *flash, mmgr_mcd_t *mcd,
                                 modem_info_t *info);
+
+/* Callback used to parse an AT response string */
+typedef int (*PFN_PARSE_RESP) (void *ctx, const char *pszResp, size_t *len);
+
+e_cd_status_t get_core_dump_status(e_core_dump_state_t state);
+const char *get_core_dump_status_string(e_cd_status_t status);
+bool generate_timestamp(char *timestamp, int size);
+e_cd_status_t read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct);
+
 e_mmgr_errors_t modem_info_dispose(modem_info_t *info);
 e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info);
 

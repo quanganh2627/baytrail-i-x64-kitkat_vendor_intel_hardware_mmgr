@@ -21,6 +21,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <termios.h>
+#include <unistd.h>
+#include <cutils/properties.h>
 #include "at.h"
 #include "common.h"
 #include "errors.h"
@@ -38,11 +41,17 @@
 #include "pm.h"
 
 /* AT command to shutdown modem */
-#define POWER_OFF_MODEM "AT+CFUN=0\r"
+#define POWER_OFF_MODEM             "AT+CFUN=0\r"
+#define NB_CD_LOG_CMDS              4
+#define CMD_MAX_SIZE                100
 
-#define READ_SIZE 64
-#define AT_CFUN_RETRY 0
-#define MAX_TLV 20
+#define TIMESTAMP_LEN   32
+#define READ_SIZE       64
+#define AT_CFUN_RETRY   0
+#define MAX_TLV         20
+
+/* At cmd to be sent to retrieve core dump logs */
+const char cd_dumplog_cmd[CMD_MAX_SIZE] = "at@cdd:dumpLog()\r";
 
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 
@@ -385,9 +394,205 @@ void core_dump_finalize(mmgr_data_t *mmgr, e_core_dump_state_t state)
     if (mmgr->info.mdm_link == E_LINK_USB)
         mmgr->events.link_state = E_MDM_LINK_NONE;
 
+    /* Set flag to notify there was a modem crash */
+    /* and core dump was generated (success or failed) */
+    mmgr->info.cd_generated = get_core_dump_status(state);
+
     /* The modem will be reset. No need to launch
      * a timer */
     set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+}
+
+/**
+ * Callback function used to write strings onto log file.
+ * Newline separator characters are added at the end of received strings.
+ *
+ * @param [in] ctx Input argument, here it is the dest file fd.
+ * @param [in] pszResp The string to write onto dest file.
+ * @param [in/out] len The number of bytes to be written on dest file.
+ *                     Updated with the number of bytes actually written onto
+ *                     dest file.
+ *
+ * @return 0 If data were copied successfully onto file.
+ * @return 1 If completion/termination string was found.
+ * @return -1 If a critical error happened.
+ */
+int write_to_cd_log_file(void *ctx, const char *pszResp, size_t *len)
+{
+    int ret = 0;
+    int fs_fd = -1;
+    size_t written = 0;
+    const char *cd_log_termination = "*** CDD log dump done ***";
+    const char *line_separator = "\r\n";
+    char *pTermination = NULL;
+
+    ASSERT(pszResp != NULL);
+
+    if ((ctx == NULL) || (len == NULL) || (pszResp == NULL)) {
+        *len = 0;
+        ret = -1;
+        LOG_ERROR("Error bad arguments.");
+        goto Exit;
+    }
+
+    pTermination = strstr(pszResp, cd_log_termination);
+    if (pTermination != NULL) {
+        // Only write data up to the end of termination string
+        *len = pTermination - pszResp + strlen(cd_log_termination);
+        ret = 1;
+        LOG_INFO("Termination:%s found, END of core dump log detected!",
+                 cd_log_termination);
+    }
+
+    LOG_DEBUG("Trying to write %d Bytes...", *len);
+
+    fs_fd = *(int *)ctx;
+    if (fs_fd > 0) {
+        errno = 0;
+        written = write(fs_fd, pszResp, *len);
+        if (written > 0) {
+            *len = written;
+            // Add line separator onto file
+            written = write(fs_fd, line_separator, strlen(line_separator));
+            *len += written;
+            LOG_INFO("Success to write %d Bytes onto CD log file.", *len);
+        } else {
+            LOG_ERROR("Failed to write %d Bytes onto CD log file. Error %d:%s",
+                      *len, errno, strerror(errno));
+            *len = 0;
+            ret = -1;
+            goto Exit;
+        }
+    } else {
+        LOG_ERROR("Error with core dump log file descriptor: Bad value.");
+        *len = 0;
+        ret = -1;
+        goto Exit;
+    }
+
+Exit:
+    return ret;
+}
+
+/**
+ * Initialize core dump logs
+ *
+ * @param [in,out] mmgr mmgr context
+ *
+ * @return E_ERR_FAILED if reset not performed
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t mdm_start_core_dump_logs(mmgr_data_t *mmgr)
+{
+    int fd = CLOSED_FD;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    const char *path = NULL;
+    const char *filename = NULL;
+    char cd_log_basename[PATH_MAX] = { 0 };
+    char cd_log_file[PATH_MAX] = { 0 };
+    int dir_fd = -1;
+    int fs_fd = -1;
+    const char *const PROP_MDM_VERSION = "gsm.version.baseband";
+    /* TTY dedicated to retrieve core dump logs */
+    const char *const CORE_DUMP_LOG_TTY = "/dev/gsmtty10";
+    char mdm_version[PATH_MAX];
+    char timestamp[TIMESTAMP_LEN] = { "00000000000000" };
+
+    ASSERT(mmgr != NULL);
+
+    ret = tty_open(CORE_DUMP_LOG_TTY, &fd);
+    if (fd <= 0) {
+        LOG_ERROR("Opening TTY FAILED, err:%d", ret);
+        goto Exit;
+    }
+
+    /* Get the modem FW version. */
+    property_get(PROP_MDM_VERSION, mdm_version, "");
+
+    if (!mmgr->mcdr) {
+        LOG_ERROR("Failed to find mcdr handle.");
+        goto Exit;
+    }
+    path = mcdr_get_path(mmgr->mcdr);
+    if (path == NULL) {
+        LOG_ERROR("Cannot retrieve core dump path.");
+        goto Exit;
+    }
+    errno = 0;
+    dir_fd = open(path, O_DIRECTORY);
+    if (dir_fd <= 0) {
+        LOG_ERROR("Cannot open core dump path, errno:%d:%s",
+                  errno, strerror(errno));
+        goto Exit;
+    }
+    filename = mcdr_get_filename(mmgr->mcdr);
+    if ((filename == NULL) || (strlen(filename) == 0)) {
+        /* Core dump file was NOT generated, create cd debug log file name. */
+        generate_timestamp(timestamp, TIMESTAMP_LEN);
+        snprintf(cd_log_basename, PATH_MAX, "cd_debug_%s_%s",
+                 mdm_version, timestamp);
+    } else {
+        /* Remove the '.tar.gz' extension characters */
+        char *pExtension;
+        snprintf(cd_log_basename, sizeof(cd_log_basename), "%s", filename);
+        pExtension = strstr(cd_log_basename, ".tar.gz");
+        if (pExtension != NULL)
+            pExtension[0] = '\0';
+    }
+
+    /* Retrieve core dump log file */
+    e_cd_status_t read_status = E_STATUS_UNCOMPLETED;
+    snprintf(cd_log_file, sizeof(cd_log_file), "%s.txt", cd_log_basename);
+    fs_fd = openat(dir_fd, cd_log_file, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+
+    if (fs_fd <= 0) {
+        LOG_ERROR("Cannot open CD log file:%s", cd_log_file);
+        goto Exit;
+    }
+
+    while (read_status == E_STATUS_UNCOMPLETED) {
+        errno = 0;
+        ret = send_at_retry(fd, cd_dumplog_cmd, strlen(cd_dumplog_cmd),
+                            0, AT_ANSWER_NO_TIMEOUT);
+        if (ret != E_ERR_SUCCESS) {
+            LOG_ERROR("Failed to send %s AT command, errno:%d:%s",
+                      cd_dumplog_cmd, errno, strerror(errno));
+            goto Exit;
+        }
+        read_status = read_cd_logs(fd, fs_fd, write_to_cd_log_file);
+    }
+
+    if (read_status != E_STATUS_COMPLETE) {
+        LOG_ERROR("Failed to read core dump logs.");
+        ret = E_ERR_FAILED;
+        goto Exit;
+    }
+    /* Close/Sync core dump log file */
+    if (fs_fd > 0) {
+        fsync(fs_fd);
+        close(fs_fd);
+        fs_fd = -1;
+    }
+    /* Flush data in TTY */
+    tcflush(fd, TCIOFLUSH);
+
+    LOG_INFO("Core dump log %s retrieved.", cd_log_file);
+
+Exit:
+    if (fd > 0)
+        tty_close(&fd);
+    if (fs_fd > 0) {
+        fsync(fs_fd);
+        close(fs_fd);
+    }
+    if (dir_fd > 0)
+        close(dir_fd);
+
+    /* We got the core dump logs, reset CD status */
+    mmgr->info.cd_generated = get_core_dump_status(E_CD_SELF_RESET);
+
+    LOG_INFO("EXIT, ret:%d", ret);
+    return ret;
 }
 
 /**
@@ -770,6 +975,22 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
         else
             ret = launch_secur(mmgr);
         clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
+
+        LOG_DEBUG(
+            "Mmgr state:%d, Mmgr events state:%d, Mmgr events link state:%d",
+            mmgr->state, mmgr->events.state, mmgr->events.link_state);
+
+        if (mmgr->mcdr != NULL) {
+            if (mmgr->info.cd_generated != E_STATUS_NONE) {
+                LOG_INFO(
+                    "A Core dump was generated before last modem reset! CD Status:%s",
+                    get_core_dump_status_string(mmgr->info.cd_generated));
+                /* Request core dump logs */
+                ret = mdm_start_core_dump_logs(mmgr);
+                if (ret != E_ERR_SUCCESS)
+                    LOG_ERROR("ERROR creating core dump log file.");
+            }
+        }
         pm_on_mdm_up(mmgr->info.pm);
     }
 

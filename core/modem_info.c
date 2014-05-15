@@ -17,6 +17,8 @@
 #define MMGR_FW_OPERATIONS
 #include <errno.h>
 #include <ctype.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -46,6 +48,10 @@
 #define AT_STREAMLINE_REPLY_SIZE 2048
 #define AT_STREAMLINE_LOG_SPLIT 512
 #define AT_STREAMLINE_LINE_SEPARATOR "\r\n"
+
+#define AT_DEFAULT_TIMEOUT 2500
+#define AT_DEFAULT_RESPONSE_SIZE 2048
+#define AT_DEFAULT_LINE_SEPARATOR "\r\n"
 
 /* switch to MUX timings */
 #define STAT_DELAY 250          /* in milliseconds */
@@ -126,9 +132,10 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int id, bool dsda,
     /* @TODO: handle BOARD_PCIE */
     info->ipc_ready_present = (mcd->board == BOARD_AOB);
     info->upgrade_err = 0;
-
+    info->cd_generated = E_STATUS_NONE;
     info->cd_link = mdm_info->core.ipc_cd;
     info->mdm_link = mdm_info->core.ipc_mdm;
+
     switch (mdm_link->baseband.type) {
     case E_LINK_HSI:
         strncpy(info->mdm_ipc_path, mdm_link->baseband.hsi.device,
@@ -421,6 +428,190 @@ out_streamline:
     return E_ERR_SUCCESS;
 }
 
+/**
+ * This function builds a time stamp string.
+ *
+ * @param [out] buffer
+ * @param [in] buffer size
+ *
+ * @return: true if successful.
+ */
+bool generate_timestamp(char *timestamp, int size)
+{
+    struct tm *tm;
+    time_t curTime = time(NULL);
+    bool ret = false;
+
+    if (timestamp == NULL) {
+        LOG_INFO("timestamp is NULL");
+        return false;
+    }
+
+    if (curTime == -1) {
+        LOG_ERROR("Invalid time");
+    } else {
+        tm = localtime(&curTime);
+        if (tm == NULL) {
+            LOG_ERROR("localtime() returned NULL");
+        } else {
+            snprintf(timestamp, size, "%4d%02d%02d%02d%02d%02d",
+                     tm->tm_year + 1900, tm->tm_mon + 1,
+                     tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+            ret = true;
+        }
+    }
+    return ret;
+}
+
+/**
+ * Debug utility function to display core dump status string.
+ */
+const char *get_core_dump_status_string(e_cd_status_t status)
+{
+    switch (status) {
+    case E_STATUS_COMPLETE:
+        return "E_STATUS_COMPLETE";
+    case E_STATUS_UNCOMPLETED:
+        return "E_STATUS_UNCOMPLETED";
+    case E_STATUS_NONE:
+        return "E_STATUS_NONE";
+    case E_STATUS_FAILED:
+        return "E_STATUS_FAILED";
+    default:
+        break;
+    }
+
+    return "UNKNOWN";
+}
+
+/**
+ * Function returning a cd status according to current core dump state.
+ */
+e_cd_status_t get_core_dump_status(e_core_dump_state_t state)
+{
+    e_cd_status_t cd_status;
+
+    switch (state) {
+    case E_CD_SUCCEED:
+        cd_status = E_STATUS_COMPLETE;
+        break;
+    case E_CD_TIMEOUT:
+    case E_CD_LINK_ERROR:
+        cd_status = E_STATUS_UNCOMPLETED;
+        break;
+    case E_CD_SELF_RESET:
+        cd_status = E_STATUS_NONE;
+        break;
+    default:
+        cd_status = E_STATUS_FAILED;
+    }
+
+    LOG_INFO("CD Status:%s", get_core_dump_status_string(cd_status));
+    return cd_status;
+}
+
+/**
+ * Read characters from tty fd then process these data by the given callback
+ * function.
+ * The fd_fs parameter is passed along to the callback function.
+ *
+ * @param [in] fd_tty Modem file descriptor
+ * @param [in] fd_fs Core dump log file descriptor
+ * @param [in] parseFct Callback function processing data received
+ *
+ * @return E_STATUS_COMPLETE All data have been parsed.
+ * @return E_STATUS_UNCOMPLETED Not all data have been read from fd_tty
+ * @return E_STATUS_FAILED A critical error happened
+ */
+e_cd_status_t read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct)
+{
+    e_cd_status_t ret = E_STATUS_FAILED;
+    char data[AT_DEFAULT_RESPONSE_SIZE + 1] = { 0 };
+    int read_size = AT_DEFAULT_RESPONSE_SIZE;
+    char *cr = NULL;
+    char *pEndLine = NULL;
+    size_t nOffsetBytes = 0;
+    size_t totalLength = 0;
+
+    if (fd_tty <= 0)
+        goto out_read;
+
+    LOG_DEBUG("WAITING DATA, time-out duration:%dms", AT_DEFAULT_TIMEOUT);
+
+    do {
+        /* Wait for modem reply. */
+        if (tty_wait_for_event(fd_tty, AT_DEFAULT_TIMEOUT) != E_ERR_SUCCESS)
+            goto out_read;
+
+        read_size = AT_DEFAULT_RESPONSE_SIZE - nOffsetBytes;
+        if (read_size <= 0) {
+            LOG_ERROR("Modem reply bigger than allocated buffer "
+                      "(%d bytes).\n", AT_DEFAULT_RESPONSE_SIZE);
+            goto out_read;
+        }
+
+        if (tty_read(fd_tty, &data[nOffsetBytes], &read_size,
+                     1) != E_ERR_SUCCESS) {
+            LOG_ERROR("Failed reading data from TTY!");
+            goto out_read;
+        }
+
+        LOG_DEBUG("Read %d bytes from tty", read_size);
+
+        /* No data */
+        if (read_size <= 0) {
+            ret = E_STATUS_UNCOMPLETED;
+            goto out_read;
+        }
+
+        /* Safe because buffer length is AT_DEFAULT_RESPONSE_SIZE+1 */
+        data[nOffsetBytes + read_size] = '\0';
+        totalLength = strlen(data);
+        LOG_DEBUG("Data buffer length=%d bytes", totalLength);
+        cr = data;
+        /* Find pointer to end of line */
+        while ((pEndLine = strstr(cr, AT_DEFAULT_LINE_SEPARATOR)) != NULL) {
+            *pEndLine = '\0';
+            size_t lineLen = strlen(cr);
+            if (lineLen == 0) {
+                /* Skip line separator characters */
+                cr += strlen(AT_DEFAULT_LINE_SEPARATOR);
+                continue;
+            }
+            /* Call parsing function with received data */
+            int res = parseFct(&fd_fs, cr, &lineLen);
+
+            LOG_DEBUG("Wrote %d bytes onto log file", lineLen);
+
+            /* Check if end of data detected */
+            if (res > 0) {
+                LOG_INFO("Core Dump logs data end.");
+                ret = E_STATUS_COMPLETE;
+                goto out_read;
+            } else if (res == 0) {
+                ret = E_STATUS_UNCOMPLETED;
+            } else {
+                ret = E_STATUS_FAILED;
+                goto out_read;
+            }
+            /* Go to next line */
+            cr = pEndLine + strlen(AT_DEFAULT_LINE_SEPARATOR);
+        }
+        if (pEndLine == NULL) {
+            /* Move the rest of data onto beginning of buffer */
+            nOffsetBytes = strlen(cr);
+            LOG_DEBUG("Processing remaining data:%d Bytes.", nOffsetBytes);
+            if (nOffsetBytes > 0)
+                if ((cr != data) && (nOffsetBytes < sizeof(data)))
+                    memmove(data, cr, nOffsetBytes);
+        }
+        /* Loop  */
+    } while (nOffsetBytes > 0);
+
+out_read:
+    LOG_INFO("EXIT, Status:%s", get_core_dump_status_string(ret));
+    return ret;
+}
 
 /**
  * Activate the MUX
