@@ -206,15 +206,14 @@ e_events_t events_get(test_data_t *test_data)
  *
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_state_set(test_data_t *test_data, e_mmgr_events_t state)
+void modem_state_set(test_data_t *test_data, e_mmgr_events_t state)
 {
     ASSERT(test_data != NULL);
 
-    pthread_mutex_lock(&test_data->mutex);
-    test_data->modem_state = state;
-    pthread_mutex_unlock(&test_data->mutex);
+    LOG_DEBUG("modem_state_set: %s", g_mmgr_events[(int)state]);
 
-    return E_ERR_SUCCESS;
+    ASSERT(write(test_data->fd_pipe[WRITE], &state,
+                 sizeof(e_mmgr_events_t)) == sizeof(e_mmgr_events_t));
 }
 
 /**
@@ -231,9 +230,18 @@ static e_mmgr_errors_t modem_state_get(test_data_t *test_data,
     ASSERT(test_data != NULL);
     ASSERT(state != NULL);
 
-    pthread_mutex_lock(&test_data->mutex);
-    *state = test_data->modem_state;
-    pthread_mutex_unlock(&test_data->mutex);
+    for (;; ) {
+        int err =
+            read(test_data->fd_pipe[READ], state, sizeof(e_mmgr_events_t));
+        if (err == sizeof(e_mmgr_events_t)) {
+            break;
+        } else if ((err == -1) && (errno == EINTR)) {
+            continue;
+        } else {
+            LOG_ERROR("event not received correctly (errno: %d)", errno);
+            return E_ERR_FAILED;
+        }
+    }
 
     return E_ERR_SUCCESS;
 }
@@ -366,15 +374,13 @@ e_mmgr_errors_t wait_for_state(test_data_t *test_data, int state, int timeout)
              */
             ts.tv_sec += 1;
 
-        pthread_mutex_lock(&test_data->cond_mutex);
-        pthread_cond_timedwait(&test_data->cond, &test_data->cond_mutex, &ts);
-        pthread_mutex_unlock(&test_data->cond_mutex);
+        if (sem_timedwait(&test_data->sem, &ts) == 0) {
+            if (modem_state_get(test_data, &current_state) == E_ERR_FAILED)
+                break;
+        } else {
+            continue;
+        }
 
-        modem_state_get(test_data, &current_state);
-
-        /* ack new modem state by releasing the new_state_read mutex */
-        pthread_mutex_trylock(&test_data->new_state_read);
-        pthread_mutex_unlock(&test_data->new_state_read);
         if (current_state == test_data->waited_state) {
             LOG_DEBUG("modem state: %s", g_mmgr_events[current_state]);
             ret = E_ERR_SUCCESS;
@@ -403,18 +409,13 @@ static e_mmgr_errors_t set_and_notify(e_mmgr_events_t id,
 {
     ASSERT(test_data != NULL);
 
-    /* lock modem state update. the state can only be upgraded if read by
-     * wait_for_state function */
-    pthread_mutex_lock(&test_data->new_state_read);
+    if (id < E_MMGR_NUM_EVENTS) {
+        modem_state_set(test_data, id);
 
-    modem_state_set(test_data, id);
+        ASSERT(sem_post(&test_data->sem) == 0);
 
-    pthread_mutex_lock(&test_data->cond_mutex);
-    pthread_cond_signal(&test_data->cond);
-    pthread_mutex_unlock(&test_data->cond_mutex);
-
-    if (id < E_MMGR_NUM_EVENTS)
         LOG_DEBUG("current state: %s", g_mmgr_events[id]);
+    }
 
     return E_ERR_SUCCESS;
 }
@@ -692,9 +693,10 @@ e_mmgr_errors_t cleanup_client_library(test_data_t *test_data)
 
     ASSERT(test_data != NULL);
 
-    /* release new_state_read mutex to prevent callback function deadlock */
-    pthread_mutex_trylock(&test_data->new_state_read);
-    pthread_mutex_unlock(&test_data->new_state_read);
+    sem_destroy(&test_data->sem);
+
+    close(test_data->fd_pipe[0]);
+    close(test_data->fd_pipe[1]);
 
     if (mmgr_cli_disconnect(test_data->lib) != E_ERR_CLI_SUCCEED) {
         LOG_ERROR("failed to disconnect client");
@@ -827,6 +829,7 @@ e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mmgr_cli_requests_t request;
+    static int iteration = 0;
 
     MMGR_CLI_INIT_REQUEST(request, id);
 
@@ -836,11 +839,13 @@ e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
     request.len = data_len;
     request.data = data;
 
-    /* Wait modem up */
-    ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_UP, MMGR_DELAY);
-    if (ret != E_ERR_SUCCESS) {
-        LOG_DEBUG("modem is down");
-        goto out;
+    /* Wait modem up only this is the first time running this test*/
+    if (iteration == 0) {
+        ret = wait_for_state(data_test, E_MMGR_EVENT_MODEM_UP, MMGR_DELAY);
+        if (ret != E_ERR_SUCCESS) {
+            LOG_DEBUG("modem is down");
+            goto out;
+        }
     }
 
     if (mmgr_cli_send_msg(data_test->lib, &request) != E_ERR_CLI_SUCCEED) {
@@ -860,6 +865,8 @@ e_mmgr_errors_t reset_by_client_request(test_data_t *data_test,
                          data_test->cfg.timeout_mdm_up);
     if (ret == E_ERR_SUCCESS)
         ret = check_wakelock(false);
+
+    iteration++;
 
 out:
     return ret;

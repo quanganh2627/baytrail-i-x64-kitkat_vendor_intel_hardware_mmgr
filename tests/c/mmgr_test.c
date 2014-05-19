@@ -171,10 +171,10 @@ e_mmgr_errors_t run_test(test_case_t *test, const char *option_string)
     test_data.modem_state = E_MMGR_NUM_EVENTS;
     test_data.events = E_EVENTS_NONE;
     test_data.option_string = option_string;
-    pthread_mutex_init(&test_data.new_state_read, NULL);
+    sem_init(&test_data.sem, 0, 0);
     pthread_mutex_init(&test_data.mutex, NULL);
-    pthread_mutex_init(&test_data.cond_mutex, NULL);
-    pthread_cond_init(&test_data.cond, NULL);
+
+    ASSERT(pipe(test_data.fd_pipe) == 0);
 
     if (E_ERR_SUCCESS != mmgr_test_init(&test_data.cfg)) {
         LOG_ERROR("failed to read platform configuration");

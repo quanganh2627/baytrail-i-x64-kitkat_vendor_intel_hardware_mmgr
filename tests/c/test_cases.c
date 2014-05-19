@@ -647,10 +647,6 @@ e_mmgr_errors_t test_libmmgrcli_api(test_data_t *test)
         goto out;
     }
 
-    /* ack modem state. Otherwise the mmgr-test callback will block */
-    pthread_mutex_trylock(&test->new_state_read);
-    pthread_mutex_unlock(&test->new_state_read);
-
     if (mmgr_cli_connect(NULL) != E_ERR_CLI_BAD_HANDLE) {
         line = __LINE__;
         goto out;

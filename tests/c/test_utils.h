@@ -21,6 +21,7 @@
 
 #include <pthread.h>
 #include <stdbool.h>
+#include <semaphore.h>
 #include "logs.h"
 #include "mmgr.h"
 #include "mmgr_cli.h"
@@ -29,6 +30,8 @@
 #define FILENAME_SIZE 256
 #define MMGR_DELAY 5        /* in seconds */
 #define MDM_CONFIGURATION 5 /* in seconds */
+#define WRITE 1
+#define READ 0
 
 typedef enum e_events {
     E_EVENTS_NONE = 0x0,
@@ -56,10 +59,9 @@ typedef struct monkey_ctx {
 } monkey_ctx_t;
 
 typedef struct test_data {
-    pthread_mutex_t new_state_read;
+    int fd_pipe[2];
     pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    pthread_mutex_t cond_mutex;
+    sem_t sem;
     e_mmgr_events_t waited_state;
     e_mmgr_events_t modem_state;
     mmgr_cli_handle_t *lib;
@@ -69,7 +71,7 @@ typedef struct test_data {
     monkey_ctx_t monkey;
 } test_data_t;
 
-e_mmgr_errors_t modem_state_set(test_data_t *test_data, e_mmgr_events_t state);
+void modem_state_set(test_data_t *test_data, e_mmgr_events_t state);
 e_events_t events_get(test_data_t *test_data);
 e_mmgr_errors_t compare_file_content(const char *path, const char *data,
                                      int len);
