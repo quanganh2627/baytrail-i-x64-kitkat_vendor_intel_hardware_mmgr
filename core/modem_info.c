@@ -106,8 +106,8 @@ out:
  * @return E_ERR_FAILED if mcdr init fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
-                                tlvs_info_t *tlvs,
+e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int id, bool dsda,
+                                mmgr_com_t *com, tlvs_info_t *tlvs,
                                 mmgr_mdm_link_t *mdm_link, channels_mmgr_t *ch,
                                 mmgr_flashless_t *flash, mmgr_mcd_t *mcd,
                                 modem_info_t *info)
@@ -192,7 +192,8 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
         !strcmp(mdm_info->mod.mmgr_xml, "mmgr_7260_conf_7.xml");
 
     ASSERT((info->mdm_upgrade =
-                mdm_upgrade_init(tlvs, mdm_info, info->fl_conf.run.mdm_fw,
+                mdm_upgrade_init(tlvs, id, dsda, mdm_info,
+                                 info->fl_conf.run.mdm_fw,
                                  info->fl_conf.run.path)) != NULL);
 
     ret = mdm_specific_init(info);

@@ -25,8 +25,8 @@
 
 typedef void *mdm_upgrade_hdle_t;
 
-mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, mdm_info_t *mdm_info,
-                                     const char *fls_file,
+mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, int inst_id, bool dsda,
+                                     mdm_info_t *mdm_info, const char *fls_file,
                                      const char *run_folder);
 
 void mdm_upgrade_dispose(mdm_upgrade_hdle_t *hdle);

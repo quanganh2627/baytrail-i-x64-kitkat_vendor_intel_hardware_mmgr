@@ -23,6 +23,9 @@
 #include "logs.h"
 #include "mdm_upgrade.h"
 #include "zip.h"
+#include "property.h"
+
+#define DSDA_PROVISIONING "service.mmgr.dsda_provisioning"
 
 #define FILE_PERMISSION (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 #define FILTER_SIZE 128
@@ -40,12 +43,23 @@ typedef struct mdm_update {
     tlv_updates_t *tlvs;
     size_t nb_tlv;
     int upgrade_err;
+    bool dsda;
+    int inst_id;
 } mdm_upgrade_t;
 
 typedef enum err_type {
     ERR_FLS,
     ERR_TLV,
 } err_type_t;
+
+static inline bool is_removal_allowed(void)
+{
+    int value = 0;
+
+    property_get_int(DSDA_PROVISIONING, &value);
+
+    return value == 1;
+}
 
 /**
  * Replace tlv extension by a regexp used by sscanf
@@ -180,7 +194,16 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
             fw_update = true;
         else
             mdm_upgrade_set_error(update, ERR_FLS);
-        unlink(file);
+        if (!update->dsda) {
+            unlink(file);
+        } else {
+            if (update->inst_id == 0) {
+                property_set_int(DSDA_PROVISIONING, 1);
+            } else if (is_removal_allowed()) {
+                unlink(file);
+                property_set_int(DSDA_PROVISIONING, 0);
+            }
+        }
     } else if (strstr(file, "package")) {
         /* This is not a zip file and the file is called package. It might be a
          * fls file */
@@ -203,7 +226,8 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
     return E_ERR_SUCCESS;
 }
 
-mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, mdm_info_t *mdm,
+mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, int inst_id, bool dsda,
+                                     mdm_info_t *mdm,
                                      const char *fls_file,
                                      const char *run_folder)
 {
@@ -232,6 +256,9 @@ mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, mdm_info_t *mdm,
 
     update->fls_file = strdup(fls_file);
     update->run_folder = strdup(run_folder);
+
+    update->dsda = dsda;
+    update->inst_id = inst_id;
 
     return (mdm_upgrade_hdle_t *)update;
 }

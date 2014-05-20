@@ -286,7 +286,7 @@ static inline void flush_pipe(int fd)
  *
  * @return E_ERR_SUCCESS
  */
-e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
+e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     bool wakelock = false;
@@ -322,6 +322,9 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             wakelock = true;
             acquire_wake_lock(PARTIAL_WAKE_LOCK, MODULE_NAME);
         }
+
+        if (dsda && (inst_id == 1))
+            mdm_upgrade(mmgr->info.mdm_upgrade);
 
         LOG_DEBUG("event type: %s", events_str[mmgr->events.state]);
         switch (mmgr->events.state) {

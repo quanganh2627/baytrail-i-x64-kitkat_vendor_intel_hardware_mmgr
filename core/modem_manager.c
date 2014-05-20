@@ -184,7 +184,7 @@ static void mmgr_init(mmgr_data_t *mmgr, int id, bool *dsda)
 
     ASSERT((mmgr->mcdr = mcdr_init(&mmgr_cfg->mcdr)) != NULL);
 
-    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm[id],
+    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm[id], id, *dsda,
                                             &mmgr_cfg->com,
                                             &cfg->mdm[id].tlvs,
                                             &mmgr_cfg->mdm_link,
@@ -314,7 +314,7 @@ int main(int argc, char *argv[])
         LOG_ERROR("failed to start event module");
         ret = EXIT_FAILURE;
     } else {
-        events_manager(&mmgr);
+        events_manager(&mmgr, inst_id, dsda);
     }
 
 out:
