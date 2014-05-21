@@ -95,6 +95,7 @@ typedef struct modem_info {
     /* SSIC power on work around */
     bool need_ssic_po_wa;
     int upgrade_err;
+    bool shtdwn_allowed;
 } modem_info_t;
 
 e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int inst_id, bool dsda,

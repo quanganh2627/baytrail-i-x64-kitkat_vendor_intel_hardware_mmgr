@@ -197,6 +197,12 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int id, bool dsda,
                                  info->fl_conf.run.path)) != NULL);
 
     ret = mdm_specific_init(info);
+
+    if (dsda)
+        info->shtdwn_allowed = false;
+    else
+        info->shtdwn_allowed = true;
+
 out:
     return ret;
 }

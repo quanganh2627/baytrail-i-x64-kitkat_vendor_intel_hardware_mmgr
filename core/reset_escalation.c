@@ -81,7 +81,13 @@ e_mmgr_errors_t platform_reboot(modem_info_t *unused)
  */
 e_mmgr_errors_t out_of_service(modem_info_t *info)
 {
-    mdm_down(info);
+    if (info->shtdwn_allowed) {
+        mdm_down(info);
+    } else {
+        LOG_DEBUG("modem shutdown not allowed. Cold reset performed instead");
+        mdm_cold_reset(info);
+    }
+
     return E_ERR_SUCCESS;
 }
 
