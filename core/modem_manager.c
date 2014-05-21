@@ -41,6 +41,7 @@
 
 #define TEL_STACK_PROPERTY "persist.service.telephony.off"
 #define AMTL_PROPERTY "service.amtl.config"
+#define AMTL2_PROPERTY "service.amtl.config2"
 
 /* global values used to cleanup */
 mmgr_data_t *g_mmgr = NULL;
@@ -116,18 +117,24 @@ end_set_signal_handler:
     return err;
 }
 
-static void set_amtl_cfg(tcs_cfg_t *cfg)
+static void set_amtl_cfg(tcs_cfg_t *cfg, int id)
 {
     char platform[PROPERTY_VALUE_MAX] = { "" };
     char amtl[PROPERTY_VALUE_MAX] = { "" };
+    const char *property = NULL;
 
-    property_get_string(AMTL_PROPERTY, amtl);
+    if (id == 0)
+        property = AMTL_PROPERTY;
+    else
+        property = AMTL2_PROPERTY;
+
+    property_get_string(property, amtl);
     if (amtl[0] == '\0') {
         LOG_DEBUG("amtl property not set");
         property_get_string("ro.board.platform", platform);
         snprintf(amtl, sizeof(amtl), "%s_XMM_%s", platform,
-                 cfg->mdm[0].core.name);
-        property_set(AMTL_PROPERTY, amtl);
+                 cfg->mdm[id].core.name);
+        property_set(property, amtl);
     }
 }
 
@@ -212,7 +219,7 @@ static void mmgr_init(mmgr_data_t *mmgr, int id, bool *dsda)
         ASSERT((mmgr->mdm_flash = mdm_flash_init(&mmgr->info, mmgr->secure,
                                                  mmgr->events.bus_events)));
 
-    set_amtl_cfg(cfg);
+    set_amtl_cfg(cfg, id);
 
     tcs_dispose(h);
 }
