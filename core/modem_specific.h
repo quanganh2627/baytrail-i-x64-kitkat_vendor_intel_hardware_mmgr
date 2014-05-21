@@ -32,8 +32,9 @@ e_mmgr_errors_t mdm_cold_reset(modem_info_t *info);
 e_mmgr_errors_t mdm_down(modem_info_t *info);
 e_mmgr_errors_t mdm_up(modem_info_t *info);
 e_mmgr_errors_t mdm_get_state(int fd_mcd, e_modem_events_type_t *state);
-e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *comport,
-                            bool ch_sw, const secure_handle_t *sec_hdle,
+e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *eb_port,
+                            const char *fls_port, bool ch_sw,
+                            const secure_handle_t *sec_hdle,
                             e_modem_fw_error_t *verdict);
 e_mmgr_errors_t flash_modem_nvm(modem_info_t *info, char *comport,
                                 char *tlv_file, e_modem_nvm_error_t *verdict,

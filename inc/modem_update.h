@@ -51,7 +51,8 @@ typedef struct mup_interface {
 
 typedef struct mup_fw_update_params {
     mup_interface_t *handle;
-    const char *mdm_com_port;
+    const char *mdm_eb_port;
+    const char *mdm_fls_port;
     bool channel_hw_sw;
     const char *fw_file_path;
     size_t fw_file_path_len;

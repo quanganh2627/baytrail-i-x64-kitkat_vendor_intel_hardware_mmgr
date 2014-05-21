@@ -183,8 +183,9 @@ e_mmgr_errors_t toggle_flashing_mode(const modem_info_t *info,
  * @return E_ERR_FAILED if operation fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *comport,
-                            bool ch_sw, const secure_handle_t *sec_hdle,
+e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *eb_port,
+                            const char *fls_port, bool ch_sw,
+                            const secure_handle_t *sec_hdle,
                             e_modem_fw_error_t *verdict)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -192,6 +193,9 @@ e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *comport,
 
     ASSERT(info != NULL);
     ASSERT(sec_hdle != NULL);
+    ASSERT(eb_port != NULL);
+    ASSERT(fls_port != NULL);
+    ASSERT(verdict != NULL);
 
     if (E_MUP_SUCCEED != info->mup.initialize(&handle, mup_log)) {
         LOG_ERROR("modem updater initialization failed");
@@ -209,7 +213,8 @@ e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *comport,
 
     mup_fw_update_params_t params = {
         .handle = handle,
-        .mdm_com_port = comport,
+        .mdm_eb_port = eb_port,
+        .mdm_fls_port = fls_port,
         .channel_hw_sw = ch_sw,
         .fw_file_path = info->fl_conf.run.mdm_inj_fw,
         .fw_file_path_len = strnlen(info->fl_conf.run.mdm_inj_fw,

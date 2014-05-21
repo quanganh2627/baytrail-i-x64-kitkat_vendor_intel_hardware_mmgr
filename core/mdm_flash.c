@@ -61,25 +61,30 @@ static void mdm_flash(mdm_flash_ctx_t *ctx)
 {
     e_modem_fw_error_t verdict = E_MODEM_FW_ERROR_UNSPECIFIED;
     char msg = 0;
-    const char *flashing_interface = NULL;
+    const char *eb_port = NULL;
+    const char *fls_port = NULL;
 
     ASSERT(ctx != NULL);
 
     LOG_DEBUG("[SLAVE-FLASH] start modem flashing");
     set_verdict(ctx, verdict);
 
-    if (ctx->mdm_info->mdm_link == E_LINK_HSI)
-        flashing_interface = "/dev/ttyIFX1";
-    else if (ctx->mdm_info->mdm_link == E_LINK_UART)
-        flashing_interface = ctx->mdm_info->mdm_ipc_path;
-    else
-        flashing_interface = bus_ev_get_flash_interface(ctx->bus_ev);
+    if (ctx->mdm_info->mdm_link == E_LINK_HSI) {
+        eb_port = "/dev/ttyIFX1";
+        fls_port = "/dev/ttyIFX1";
+    } else if (ctx->mdm_info->mdm_link == E_LINK_UART) {
+        eb_port = ctx->mdm_info->mdm_ipc_path;
+        fls_port = ctx->mdm_info->mdm_ipc_path; /* @TODO: set SPI here */
+    } else {
+        eb_port = bus_ev_get_flash_interface(ctx->bus_ev);
+        fls_port = bus_ev_get_flash_interface(ctx->bus_ev);
+    }
 
     toggle_flashing_mode(ctx->mdm_info, true);
     pm_on_mdm_flash(ctx->mdm_info->pm);
 
-    mdm_push_fw(ctx->mdm_info, flashing_interface, ctx->ch_hw_sw,
-                ctx->secure, &verdict);
+    mdm_push_fw(ctx->mdm_info, eb_port, fls_port, ctx->ch_hw_sw, ctx->secure,
+                &verdict);
 
     toggle_flashing_mode(ctx->mdm_info, false);
 
