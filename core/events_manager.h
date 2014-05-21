@@ -101,7 +101,7 @@ e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr);
 e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr);
 
 e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda);
-e_mmgr_errors_t events_start(mmgr_data_t *mmgr);
+e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id);
 void set_mmgr_state(mmgr_data_t *mmgr, e_mmgr_state_t state);
 
 #endif                          /* __MMGR_EVENTS_MANAGER_HEADER__ */

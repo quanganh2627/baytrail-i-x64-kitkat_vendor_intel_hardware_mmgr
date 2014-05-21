@@ -310,7 +310,7 @@ int main(int argc, char *argv[])
     mmgr_init(&mmgr, inst_id, &dsda);
     disable_telephony(&mmgr);
 
-    if (E_ERR_SUCCESS != events_start(&mmgr)) {
+    if (E_ERR_SUCCESS != events_start(&mmgr, inst_id)) {
         LOG_ERROR("failed to start event module");
         ret = EXIT_FAILURE;
     } else {

@@ -22,7 +22,7 @@
 #include <sys/types.h>
 #include "errors.h"
 
-e_mmgr_errors_t cnx_open(int *fd);
+e_mmgr_errors_t cnx_open(int *fd, const char *cnx_name);
 e_mmgr_errors_t cnx_close(int *fd);
 e_mmgr_errors_t cnx_accept(int fd);
 e_mmgr_errors_t cnx_read(int fd, void *data, size_t *len);

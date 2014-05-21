@@ -136,17 +136,25 @@ e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr)
  * start events handler
  *
  * @param [in,out] mmgr mmgr context
+ * @param [in] inst_id instance id
  *
  * @return E_ERR_FAILED if failed
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t events_start(mmgr_data_t *mmgr)
+e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    char cnx_name[8] = { "\0" };
 
     ASSERT(mmgr != NULL);
 
-    ret = cnx_open(&mmgr->fd_cnx);
+    if (inst_id == 0)
+        snprintf(cnx_name, sizeof(cnx_name), "%s", MMGR_SOCKET_NAME);
+    else
+        snprintf(cnx_name, sizeof(cnx_name), "%s%d", MMGR_SOCKET_NAME,
+                 inst_id + 1);
+
+    ret = cnx_open(&mmgr->fd_cnx, cnx_name);
     if (ret != E_ERR_SUCCESS)
         goto out;
 

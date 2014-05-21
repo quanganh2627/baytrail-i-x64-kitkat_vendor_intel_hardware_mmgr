@@ -31,18 +31,20 @@
  * open MMGR cnx
  *
  * @param [out] fd cnx file descriptor
+ * @param [in] cnx_name name of the socket
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t cnx_open(int *fd)
+e_mmgr_errors_t cnx_open(int *fd, const char *cnx_name)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
 
     ASSERT(fd != NULL);
+    ASSERT(cnx_name != NULL);
 
-    LOG_DEBUG("configure socket: %s", MMGR_SOCKET_NAME);
-    *fd = android_get_control_socket(MMGR_SOCKET_NAME);
+    LOG_DEBUG("configure socket: %s", cnx_name);
+    *fd = android_get_control_socket(cnx_name);
 
     if (listen(*fd, DEFAULT_BACKLOG) < 0)
         LOG_ERROR("listen failed (%s)", strerror(errno));
