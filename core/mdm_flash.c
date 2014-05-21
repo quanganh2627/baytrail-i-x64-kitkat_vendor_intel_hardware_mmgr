@@ -70,6 +70,8 @@ static void mdm_flash(mdm_flash_ctx_t *ctx)
 
     if (ctx->mdm_info->mdm_link == E_LINK_HSI)
         flashing_interface = "/dev/ttyIFX1";
+    else if (ctx->mdm_info->mdm_link == E_LINK_UART)
+        flashing_interface = ctx->mdm_info->mdm_ipc_path;
     else
         flashing_interface = bus_ev_get_flash_interface(ctx->bus_ev);
 
