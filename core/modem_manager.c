@@ -36,6 +36,8 @@
     "Start "MODULE_NAME " Daemon.\n" \
     "Usage: "MODULE_NAME " [OPTION]...\n" \
     "-h\t\t: Show help options\n" \
+    "-v\t\t: show "MODULE_NAME " version\n" \
+    "-i\t\t: specify instance number\n" \
 
 #define TEL_STACK_PROPERTY "persist.service.telephony.off"
 #define AMTL_PROPERTY "service.amtl.config"
@@ -134,55 +136,63 @@ static void set_amtl_cfg(tcs_cfg_t *cfg)
  * It reads the current platform configuration via TCS
  *
  * @param [in, out] mmgr
+ * @param [in] id
+ * @param [out] dsda
  *
  * @return void
  */
-static void mmgr_init(mmgr_data_t *mmgr)
+static void mmgr_init(mmgr_data_t *mmgr, int id, bool *dsda)
 {
     tcs_handle_t *h = tcs_init();
 
     ASSERT(h != NULL);
-
     ASSERT(mmgr != NULL);
+    ASSERT(dsda != NULL);
 
     tcs_cfg_t *cfg = tcs_get_config(h);
     ASSERT(cfg != NULL);
     ASSERT(cfg->nb >= 1);
+    ASSERT((size_t)id < cfg->nb);
     ASSERT(cfg->mdm != NULL);
-    ASSERT(cfg->mdm[0].tlvs.nb >= 1);
-    ASSERT(cfg->mdm[0].tlvs.tlv != NULL);
-    ASSERT(cfg->mdm[0].chs.nb >= 1);
-    ASSERT(cfg->mdm[0].chs.ch != NULL);
+    ASSERT(cfg->mdm[id].tlvs.nb >= 1);
+    ASSERT(cfg->mdm[id].tlvs.tlv != NULL);
+    ASSERT(cfg->mdm[id].chs.nb >= 1);
+    ASSERT(cfg->mdm[id].chs.ch != NULL);
 
-    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h, &cfg->mdm[0]);
+    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h, &cfg->mdm[id]);
     ASSERT(mmgr_cfg != NULL);
 
     tcs_print(h);
 
+    if (cfg->nb == 2) {
+        LOG_INFO("DSDA platform");
+        *dsda = true;
+    }
+
     ASSERT((mmgr->reset = recov_init(&mmgr_cfg->recov)) != NULL);
 
     ASSERT((mmgr->secure =
-                secure_init(cfg->mdm[0].core.secured,
-                            &cfg->mdm[0].chs.ch[0].mmgr.secured)) != NULL);
+                secure_init(cfg->mdm[id].core.secured,
+                            &cfg->mdm[id].chs.ch[0].mmgr.secured)) != NULL);
 
     ASSERT((mmgr->mcdr = mcdr_init(&mmgr_cfg->mcdr)) != NULL);
 
-    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm[0],
+    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm[id],
                                             &mmgr_cfg->com,
-                                            &cfg->mdm[0].tlvs,
+                                            &cfg->mdm[id].tlvs,
                                             &mmgr_cfg->mdm_link,
-                                            &cfg->mdm[0].chs.ch[0].mmgr,
+                                            &cfg->mdm[id].chs.ch[0].mmgr,
                                             &mmgr_cfg->flash, &mmgr_cfg->mcd,
                                             &mmgr->info));
 
-    ASSERT((mmgr->info.pm = pm_init(cfg->mdm[0].core.ipc_mdm,
+    ASSERT((mmgr->info.pm = pm_init(cfg->mdm[id].core.ipc_mdm,
                                     &mmgr_cfg->mdm_link.power,
-                                    cfg->mdm[0].core.ipc_cd,
+                                    cfg->mdm[id].core.ipc_cd,
                                     &mmgr_cfg->mcdr.power)) != NULL);
 
-    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm[0].core.ipc_mdm,
+    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm[id].core.ipc_mdm,
                                         &mmgr_cfg->mdm_link.ctrl,
-                                        cfg->mdm[0].core.ipc_cd,
+                                        cfg->mdm[id].core.ipc_cd,
                                         &mmgr_cfg->mcdr.ctrl)) != NULL);
 
     ASSERT(E_ERR_SUCCESS == modem_events_init(mmgr));
@@ -238,6 +248,8 @@ static void disable_telephony(mmgr_data_t *mmgr)
 int main(int argc, char *argv[])
 {
     int err = 0;
+    int inst_id = 0;
+    bool dsda = false;
     e_mmgr_errors_t ret = EXIT_SUCCESS;
     mmgr_data_t mmgr;
 
@@ -245,7 +257,7 @@ int main(int argc, char *argv[])
     memset(&mmgr, 0, sizeof(mmgr_data_t));
     g_mmgr = &mmgr;
 
-    while (-1 != (err = getopt(argc, argv, "hv"))) {
+    while (-1 != (err = getopt(argc, argv, "hvi:"))) {
         switch (err) {
         case 'h':
             puts(USAGE);
@@ -258,6 +270,12 @@ int main(int argc, char *argv[])
             goto out;
             break;
 
+        case 'i': {
+            char *end_ptr = NULL;
+            inst_id = strtol(optarg, &end_ptr, 10);
+            LOG_DEBUG("instance number: %d", inst_id);
+            break;
+        }
         default:
             puts(USAGE);
             goto out;
@@ -282,7 +300,7 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    mmgr_init(&mmgr);
+    mmgr_init(&mmgr, inst_id, &dsda);
     disable_telephony(&mmgr);
 
     if (E_ERR_SUCCESS != events_start(&mmgr)) {
