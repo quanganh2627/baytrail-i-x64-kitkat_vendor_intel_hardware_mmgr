@@ -172,8 +172,8 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
 
         this.ackLock.lock();
         try {
-            if (!this.ackSignaled) {
-                Log.d(Constants.LOG_TAG, "Waiting for ACK");
+            if (!this.ackSignaled && !this.nackSignaled) {
+                Log.d(Constants.LOG_TAG, "Waiting for ACK/NACK");
                 ret = this.ackSignal.await(timeout, TimeUnit.MILLISECONDS);
                 if (ret) {
                     if (this.nackSignaled) {
@@ -192,10 +192,11 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                     Log.d(Constants.LOG_TAG, "ACK already signaled");
                     ret = true;
                 }
-                this.ackSignaled = false;
-                this.nackSignaled = false;
             }
-        } catch (InterruptedException ex) {
+            this.ackSignaled = false;
+            this.nackSignaled = false;
+        }
+        catch (InterruptedException ex) {
             Log.d(Constants.LOG_TAG, ex.toString());
         } finally {
             this.ackLock.unlock();
@@ -236,9 +237,8 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.ackLock.lock();
         try {
             Log.d(Constants.LOG_TAG, "Signaling ACK");
-            this.nackSignaled = false;
-            this.ackSignal.signal();
             this.ackSignaled = true;
+            this.ackSignal.signal();
         } finally {
             this.ackLock.unlock();
         }
@@ -273,8 +273,8 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     public void run() {
         Log.d(Constants.LOG_TAG, "MMGR client thread started");
 
-        byte[] recvBuffer = new byte[1024]; // should be large enough to contain
-                                            // response
+        byte[] recvBuffer = new byte[1024];         // should be large enough to contain
+                                                    // response
         InputStream inputStream = null;
         int readCount = 0;
 
