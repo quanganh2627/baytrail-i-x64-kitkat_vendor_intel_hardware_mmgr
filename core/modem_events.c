@@ -809,8 +809,9 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
         }
     }
 
-    /* restart modem */
-    mdm_prepare_link(&mmgr->info);
+    if (!mmgr->info.need_ssic_po_wa)
+        /* restart modem */
+        mdm_prepare_link(&mmgr->info);
 
     /* The level can change between the pre operation and the operation in a
      * specific case: if we are in PLATFORM_REBOOT state and we reached the

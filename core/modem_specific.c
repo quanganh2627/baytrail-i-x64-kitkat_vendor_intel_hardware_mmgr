@@ -392,7 +392,24 @@ e_mmgr_errors_t mdm_cold_reset(modem_info_t *info)
     ASSERT(info != NULL);
 
     LOG_INFO("MODEM COLD RESET");
-    if (ioctl(info->fd_mcd, MDM_CTRL_COLD_RESET) == -1) {
+
+    if (info->need_ssic_po_wa) {
+        int error_code = ioctl(info->fd_mcd, MDM_CTRL_POWER_OFF);
+        if (error_code != -1) {
+            /* wait for usb ssic interface to be removed */
+            pthread_t thr;
+            static delay_t mdm_cold_reset;
+            mdm_cold_reset.delay_sec = 8;
+            mdm_cold_reset.h = info;
+            mdm_cold_reset.fn = (void (*)(void *))(mdm_up);
+            pthread_create(&thr, NULL, delay_do, &mdm_cold_reset);
+            pthread_detach(thr);
+        }
+        else {
+            ret = E_ERR_FAILED;
+            LOG_DEBUG("couldn't power off modem: %s", strerror(errno));
+        }
+    } else if (ioctl(info->fd_mcd, MDM_CTRL_COLD_RESET) == -1) {
         ret = E_ERR_FAILED;
         LOG_DEBUG("couldn't reset modem: %s", strerror(errno));
     }
@@ -447,11 +464,11 @@ e_mmgr_errors_t mdm_up(modem_info_t *info)
     ioctl(info->fd_mcd, MDM_CTRL_GET_STATE, &state);
 
     if (info->need_ssic_po_wa) {
-        /* the link is expected to be started 20 secs after the actual mdm power
+        /* the link is expected to be started 1 sec after the actual mdm power
          * on */
         pthread_t thr;
         static delay_t mdm_up;
-        mdm_up.delay_sec = 20;
+        mdm_up.delay_sec = 1;
         mdm_up.h = info->ctrl;
         mdm_up.fn = (void (*)(void *))(ctrl_on_mdm_up);
 

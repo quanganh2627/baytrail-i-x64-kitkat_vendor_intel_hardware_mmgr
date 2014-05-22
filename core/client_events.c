@@ -187,18 +187,6 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
 
     ASSERT(mmgr != NULL);
 
-    struct sysinfo infos;
-    if (mmgr->info.need_ssic_po_wa) {
-        /* Do not start the modem before 20 secs after boot */
-        sysinfo(&infos);
-        if (infos.uptime < 20) {
-            LOG_DEBUG("SSIC WA: don't wake the modem now ...");
-            client_inform(mmgr->request.client, E_MMGR_NACK, NULL);
-            client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
-            return ret;
-        }
-    }
-
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
 
     client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
