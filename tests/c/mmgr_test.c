@@ -181,7 +181,7 @@ e_mmgr_errors_t run_test(test_case_t *test, const char *option_string)
         goto out;
     }
 
-    ret = configure_client_library(&test_data, test->name);
+    ret = configure_client_library(&test_data);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("Failed to configure mmgr_cli library");
         goto out;
