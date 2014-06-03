@@ -9,5 +9,6 @@ LOCAL_REQUIRED_MODULES :=\
     mmgr_6360_xml\
     mmgr_7160_xml\
     mmgr_7260_xml\
+    mmgr_2230_xml\
 
 include $(BUILD_PHONY_PACKAGE)

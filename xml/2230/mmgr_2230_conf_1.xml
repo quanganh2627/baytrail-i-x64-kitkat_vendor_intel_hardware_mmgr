@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mmgr_config>
+	<modem_link>
+		<flash>
+			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>
+		</flash>
+		<baseband>
+			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>
+		</baseband>
+		<power
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
+			on="1"
+			off="0"
+		/>
+		<link_ctrl
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/hsic_enable]]"
+			on="1"
+			off="0"
+			reset="1"
+		/>
+	</modem_link>
+	<mdm_ctrl
+		path="/dev/mdm_ctrl1"
+		type="ioctl"
+		board="aob"
+	/>
+	<flashless>
+		<fw_backup
+			nvm_calib="/factory/telephony/mmgr2/calib.nvm"
+		/>
+		<fw_runtime
+			folder="/config/telephony/mmgr2"
+			mdm_fw="/config/telephony/mmgr2/modembinary.fls"
+			mdm_inj_fw="/config/telephony/mmgr2/injected.modembinary.fls"
+			nvm_static="/config/telephony/mmgr2/static.nvm"
+			nvm_dyn="/config/telephony/mmgr2/dynamic.nvm"
+			nvm_calib="/config/telephony/mmgr2/calib.nvm"
+			rnd="/config/telephony/mmgr2/rnd_cert.bin"
+		/>
+	</flashless>
+	<modem_comm>
+		<mux
+			frame_size="1509"
+			retry="24"
+		/>
+	</modem_comm>
+	<modem_timings
+		ipc_ready="55"
+		cd_ipc_ready="10"
+		mdm_flash="15"
+		fmmo="30"
+	/>
+	<modem_recovery
+		enable="true"
+		cold_reset="100"
+		platform_reboot="0"
+		reset="600"
+		delay_before_reboot="1"
+		cold_reset_timeout="10"
+		shutdown_timeout="1"
+	/>
+	<clients_config max="12"/>
+	<mcdr>
+		<general
+			enable="true"
+			protocol="ymodem"
+			folder="/logs/modemcrash/mmgr2"
+			timeout="180"
+		/>
+		<link>
+			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>
+		</link>
+		<power
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
+			on="1"
+			off="0"
+		/>
+		<link_ctrl
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
+			on="1"
+			off="0"
+			reset="1"
+		/>
+	</mcdr>
+</mmgr_config>
