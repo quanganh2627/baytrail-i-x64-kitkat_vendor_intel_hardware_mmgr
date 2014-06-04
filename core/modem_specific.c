@@ -431,7 +431,8 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
 
     ASSERT(info != NULL);
 
-    ctrl_on_mdm_down(info->ctrl);
+    if (!info->need_ssic_po_wa)
+        ctrl_on_mdm_down(info->ctrl);
 
     if (ioctl(info->fd_mcd, MDM_CTRL_POWER_OFF) == -1) {
         ret = E_ERR_FAILED;
@@ -439,6 +440,11 @@ e_mmgr_errors_t mdm_down(modem_info_t *info)
     } else {
         LOG_INFO("MODEM ELECTRICALLY SHUTDOWN");
         ret = E_ERR_SUCCESS;
+    }
+
+    if (info->need_ssic_po_wa) {
+        sleep(8);
+        ctrl_on_mdm_down(info->ctrl);
     }
 
     pm_on_mdm_oos(info->pm);
