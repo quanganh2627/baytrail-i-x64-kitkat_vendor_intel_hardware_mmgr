@@ -291,8 +291,8 @@ void update_verdict(mmgr_data_t *mmgr)
 
 
 /**
- * Apply TLV update. A TLV update is applied only if one TLV file exists in the
- * folder specified by TCS.
+ * Apply TLV update. All TLV's available in the folder specified by TCS will be
+ *applied
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -314,10 +314,10 @@ static bool apply_tlv(mmgr_data_t *mmgr)
         ASSERT(path != NULL);
 
         int found = file_find(path, ".tlv", files, ARRAY_SIZE(files));
-        if (found == 0) {
+        if (found <= 0) {
             nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
             LOG_DEBUG("no TLV file found at %s; skipping nvm update", path);
-        } else if (found > 1) {
+        } else {
             ASSERT(found <= MAX_TLV);
             for (int i = 0; i < found; i++) {
                 LOG_DEBUG("TLV file to apply: %s", files[i]);
