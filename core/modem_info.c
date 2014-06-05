@@ -181,11 +181,6 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int id, bool dsda,
 
     info->wakeup_cfg = E_MDM_WAKEUP_UNKNOWN;
 
-    /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
-    info->need_warmreset = (strstr(mdm_info->core.name, "7260") != NULL &&
-                            strcmp(mdm_info->core.hw_revision, "20") == 0 &&
-                            strcmp(mdm_info->core.sw_revision, "1.0") == 0);
-
     /* SSIC power on work around */
     info->need_ssic_po_wa =
         !strcmp(mdm_info->mod.mmgr_xml, "mmgr_7260_conf_3.xml") ||

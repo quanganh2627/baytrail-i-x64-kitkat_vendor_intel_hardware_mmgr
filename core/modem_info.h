@@ -90,8 +90,6 @@ typedef struct modem_info {
     bool ipc_ready_present;
     mdm_upgrade_hdle_t *mdm_upgrade;
     e_mdm_wakeup_cfg_t wakeup_cfg;
-    /* REVERT ME: 7260 Enumeration Bug: BZ 166282 */
-    bool need_warmreset;
     /* SSIC power on work around */
     bool need_ssic_po_wa;
     int upgrade_err;
