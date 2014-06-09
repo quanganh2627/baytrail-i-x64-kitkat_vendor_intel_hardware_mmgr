@@ -421,7 +421,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda)
                  * flashing */
                 pthread_t thr;
                 static delay_t mdm_up;
-                mdm_up.delay_sec = 10;
+                mdm_up.delay_sec = 15;
                 mdm_up.h = mmgr->info.ctrl;
                 mdm_up.fn = (void (*)(void *))(ctrl_on_mdm_up);
                 pthread_create(&thr, NULL, delay_do, &mdm_up);
