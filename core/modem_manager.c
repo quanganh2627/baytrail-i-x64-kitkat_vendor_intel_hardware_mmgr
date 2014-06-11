@@ -29,6 +29,7 @@
 #include "modem_info.h"
 #include "property.h"
 #include "timer_events.h"
+#include "client_cnx.h"
 
 #include "tcs.h"
 
@@ -143,7 +144,7 @@ static void set_amtl_cfg(tcs_cfg_t *cfg, int id)
  * It reads the current platform configuration via TCS
  *
  * @param [in, out] mmgr
- * @param [in] id
+ * @param [in] id modem number in TCS
  * @param [out] dsda
  *
  * @return void
@@ -255,7 +256,7 @@ static void disable_telephony(mmgr_data_t *mmgr)
 int main(int argc, char *argv[])
 {
     int err = 0;
-    int inst_id = 0;
+    int inst_id = DEFAULT_INST_ID;
     bool dsda = false;
     e_mmgr_errors_t ret = EXIT_SUCCESS;
     mmgr_data_t mmgr;
@@ -307,7 +308,7 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    mmgr_init(&mmgr, inst_id, &dsda);
+    mmgr_init(&mmgr, inst_id - 1, &dsda);
     disable_telephony(&mmgr);
 
     if (E_ERR_SUCCESS != events_start(&mmgr, inst_id)) {

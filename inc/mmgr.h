@@ -21,7 +21,6 @@
 
 #include <sys/types.h>
 
-#define MMGR_SOCKET_NAME "mmgr"
 #define CLIENT_NAME_LEN 64
 #define FUSE_LEN 9
 

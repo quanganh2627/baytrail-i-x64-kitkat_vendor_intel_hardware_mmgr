@@ -144,16 +144,11 @@ e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr)
 e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    char cnx_name[8] = { "\0" };
+    char cnx_name[MMGR_SOCKET_LEN] = { "\0" };
 
     ASSERT(mmgr != NULL);
 
-    if (inst_id == 1)
-        snprintf(cnx_name, sizeof(cnx_name), "%s", MMGR_SOCKET_NAME);
-    else
-        snprintf(cnx_name, sizeof(cnx_name), "%s%d", MMGR_SOCKET_NAME,
-                 inst_id + 1);
-
+    cnx_get_name(cnx_name, sizeof(cnx_name), inst_id);
     ret = cnx_open(&mmgr->fd_cnx, cnx_name);
     if (ret != E_ERR_SUCCESS)
         goto out;
@@ -331,7 +326,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda)
             acquire_wake_lock(PARTIAL_WAKE_LOCK, MODULE_NAME);
         }
 
-        if (dsda && (inst_id == 1))
+        if (dsda && (inst_id == 2))
             mdm_upgrade(mmgr->info.mdm_upgrade);
 
         LOG_DEBUG("event type: %s", events_str[mmgr->events.state]);

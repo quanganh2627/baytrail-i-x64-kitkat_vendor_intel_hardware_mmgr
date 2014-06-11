@@ -146,3 +146,25 @@ e_mmgr_errors_t cnx_close(int *fd)
 
     return ret;
 }
+
+e_mmgr_errors_t cnx_get_name(char *cnx_name, size_t len, int id)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    ASSERT(cnx_name != NULL);
+
+    if (id < DEFAULT_INST_ID) {
+        ret = E_ERR_FAILED;
+        LOG_ERROR("wrong instance number. Shall be higher than %d",
+                  DEFAULT_INST_ID);
+    } else {
+        if (id == DEFAULT_INST_ID)
+            snprintf(cnx_name, len, "%s", MMGR_SOCKET_BASE);
+        else
+            snprintf(cnx_name, len, "%s%d", MMGR_SOCKET_BASE, id);
+
+        LOG_DEBUG("socket name: %s", cnx_name);
+    }
+
+    return ret;
+}

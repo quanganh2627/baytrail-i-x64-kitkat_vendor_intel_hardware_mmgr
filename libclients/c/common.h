@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include "mmgr_cli.h"
 #include "msg_format.h"
+#include "client_cnx.h"
 
 #define LOG_NDEBUG 0
 #define LOG_TAG MODULE_NAME
@@ -76,6 +77,7 @@ typedef struct mmgr_lib_context {
     pthread_cond_t cond;
     e_mmgr_events_t ack;
     pid_t tid;
+    char cnx_name[MMGR_SOCKET_LEN];
 } mmgr_lib_context_t;
 
 #define CLOSED_FD -1

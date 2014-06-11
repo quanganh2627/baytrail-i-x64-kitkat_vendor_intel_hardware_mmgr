@@ -227,6 +227,22 @@ e_err_mmgr_cli_t mmgr_cli_unlock(mmgr_cli_handle_t *handle);
  */
 e_err_mmgr_cli_t mmgr_cli_send_msg(mmgr_cli_handle_t *handle,
                                    const mmgr_cli_requests_t *request);
+
+/**
+ * Specify on which MMGR instance the client is to be connected.
+ * To connect to first instance of MMGR, the call of this function is not
+ * mandatory.
+ *
+ * @param [in] handle library handle
+ * @param [in] id instance id (shall be equal to 1 for first instance of MMGR)
+ *
+ * @E_ERR_CLI_BAD_HANDLE if handle is invalid
+ * @return E_ERR_CLI_BAD_CNX_STATE if client is already registered
+ * @return E_ERR_CLI_SUCCEED
+ */
+
+e_err_mmgr_cli_t mmgr_cli_set_instance(mmgr_cli_handle_t *handle, int id);
+
 /**
  * For debug purpose only. Do not use it in production
  *

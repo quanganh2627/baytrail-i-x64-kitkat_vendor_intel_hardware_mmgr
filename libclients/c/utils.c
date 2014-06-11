@@ -575,7 +575,7 @@ e_err_mmgr_cli_t cli_connect(mmgr_lib_context_t *p_lib)
     e_err_mmgr_cli_t ret = E_ERR_CLI_FAILED;
     int fd = CLOSED_FD;
 
-    fd = socket_local_client(MMGR_SOCKET_NAME,
+    fd = socket_local_client(p_lib->cnx_name,
                              ANDROID_SOCKET_NAMESPACE_RESERVED, SOCK_STREAM);
     if (fd < 0) {
         LOG_ERROR("failed to open socket", p_lib);
