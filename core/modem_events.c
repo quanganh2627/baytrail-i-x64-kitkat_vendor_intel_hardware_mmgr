@@ -429,7 +429,6 @@ int write_to_cd_log_file(void *ctx, const char *pszResp, size_t *len)
     ASSERT(pszResp != NULL);
 
     if ((ctx == NULL) || (len == NULL) || (pszResp == NULL)) {
-        *len = 0;
         ret = -1;
         LOG_ERROR("Error bad arguments.");
         goto Exit;
