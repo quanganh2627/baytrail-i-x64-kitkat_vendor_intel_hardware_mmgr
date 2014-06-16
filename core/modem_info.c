@@ -88,6 +88,8 @@ static e_mmgr_errors_t mcd_configure(int fd, enum mdm_ctrl_board_type board,
         family = MODEM_7160;
     else if (!strcmp(mdm_name, "7260"))
         family = MODEM_7260;
+    else if (!strcmp(mdm_name, "2230"))
+        family = MODEM_2230;
 
     if (ioctl(fd, MDM_CTRL_SET_MDM, &family)) {
         LOG_ERROR("failed to set modem family: %d", family);
