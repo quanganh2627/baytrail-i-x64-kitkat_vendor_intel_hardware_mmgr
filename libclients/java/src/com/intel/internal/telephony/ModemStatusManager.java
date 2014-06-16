@@ -19,6 +19,8 @@
 package com.intel.internal.telephony;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.intel.internal.telephony.mmgr.MedfieldMmgrClient;
 import com.intel.internal.telephony.stmd.MedfieldStmdClient;
@@ -45,8 +47,11 @@ public class ModemStatusManager implements Callback {
     private ModemStatusMonitor modemStatusMonitor = null;
     private Handler statusEventsHandler = null; // Client <- MMGR
     private Handler requestHandler = null;      // Client -> MMGR
+    private final static int DEFAULT_INSTANCE = 1;
+    private Integer mInstanceId = DEFAULT_INSTANCE;
 
-    private static ModemStatusManager instance = null;
+    private static Map<Integer, ModemStatusManager> sInstances =
+        new HashMap<Integer, ModemStatusManager>();
 
     private ModemStatusManager() throws InstantiationException {
         this.statusEventsHandler = new Handler(this);
@@ -71,24 +76,49 @@ public class ModemStatusManager implements Callback {
     }
 
     private boolean mmgrSocketExists() {
-        File mmgr = new File("/dev/socket/mmgr");
+        String socketName = "/dev/socket/mmgr";
 
+        if (DEFAULT_INSTANCE != this.mInstanceId) {
+            socketName += this.mInstanceId;
+        }
+
+        File mmgr = new File(socketName);
         return mmgr.exists();
     }
 
     /**
-     * Returns the single instance of ModemStatusManager.
+     * Returns the instance of ModemStatusManager matching the instanceId
      *
-     * @return The single instance of ModemStatusManager
+     * @param instanceId specify on which MMGR instance the client is to be connected
+     *        to connect to first instance of MMGR instanceId must be equal to 1
+     *
+     * @return The instance of ModemStatusManager
+     * @throws InstantiationException
+     *             if MMGR or STMD are not present of the device.
+     */
+    public synchronized static ModemStatusManager getInstance(int instanceId)
+    throws InstantiationException {
+        if (ModemStatusManager.sInstances.containsKey(instanceId)) {
+            return ModemStatusManager.sInstances.get(instanceId);
+        } else {
+            ModemStatusManager instance = new ModemStatusManager();
+            instance.mInstanceId = instanceId;
+            ModemStatusManager.sInstances.put(instanceId, instance);
+            return instance;
+        }
+    }
+
+    /**
+     * Returns the instance of ModemStatusManager matching the instanceId
+     * This function is kept for backward compatibility.
+     *
+     * @return The instance of ModemStatusManager
      * @throws InstantiationException
      *             if MMGR or STMD are not present of the device.
      */
     public static ModemStatusManager getInstance()
     throws InstantiationException {
-        if (ModemStatusManager.instance == null) {
-            ModemStatusManager.instance = new ModemStatusManager();
-        }
-        return ModemStatusManager.instance;
+        return getInstance(DEFAULT_INSTANCE);
     }
 
     /**
