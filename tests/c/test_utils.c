@@ -718,11 +718,12 @@ out:
  * Handles the modem status
  *
  * @param [in,out] test_data test data
+ * @param [in] id MMGR instance id
  *
  * @return E_ERR_FAILED if fails
  * @return E_ERR_SUCCESS if successsful
  */
-e_mmgr_errors_t configure_client_library(test_data_t *test_data)
+e_mmgr_errors_t configure_client_library(test_data_t *test_data, int id)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     e_err_mmgr_cli_t err;
@@ -735,6 +736,8 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
         ret = E_ERR_FAILED;
         goto out;
     }
+
+    mmgr_cli_set_instance(test_data->lib, id);
 
     if (mmgr_cli_subscribe_event(test_data->lib, generic_mmgr_evt,
                                  E_MMGR_EVENT_MODEM_DOWN) != E_ERR_CLI_SUCCEED)
@@ -791,7 +794,7 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
         goto out;
 
     if (mmgr_cli_connect(test_data->lib) == E_ERR_CLI_SUCCEED) {
-        LOG_DEBUG("connection to MMGR succeed");
+        LOG_DEBUG("connection to MMGR (instance: %d) succeed", id);
         ret = E_ERR_SUCCESS;
         /* give some time to connect correctly */
         sleep(1);
@@ -799,7 +802,7 @@ e_mmgr_errors_t configure_client_library(test_data_t *test_data)
 
 out:
     if (ret != E_ERR_SUCCESS)
-        LOG_ERROR("connection to MMGR failed");
+        LOG_ERROR("failed to connect to MMGR (instance: %d)", id);
     return ret;
 }
 
