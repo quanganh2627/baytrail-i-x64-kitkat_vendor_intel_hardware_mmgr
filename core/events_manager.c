@@ -148,7 +148,7 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
 
     ASSERT(mmgr != NULL);
 
-    if (inst_id == 0)
+    if (inst_id == 1)
         snprintf(cnx_name, sizeof(cnx_name), "%s", MMGR_SOCKET_NAME);
     else
         snprintf(cnx_name, sizeof(cnx_name), "%s%d", MMGR_SOCKET_NAME,

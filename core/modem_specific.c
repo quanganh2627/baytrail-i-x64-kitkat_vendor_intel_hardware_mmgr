@@ -404,8 +404,7 @@ e_mmgr_errors_t mdm_cold_reset(modem_info_t *info)
             mdm_cold_reset.fn = (void (*)(void *))(mdm_up);
             pthread_create(&thr, NULL, delay_do, &mdm_cold_reset);
             pthread_detach(thr);
-        }
-        else {
+        } else {
             ret = E_ERR_FAILED;
             LOG_DEBUG("couldn't power off modem: %s", strerror(errno));
         }

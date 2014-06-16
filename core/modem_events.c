@@ -1036,8 +1036,10 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_FW_DL_READY;
         set_mcd_poll_states(&mmgr->info);
-        if ((mmgr->events.link_state & E_MDM_LINK_BB_READY) &&
-            (mmgr->state == E_MMGR_MDM_CONF_ONGOING))
+        if ((mmgr->state == E_MMGR_MDM_CONF_ONGOING) &&
+            ((mmgr->info.mdm_link != E_LINK_USB) ||
+            ((mmgr->info.mdm_link == E_LINK_USB) &&
+             (mmgr->events.link_state & E_MDM_LINK_BB_READY))))
             ret = do_configure(mmgr);
     } else if (mcd_state & E_EV_CORE_DUMP) {
         LOG_DEBUG("current state: E_EV_CORE_DUMP");
