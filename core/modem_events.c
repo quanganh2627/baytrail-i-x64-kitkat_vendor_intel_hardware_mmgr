@@ -1103,7 +1103,6 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
 
     bus_ev_read(mmgr->events.bus_events);
     if (bus_ev_hdle_events(mmgr->events.bus_events) != E_ERR_SUCCESS) {
-        LOG_INFO("bus_ev_hdle_events undefined event");
         goto out;
     }
     if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) &&
