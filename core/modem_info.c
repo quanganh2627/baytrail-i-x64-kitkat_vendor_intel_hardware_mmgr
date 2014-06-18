@@ -69,34 +69,32 @@ static e_mmgr_errors_t mcd_configure(int fd, enum mdm_ctrl_board_type board,
                                      const char *mdm_name)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    struct mdm_ctrl_cfg cfg = { board, MODEM_UNSUP };
+
+    ASSERT(mdm_name != NULL);
+
+    if (!strcmp(mdm_name, "6360"))
+        cfg.type = MODEM_6360;
+    else if (!strcmp(mdm_name, "7160"))
+        cfg.type = MODEM_7160;
+    else if (!strcmp(mdm_name, "7260"))
+        cfg.type = MODEM_7260;
+    else if (!strcmp(mdm_name, "2230"))
+        cfg.type = MODEM_2230;
+
+    LOG_DEBUG("(board type: %d) (family :%d)", cfg.board, cfg.type);
 
     errno = 0;
-    if (ioctl(fd, MDM_CTRL_SET_BOARD, &board)) {
-        if (ENOTTY == errno) {
+    if (ioctl(fd, MDM_CTRL_SET_CFG, &cfg)) {
+        if (EBUSY == errno) {
             LOG_DEBUG("MCD already initialized");
-            goto out;
+        } else {
+            LOG_ERROR("failed to configure MCD (board type: %d) (family :%d)",
+                      cfg.board, cfg.type);
+            ret = E_ERR_FAILED;
         }
-        LOG_ERROR("failed to set board type: %d", board);
-        ret = E_ERR_FAILED;
-        goto out;
     }
 
-    enum mdm_ctrl_mdm_type family = MODEM_UNSUP;
-    if (!strcmp(mdm_name, "6360"))
-        family = MODEM_6360;
-    else if (!strcmp(mdm_name, "7160"))
-        family = MODEM_7160;
-    else if (!strcmp(mdm_name, "7260"))
-        family = MODEM_7260;
-    else if (!strcmp(mdm_name, "2230"))
-        family = MODEM_2230;
-
-    if (ioctl(fd, MDM_CTRL_SET_MDM, &family)) {
-        LOG_ERROR("failed to set modem family: %d", family);
-        ret = E_ERR_FAILED;
-    }
-
-out:
     return ret;
 }
 
