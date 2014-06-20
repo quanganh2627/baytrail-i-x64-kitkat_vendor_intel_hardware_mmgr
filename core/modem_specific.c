@@ -101,37 +101,33 @@ e_mmgr_errors_t mdm_specific_init(modem_info_t *info)
 
     ASSERT(info != NULL);
 
-    if (info->is_flashless) {
-        info->mup.hdle = dlopen(MUP_LIB, RTLD_LAZY);
-        if (info->mup.hdle == NULL) {
-            LOG_ERROR("failed to open library");
-            ret = E_ERR_FAILED;
-            dlerror();
-        } else {
-            info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
-            info->mup.open_device = dlsym(info->mup.hdle, MUP_FUNC_OPEN);
-            info->mup.toggle_hsi_flashing_mode = dlsym(info->mup.hdle,
-                                                       MUP_FUNC_TOGGLE_HSI_FLASHING_MODE);
-            info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
-            info->mup.update_nvm = dlsym(info->mup.hdle, MUP_FUNC_UP_NVM);
-            info->mup.read_nvm_id = dlsym(info->mup.hdle, MUP_FUNC_READ_NVM_ID);
-            info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
-            info->mup.config_secur_channel =
-                dlsym(info->mup.hdle, MUP_FUNC_CONFIG_SECUR);
-            info->mup.check_fw_version = dlsym(info->mup.hdle,
-                                               MUP_FUNC_FW_VERSION);
-            info->mup.gen_fls = dlsym(info->mup.hdle, MUP_FUNC_GEN_FLS);
-
-            p = (char *)dlerror();
-            if (p != NULL) {
-                LOG_ERROR("An error occurred during symbol resolution");
-                ret = E_ERR_FAILED;
-                dlclose(info->mup.hdle);
-                info->mup.hdle = NULL;
-            }
-        }
+    info->mup.hdle = dlopen(MUP_LIB, RTLD_LAZY);
+    if (info->mup.hdle == NULL) {
+        LOG_ERROR("failed to open library");
+        ret = E_ERR_FAILED;
+        dlerror();
     } else {
-        info->mup.hdle = NULL;
+        info->mup.initialize = dlsym(info->mup.hdle, MUP_FUNC_INIT);
+        info->mup.open_device = dlsym(info->mup.hdle, MUP_FUNC_OPEN);
+        info->mup.toggle_hsi_flashing_mode = dlsym(info->mup.hdle,
+                                                   MUP_FUNC_TOGGLE_HSI_FLASHING_MODE);
+        info->mup.update_fw = dlsym(info->mup.hdle, MUP_FUNC_UP_FW);
+        info->mup.update_nvm = dlsym(info->mup.hdle, MUP_FUNC_UP_NVM);
+        info->mup.read_nvm_id = dlsym(info->mup.hdle, MUP_FUNC_READ_NVM_ID);
+        info->mup.dispose = dlsym(info->mup.hdle, MUP_FUNC_DISPOSE);
+        info->mup.config_secur_channel =
+            dlsym(info->mup.hdle, MUP_FUNC_CONFIG_SECUR);
+        info->mup.check_fw_version = dlsym(info->mup.hdle,
+                                           MUP_FUNC_FW_VERSION);
+        info->mup.gen_fls = dlsym(info->mup.hdle, MUP_FUNC_GEN_FLS);
+
+        p = (char *)dlerror();
+        if (p != NULL) {
+            LOG_ERROR("An error occurred during symbol resolution");
+            ret = E_ERR_FAILED;
+            dlclose(info->mup.hdle);
+            info->mup.hdle = NULL;
+        }
     }
 
     return ret;
@@ -190,6 +186,9 @@ e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *eb_port,
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mup_interface_t *handle = NULL;
+    const char *fw_to_flash =
+        (info->is_flashless) ? info->fl_conf.run.mdm_inj_fw :
+        info->fl_conf.run.mdm_fw;
 
     ASSERT(info != NULL);
     ASSERT(sec_hdle != NULL);
@@ -204,7 +203,7 @@ e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *eb_port,
 
     /* @TODO retrieve modem version via SFI table and remove this static value
     **/
-    if (info->mup.check_fw_version(info->fl_conf.run.mdm_inj_fw,
+    if (info->mup.check_fw_version(fw_to_flash,
                                    info->mdm_name) != E_MUP_SUCCEED) {
         LOG_ERROR("Bad modem family. Shutdown the modem");
         *verdict = E_MODEM_FW_BAD_FAMILY;
@@ -216,9 +215,8 @@ e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *eb_port,
         .mdm_eb_port = eb_port,
         .mdm_fls_port = fls_port,
         .channel_hw_sw = ch_sw,
-        .fw_file_path = info->fl_conf.run.mdm_inj_fw,
-        .fw_file_path_len = strnlen(info->fl_conf.run.mdm_inj_fw,
-                                    sizeof(info->fl_conf.run.mdm_inj_fw)),
+        .fw_file_path = fw_to_flash,
+        .fw_file_path_len = strlen(fw_to_flash),
         /* for flashless modem, this should be false */
         .erase_all = false
     };

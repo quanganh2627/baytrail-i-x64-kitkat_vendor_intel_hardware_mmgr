@@ -317,46 +317,44 @@ static bool apply_tlv(mmgr_data_t *mmgr)
 
     ASSERT(mmgr != NULL);
 
-    if (mmgr->info.is_flashless) {
-        char *files[MAX_TLV + 1];
-        char *path = mdm_upgrade_get_tlv_path(mmgr->info.mdm_upgrade);
-        ASSERT(path != NULL);
+    char *files[MAX_TLV + 1];
+    char *path = mdm_upgrade_get_tlv_path(mmgr->info.mdm_upgrade);
+    ASSERT(path != NULL);
 
-        int found = file_find(path, ".tlv", files, ARRAY_SIZE(files));
-        if (found <= 0) {
-            nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
-            LOG_DEBUG("no TLV file found at %s; skipping nvm update", path);
-        } else {
-            ASSERT(found <= MAX_TLV);
-            for (int i = 0; i < found; i++) {
-                LOG_DEBUG("TLV file to apply: %s", files[i]);
-                if (E_ERR_SUCCESS !=
-                    flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc,
-                                    files[i], &nvm_result.id,
-                                    &nvm_result.sub_error_code)) {
-                    static const char *const msg =
-                        "TLV failure: failed to apply TLV";
-                    LOG_ERROR("%s", msg);
+    int found = file_find(path, ".tlv", files, ARRAY_SIZE(files));
+    if (found <= 0) {
+        nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
+        LOG_DEBUG("no TLV file found at %s; skipping nvm update", path);
+    } else {
+        ASSERT(found <= MAX_TLV);
+        for (int i = 0; i < found; i++) {
+            LOG_DEBUG("TLV file to apply: %s", files[i]);
+            if (E_ERR_SUCCESS !=
+                flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc,
+                                files[i], &nvm_result.id,
+                                &nvm_result.sub_error_code)) {
+                static const char *const msg =
+                    "TLV failure: failed to apply TLV";
+                LOG_ERROR("%s", msg);
 
-                    mmgr_cli_tft_event_data_t data[] =
-                    { { strlen(msg), msg }, { strlen(files[i]), files[i] } };
-                    mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
-                                                strlen(ev_type), ev_type,
-                                                MMGR_CLI_TFT_AP_LOG_MASK |
-                                                MMGR_CLI_TFT_BP_LOG_MASK,
-                                                2, data };
-                    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT,
-                                       &ev);
-                } else {
-                    applied = true;
-                }
-                free(files[i]);
+                mmgr_cli_tft_event_data_t data[] =
+                { { strlen(msg), msg }, { strlen(files[i]), files[i] } };
+                mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                            strlen(ev_type), ev_type,
+                                            MMGR_CLI_TFT_AP_LOG_MASK |
+                                            MMGR_CLI_TFT_BP_LOG_MASK,
+                                            2, data };
+                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT,
+                                   &ev);
+            } else {
+                applied = true;
             }
+            free(files[i]);
         }
-
-        clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,
-                           &nvm_result);
     }
+
+    clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,
+                       &nvm_result);
 
     return applied;
 }
@@ -655,7 +653,8 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
         broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
         clients_reset_ack_cold(mmgr->clients);
         mmgr->request.accept_request = false;
-        if ((mmgr->info.mdm_link == E_LINK_USB) && mmgr->info.is_flashless)
+        if ((mmgr->info.mdm_link == E_LINK_USB) &&
+            mdm_flash_is_required(&mmgr->info))
             set_mmgr_state(mmgr, E_MMGR_MDM_START);
         else
             set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
@@ -828,7 +827,7 @@ out_mdm_ev:
     recov_done(mmgr->reset);
 
     mdm_subscribe_start_ev(&mmgr->info);
-    if (!mmgr->info.is_flashless && mmgr->info.ipc_ready_present)
+    if (!mdm_flash_is_required(&mmgr->info) && mmgr->info.ipc_ready_present)
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     if (mmgr->info.mdm_link == E_LINK_USB) {
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
@@ -1042,8 +1041,8 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         set_mcd_poll_states(&mmgr->info);
         if ((mmgr->state == E_MMGR_MDM_CONF_ONGOING) &&
             ((mmgr->info.mdm_link != E_LINK_USB) ||
-            ((mmgr->info.mdm_link == E_LINK_USB) &&
-             (mmgr->events.link_state & E_MDM_LINK_BB_READY))))
+             ((mmgr->info.mdm_link == E_LINK_USB) &&
+              (mmgr->events.link_state & E_MDM_LINK_BB_READY))))
             ret = do_configure(mmgr);
     } else if (mcd_state & E_EV_CORE_DUMP) {
         LOG_DEBUG("current state: E_EV_CORE_DUMP");
@@ -1110,9 +1109,8 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
     ASSERT(mmgr != NULL);
 
     bus_ev_read(mmgr->events.bus_events);
-    if (bus_ev_hdle_events(mmgr->events.bus_events) != E_ERR_SUCCESS) {
+    if (bus_ev_hdle_events(mmgr->events.bus_events) != E_ERR_SUCCESS)
         goto out;
-    }
     if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) &&
         (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
         is_mdm_bb_ready = true;
@@ -1139,7 +1137,8 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
-        if (mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) {
+        if ((mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) ||
+            (!mmgr->info.ipc_ready_present)) {
             timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
             mdm_flash_start(mmgr->mdm_flash);
         }

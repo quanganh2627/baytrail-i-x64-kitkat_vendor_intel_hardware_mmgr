@@ -164,7 +164,7 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    if (mmgr->info.is_flashless) {
+    if (mdm_flash_is_required(&mmgr->info)) {
         ret = tty_listen_fd(mmgr->epollfd, mdm_flash_get_fd(mmgr->mdm_flash),
                             EPOLLIN);
         if (ret != E_ERR_SUCCESS)
@@ -200,7 +200,7 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
             /* ready to flash modem */
             mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
             mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
-        } else if (!mmgr->info.is_flashless) {
+        } else if (!mdm_flash_is_required(&mmgr->info)) {
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         }
     } else {

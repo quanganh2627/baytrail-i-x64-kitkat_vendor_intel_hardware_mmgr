@@ -309,7 +309,7 @@ e_mmgr_errors_t mdm_upgrade(mdm_upgrade_hdle_t *hdle)
 
     ASSERT(update != NULL);
 
-    //reset modem upgrade error flag
+    /* reset modem upgrade error flag */
     update->upgrade_err = 0;
 
     char *files[10];
