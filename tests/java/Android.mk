@@ -1,3 +1,4 @@
+ifeq (0,1) #LPDK disable
 #############################################
 # MODEM MANAGER java test application
 #############################################
@@ -13,3 +14,4 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 include $(BUILD_PACKAGE)
 
+endif
