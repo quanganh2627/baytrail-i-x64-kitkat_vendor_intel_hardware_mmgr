@@ -289,7 +289,7 @@ static inline void flush_pipe(int fd)
  *
  * @return E_ERR_SUCCESS
  */
-e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda)
+e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     bool wakelock = false;
@@ -304,10 +304,12 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda)
     for (;; ) {
         if (mmgr->events.cli_req & E_CLI_REQ_OFF) {
             clients_reset_ack_shtdwn(mmgr->clients);
-            timer_start(mmgr->timer, E_TIMER_FMMO);
-            mdm_start_shtdwn(mmgr);
-            set_mmgr_state(mmgr, E_MMGR_MDM_PREPARE_OFF);
             mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
+            if (!mmgr->dsda) {
+                timer_start(mmgr->timer, E_TIMER_FMMO);
+                mdm_start_shtdwn(mmgr);
+                set_mmgr_state(mmgr, E_MMGR_MDM_PREPARE_OFF);
+            }
         } else if (mmgr->state == E_MMGR_MDM_RESET) {
             LOG_DEBUG("restoring modem");
             reset_modem(mmgr);
@@ -326,7 +328,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda)
             acquire_wake_lock(PARTIAL_WAKE_LOCK, MODULE_NAME);
         }
 
-        if (dsda && (inst_id == 2))
+        if (mmgr->dsda && (inst_id == 2))
             mdm_upgrade(mmgr->info.mdm_upgrade);
 
         LOG_DEBUG("event type: %s", events_str[mmgr->events.state]);

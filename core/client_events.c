@@ -291,7 +291,7 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     client_set_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
 
-    if (!clients_has_resource(mmgr->clients, E_PRINT)) {
+    if (!clients_has_resource(mmgr->clients, E_PRINT) && !mmgr->dsda) {
         LOG_INFO("notify clients that modem will be shutdown");
         clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
         /* if we have a current modem start procedure, stop all its timers */

@@ -145,17 +145,15 @@ static void set_amtl_cfg(tcs_cfg_t *cfg, int id)
  *
  * @param [in, out] mmgr
  * @param [in] id modem number in TCS
- * @param [out] dsda
  *
  * @return void
  */
-static void mmgr_init(mmgr_data_t *mmgr, int id, bool *dsda)
+static void mmgr_init(mmgr_data_t *mmgr, int id)
 {
     tcs_handle_t *h = tcs_init();
 
     ASSERT(h != NULL);
     ASSERT(mmgr != NULL);
-    ASSERT(dsda != NULL);
 
     tcs_cfg_t *cfg = tcs_get_config(h);
     ASSERT(cfg != NULL);
@@ -174,7 +172,9 @@ static void mmgr_init(mmgr_data_t *mmgr, int id, bool *dsda)
 
     if (cfg->nb == 2) {
         LOG_INFO("DSDA platform");
-        *dsda = true;
+        mmgr->dsda = true;
+    } else {
+        mmgr->dsda = false;
     }
 
     ASSERT((mmgr->reset = recov_init(&mmgr_cfg->recov)) != NULL);
@@ -185,7 +185,7 @@ static void mmgr_init(mmgr_data_t *mmgr, int id, bool *dsda)
 
     ASSERT((mmgr->mcdr = mcdr_init(&mmgr_cfg->mcdr)) != NULL);
 
-    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm[id], id, *dsda,
+    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm[id], id, mmgr->dsda,
                                             &mmgr_cfg->com,
                                             &cfg->mdm[id].tlvs,
                                             &mmgr_cfg->mdm_link,
@@ -257,7 +257,6 @@ int main(int argc, char *argv[])
 {
     int err = 0;
     int inst_id = DEFAULT_INST_ID;
-    bool dsda = false;
     e_mmgr_errors_t ret = EXIT_SUCCESS;
     mmgr_data_t mmgr;
 
@@ -308,14 +307,14 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    mmgr_init(&mmgr, inst_id - 1, &dsda);
+    mmgr_init(&mmgr, inst_id - 1);
     disable_telephony(&mmgr);
 
     if (E_ERR_SUCCESS != events_start(&mmgr, inst_id)) {
         LOG_ERROR("failed to start event module");
         ret = EXIT_FAILURE;
     } else {
-        events_manager(&mmgr, inst_id, dsda);
+        events_manager(&mmgr, inst_id);
     }
 
 out:
