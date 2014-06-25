@@ -301,7 +301,7 @@ void update_verdict(mmgr_data_t *mmgr)
 
 /**
  * Apply TLV update. All TLV's available in the folder specified by TCS will be
- *applied
+ * applied
  *
  * @param [in,out] mmgr mmgr context
  *
@@ -1073,6 +1073,8 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
 
         if (E_MMGR_MDM_CORE_DUMP == mmgr->state) {
             if (E_CD_SUCCEED != mcdr_get_result(mmgr->mcdr)) {
+                if (mcdr_is_enabled(mmgr->mcdr))
+                    mcdr_cancel(mmgr->mcdr);
                 notify_core_dump(mmgr->clients, NULL, E_CD_SELF_RESET);
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             }

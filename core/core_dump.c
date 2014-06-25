@@ -199,7 +199,7 @@ void mcdr_cancel(mcdr_handle_t *h)
     if (MCDR_ARCHIVE_IN_PROGRESS == ctx->mcdr.get_state()) {
         LOG_DEBUG("Archiving still on-going");
     } else {
-        LOG_ERROR("Core dump retrieval takes too much time. Aborting");
+        LOG_ERROR("Core dump retrieval stopped. Aborting");
         ctx->mcdr.cleanup();
     }
 
