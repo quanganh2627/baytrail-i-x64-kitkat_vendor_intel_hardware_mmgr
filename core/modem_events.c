@@ -852,6 +852,10 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
 
     ASSERT(mmgr != NULL);
 
+    /* @TODO: remove me */
+    if (!strcmp(mmgr->info.mdm_name, "2230"))
+        sleep(2);
+
     ret = tty_open(mmgr->info.mdm_ipc_path, &mmgr->fd_tty);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("open fails");
