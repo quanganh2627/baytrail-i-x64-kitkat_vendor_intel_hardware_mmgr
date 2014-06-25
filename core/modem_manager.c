@@ -45,7 +45,7 @@
 #define AMTL2_PROPERTY "service.amtl.config2"
 
 /* global values used to cleanup */
-mmgr_data_t *g_mmgr = NULL;
+static mmgr_data_t *g_mmgr = NULL;
 
 /**
  * Clean MMGR before exit
@@ -288,6 +288,7 @@ int main(int argc, char *argv[])
             goto out;
         }
     }
+    logs_init(inst_id);
     LOG_DEBUG("Boot. last commit: \"%s\"", GIT_COMMIT_ID);
 
 #ifndef GOCV_MMGR
