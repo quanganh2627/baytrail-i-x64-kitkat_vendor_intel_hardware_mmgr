@@ -26,7 +26,6 @@
 #include "ctrl.h"
 
 #define HANDSHAKE_AFTER_CD_RETRIES_COUNT 12
-#define MBD_DEV "/dev/mdm_ctrl"
 
 typedef enum e_modem_events_type {
     E_EV_NONE = 0x0,

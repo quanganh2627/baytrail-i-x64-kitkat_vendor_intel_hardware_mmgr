@@ -176,11 +176,11 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int id, bool dsda,
     strncpy(info->mdm_name, mdm_info->core.name, sizeof(info->mdm_name) - 1);
 
     info->fl_conf = *flash;
-    info->fd_mcd = open(MBD_DEV, O_RDWR);
+    info->fd_mcd = open(mcd->path, O_RDWR);
 
     if (info->fd_mcd == -1) {
-        LOG_DEBUG("failed to open Modem Control Driver interface: %s",
-                  strerror(errno));
+        LOG_DEBUG("failed to open Modem Control Driver (%s) interface: %s",
+                  mcd->path, strerror(errno));
         ret = E_ERR_FAILED;
         goto out;
     }
