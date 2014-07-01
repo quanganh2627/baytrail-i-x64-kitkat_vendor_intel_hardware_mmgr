@@ -27,6 +27,7 @@
 #include "client_cnx.h"
 
 #define DSDA_PROVISIONING "service.mmgr.dsda_provisioning"
+#define MODEM_ZIP_PATH "/system/etc/firmware/modem/modem.zip"
 
 /* This is a magic path, but it's also hardcoded in POS/ROS */
 #define PROVISIONING_FOLDER "/config/telephony/provisioning"
@@ -120,7 +121,6 @@ static void mdm_upgrade_set_error(mdm_upgrade_t *upgrade, err_type_t type)
     }
 }
 
-
 int mdm_upgrade_get_error(mdm_upgrade_hdle_t *hdle)
 {
     mdm_upgrade_t *upgrade = (mdm_upgrade_t *)hdle;
@@ -174,6 +174,36 @@ static void get_fls_filter(char *filter, const char *mdm_name,
     }
 }
 
+/**
+ * Extract TLV files from zip archive
+ *
+ * @param [out] update
+ * @param [in] file
+ *
+ * @return E_ERR_SUCCESS
+ * @return E_ERR_FAILED
+ */
+static inline e_mmgr_errors_t extract_tlv_files(mdm_upgrade_t *update,
+                                                const char *file)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    LOG_INFO("Extracting TLV files from: %s", file);
+    for (size_t i = 0; i < update->nb_tlv; i++) {
+        if (E_ERR_SUCCESS !=
+            zip_extract_entry(file, update->tlvs[i].filter,
+                              update->tlvs[i].file,
+                              FILE_PERMISSION)) {
+            mdm_upgrade_set_error(update, ERR_TLV);
+            LOG_ERROR("TLV extraction has failed");
+            ret = E_ERR_FAILED;
+            break;
+        }
+    }
+
+    return ret;
+}
+
 static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
 {
     ASSERT(update != NULL);
@@ -199,14 +229,8 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
         else
             tlv_update = true;
     } else if (zip_is_valid(file)) {
-        for (size_t i = 0; i < update->nb_tlv; i++) {
-            if (E_ERR_SUCCESS == zip_extract_entry(file, update->tlvs[i].filter,
-                                                   update->tlvs[i].file,
-                                                   FILE_PERMISSION))
-                tlv_update = true;
-            else
-                mdm_upgrade_set_error(update, ERR_TLV);
-        }
+        if (E_ERR_SUCCESS == extract_tlv_files(update, file))
+            tlv_update = true;
         if (E_ERR_SUCCESS == zip_extract_entry(file, update->fls_filter,
                                                update->fls_file,
                                                FILE_PERMISSION))
@@ -242,6 +266,9 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
     if (tlv_update)
         LOG_DEBUG("TLV patch has been installed");
 
+    if (fw_update && !tlv_update)
+        if (file_exist(MODEM_ZIP_PATH, 0) == true)
+            extract_tlv_files(update, MODEM_ZIP_PATH);
 out:
     return E_ERR_SUCCESS;
 }
