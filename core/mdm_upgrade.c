@@ -24,8 +24,12 @@
 #include "mdm_upgrade.h"
 #include "zip.h"
 #include "property.h"
+#include "client_cnx.h"
 
 #define DSDA_PROVISIONING "service.mmgr.dsda_provisioning"
+
+/* This is a magic path, but it's also hardcoded in POS/ROS */
+#define PROVISIONING_FOLDER "/config/telephony/provisioning"
 
 #define FILE_PERMISSION (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 #define FILTER_SIZE 128
@@ -37,7 +41,6 @@ typedef struct tlv_updates {
 
 typedef struct mdm_update {
     char fls_filter[FILTER_SIZE];
-    char provisioning[MY_PATH_MAX];
     char *fls_file;
     char *run_folder;
     tlv_updates_t *tlvs;
@@ -52,13 +55,23 @@ typedef enum err_type {
     ERR_TLV,
 } err_type_t;
 
-static inline bool is_removal_allowed(void)
+static inline bool flag_is_set(void)
 {
     int value = 0;
 
     property_get_int(DSDA_PROVISIONING, &value);
 
     return value == 1;
+}
+
+static inline void flag_set(void)
+{
+    property_set_int(DSDA_PROVISIONING, 1);
+}
+
+static inline void flag_unset(void)
+{
+    property_set_int(DSDA_PROVISIONING, 0);
 }
 
 /**
@@ -167,6 +180,12 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
     bool fw_update = false;
     bool tlv_update = false;
 
+    if (update->dsda && (update->inst_id == DEFAULT_INST_ID)
+        && flag_is_set()) {
+        LOG_DEBUG("fw already extracted. Nothing to do");
+        goto out;
+    }
+
     if (strstr(file, ".fls")) {
         if (rename(file, update->fls_file))
             mdm_upgrade_set_error(update, ERR_FLS);
@@ -197,11 +216,11 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
         if (!update->dsda) {
             unlink(file);
         } else {
-            if (update->inst_id == 0) {
-                property_set_int(DSDA_PROVISIONING, 1);
-            } else if (is_removal_allowed()) {
+            if (update->inst_id == DEFAULT_INST_ID) {
+                flag_set();
+            } else if (flag_is_set()) {
                 unlink(file);
-                property_set_int(DSDA_PROVISIONING, 0);
+                flag_unset();
             }
         }
     } else if (strstr(file, "package")) {
@@ -223,6 +242,7 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
     if (tlv_update)
         LOG_DEBUG("TLV patch has been installed");
 
+out:
     return E_ERR_SUCCESS;
 }
 
@@ -251,8 +271,6 @@ mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, int inst_id, bool dsda,
 
     get_fls_filter(update->fls_filter, mdm->core.name,
                    mdm->core.hw_revision, mdm->core.sw_revision);
-    snprintf(update->provisioning, sizeof(update->provisioning),
-             "%s/provisioning", run_folder);
 
     update->fls_file = strdup(fls_file);
     update->run_folder = strdup(run_folder);
@@ -295,7 +313,7 @@ e_mmgr_errors_t mdm_upgrade(mdm_upgrade_hdle_t *hdle)
     update->upgrade_err = 0;
 
     char *files[10];
-    int found = file_find(update->provisioning, "", files, ARRAY_SIZE(files));
+    int found = file_find(PROVISIONING_FOLDER, "", files, ARRAY_SIZE(files));
     if (found > 2) {
         ret = E_ERR_FAILED;
         LOG_ERROR("more than two files have been detected. Update rejected");
