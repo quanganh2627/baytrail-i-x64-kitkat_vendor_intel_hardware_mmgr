@@ -189,9 +189,10 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int id, bool dsda,
     info->wakeup_cfg = E_MDM_WAKEUP_UNKNOWN;
 
     /* SSIC power on work around */
-    info->need_ssic_po_wa =
-        !strcmp(mdm_info->mod.mmgr_xml, "mmgr_7260_conf_3.xml") ||
-        !strcmp(mdm_info->mod.mmgr_xml, "mmgr_7260_conf_7.xml");
+    LOG_DEBUG("IPC ctrl link is %s", mdm_link->ctrl.device);
+    info->need_ssic_po_wa = (strstr(mdm_link->ctrl.device, "ssic") != NULL);
+    if (info->need_ssic_po_wa)
+        LOG_DEBUG("SSIC Power on sequence used!");
 
     ASSERT((info->mdm_upgrade =
                 mdm_upgrade_init(tlvs, id, dsda, mdm_info,
