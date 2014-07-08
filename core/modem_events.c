@@ -935,7 +935,14 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
 
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
-    set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+    if (E_MMGR_MDM_PREPARE_OFF == mmgr->state) {
+        LOG_DEBUG("FMMO: modem down");
+        timer_stop(mmgr->timer, E_TIMER_FMMO);
+        mdm_finalize_shtdwn(mmgr);
+        set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
+    }
+    else
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 
     return E_ERR_SUCCESS;
 }
