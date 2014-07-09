@@ -55,6 +55,8 @@ typedef struct {
     uint16_t modem_flash_vid;
     uint16_t modem_bb_pid;
     uint16_t modem_bb_vid;
+    uint16_t modem_reconfig_pid;
+    uint16_t modem_reconfig_vid;
     uint16_t mcdr_bb_pid;
     uint16_t mcdr_bb_vid;
 } bus_ev_t;
@@ -206,6 +208,14 @@ e_mmgr_errors_t bus_ev_hdle_events(bus_ev_hdle_t *h)
                     ret = E_ERR_SUCCESS;
                     LOG_DEBUG("+Modem base band READY");
                 } else if (is_pid_and_vid(dev,
+                                          bus_events->modem_reconfig_pid,
+                                          bus_events->modem_reconfig_vid)) {
+                    bus_events->mdm_state |= MDM_BB_READY;
+                    strncpy(bus_events->modem_bb_path,
+                            bus_events->cli_ctx.evs[i].path, PATH_MAX);
+                    ret = E_ERR_SUCCESS;
+                    LOG_DEBUG("+Modem base band READY");
+                } else if (is_pid_and_vid(dev,
                                           bus_events->mcdr_bb_pid,
                                           bus_events->mcdr_bb_vid)) {
                     bus_events->mdm_state |= MDM_CD_READY;
@@ -313,7 +323,8 @@ e_mmgr_errors_t bus_ev_start(bus_ev_hdle_t *h)
  * @return a valid bus_ev_hdle_t pointer if succeed
  * @return NULL otherwise
  */
-bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr)
+bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *reconfig_usb,
+                           link_t *mcdr)
 {
     bool err = false;
     bool usb = false;
@@ -349,6 +360,17 @@ bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr)
             bus_events->modem_bb_vid = bb->usb.vid;
         } else {
             LOG_ERROR("wrong PID/VID for the baseband interface");
+            err = true;
+        }
+    }
+
+    if (reconfig_usb->type == E_LINK_USB) {
+        usb = true;
+        if ((reconfig_usb->usb.pid != 0) && (reconfig_usb->usb.vid != 0)) {
+            bus_events->modem_reconfig_pid = reconfig_usb->usb.pid;
+            bus_events->modem_reconfig_vid = reconfig_usb->usb.vid;
+        } else {
+            LOG_ERROR("Wrong PID/VID for the reconfig_usb interface");
             err = true;
         }
     }

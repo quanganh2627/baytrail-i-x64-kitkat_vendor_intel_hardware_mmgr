@@ -223,6 +223,7 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
     ASSERT((mmgr->events.bus_events =
                 bus_ev_init(&mmgr_cfg->mdm_link.flash,
                             &mmgr_cfg->mdm_link.baseband,
+                            &mmgr_cfg->mdm_link.reconfig_usb,
                             &mmgr_cfg->mcdr.link)) != NULL);
 
     ASSERT(E_ERR_SUCCESS == events_init(mmgr_cfg->cli.max, mmgr));

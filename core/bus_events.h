@@ -27,7 +27,8 @@
 
 typedef void *bus_ev_hdle_t;
 
-bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *mcdr);
+bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *reconfig_usb,
+                           link_t *mcdr);
 e_mmgr_errors_t bus_ev_dispose(bus_ev_hdle_t *h);
 e_mmgr_errors_t bus_ev_start(bus_ev_hdle_t *h);
 
