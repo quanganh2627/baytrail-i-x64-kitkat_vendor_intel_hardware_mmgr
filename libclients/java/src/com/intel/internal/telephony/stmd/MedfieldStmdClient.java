@@ -61,7 +61,7 @@ public class MedfieldStmdClient implements ModemStatusMonitor, Runnable {
                                       LocalSocketAddress.Namespace.RESERVED);
     }
 
-    public void start(String clientName) {
+    public void start(String clientName, String socketName) {
         this.stopRequested = false;
 
         this.clientSocket = new LocalSocket();

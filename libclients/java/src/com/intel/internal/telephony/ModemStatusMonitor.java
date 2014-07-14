@@ -32,7 +32,7 @@ public interface ModemStatusMonitor extends Callback {
     public static final int MSG_NOTIFICATION_FEEDBACK = 1;
     public static final int MSG_REQUEST = 2;
 
-    public void start(String clientName) throws MmgrClientException;
+    public void start(String clientName, String socketName) throws MmgrClientException;
 
     public void subscribeTo(ModemStatus status, ModemNotification notifications)
     throws MmgrClientException;

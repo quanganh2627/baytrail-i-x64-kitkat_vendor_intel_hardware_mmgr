@@ -29,6 +29,7 @@ import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Handler.Callback;
 import android.os.Message;
+import android.util.Log;
 
 /**
  * Implements the client side that abstracts communication to the Modem Status
@@ -42,6 +43,7 @@ import android.os.Message;
  *
  */
 public class ModemStatusManager implements Callback {
+    private static final String TAG = "ModemStatusManager";
     private ModemEventListener eventListener = null;
 
     private ModemStatusMonitor modemStatusMonitor = null;
@@ -53,9 +55,9 @@ public class ModemStatusManager implements Callback {
     private static Map<Integer, ModemStatusManager> sInstances =
         new HashMap<Integer, ModemStatusManager>();
 
-    private ModemStatusManager() throws InstantiationException {
+    private ModemStatusManager(int inst) throws InstantiationException {
+        this.mInstanceId = inst;
         this.statusEventsHandler = new Handler(this);
-
         if (this.mmgrSocketExists()) {
             this.modemStatusMonitor = new MedfieldMmgrClient(
                 this.statusEventsHandler);
@@ -67,6 +69,10 @@ public class ModemStatusManager implements Callback {
                       "Neither STMD nor MMGR are present on this device.");
         }
         this.requestHandler = new Handler(this.modemStatusMonitor);
+    }
+
+    private ModemStatusManager() throws InstantiationException {
+        this(DEFAULT_INSTANCE);
     }
 
     private boolean stmdSocketExists() {
@@ -81,7 +87,6 @@ public class ModemStatusManager implements Callback {
         if (DEFAULT_INSTANCE != this.mInstanceId) {
             socketName += this.mInstanceId;
         }
-
         File mmgr = new File(socketName);
         return mmgr.exists();
     }
@@ -101,8 +106,7 @@ public class ModemStatusManager implements Callback {
         if (ModemStatusManager.sInstances.containsKey(instanceId)) {
             return ModemStatusManager.sInstances.get(instanceId);
         } else {
-            ModemStatusManager instance = new ModemStatusManager();
-            instance.mInstanceId = instanceId;
+            ModemStatusManager instance = new ModemStatusManager(instanceId);
             ModemStatusManager.sInstances.put(instanceId, instance);
             return instance;
         }
@@ -271,7 +275,12 @@ public class ModemStatusManager implements Callback {
      */
     public void connect(String clientName) throws MmgrClientException {
         if (this.modemStatusMonitor != null) {
-            this.modemStatusMonitor.start(clientName);
+            String socketName = "mmgr";
+            if (DEFAULT_INSTANCE != this.mInstanceId) {
+                socketName += this.mInstanceId;
+            }
+            Log.d(Constants.LOG_TAG, clientName + " connect to socket " + socketName);
+            this.modemStatusMonitor.start(clientName, socketName);
         }
     }
 

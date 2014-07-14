@@ -118,7 +118,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     }
 
     @Override
-    public void start(String clientName) throws MmgrClientException {
+    public void start(String clientName, String socketName) throws MmgrClientException {
         Log.d(Constants.LOG_TAG, "Starting client...");
 
         if (this.thread != null && this.thread.isAlive()) {
@@ -129,7 +129,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.stopRequested = false;
 
         try {
-            this.connectSocket(clientName);
+            this.connectSocket(socketName);
         } catch (MmgrClientException ex) {
             Log.e(Constants.LOG_TAG, ex.toString());
 
@@ -174,12 +174,12 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         Log.d(Constants.LOG_TAG, "Client ready.");
     }
 
-    private void connectSocket(String clientName) throws MmgrClientException {
+    private void connectSocket(String socketName) throws MmgrClientException {
         this.clientSocket = new LocalSocket();
 
-        Log.d(Constants.LOG_TAG, "Connecting to service...");
+        Log.d(Constants.LOG_TAG, "Connecting to service... socket name: " + socketName);
         try {
-            this.clientSocket.connect(this.getSocketAddress());
+            this.clientSocket.connect(this.getSocketAddress(socketName));
         } catch (IOException ex) {
             throw new MmgrClientException("Connection to MMGR socket failed.",
                                           ex);
@@ -285,8 +285,8 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         }
     }
 
-    protected LocalSocketAddress getSocketAddress() {
-        return new LocalSocketAddress("mmgr",
+    protected LocalSocketAddress getSocketAddress(String socketName) {
+        return new LocalSocketAddress(socketName,
                                       LocalSocketAddress.Namespace.RESERVED);
     }
 
