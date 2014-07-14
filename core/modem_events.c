@@ -288,7 +288,6 @@ static bool apply_tlv(mmgr_data_t *mmgr)
                 static const char *const msg =
                     "TLV failure: failed to apply TLV";
                 LOG_ERROR("%s", msg);
-
                 mmgr_cli_tft_event_data_t data[] =
                 { { strlen(msg), msg }, { strlen(files[0]), files[0] } };
                 mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
@@ -719,18 +718,21 @@ static e_mmgr_errors_t launch_secur(mmgr_data_t *mmgr)
 static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    e_mmgr_events_t modem_event;
 
     ASSERT(mmgr != NULL);
 
     if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS) {
-        if (apply_tlv(mmgr))
+        if (apply_tlv(mmgr)) {
             timer_start(mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
-        else
+            modem_event = E_MMGR_EVENT_MODEM_TLV_ONGOING;
+        } else {
             ret = launch_secur(mmgr);
-        clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
+            modem_event = E_MMGR_EVENT_MODEM_UP;
+        }
+        clients_inform_all(mmgr->clients, modem_event, NULL);
         pm_on_mdm_up(mmgr->info.pm);
     }
-
     return ret;
 }
 

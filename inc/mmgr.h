@@ -63,6 +63,7 @@
     X(EVENT_MODEM_DOWN), \
     X(EVENT_MODEM_UP), \
     X(EVENT_MODEM_OUT_OF_SERVICE), \
+    X(EVENT_MODEM_TLV_ONGOING), \
     /* Notifications: MMGR -> Clients */ \
     X(NOTIFY_MODEM_COLD_RESET), \
     X(NOTIFY_MODEM_SHUTDOWN), \
