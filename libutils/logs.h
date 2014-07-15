@@ -27,13 +27,13 @@
 
 /* define debug LOG functions */
 #define LOG_ERROR(format, args ...) \
-    do { LOGE("%s - " format, __FUNCTION__, ## args); } while (0)
+    do { ALOGE("%s - " format, __FUNCTION__, ## args); } while (0)
 #define LOG_DEBUG(format, args ...) \
-    do { LOGD("%s - " format, __FUNCTION__, ## args); } while (0)
+    do { ALOGD("%s - " format, __FUNCTION__, ## args); } while (0)
 #define LOG_VERBOSE(format, args ...) \
-    do { LOGV("%s - " format, __FUNCTION__, ## args); } while (0)
+    do { ALOGV("%s - " format, __FUNCTION__, ## args); } while (0)
 #define LOG_INFO(format, args ...) \
-    do { LOGI("%s - " format, __FUNCTION__, ## args); } while (0)
+    do { ALOGI("%s - " format, __FUNCTION__, ## args); } while (0)
 
 #else                           /* STDIO_LOGS */
 

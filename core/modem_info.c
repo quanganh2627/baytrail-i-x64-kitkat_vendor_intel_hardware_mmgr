@@ -280,7 +280,7 @@ static e_mmgr_errors_t run_at_xlog(int fd_tty, int max_retry)
             while ((p = strchr(data, '\r')) != NULL)
                 *p = ' ';
             /* to improve display, do not use LOG_DEBUG macro here */
-            LOGD("%s", data);
+            ALOGD("%s", data);
         }
     } while (read_size > 0);
 

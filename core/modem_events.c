@@ -1104,9 +1104,8 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
     ASSERT(mmgr != NULL);
 
     bus_ev_read(mmgr->events.bus_events);
-    if (bus_ev_hdle_events(mmgr->events.bus_events) != E_ERR_SUCCESS) {
+    if (bus_ev_hdle_events(mmgr->events.bus_events) != E_ERR_SUCCESS)
         goto out;
-    }
     if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) &&
         (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
         is_mdm_bb_ready = true;

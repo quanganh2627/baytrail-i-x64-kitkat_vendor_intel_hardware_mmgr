@@ -99,20 +99,20 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     CHECK_CLI_PARAM(handle, ret, out);
 
     if (*handle != NULL) {
-        LOGE("*handle is not NULL");
+        ALOGE("*handle is not NULL");
         ret = E_ERR_CLI_BAD_HANDLE;
         goto out;
     }
 
     if (client_name == NULL) {
-        LOGE("client_name is NULL");
+        ALOGE("client_name is NULL");
         ret = E_ERR_CLI_FAILED;
         goto out;
     }
 
     p_lib = calloc(1, sizeof(mmgr_lib_context_t));
     if (p_lib == NULL) {
-        LOGE("failed to allocate");
+        ALOGE("failed to allocate");
         ret = E_ERR_CLI_FAILED;
         goto out;
     }
@@ -185,7 +185,7 @@ e_err_mmgr_cli_t mmgr_cli_delete_handle(mmgr_cli_handle_t *handle)
 
     if (!is_connected(p_lib)) {
         free(p_lib);
-        LOGD("handle freed successfully");
+        ALOGD("handle freed successfully");
     } else {
         ret = E_ERR_CLI_BAD_CNX_STATE;
         LOG_ERROR("handle not freed", p_lib);

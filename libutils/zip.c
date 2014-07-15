@@ -86,28 +86,34 @@ e_mmgr_errors_t zip_extract_entry(const char *zip_filename,
     e_mmgr_errors_t ret = E_ERR_FAILED;
     ZipArchive zip;
     mode_t old_umask = umask(~dst_mode & 0777);
+    MemMapping map;
 
     ASSERT(zip_filename != NULL);
     ASSERT(filter != NULL);
     ASSERT(dest != NULL);
 
     memset(&zip, 0, sizeof(zip));
-    if (mzOpenZipArchive(zip_filename, &zip)) {
-        LOG_DEBUG("Failed to open the archive");
-    } else {
-        LOG_DEBUG("Archive %s opened successfully. String match: %s",
-                  zip_filename, filter);
+    if (sysMapFile(zip_filename, &map) == 0) {
+        if (mzOpenZipArchive(map.addr, map.length, &zip)) {
+            LOG_ERROR("Failed to open the archive");
+        } else {
+            LOG_INFO("Archive %s opened successfully. String match: %s",
+                      zip_filename, filter);
 
-        for (size_t i = 0; i < mzZipEntryCount(&zip); i++) {
-            const ZipEntry *zip_entry = mzGetZipEntryAt(&zip, i);
-            int err = extract(&zip, zip_entry, filter, dest, dst_mode);
-            if (err != -2) {
-                if (err == 0)
-                    ret = E_ERR_SUCCESS;
-                break;
+            for (size_t i = 0; i < mzZipEntryCount(&zip); i++) {
+                const ZipEntry *zip_entry = mzGetZipEntryAt(&zip, i);
+                int err = extract(&zip, zip_entry, filter, dest, dst_mode);
+                if (err != -2) {
+                    if (err == 0)
+                        ret = E_ERR_SUCCESS;
+                    break;
+                }
             }
+            mzCloseZipArchive(&zip);
+            sysReleaseMap(&map);
         }
-        mzCloseZipArchive(&zip);
+    } else {
+        LOG_ERROR("Failed to map the archive file %s", zip_filename);
     }
 
     umask(old_umask & 0777);
@@ -118,12 +124,20 @@ bool zip_is_valid(const char *file)
 {
     bool valid = false;
     ZipArchive zip;
+    MemMapping map;
 
     ASSERT(file != NULL);
     memset(&zip, 0, sizeof(zip));
-    if (mzOpenZipArchive(file, &zip) == 0) {
-        mzCloseZipArchive(&zip);
-        valid = true;
+    if (sysMapFile(file, &map) == 0) {
+        if (mzOpenZipArchive(map.addr, map.length, &zip) == 0) {
+            mzCloseZipArchive(&zip);
+            sysReleaseMap(&map);
+            valid = true;
+        } else {
+            LOG_ERROR("Failed to opesn the archive");
+        }
+    } else {
+        LOG_ERROR("Failed to map the archive file %s", file);
     }
 
     return valid;

@@ -29,14 +29,14 @@
 #include <utils/Log.h>
 
 #define LOG_ERROR(format, ctx, args ...) \
-    do { LOGE("%s - (fd:%d name:%s) - " format, __FUNCTION__, \
-              ctx->fd_socket, ctx->cli_name, ## args); } while (0)
+    do { ALOGE("%s - (fd:%d name:%s) - " format, __FUNCTION__, \
+               ctx->fd_socket, ctx->cli_name, ## args); } while (0)
 #define LOG_DEBUG(format, ctx, args ...) \
-    do { LOGD("%s - (fd:%d name:%s) - " format, __FUNCTION__, \
-              ctx->fd_socket, ctx->cli_name, ## args); } while (0)
+    do { ALOGD("%s - (fd:%d name:%s) - " format, __FUNCTION__, \
+               ctx->fd_socket, ctx->cli_name, ## args); } while (0)
 #define LOG_VERBOSE(format, ctx, args ...) \
-    do { LOGV("%s - (fd:%d name:%s) - " format, __FUNCTION__, \
-              ctx->fd_socket, ctx->cli_name, ## args); } while (0)
+    do { ALOGV("%s - (fd:%d name:%s) - " format, __FUNCTION__, \
+               ctx->fd_socket, ctx->cli_name, ## args); } while (0)
 
 #define CNX_STATES \
     X(DISCONNECTED), \
@@ -85,7 +85,7 @@ typedef struct mmgr_lib_context {
 
 #define CHECK_CLI_PARAM(handle, err, out) do { \
         if (handle == NULL) { \
-            LOGE(xstr(handle) "%s - is NULL", __FUNCTION__); \
+            ALOGE(xstr(handle) "%s - is NULL", __FUNCTION__); \
             err = E_ERR_CLI_BAD_HANDLE; \
             goto out; \
         } \

@@ -12,8 +12,11 @@ MY_INCLUDES := \
     $(LOCAL_PATH)/link \
     $(TARGET_OUT_HEADERS)/libtcs \
     $(TARGET_OUT_HEADERS)/libmcdr \
-    $(call include-path-for, libusb) \
-    $(call include-path-for, libpower) \
+    $(TARGET_OUT_HEADERS)/telephony/libmmgr_utils \
+    $(TARGET_OUT_HEADERS)/telephony/libmmgr_cnx
+
+common_c_includes := \
+    external/libusb/libusb \
 
 MY_SRC_FILES := $(call all-c-files-under, .)
 
@@ -36,12 +39,11 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := $(MY_MODULE)
 LOCAL_MODULE_TAGS := $(MY_MODULE_TAGS)
 
-LOCAL_C_INCLUDES := $(MY_INCLUDES)
+LOCAL_C_INCLUDES := $(common_c_includes)
+LOCAL_C_INCLUDES += $(MY_INCLUDES)
 LOCAL_SRC_FILES :=  $(MY_SRC_FILES)
 LOCAL_CFLAGS := $(MY_C_FLAGS)
 
-# libmcdr is not linked. Only import the header
-LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_IMPORT) libmcdr
 LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_IMPORT)
 LOCAL_REQUIRED_MODULES := mmgr_xml
 
@@ -65,13 +67,12 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := $(addsuffix -gcov, $(MY_MODULE))
 LOCAL_MODULE_TAGS := $(MY_MODULE_TAGS)
 
-LOCAL_C_INCLUDES := $(MY_INCLUDES)
+LOCAL_C_INCLUDES := $(common_c_includes)
+LOCAL_C_INCLUDES += $(MY_INCLUDES)
 LOCAL_SRC_FILES :=  $(MY_SRC_FILES)
 LOCAL_CFLAGS := $(MY_C_FLAGS) -fprofile-arcs -ftest-coverage -DGOCV_MMGR
 
 MY_LOCAL_GCOV_IMPORT := $(foreach file,$(MY_LOCAL_IMPORT), $(addsuffix -gcov, $(file)))
-# libmcdr is not linked. Only import the header
-LOCAL_IMPORT_C_INCLUDE_DIRS_FROM_SHARED_LIBRARIES := $(MY_LOCAL_GCOV_IMPORT) libmcdr
 LOCAL_LDFLAGS := -fprofile-arcs -ftest-coverage -lgcov
 LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_GCOV_IMPORT)
 include $(BUILD_EXECUTABLE)

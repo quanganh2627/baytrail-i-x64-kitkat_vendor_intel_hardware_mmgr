@@ -133,7 +133,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             Log.e(Constants.LOG_TAG, ex.toString());
 
             this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-                    .sendToTarget();
+            .sendToTarget();
             this.cleanUp();
             throw ex;
         }
@@ -144,7 +144,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
         this.thread.start();
 
         try {
-            synchronized(this.syncObject) {
+            synchronized (this.syncObject) {
                 if (!this.bReady) {
                     this.bReady = true;
                     /* Waiting for run function is ready to read from input stream */
@@ -309,12 +309,12 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             Log.e(Constants.LOG_TAG, ex.toString());
 
             this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-                    .sendToTarget();
+            .sendToTarget();
             this.cleanUp();
             return;
         }
 
-        synchronized(this.syncObject) {
+        synchronized (this.syncObject) {
             if (this.bReady) {
                 this.syncObject.notifyAll();
             } else {
@@ -327,7 +327,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                 if (inputStream != null) {
                     readCount = inputStream.read(recvBuffer, 0, recvBuffer.length);
                     Log.d(Constants.LOG_TAG, String.format(
-                            "Received %d bytes from service.", readCount));
+                              "Received %d bytes from service.", readCount));
 
                     if (readCount > 0) {
                         this.handleResponse(recvBuffer, 0, readCount);
@@ -336,13 +336,13 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                     }
                 } else {
                     Log.d(Constants.LOG_TAG, String.format(
-                            "inputStream is null."));
+                              "inputStream is null."));
                 }
             } catch (IOException ex) {
                 Log.e(Constants.LOG_TAG, ex.toString());
 
                 this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
-                        .sendToTarget();
+                .sendToTarget();
                 this.cleanUp();
                 return;
             }
