@@ -135,6 +135,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
             .sendToTarget();
             this.cleanUp();
+            this.clientSocket = null;
             throw ex;
         }
 
@@ -311,6 +312,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
             .sendToTarget();
             this.cleanUp();
+            this.clientSocket = null;
             return;
         }
 
@@ -344,6 +346,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                 this.handler.obtainMessage(ModemStatusMonitor.MSG_ERROR, ex)
                 .sendToTarget();
                 this.cleanUp();
+                this.clientSocket = null;
                 return;
             }
         }
@@ -475,7 +478,6 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
             } catch (IOException ex) {
                 Log.e(Constants.LOG_TAG, ex.toString());
             }
-            this.clientSocket = null;
         }
         Log.d(Constants.LOG_TAG, "Cleaning done.");
     }
@@ -508,6 +510,7 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                 Log.e(Constants.LOG_TAG, ex.toString());
             }
         }
+        this.clientSocket = null;
         Log.d(Constants.LOG_TAG, "Client stopped.");
     }
 
