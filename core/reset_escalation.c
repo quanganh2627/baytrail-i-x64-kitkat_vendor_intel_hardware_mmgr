@@ -243,6 +243,9 @@ e_mmgr_errors_t recov_done(reset_handle_t *h)
 
     ASSERT(reset != NULL);
 
+    /* Reset sequence done, set initial state */
+    reset->state = E_OPERATION_NONE;
+
     if (reset->level.id >= E_EL_NUMBER_OF)
         goto out;
 
@@ -303,7 +306,7 @@ reset_handle_t *recov_init(const mmgr_recovery_t *recov)
         /* initialize some data */
         reset->level.id = E_EL_MODEM_COLD_RESET;
         reset->level.counter = 0;
-        reset->state = E_OPERATION_CONTINUE;
+        reset->state = E_OPERATION_NONE;
         gettimeofday(&reset->last_reset_time, NULL);
 
         /* structure initialization: */
