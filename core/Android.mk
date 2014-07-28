@@ -1,4 +1,3 @@
-ifeq (0,1) #LPDK disable
 LOCAL_PATH:= $(call my-dir)
 
 #############################################
@@ -77,5 +76,4 @@ LOCAL_LDFLAGS := -fprofile-arcs -ftest-coverage -lgcov
 LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS) $(MY_LOCAL_GCOV_IMPORT)
 include $(BUILD_EXECUTABLE)
 
-endif
 endif

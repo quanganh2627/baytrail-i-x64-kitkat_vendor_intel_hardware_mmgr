@@ -1,4 +1,3 @@
-ifeq (0,1) #LPDK disable
 LOCAL_PATH:= $(call my-dir)
 
 #############################################
@@ -54,5 +53,4 @@ LOCAL_SHARED_LIBRARIES := $(MY_SHARED_LIBS)
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 include $(BUILD_SHARED_LIBRARY)
 
-endif
 endif
