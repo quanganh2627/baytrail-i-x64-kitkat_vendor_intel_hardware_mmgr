@@ -186,15 +186,16 @@ e_mmgr_errors_t mdm_push_fw(const modem_info_t *info, const char *eb_port,
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     mup_interface_t *handle = NULL;
-    const char *fw_to_flash =
-        (info->is_flashless) ? info->fl_conf.run.mdm_inj_fw :
-        info->fl_conf.run.mdm_fw;
 
     ASSERT(info != NULL);
     ASSERT(sec_hdle != NULL);
     ASSERT(eb_port != NULL);
     ASSERT(fls_port != NULL);
     ASSERT(verdict != NULL);
+
+    const char *fw_to_flash =
+        (info->is_flashless) ? info->fl_conf.run.mdm_inj_fw :
+        info->fl_conf.run.mdm_fw;
 
     if (E_MUP_SUCCEED != info->mup.initialize(&handle, mup_log)) {
         LOG_ERROR("modem updater initialization failed");
