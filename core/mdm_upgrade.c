@@ -369,3 +369,24 @@ char *mdm_upgrade_get_tlv_path(mdm_upgrade_hdle_t *hdle)
 
     return path;
 }
+
+/**
+ * Extract TLV files from modem.zip
+ *
+ * @param [in] hdle
+ *
+ * @return E_ERR_SUCCESS
+ * @return E_ERR_FAILED
+ */
+e_mmgr_errors_t mdm_upgrade_extract_tlv_files(mdm_upgrade_hdle_t *hdle)
+{
+    mdm_upgrade_t *update = (mdm_upgrade_t *)hdle;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    ASSERT(update != NULL);
+
+    if (zip_is_valid(MODEM_ZIP_PATH))
+        ret = extract_tlv_files(update, MODEM_ZIP_PATH);
+
+    return ret;
+}

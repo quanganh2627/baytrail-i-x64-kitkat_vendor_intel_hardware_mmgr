@@ -43,6 +43,8 @@
 #define TEL_STACK_PROPERTY "persist.service.telephony.off"
 #define AMTL_PROPERTY "service.amtl.config"
 #define AMTL2_PROPERTY "service.amtl.config2"
+#define ENCRYPTION_PROPERTY "ro.crypto.state"
+#define MMGR_FACTORY_RESET_PROPERTY "persist.sys.mmgr.factory_reset"
 
 /* global values used to cleanup */
 static mmgr_data_t *g_mmgr = NULL;
@@ -255,6 +257,28 @@ static void disable_telephony(mmgr_data_t *mmgr)
     }
 }
 
+static void restore_nvm_after_factory_reset(mmgr_data_t *mmgr)
+{
+    char read[PROPERTY_VALUE_MAX] = { "" };
+    const char *encrypted_state = "unencrypted";
+
+    property_get_string(ENCRYPTION_PROPERTY, read);
+    if (strcmp(encrypted_state, read) == 0) {
+        int flag_value = 0;
+        property_get_int(MMGR_FACTORY_RESET_PROPERTY, &flag_value);
+        if (flag_value == 0) {
+            if (file_exist(mmgr->info.fl_conf.run.nvm_dyn,
+                           0) ||
+                file_exist(mmgr->info.fl_conf.run.nvm_sta, 0)) {
+                remove(mmgr->info.fl_conf.run.nvm_dyn);
+                remove(mmgr->info.fl_conf.run.nvm_sta);
+                mdm_upgrade_extract_tlv_files(mmgr->info.mdm_upgrade);
+            }
+            property_set_int(MMGR_FACTORY_RESET_PROPERTY, 1);
+        }
+    }
+}
+
 /**
  * Modem Manager main function
  *
@@ -321,6 +345,7 @@ int main(int argc, char *argv[])
 
     mmgr_init(&mmgr, inst_id);
     disable_telephony(&mmgr);
+    restore_nvm_after_factory_reset(&mmgr);
 
     if (E_ERR_SUCCESS != events_start(&mmgr, inst_id)) {
         LOG_ERROR("failed to start event module");

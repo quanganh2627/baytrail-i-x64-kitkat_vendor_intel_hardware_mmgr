@@ -37,4 +37,6 @@ char *mdm_upgrade_get_tlv_path(mdm_upgrade_hdle_t *hdle);
 
 int mdm_upgrade_get_error(mdm_upgrade_hdle_t *hdle);
 
+e_mmgr_errors_t mdm_upgrade_extract_tlv_files(mdm_upgrade_hdle_t *hdle);
+
 #endif /* __MODEM_UPGRADE_HEADER__ */
