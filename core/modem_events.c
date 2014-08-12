@@ -48,7 +48,7 @@
 #define TIMESTAMP_LEN   32
 #define READ_SIZE       64
 #define AT_CFUN_RETRY   0
-#define MAX_TLV         20
+#define MAX_TLV         25
 
 /* At cmd to be sent to retrieve core dump logs */
 const char cd_dumplog_cmd[CMD_MAX_SIZE] = "at@cdd:dumpLog()\r";
