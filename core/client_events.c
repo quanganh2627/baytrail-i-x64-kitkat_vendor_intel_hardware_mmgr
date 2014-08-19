@@ -192,12 +192,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
     /* the modem is off, then wake up the modem */
     LOG_DEBUG("wake up modem");
-
     mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
-    if (mmgr->info.is_flashless)
-        mmgr->info.polled_states |= MDM_CTRL_STATE_FW_DOWNLOAD_READY;
-    else if (mmgr->info.ipc_ready_present)
-        mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
     set_mcd_poll_states(&mmgr->info);
     mmgr->events.link_state = E_MDM_LINK_NONE;
 
@@ -211,14 +206,20 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         reset_modem(mmgr);
         ret = E_ERR_FAILED;
     } else {
+        if (mdm_flash_is_required(&mmgr->info))
+            mmgr->info.polled_states |= MDM_CTRL_STATE_FW_DOWNLOAD_READY;
+        else if (mmgr->info.ipc_ready_present)
+            mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
+        set_mcd_poll_states(&mmgr->info);
+
         /* For UART, the flashing shall be started before powering up the
          * modem. Otherwise, the flashing window will be missed. */
-        if (mmgr->info.mdm_link == E_LINK_UART)
+        if ((mmgr->info.is_flashless) && (mmgr->info.mdm_link == E_LINK_UART))
             mdm_flash_start(mmgr->mdm_flash);
 
         if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
             if ((mmgr->info.mdm_link == E_LINK_USB) &&
-                mmgr->info.is_flashless)
+                mdm_flash_is_required(&mmgr->info))
                 set_mmgr_state(mmgr, E_MMGR_MDM_START);
             else
                 set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
@@ -226,7 +227,8 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
             mmgr->events.cli_req = E_CLI_REQ_NONE;
 
             recov_reinit(mmgr->reset);
-            if (!mmgr->info.is_flashless && mmgr->info.ipc_ready_present)
+            if (!mdm_flash_is_required(&mmgr->info) &&
+                mmgr->info.ipc_ready_present)
                 timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
 
             /* if the modem is usb, add wait_for_bus_ready */
@@ -291,7 +293,7 @@ static e_mmgr_errors_t request_resource_release(mmgr_data_t *mmgr)
     client_inform(mmgr->request.client, E_MMGR_ACK, NULL);
     client_set_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
 
-    if (!clients_has_resource(mmgr->clients, E_PRINT)) {
+    if (!clients_has_resource(mmgr->clients, E_PRINT) && !mmgr->dsda) {
         LOG_INFO("notify clients that modem will be shutdown");
         clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_SHUTDOWN, NULL);
         /* if we have a current modem start procedure, stop all its timers */

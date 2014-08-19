@@ -22,10 +22,16 @@
 #include <sys/types.h>
 #include "errors.h"
 
+#define MMGR_SOCKET_BASE "mmgr"
+#define MMGR_SOCKET_LEN 8
+
+#define DEFAULT_INST_ID 1
+
 e_mmgr_errors_t cnx_open(int *fd, const char *cnx_name);
 e_mmgr_errors_t cnx_close(int *fd);
 e_mmgr_errors_t cnx_accept(int fd);
 e_mmgr_errors_t cnx_read(int fd, void *data, size_t *len);
 e_mmgr_errors_t cnx_write(int fd, void *data, size_t *len);
+e_mmgr_errors_t cnx_get_name(char *cnx_name, size_t len, int id);
 
 #endif                          /* __MMGR_CNX_HEADER__ */

@@ -48,7 +48,7 @@
 #define TIMESTAMP_LEN   32
 #define READ_SIZE       64
 #define AT_CFUN_RETRY   0
-#define MAX_TLV         20
+#define MAX_TLV         25
 
 /* At cmd to be sent to retrieve core dump logs */
 const char cd_dumplog_cmd[CMD_MAX_SIZE] = "at@cdd:dumpLog()\r";
@@ -317,46 +317,44 @@ static bool apply_tlv(mmgr_data_t *mmgr)
 
     ASSERT(mmgr != NULL);
 
-    if (mmgr->info.is_flashless) {
-        char *files[MAX_TLV + 1];
-        char *path = mdm_upgrade_get_tlv_path(mmgr->info.mdm_upgrade);
-        ASSERT(path != NULL);
+    char *files[MAX_TLV + 1];
+    char *path = mdm_upgrade_get_tlv_path(mmgr->info.mdm_upgrade);
+    ASSERT(path != NULL);
 
-        int found = file_find(path, ".tlv", files, ARRAY_SIZE(files));
-        if (found <= 0) {
-            nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
-            LOG_DEBUG("no TLV file found at %s; skipping nvm update", path);
-        } else {
-            ASSERT(found <= MAX_TLV);
-            for (int i = 0; i < found; i++) {
-                LOG_DEBUG("TLV file to apply: %s", files[i]);
-                if (E_ERR_SUCCESS !=
-                    flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc,
-                                    files[i], &nvm_result.id,
-                                    &nvm_result.sub_error_code)) {
-                    static const char *const msg =
-                        "TLV failure: failed to apply TLV";
-                    LOG_ERROR("%s", msg);
+    int found = file_find(path, ".tlv", files, ARRAY_SIZE(files));
+    if (found <= 0) {
+        nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
+        LOG_DEBUG("no TLV file found at %s; skipping nvm update", path);
+    } else {
+        ASSERT(found <= MAX_TLV);
+        for (int i = 0; i < found; i++) {
+            LOG_DEBUG("TLV file to apply: %s", files[i]);
+            if (E_ERR_SUCCESS !=
+                flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc,
+                                files[i], &nvm_result.id,
+                                &nvm_result.sub_error_code)) {
+                static const char *const msg =
+                    "TLV failure: failed to apply TLV";
+                LOG_ERROR("%s", msg);
 
-                    mmgr_cli_tft_event_data_t data[] =
-                    { { strlen(msg), msg }, { strlen(files[i]), files[i] } };
-                    mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
-                                                strlen(ev_type), ev_type,
-                                                MMGR_CLI_TFT_AP_LOG_MASK |
-                                                MMGR_CLI_TFT_BP_LOG_MASK,
-                                                2, data };
-                    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT,
-                                       &ev);
-                } else {
-                    applied = true;
-                }
-                free(files[i]);
+                mmgr_cli_tft_event_data_t data[] =
+                { { strlen(msg), msg }, { strlen(files[i]), files[i] } };
+                mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
+                                            strlen(ev_type), ev_type,
+                                            MMGR_CLI_TFT_AP_LOG_MASK |
+                                            MMGR_CLI_TFT_BP_LOG_MASK,
+                                            2, data };
+                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT,
+                                   &ev);
+            } else {
+                applied = true;
             }
+            free(files[i]);
         }
-
-        clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,
-                           &nvm_result);
     }
+
+    clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,
+                       &nvm_result);
 
     return applied;
 }
@@ -630,37 +628,36 @@ static e_mmgr_errors_t update_modem_tty(mmgr_data_t *mmgr)
  */
 static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
 {
-    static bool wait_operation = true;
-
     ASSERT(mmgr != NULL);
 
     if (clients_get_connected(mmgr->clients) == 0) {
         recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
-        wait_operation = false;
-    } else if (wait_operation) {
-        LOG_DEBUG("need to ack all clients");
-
-        wait_operation = false;
-        recov_set_state(mmgr->reset, E_OPERATION_WAIT);
-
-        clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
-                           NULL);
-        set_mmgr_state(mmgr, E_MMGR_WAIT_COLD_ACK);
-        timer_start(mmgr->timer, E_TIMER_COLD_RESET_ACK);
     } else {
-        wait_operation = true;
-        recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
+        e_reset_operation_state_t current_state = recov_get_state(mmgr->reset);
 
-        broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
-        clients_reset_ack_cold(mmgr->clients);
-        mmgr->request.accept_request = false;
-        if ((mmgr->info.mdm_link == E_LINK_USB) && mmgr->info.is_flashless)
-            set_mmgr_state(mmgr, E_MMGR_MDM_START);
-        else
-            set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+        if (current_state == E_OPERATION_NONE) {
+            LOG_DEBUG("need to ack all clients");
 
-        timer_stop(mmgr->timer, E_TIMER_COLD_RESET_ACK);
+            recov_set_state(mmgr->reset, E_OPERATION_WAIT);
+
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
+                               NULL);
+            set_mmgr_state(mmgr, E_MMGR_WAIT_COLD_ACK);
+            timer_start(mmgr->timer, E_TIMER_COLD_RESET_ACK);
+        } else if (current_state == E_OPERATION_WAIT) {
+            recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
+
+            broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
+            clients_reset_ack_cold(mmgr->clients);
+            mmgr->request.accept_request = false;
+            if ((mmgr->info.mdm_link == E_LINK_USB) && mmgr->info.is_flashless)
+                set_mmgr_state(mmgr, E_MMGR_MDM_START);
+            else
+                set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+
+            timer_stop(mmgr->timer, E_TIMER_COLD_RESET_ACK);
+        }
     }
 
     return E_ERR_SUCCESS;
@@ -771,7 +768,6 @@ e_mmgr_errors_t mdm_finalize_shtdwn(mmgr_data_t *mmgr)
 e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 {
     e_escalation_level_t level = E_EL_UNKNOWN;
-    e_reset_operation_state_t state = E_OPERATION_UNKNOWN;
 
     ASSERT(mmgr != NULL);
 
@@ -781,13 +777,8 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     ASSERT(mmgr->hdler_pre_mdm[level] != NULL);
     mmgr->hdler_pre_mdm[level] (mmgr);
 
-    state = recov_get_state(mmgr->reset);
-    if (state == E_OPERATION_SKIP) {
-        mdm_close_fds(mmgr);
-        goto out_mdm_ev;
-    } else if (state == E_OPERATION_WAIT) {
+    if (E_OPERATION_WAIT == recov_get_state(mmgr->reset))
         goto out;
-    }
 
     /* Keep only CORE DUMP state */
     mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
@@ -824,11 +815,10 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     if ((level == E_EL_PLATFORM_REBOOT) || (level == E_EL_MODEM_OUT_OF_SERVICE))
         goto out;
 
-out_mdm_ev:
     recov_done(mmgr->reset);
 
     mdm_subscribe_start_ev(&mmgr->info);
-    if (!mmgr->info.is_flashless && mmgr->info.ipc_ready_present)
+    if (!mdm_flash_is_required(&mmgr->info) && mmgr->info.ipc_ready_present)
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     if (mmgr->info.mdm_link == E_LINK_USB) {
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
@@ -851,6 +841,10 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     ASSERT(mmgr != NULL);
+
+    /* @TODO: remove me */
+    if (!strcmp(mmgr->info.mdm_name, "2230"))
+        sleep(2);
 
     ret = tty_open(mmgr->info.mdm_ipc_path, &mmgr->fd_tty);
     if (ret != E_ERR_SUCCESS) {
@@ -941,7 +935,14 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
 
     clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
-    set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+    if (E_MMGR_MDM_PREPARE_OFF == mmgr->state) {
+        LOG_DEBUG("FMMO: modem down");
+        timer_stop(mmgr->timer, E_TIMER_FMMO);
+        mdm_finalize_shtdwn(mmgr);
+        set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
+    }
+    else
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
 
     return E_ERR_SUCCESS;
 }
@@ -1036,8 +1037,10 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_FW_DL_READY;
         set_mcd_poll_states(&mmgr->info);
-        if ((mmgr->events.link_state & E_MDM_LINK_BB_READY) &&
-            (mmgr->state == E_MMGR_MDM_CONF_ONGOING))
+        if ((mmgr->state == E_MMGR_MDM_CONF_ONGOING) &&
+            ((mmgr->info.mdm_link != E_LINK_USB) ||
+             ((mmgr->info.mdm_link == E_LINK_USB) &&
+              (mmgr->events.link_state & E_MDM_LINK_BB_READY))))
             ret = do_configure(mmgr);
     } else if (mcd_state & E_EV_CORE_DUMP) {
         LOG_DEBUG("current state: E_EV_CORE_DUMP");
@@ -1132,7 +1135,8 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
-        if (mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) {
+        if ((mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) ||
+            (!mmgr->info.ipc_ready_present)) {
             timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
             mdm_flash_start(mmgr->mdm_flash);
         }

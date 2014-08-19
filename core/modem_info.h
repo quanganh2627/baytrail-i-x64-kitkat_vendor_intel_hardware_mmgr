@@ -24,9 +24,9 @@
 #include "tcs_mmgr.h"
 #include "pm.h"
 #include "ctrl.h"
+#include "file.h"
 
 #define HANDSHAKE_AFTER_CD_RETRIES_COUNT 12
-#define MBD_DEV "/dev/mdm_ctrl"
 
 typedef enum e_modem_events_type {
     E_EV_NONE = 0x0,
@@ -123,5 +123,22 @@ e_cd_status_t read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct);
 
 e_mmgr_errors_t modem_info_dispose(modem_info_t *info);
 e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info);
+
+/**
+ * Informs if a modem flashing is required
+ *
+ * For flashless modem, flashing is always required
+ * For flashbased modem, flashing is required only if the FW file is present
+ *
+ * @param [in] info modem information
+ *
+ * @return true modem needs to be flashed
+ * @return false modem should not be flashed
+ *
+ */
+inline bool mdm_flash_is_required(const modem_info_t *info)
+{
+    return file_exist(info->fl_conf.run.mdm_fw, 0);
+}
 
 #endif                          /* _MMGR_MODEM_INFO_HEADER__ */

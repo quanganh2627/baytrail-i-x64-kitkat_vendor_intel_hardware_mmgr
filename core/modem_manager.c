@@ -29,6 +29,7 @@
 #include "modem_info.h"
 #include "property.h"
 #include "timer_events.h"
+#include "client_cnx.h"
 
 #include "tcs.h"
 
@@ -42,9 +43,11 @@
 #define TEL_STACK_PROPERTY "persist.service.telephony.off"
 #define AMTL_PROPERTY "service.amtl.config"
 #define AMTL2_PROPERTY "service.amtl.config2"
+#define ENCRYPTION_PROPERTY "ro.crypto.state"
+#define MMGR_FACTORY_RESET_PROPERTY "persist.sys.mmgr.factory_reset"
 
 /* global values used to cleanup */
-mmgr_data_t *g_mmgr = NULL;
+static mmgr_data_t *g_mmgr = NULL;
 
 /**
  * Clean MMGR before exit
@@ -117,6 +120,14 @@ end_set_signal_handler:
     return err;
 }
 
+/**
+ * Set an Android property used by AMTL to know which configuration file
+ * to use
+ *
+ * @param [in] cfg TCS configuration
+ * @param [in] id modem id in TCS
+ *
+ */
 static void set_amtl_cfg(tcs_cfg_t *cfg, int id)
 {
     char platform[PROPERTY_VALUE_MAX] = { "" };
@@ -143,63 +154,66 @@ static void set_amtl_cfg(tcs_cfg_t *cfg, int id)
  * It reads the current platform configuration via TCS
  *
  * @param [in, out] mmgr
- * @param [in] id
- * @param [out] dsda
+ * @param [in] inst_id MMGR instance id
  *
  * @return void
  */
-static void mmgr_init(mmgr_data_t *mmgr, int id, bool *dsda)
+static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
 {
     tcs_handle_t *h = tcs_init();
+    int mdm_id = inst_id - 1;
 
     ASSERT(h != NULL);
     ASSERT(mmgr != NULL);
-    ASSERT(dsda != NULL);
 
     tcs_cfg_t *cfg = tcs_get_config(h);
     ASSERT(cfg != NULL);
     ASSERT(cfg->nb >= 1);
-    ASSERT((size_t)id < cfg->nb);
+    ASSERT((size_t)mdm_id < cfg->nb);
+    ASSERT(mdm_id >= 0);
     ASSERT(cfg->mdm != NULL);
-    ASSERT(cfg->mdm[id].tlvs.nb >= 1);
-    ASSERT(cfg->mdm[id].tlvs.tlv != NULL);
-    ASSERT(cfg->mdm[id].chs.nb >= 1);
-    ASSERT(cfg->mdm[id].chs.ch != NULL);
+    ASSERT(cfg->mdm[mdm_id].tlvs.nb >= 1);
+    ASSERT(cfg->mdm[mdm_id].tlvs.tlv != NULL);
+    ASSERT(cfg->mdm[mdm_id].chs.nb >= 1);
+    ASSERT(cfg->mdm[mdm_id].chs.ch != NULL);
 
-    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h, &cfg->mdm[id]);
+    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h, &cfg->mdm[mdm_id]);
     ASSERT(mmgr_cfg != NULL);
 
     tcs_print(h);
 
     if (cfg->nb == 2) {
         LOG_INFO("DSDA platform");
-        *dsda = true;
+        mmgr->dsda = true;
+    } else {
+        mmgr->dsda = false;
     }
 
     ASSERT((mmgr->reset = recov_init(&mmgr_cfg->recov)) != NULL);
 
     ASSERT((mmgr->secure =
-                secure_init(cfg->mdm[id].core.secured,
-                            &cfg->mdm[id].chs.ch[0].mmgr.secured)) != NULL);
+                secure_init(cfg->mdm[mdm_id].core.secured,
+                            &cfg->mdm[mdm_id].chs.ch[0].mmgr.secured)) != NULL);
 
     ASSERT((mmgr->mcdr = mcdr_init(&mmgr_cfg->mcdr)) != NULL);
 
-    ASSERT(E_ERR_SUCCESS == modem_info_init(&cfg->mdm[id], id, *dsda,
-                                            &mmgr_cfg->com,
-                                            &cfg->mdm[id].tlvs,
-                                            &mmgr_cfg->mdm_link,
-                                            &cfg->mdm[id].chs.ch[0].mmgr,
-                                            &mmgr_cfg->flash, &mmgr_cfg->mcd,
-                                            &mmgr->info));
+    ASSERT(E_ERR_SUCCESS ==
+           modem_info_init(&cfg->mdm[mdm_id], inst_id, mmgr->dsda,
+                           &mmgr_cfg->com,
+                           &cfg->mdm[mdm_id].tlvs,
+                           &mmgr_cfg->mdm_link,
+                           &cfg->mdm[mdm_id].chs.ch[0].mmgr,
+                           &mmgr_cfg->flash, &mmgr_cfg->mcd,
+                           &mmgr->info));
 
-    ASSERT((mmgr->info.pm = pm_init(cfg->mdm[id].core.ipc_mdm,
+    ASSERT((mmgr->info.pm = pm_init(cfg->mdm[mdm_id].core.ipc_mdm,
                                     &mmgr_cfg->mdm_link.power,
-                                    cfg->mdm[id].core.ipc_cd,
+                                    cfg->mdm[mdm_id].core.ipc_cd,
                                     &mmgr_cfg->mcdr.power)) != NULL);
 
-    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm[id].core.ipc_mdm,
+    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm[mdm_id].core.ipc_mdm,
                                         &mmgr_cfg->mdm_link.ctrl,
-                                        cfg->mdm[id].core.ipc_cd,
+                                        cfg->mdm[mdm_id].core.ipc_cd,
                                         &mmgr_cfg->mcdr.ctrl)) != NULL);
 
     ASSERT(E_ERR_SUCCESS == modem_events_init(mmgr));
@@ -211,15 +225,15 @@ static void mmgr_init(mmgr_data_t *mmgr, int id, bool *dsda)
     ASSERT((mmgr->events.bus_events =
                 bus_ev_init(&mmgr_cfg->mdm_link.flash,
                             &mmgr_cfg->mdm_link.baseband,
+                            &mmgr_cfg->mdm_link.reconfig_usb,
                             &mmgr_cfg->mcdr.link)) != NULL);
 
     ASSERT(E_ERR_SUCCESS == events_init(mmgr_cfg->cli.max, mmgr));
 
-    if (mmgr->info.is_flashless)
-        ASSERT((mmgr->mdm_flash = mdm_flash_init(&mmgr->info, mmgr->secure,
-                                                 mmgr->events.bus_events)));
+    ASSERT((mmgr->mdm_flash = mdm_flash_init(&mmgr->info, mmgr->secure,
+                                             mmgr->events.bus_events)));
 
-    set_amtl_cfg(cfg, id);
+    set_amtl_cfg(cfg, mdm_id);
 
     tcs_dispose(h);
 }
@@ -243,6 +257,28 @@ static void disable_telephony(mmgr_data_t *mmgr)
     }
 }
 
+static void restore_nvm_after_factory_reset(mmgr_data_t *mmgr)
+{
+    char read[PROPERTY_VALUE_MAX] = { "" };
+    const char *encrypted_state = "unencrypted";
+
+    property_get_string(ENCRYPTION_PROPERTY, read);
+    if (strcmp(encrypted_state, read) == 0) {
+        int flag_value = 0;
+        property_get_int(MMGR_FACTORY_RESET_PROPERTY, &flag_value);
+        if (flag_value == 0) {
+            if (file_exist(mmgr->info.fl_conf.run.nvm_dyn,
+                           0) ||
+                file_exist(mmgr->info.fl_conf.run.nvm_sta, 0)) {
+                remove(mmgr->info.fl_conf.run.nvm_dyn);
+                remove(mmgr->info.fl_conf.run.nvm_sta);
+                mdm_upgrade_extract_tlv_files(mmgr->info.mdm_upgrade);
+            }
+            property_set_int(MMGR_FACTORY_RESET_PROPERTY, 1);
+        }
+    }
+}
+
 /**
  * Modem Manager main function
  *
@@ -255,8 +291,7 @@ static void disable_telephony(mmgr_data_t *mmgr)
 int main(int argc, char *argv[])
 {
     int err = 0;
-    int inst_id = 0;
-    bool dsda = false;
+    int inst_id = DEFAULT_INST_ID;
     e_mmgr_errors_t ret = EXIT_SUCCESS;
     mmgr_data_t mmgr;
 
@@ -288,6 +323,7 @@ int main(int argc, char *argv[])
             goto out;
         }
     }
+    logs_init(inst_id);
     LOG_DEBUG("Boot. last commit: \"%s\"", GIT_COMMIT_ID);
 
 #ifndef GOCV_MMGR
@@ -307,14 +343,15 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    mmgr_init(&mmgr, inst_id, &dsda);
+    mmgr_init(&mmgr, inst_id);
     disable_telephony(&mmgr);
+    restore_nvm_after_factory_reset(&mmgr);
 
     if (E_ERR_SUCCESS != events_start(&mmgr, inst_id)) {
         LOG_ERROR("failed to start event module");
         ret = EXIT_FAILURE;
     } else {
-        events_manager(&mmgr, inst_id, dsda);
+        events_manager(&mmgr, inst_id);
     }
 
 out:

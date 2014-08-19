@@ -81,6 +81,7 @@ typedef struct mmgr_data {
     int epollfd;
     int fd_tty;
     int fd_cnx;
+    bool dsda;
     e_mmgr_state_t state;
     reset_handle_t *reset;
     clients_hdle_t *clients;
@@ -100,7 +101,7 @@ typedef struct mmgr_data {
 e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr);
 e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr);
 
-e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda);
+e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id);
 e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id);
 void set_mmgr_state(mmgr_data_t *mmgr, e_mmgr_state_t state);
 

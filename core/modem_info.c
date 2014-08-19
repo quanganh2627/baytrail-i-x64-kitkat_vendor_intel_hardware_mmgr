@@ -69,32 +69,32 @@ static e_mmgr_errors_t mcd_configure(int fd, enum mdm_ctrl_board_type board,
                                      const char *mdm_name)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    struct mdm_ctrl_cfg cfg = { board, MODEM_UNSUP };
+
+    ASSERT(mdm_name != NULL);
+
+    if (!strcmp(mdm_name, "6360"))
+        cfg.type = MODEM_6360;
+    else if (!strcmp(mdm_name, "7160"))
+        cfg.type = MODEM_7160;
+    else if (!strcmp(mdm_name, "7260"))
+        cfg.type = MODEM_7260;
+    else if (!strcmp(mdm_name, "2230"))
+        cfg.type = MODEM_2230;
+
+    LOG_DEBUG("(board type: %d) (family :%d)", cfg.board, cfg.type);
 
     errno = 0;
-    if (ioctl(fd, MDM_CTRL_SET_BOARD, &board)) {
-        if (ENOTTY == errno) {
+    if (ioctl(fd, MDM_CTRL_SET_CFG, &cfg)) {
+        if (EBUSY == errno) {
             LOG_DEBUG("MCD already initialized");
-            goto out;
+        } else {
+            LOG_ERROR("failed to configure MCD (board type: %d) (family :%d)",
+                      cfg.board, cfg.type);
+            ret = E_ERR_FAILED;
         }
-        LOG_ERROR("failed to set board type: %d", board);
-        ret = E_ERR_FAILED;
-        goto out;
     }
 
-    enum mdm_ctrl_mdm_type family = MODEM_UNSUP;
-    if (!strcmp(mdm_name, "6360"))
-        family = MODEM_6360;
-    else if (!strcmp(mdm_name, "7160"))
-        family = MODEM_7160;
-    else if (!strcmp(mdm_name, "7260"))
-        family = MODEM_7260;
-
-    if (ioctl(fd, MDM_CTRL_SET_MDM, &family)) {
-        LOG_ERROR("failed to set modem family: %d", family);
-        ret = E_ERR_FAILED;
-    }
-
-out:
     return ret;
 }
 
@@ -102,6 +102,8 @@ out:
  * initialize modem info structure and mcdr
  *
  * @param [in] mdm_info mmgr config
+ * @param [in] inst_id MMGR instance id
+ * @param [in] dsda boolean indicating if it's a DSDA platform
  * @param [in] com
  * @param [in] tlv
  * @param [in] mdm_link
@@ -112,7 +114,7 @@ out:
  * @return E_ERR_FAILED if mcdr init fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int id, bool dsda,
+e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int inst_id, bool dsda,
                                 mmgr_com_t *com, tlvs_info_t *tlvs,
                                 mmgr_mdm_link_t *mdm_link, channels_mmgr_t *ch,
                                 mmgr_flashless_t *flash, mmgr_mcd_t *mcd,
@@ -174,11 +176,11 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int id, bool dsda,
     strncpy(info->mdm_name, mdm_info->core.name, sizeof(info->mdm_name) - 1);
 
     info->fl_conf = *flash;
-    info->fd_mcd = open(MBD_DEV, O_RDWR);
+    info->fd_mcd = open(mcd->path, O_RDWR);
 
     if (info->fd_mcd == -1) {
-        LOG_DEBUG("failed to open Modem Control Driver interface: %s",
-                  strerror(errno));
+        LOG_DEBUG("failed to open Modem Control Driver (%s) interface: %s",
+                  mcd->path, strerror(errno));
         ret = E_ERR_FAILED;
         goto out;
     }
@@ -195,7 +197,7 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int id, bool dsda,
         LOG_DEBUG("SSIC Power on sequence used!");
 
     ASSERT((info->mdm_upgrade =
-                mdm_upgrade_init(tlvs, id, dsda, mdm_info,
+                mdm_upgrade_init(tlvs, inst_id, dsda, mdm_info,
                                  info->fl_conf.run.mdm_fw,
                                  info->fl_conf.run.path)) != NULL);
 

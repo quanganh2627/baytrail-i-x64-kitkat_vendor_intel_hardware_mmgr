@@ -144,16 +144,11 @@ e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr)
 e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    char cnx_name[8] = { "\0" };
+    char cnx_name[MMGR_SOCKET_LEN] = { "\0" };
 
     ASSERT(mmgr != NULL);
 
-    if (inst_id == 0)
-        snprintf(cnx_name, sizeof(cnx_name), "%s", MMGR_SOCKET_NAME);
-    else
-        snprintf(cnx_name, sizeof(cnx_name), "%s%d", MMGR_SOCKET_NAME,
-                 inst_id + 1);
-
+    cnx_get_name(cnx_name, sizeof(cnx_name), inst_id);
     ret = cnx_open(&mmgr->fd_cnx, cnx_name);
     if (ret != E_ERR_SUCCESS)
         goto out;
@@ -169,7 +164,7 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    if (mmgr->info.is_flashless) {
+    if (mdm_flash_is_required(&mmgr->info)) {
         ret = tty_listen_fd(mmgr->epollfd, mdm_flash_get_fd(mmgr->mdm_flash),
                             EPOLLIN);
         if (ret != E_ERR_SUCCESS)
@@ -205,7 +200,7 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
             /* ready to flash modem */
             mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
             mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
-        } else if (!mmgr->info.is_flashless) {
+        } else if (!mdm_flash_is_required(&mmgr->info)) {
             timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         }
     } else {
@@ -294,7 +289,7 @@ static inline void flush_pipe(int fd)
  *
  * @return E_ERR_SUCCESS
  */
-e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda)
+e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     bool wakelock = false;
@@ -309,10 +304,12 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda)
     for (;; ) {
         if (mmgr->events.cli_req & E_CLI_REQ_OFF) {
             clients_reset_ack_shtdwn(mmgr->clients);
-            timer_start(mmgr->timer, E_TIMER_FMMO);
-            mdm_start_shtdwn(mmgr);
-            set_mmgr_state(mmgr, E_MMGR_MDM_PREPARE_OFF);
             mmgr->events.cli_req &= ~E_CLI_REQ_OFF;
+            if (!mmgr->dsda) {
+                timer_start(mmgr->timer, E_TIMER_FMMO);
+                mdm_start_shtdwn(mmgr);
+                set_mmgr_state(mmgr, E_MMGR_MDM_PREPARE_OFF);
+            }
         } else if (mmgr->state == E_MMGR_MDM_RESET) {
             LOG_DEBUG("restoring modem");
             reset_modem(mmgr);
@@ -331,7 +328,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id, bool dsda)
             acquire_wake_lock(PARTIAL_WAKE_LOCK, MODULE_NAME);
         }
 
-        if (dsda && (inst_id == 1))
+        if (mmgr->dsda && (inst_id == 2))
             mdm_upgrade(mmgr->info.mdm_upgrade);
 
         LOG_DEBUG("event type: %s", events_str[mmgr->events.state]);

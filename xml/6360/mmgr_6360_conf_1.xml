@@ -6,6 +6,7 @@
 		</baseband>
 	</modem_link>
 	<mdm_ctrl
+		path="/dev/mdm_ctrl0"
 		type="ioctl"
 		board="aob"
 	/>

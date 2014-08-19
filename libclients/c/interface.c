@@ -132,6 +132,8 @@ e_err_mmgr_cli_t mmgr_cli_create_handle(mmgr_cli_handle_t **handle,
     p_lib->ack = E_MMGR_NUM_REQUESTS;
     strncpy(p_lib->cli_name, client_name, CLIENT_NAME_LEN - 1);
 
+    cnx_get_name(p_lib->cnx_name, sizeof(p_lib->cnx_name), DEFAULT_INST_ID);
+
     for (int i = 0; i < E_MMGR_NUM_REQUESTS; i++)
         p_lib->set_msg[i] = msg_set_empty;
 
@@ -424,4 +426,27 @@ int mmgr_cli_get_fd(mmgr_cli_handle_t *hdle)
         fd = ctx->fd_socket;
 
     return fd;
+}
+
+
+/**
+ * @see mmgr_cli.h
+ */
+e_err_mmgr_cli_t mmgr_cli_set_instance(mmgr_cli_handle_t *handle, int id)
+{
+    mmgr_lib_context_t *ctx = (mmgr_lib_context_t *)handle;
+    e_err_mmgr_cli_t ret = E_ERR_CLI_SUCCEED;
+
+    if (ctx) {
+        if (!is_connected(ctx)) {
+            cnx_get_name(ctx->cnx_name, sizeof(ctx->cnx_name), id);
+        } else {
+            LOG_ERROR("Already connected", ctx);
+            ret = E_ERR_CLI_BAD_CNX_STATE;
+        }
+    } else {
+        ret = E_ERR_CLI_BAD_HANDLE;
+    }
+
+    return ret;
 }

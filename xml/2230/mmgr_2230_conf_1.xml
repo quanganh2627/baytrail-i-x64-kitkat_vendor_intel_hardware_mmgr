@@ -2,10 +2,10 @@
 <mmgr_config>
 	<modem_link>
 		<flash>
-			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0x0716" vid="0x8087"/>
+			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>
 		</flash>
 		<baseband>
-			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0x0452" vid="0x1519"/>
+			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>
 		</baseband>
 		<power
 			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
@@ -20,22 +20,22 @@
 		/>
 	</modem_link>
 	<mdm_ctrl
-		path="/dev/mdm_ctrl0"
+		path="/dev/mdm_ctrl1"
 		type="ioctl"
 		board="aob"
 	/>
 	<flashless>
 		<fw_backup
-			nvm_calib="/factory/telephony/calib.nvm"
+			nvm_calib="/factory/telephony/mmgr2/calib.nvm"
 		/>
 		<fw_runtime
-			folder="/config/telephony"
-			mdm_fw="/config/telephony/modembinary.fls"
-			mdm_inj_fw="/config/telephony/injected.modembinary.fls"
-			nvm_static="/config/telephony/static.nvm"
-			nvm_dyn="/config/telephony/dynamic.nvm"
-			nvm_calib="/config/telephony/calib.nvm"
-			rnd="/config/telephony/rnd_cert.bin"
+			folder="/config/telephony/mmgr2"
+			mdm_fw="/config/telephony/mmgr2/modembinary.fls"
+			mdm_inj_fw="/config/telephony/mmgr2/injected.modembinary.fls"
+			nvm_static="/config/telephony/mmgr2/static.nvm"
+			nvm_dyn="/config/telephony/mmgr2/dynamic.nvm"
+			nvm_calib="/config/telephony/mmgr2/calib.nvm"
+			rnd="/config/telephony/mmgr2/rnd_cert.bin"
 		/>
 	</flashless>
 	<modem_comm>
@@ -45,15 +45,15 @@
 		/>
 	</modem_comm>
 	<modem_timings
-		ipc_ready="5"
+		ipc_ready="55"
 		cd_ipc_ready="10"
 		mdm_flash="15"
 		fmmo="30"
 	/>
 	<modem_recovery
 		enable="true"
-		cold_reset="5"
-		platform_reboot="1"
+		cold_reset="100"
+		platform_reboot="0"
 		reset="600"
 		delay_before_reboot="1"
 		cold_reset_timeout="10"
@@ -64,11 +64,11 @@
 		<general
 			enable="true"
 			protocol="ymodem"
-			folder="/logs/modemcrash"
+			folder="/logs/modemcrash/mmgr2"
 			timeout="180"
 		/>
 		<link>
-			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0xF000" vid="0x1519"/>
+			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>
 		</link>
 		<power
 			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
@@ -76,7 +76,7 @@
 			off="0"
 		/>
 		<link_ctrl
-			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/hsic_enable]]"
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
 			on="1"
 			off="0"
 			reset="1"

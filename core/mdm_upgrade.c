@@ -24,8 +24,13 @@
 #include "mdm_upgrade.h"
 #include "zip.h"
 #include "property.h"
+#include "client_cnx.h"
 
 #define DSDA_PROVISIONING "service.mmgr.dsda_provisioning"
+#define MODEM_ZIP_PATH "/system/etc/firmware/modem/modem.zip"
+
+/* This is a magic path, but it's also hardcoded in POS/ROS */
+#define PROVISIONING_FOLDER "/config/telephony/provisioning"
 
 #define FILE_PERMISSION (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 #define FILTER_SIZE 128
@@ -37,7 +42,6 @@ typedef struct tlv_updates {
 
 typedef struct mdm_update {
     char fls_filter[FILTER_SIZE];
-    char provisioning[MY_PATH_MAX];
     char *fls_file;
     char *run_folder;
     tlv_updates_t *tlvs;
@@ -52,13 +56,23 @@ typedef enum err_type {
     ERR_TLV,
 } err_type_t;
 
-static inline bool is_removal_allowed(void)
+static inline bool flag_is_set(void)
 {
     int value = 0;
 
     property_get_int(DSDA_PROVISIONING, &value);
 
     return value == 1;
+}
+
+static inline void flag_set(void)
+{
+    property_set_int(DSDA_PROVISIONING, 1);
+}
+
+static inline void flag_unset(void)
+{
+    property_set_int(DSDA_PROVISIONING, 0);
 }
 
 /**
@@ -106,7 +120,6 @@ static void mdm_upgrade_set_error(mdm_upgrade_t *upgrade, err_type_t type)
         break;
     }
 }
-
 
 int mdm_upgrade_get_error(mdm_upgrade_hdle_t *hdle)
 {
@@ -161,11 +174,47 @@ static void get_fls_filter(char *filter, const char *mdm_name,
     }
 }
 
+/**
+ * Extract TLV files from zip archive
+ *
+ * @param [out] update
+ * @param [in] file
+ *
+ * @return E_ERR_SUCCESS
+ * @return E_ERR_FAILED
+ */
+static inline e_mmgr_errors_t extract_tlv_files(mdm_upgrade_t *update,
+                                                const char *file)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    LOG_INFO("Extracting TLV files from: %s", file);
+    for (size_t i = 0; i < update->nb_tlv; i++) {
+        if (E_ERR_SUCCESS !=
+            zip_extract_entry(file, update->tlvs[i].filter,
+                              update->tlvs[i].file,
+                              FILE_PERMISSION)) {
+            mdm_upgrade_set_error(update, ERR_TLV);
+            LOG_ERROR("TLV extraction has failed");
+            ret = E_ERR_FAILED;
+            break;
+        }
+    }
+
+    return ret;
+}
+
 static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
 {
     ASSERT(update != NULL);
     bool fw_update = false;
     bool tlv_update = false;
+
+    if (update->dsda && (update->inst_id == DEFAULT_INST_ID)
+        && flag_is_set()) {
+        LOG_DEBUG("fw already extracted. Nothing to do");
+        goto out;
+    }
 
     if (strstr(file, ".fls")) {
         if (rename(file, update->fls_file))
@@ -180,14 +229,8 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
         else
             tlv_update = true;
     } else if (zip_is_valid(file)) {
-        for (size_t i = 0; i < update->nb_tlv; i++) {
-            if (E_ERR_SUCCESS == zip_extract_entry(file, update->tlvs[i].filter,
-                                                   update->tlvs[i].file,
-                                                   FILE_PERMISSION))
-                tlv_update = true;
-            else
-                mdm_upgrade_set_error(update, ERR_TLV);
-        }
+        if (E_ERR_SUCCESS == extract_tlv_files(update, file))
+            tlv_update = true;
         if (E_ERR_SUCCESS == zip_extract_entry(file, update->fls_filter,
                                                update->fls_file,
                                                FILE_PERMISSION))
@@ -197,11 +240,11 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
         if (!update->dsda) {
             unlink(file);
         } else {
-            if (update->inst_id == 0) {
-                property_set_int(DSDA_PROVISIONING, 1);
-            } else if (is_removal_allowed()) {
+            if (update->inst_id == DEFAULT_INST_ID) {
+                flag_set();
+            } else if (flag_is_set()) {
                 unlink(file);
-                property_set_int(DSDA_PROVISIONING, 0);
+                flag_unset();
             }
         }
     } else if (strstr(file, "package")) {
@@ -223,6 +266,10 @@ static e_mmgr_errors_t prepare_update(mdm_upgrade_t *update, const char *file)
     if (tlv_update)
         LOG_DEBUG("TLV patch has been installed");
 
+    if (fw_update && !tlv_update)
+        if (file_exist(MODEM_ZIP_PATH, 0) == true)
+            extract_tlv_files(update, MODEM_ZIP_PATH);
+out:
     return E_ERR_SUCCESS;
 }
 
@@ -251,8 +298,6 @@ mdm_upgrade_hdle_t *mdm_upgrade_init(tlvs_info_t *tlvs, int inst_id, bool dsda,
 
     get_fls_filter(update->fls_filter, mdm->core.name,
                    mdm->core.hw_revision, mdm->core.sw_revision);
-    snprintf(update->provisioning, sizeof(update->provisioning),
-             "%s/provisioning", run_folder);
 
     update->fls_file = strdup(fls_file);
     update->run_folder = strdup(run_folder);
@@ -291,11 +336,11 @@ e_mmgr_errors_t mdm_upgrade(mdm_upgrade_hdle_t *hdle)
 
     ASSERT(update != NULL);
 
-    //reset modem upgrade error flag
+    /* reset modem upgrade error flag */
     update->upgrade_err = 0;
 
     char *files[10];
-    int found = file_find(update->provisioning, "", files, ARRAY_SIZE(files));
+    int found = file_find(PROVISIONING_FOLDER, "", files, ARRAY_SIZE(files));
     if (found > 2) {
         ret = E_ERR_FAILED;
         LOG_ERROR("more than two files have been detected. Update rejected");
@@ -323,4 +368,25 @@ char *mdm_upgrade_get_tlv_path(mdm_upgrade_hdle_t *hdle)
         path = update->run_folder;
 
     return path;
+}
+
+/**
+ * Extract TLV files from modem.zip
+ *
+ * @param [in] hdle
+ *
+ * @return E_ERR_SUCCESS
+ * @return E_ERR_FAILED
+ */
+e_mmgr_errors_t mdm_upgrade_extract_tlv_files(mdm_upgrade_hdle_t *hdle)
+{
+    mdm_upgrade_t *update = (mdm_upgrade_t *)hdle;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    ASSERT(update != NULL);
+
+    if (zip_is_valid(MODEM_ZIP_PATH))
+        ret = extract_tlv_files(update, MODEM_ZIP_PATH);
+
+    return ret;
 }

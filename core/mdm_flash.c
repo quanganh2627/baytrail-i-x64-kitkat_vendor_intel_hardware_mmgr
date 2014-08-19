@@ -23,6 +23,7 @@
 #include "modem_specific.h"
 #include "pm.h"
 #include <pthread.h>
+#include <unistd.h>
 
 #define WRITE 1
 #define READ 0
@@ -90,6 +91,12 @@ static void mdm_flash(mdm_flash_ctx_t *ctx)
 
     set_verdict(ctx, verdict);
 
+    if (!ctx->mdm_info->is_flashless && (verdict == E_MODEM_FW_SUCCEED)) {
+        /* delete the fls file after flashing ok the flashbased modem */
+        if (unlink(ctx->mdm_info->fl_conf.run.mdm_fw) != 0)
+            LOG_ERROR("couldn't delete %s:", ctx->mdm_info->fl_conf.run.mdm_fw);
+
+    }
     LOG_DEBUG("[SLAVE-FLASH] flashing done. Notify main thread");
     write(ctx->fd_pipe[WRITE], &msg, sizeof(msg));
 }
@@ -122,24 +129,22 @@ mdm_flash_handle_t *mdm_flash_init(const modem_info_t *mdm_info,
 {
     mdm_flash_ctx_t *ctx = NULL;
 
-    if (mdm_info->is_flashless) {
-        ctx = calloc(1, sizeof(mdm_flash_ctx_t));
+    ctx = calloc(1, sizeof(mdm_flash_ctx_t));
 
-        ASSERT(ctx != NULL);
+    ASSERT(ctx != NULL);
 
-        ctx->mdm_info = mdm_info;
-        ctx->secure = secure;
-        ctx->bus_ev = bus_ev;
-        pthread_mutex_init(&ctx->mtx, NULL);
-        ctx->attempts = 0;
+    ctx->mdm_info = mdm_info;
+    ctx->secure = secure;
+    ctx->bus_ev = bus_ev;
+    pthread_mutex_init(&ctx->mtx, NULL);
+    ctx->attempts = 0;
 
-        if (mdm_info->mdm_link == E_LINK_HSI)
-            ctx->ch_hw_sw = true;
-        else if (mdm_info->mdm_link == E_LINK_USB)
-            ctx->ch_hw_sw = false;
+    if (mdm_info->mdm_link == E_LINK_HSI)
+        ctx->ch_hw_sw = true;
+    else if (mdm_info->mdm_link == E_LINK_USB)
+        ctx->ch_hw_sw = false;
 
-        ASSERT(pipe(ctx->fd_pipe) == 0);
-    }
+    ASSERT(pipe(ctx->fd_pipe) == 0);
 
     return (mdm_flash_handle_t *)ctx;
 }

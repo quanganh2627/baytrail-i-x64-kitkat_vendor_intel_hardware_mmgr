@@ -21,19 +21,32 @@
 
 #ifndef STDIO_LOGS
 
+extern char pattern[];
+
+void logs_init(int id);
+
+static inline const char *logs_get_pattern()
+{
+    return pattern;
+}
+
 #define LOG_NDEBUG 0
 #define LOG_TAG MODULE_NAME
 #include <utils/Log.h>
 
 /* define debug LOG functions */
 #define LOG_ERROR(format, args ...) \
-    do { ALOGE("%s - " format, __FUNCTION__, ## args); } while (0)
+    do { ALOGE("%s %s - " format, logs_get_pattern(), \
+              __FUNCTION__, ## args); } while (0)
 #define LOG_DEBUG(format, args ...) \
-    do { ALOGD("%s - " format, __FUNCTION__, ## args); } while (0)
+    do { ALOGD("%s %s - " format, logs_get_pattern(), \
+              __FUNCTION__, ## args); } while (0)
 #define LOG_VERBOSE(format, args ...) \
-    do { ALOGV("%s - " format, __FUNCTION__, ## args); } while (0)
+    do { ALOGV("%s %s - " format, logs_get_pattern(), \
+              __FUNCTION__, ## args); } while (0)
 #define LOG_INFO(format, args ...) \
-    do { ALOGI("%s - " format, __FUNCTION__, ## args); } while (0)
+    do { ALOGI("%s %s - " format, logs_get_pattern(), \
+              __FUNCTION__, ## args); } while (0)
 
 #else                           /* STDIO_LOGS */
 

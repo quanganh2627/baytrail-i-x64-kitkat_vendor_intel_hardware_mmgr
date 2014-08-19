@@ -42,10 +42,12 @@ typedef void *reset_handle_t;
 
 /* enum used by pre_operation escalation function */
 typedef enum e_reset_operation_state {
-    E_OPERATION_UNKNOWN,
-    E_OPERATION_CONTINUE,
+    /* init state, no operation pending */
+    E_OPERATION_NONE,
+    /* waiting for ack */
     E_OPERATION_WAIT,
-    E_OPERATION_SKIP,
+    /* continue the reset sequence */
+    E_OPERATION_CONTINUE
 } e_reset_operation_state_t;
 
 typedef enum e_force_operation {

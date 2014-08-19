@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "client_cnx.h"
 #include "property.h"
 #include "errors.h"
 #include "test_cases.h"
@@ -52,6 +53,7 @@
     " minimal version\n" \
     " -t <test number>   launch the specified test\n" \
     " -o <option string> pass option string to specified test\n\n"      \
+    " -i <instance id> specify instance id (1: first MMGR)\n" \
     "long option name:\n"
 
 #define PRINT_TEST \
@@ -91,11 +93,12 @@ enum {
  * It reads the current platform configuration via TCS
  *
  * @param [in, out] cfg
+ * @param id modem number in libtcs
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if failed
  */
-static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
+static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg, int id)
 {
     tcs_handle_t *h = NULL;
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -104,16 +107,17 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
     if (h) {
         tcs_cfg_t *tcs_cfg = tcs_get_config(h);
         ASSERT(tcs_cfg != NULL);
-        ASSERT(tcs_cfg->nb >= 1);
+        ASSERT(tcs_cfg->nb >= (size_t)id);
         ASSERT(tcs_cfg->mdm != NULL);
 
-        mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h, &tcs_cfg->mdm[0]);
+        mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h, &tcs_cfg->mdm[id]);
         ASSERT(mmgr_cfg != NULL);
 
         cfg->cold_reset = mmgr_cfg->recov.cold_reset;
         cfg->reboot = mmgr_cfg->recov.reboot;
         cfg->reset_escalation_delay = mmgr_cfg->recov.reset_delay;
-        strncpy(cfg->shtdwn_dlc, tcs_cfg->mdm[0].chs.ch[0].mmgr.shutdown.device,
+        strncpy(cfg->shtdwn_dlc,
+                tcs_cfg->mdm[id].chs.ch[0].mmgr.shutdown.device,
                 sizeof(cfg->shtdwn_dlc) - 1);
         cfg->shtdwn_dlc[sizeof(cfg->shtdwn_dlc) - 1] = '\0';
 
@@ -131,7 +135,7 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
                               mmgr_cfg->recov.cold_timeout +
                               mmgr_cfg->timings.ipc_ready;
 
-        if (tcs_cfg->mdm[0].core.flashless)
+        if (tcs_cfg->mdm[id].core.flashless)
             cfg->timeout_mdm_up += mmgr_cfg->timings.mdm_flash;
 
         ret = E_ERR_SUCCESS;
@@ -146,13 +150,14 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg)
  * Run selected test
  *
  * @param [in,out] test test data
+ * @param [in] id MMGR instance id
  * @param [in] option_string
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if test failed
  * @return E_ERR_OUT_OF_SERVICE if modem is out of service
  */
-e_mmgr_errors_t run_test(test_case_t *test, const char *option_string)
+e_mmgr_errors_t run_test(test_case_t *test, int id, const char *option_string)
 {
     test_data_t test_data;
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -176,12 +181,12 @@ e_mmgr_errors_t run_test(test_case_t *test, const char *option_string)
 
     ASSERT(pipe(test_data.fd_pipe) == 0);
 
-    if (E_ERR_SUCCESS != mmgr_test_init(&test_data.cfg)) {
+    if (E_ERR_SUCCESS != mmgr_test_init(&test_data.cfg, id - 1)) {
         LOG_ERROR("failed to read platform configuration");
         goto out;
     }
 
-    ret = configure_client_library(&test_data);
+    ret = configure_client_library(&test_data, id);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("Failed to configure mmgr_cli library");
         goto out;
@@ -313,6 +318,7 @@ int main(int argc, char *argv[])
     int nb_tests = 0;
     int index = 0;
     char *option_string = NULL;
+    int inst_id = DEFAULT_INST_ID;
 
     /* *INDENT-OFF* */
     test_case_t tests[] = {
@@ -361,7 +367,8 @@ int main(int argc, char *argv[])
     }
 
     while ((choice =
-                getopt_long(argc, argv, "vhft:o:", long_opts, &index)) != -1) {
+                getopt_long(argc, argv, "vhft:o:i:", long_opts,
+                            &index)) != -1) {
         if (index != 0) {
             test_id = long_opts[index].val;
         } else {
@@ -382,6 +389,17 @@ int main(int argc, char *argv[])
                        "Needs at least %s version: %s\n\n", MODULE_NAME,
                        __DATE__, __TIME__, MODULE_NAME, MIN_MMGR_VERSION);
                 goto out;
+                break;
+            case 'i':
+                inst_id = strtol(optarg, &end_ptr, 10);
+                if (optarg == end_ptr)
+                    inst_id = 1;
+                if (inst_id < 1) {
+                    LOG_ERROR("wrong instance id. Shall be between 1 and "
+                              "<max mmgr instance>");
+                    goto out;
+                }
+                LOG_DEBUG("instance id: %d", inst_id);
                 break;
             case 'h':
             default:
@@ -406,7 +424,7 @@ int main(int argc, char *argv[])
             goto out;
         }
 
-        err = run_test(&tests[test_id], option_string);
+        err = run_test(&tests[test_id], inst_id, option_string);
         property_set(CRASHLOG_FAKE_REPORT, "");
     } else
     if (test_id != -1) {
