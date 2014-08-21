@@ -630,32 +630,34 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
 {
     ASSERT(mmgr != NULL);
 
-    if (clients_get_connected(mmgr->clients) == 0) {
+    e_reset_operation_state_t current_state = recov_get_state(mmgr->reset);
+
+    if ((current_state == E_OPERATION_NONE) &&
+        (clients_get_connected(mmgr->clients) != 0)) {
+        LOG_DEBUG("need to ack all clients");
+
+        recov_set_state(mmgr->reset, E_OPERATION_WAIT);
+
+        clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
+                           NULL);
+        set_mmgr_state(mmgr, E_MMGR_WAIT_COLD_ACK);
+        timer_start(mmgr->timer, E_TIMER_COLD_RESET_ACK);
+    } else if ((current_state == E_OPERATION_WAIT) ||
+               (clients_get_connected(mmgr->clients) == 0)) {
         recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
-    } else {
-        e_reset_operation_state_t current_state = recov_get_state(mmgr->reset);
 
-        if (current_state == E_OPERATION_NONE) {
-            LOG_DEBUG("need to ack all clients");
-
-            recov_set_state(mmgr->reset, E_OPERATION_WAIT);
-
-            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-            clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MODEM_COLD_RESET,
-                               NULL);
-            set_mmgr_state(mmgr, E_MMGR_WAIT_COLD_ACK);
-            timer_start(mmgr->timer, E_TIMER_COLD_RESET_ACK);
-        } else if (current_state == E_OPERATION_WAIT) {
-            recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
-
+        if (recov_get_operation(mmgr->reset) != E_FORCE_NO_COUNT)
             broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
-            clients_reset_ack_cold(mmgr->clients);
-            mmgr->request.accept_request = false;
-            if ((mmgr->info.mdm_link == E_LINK_USB) && mmgr->info.is_flashless)
-                set_mmgr_state(mmgr, E_MMGR_MDM_START);
-            else
-                set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
 
+        if ((mmgr->info.mdm_link == E_LINK_USB) &&
+            mdm_flash_is_required(&mmgr->info))
+            set_mmgr_state(mmgr, E_MMGR_MDM_START);
+        else
+            set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+
+        if (clients_get_connected(mmgr->clients) != 0) {
+            clients_reset_ack_cold(mmgr->clients);
             timer_stop(mmgr->timer, E_TIMER_COLD_RESET_ACK);
         }
     }
@@ -940,9 +942,9 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
         timer_stop(mmgr->timer, E_TIMER_FMMO);
         mdm_finalize_shtdwn(mmgr);
         set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
-    }
-    else
+    } else {
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+    }
 
     return E_ERR_SUCCESS;
 }

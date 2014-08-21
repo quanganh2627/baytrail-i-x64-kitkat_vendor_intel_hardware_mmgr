@@ -70,7 +70,6 @@ typedef struct mmgr_events {
 typedef struct current_request {
     msg_t msg;
     client_hdle_t *client;
-    bool accept_request;
 } current_request_t;
 
 struct mmgr_data;

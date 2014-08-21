@@ -126,7 +126,6 @@ e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr)
         ret = E_ERR_FAILED;
     } else {
         mmgr->events.cur_ev = FIRST_EVENT;
-        mmgr->request.accept_request = true;
     }
 
     return ret;
@@ -368,8 +367,10 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id)
                               &finalize_mdm_off, &cd_ipc,
                               &cancel_flashing, &stop_mcdr,
                               core_dump_signal_hw_working);
-            if (reset)
+            if (reset) {
+                recov_force(mmgr->reset, E_FORCE_NO_COUNT);
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+            }
             if (cd_ipc)
                 ctrl_on_cd_ipc_failure(mmgr->info.ctrl);
             if (cancel_flashing) {

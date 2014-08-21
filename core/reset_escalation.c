@@ -436,3 +436,19 @@ e_mmgr_errors_t recov_force(reset_handle_t *h, e_force_operation_t op)
 
     return ret;
 }
+
+/**
+ * This function returns the next reset operation
+ *
+ * @param [in] h reset module handler
+ *
+ * @return the next reset operation
+ */
+e_force_operation_t recov_get_operation(reset_handle_t *h)
+{
+    reset_management_t *reset = (reset_management_t *)h;
+
+    ASSERT(reset != NULL);
+
+    return reset->op;
+}

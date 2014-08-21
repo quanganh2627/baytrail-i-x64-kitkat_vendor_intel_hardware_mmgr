@@ -68,6 +68,7 @@ e_mmgr_errors_t recov_next(reset_handle_t *h);
 e_mmgr_errors_t recov_done(reset_handle_t *h);
 
 e_mmgr_errors_t recov_force(reset_handle_t *h, e_force_operation_t op);
+e_force_operation_t recov_get_operation(reset_handle_t *h);
 e_mmgr_errors_t recov_set_state(reset_handle_t *h,
                                 e_reset_operation_state_t st);
 
