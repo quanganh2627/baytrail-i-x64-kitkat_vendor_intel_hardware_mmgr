@@ -267,11 +267,8 @@ static void restore_nvm_after_factory_reset(mmgr_data_t *mmgr)
         int flag_value = 0;
         property_get_int(MMGR_FACTORY_RESET_PROPERTY, &flag_value);
         if (flag_value == 0) {
-            if (file_exist(mmgr->info.fl_conf.run.nvm_dyn,
-                           0) ||
-                file_exist(mmgr->info.fl_conf.run.nvm_sta, 0)) {
+            if (file_exist(mmgr->info.fl_conf.run.nvm_dyn, 0)) {
                 remove(mmgr->info.fl_conf.run.nvm_dyn);
-                remove(mmgr->info.fl_conf.run.nvm_sta);
                 mdm_upgrade_extract_tlv_files(mmgr->info.mdm_upgrade);
             }
             property_set_int(MMGR_FACTORY_RESET_PROPERTY, 1);
