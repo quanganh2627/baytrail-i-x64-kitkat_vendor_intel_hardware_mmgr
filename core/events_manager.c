@@ -163,12 +163,10 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    if (mdm_flash_is_required(&mmgr->info)) {
-        ret = tty_listen_fd(mmgr->epollfd, mdm_flash_get_fd(mmgr->mdm_flash),
-                            EPOLLIN);
-        if (ret != E_ERR_SUCCESS)
-            goto out;
-    }
+    ret = tty_listen_fd(mmgr->epollfd, mdm_flash_get_fd(mmgr->mdm_flash),
+                        EPOLLIN);
+    if (ret != E_ERR_SUCCESS)
+        goto out;
 
     if (mcdr_is_enabled(mmgr->mcdr)) {
         ret = tty_listen_fd(mmgr->epollfd, mcdr_get_fd(mmgr->mcdr), EPOLLIN);
@@ -188,20 +186,6 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
         if (ret != E_ERR_SUCCESS)
             goto out;
         LOG_DEBUG("bus event fd added to poll list");
-
-        /* handle the first events after discovery */
-        if (bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) {
-            /* ready to configure modem */
-            mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
-            mmgr->events.link_state |= E_MDM_LINK_BB_READY;
-        } else if (bus_ev_get_state(mmgr->events.bus_events) &
-                   MDM_FLASH_READY) {
-            /* ready to flash modem */
-            mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
-            mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
-        } else if (!mdm_flash_is_required(&mmgr->info)) {
-            timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-        }
     } else {
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
     }
