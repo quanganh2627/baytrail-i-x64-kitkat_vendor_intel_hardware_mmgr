@@ -782,8 +782,12 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     if (E_OPERATION_WAIT == recov_get_state(mmgr->reset))
         goto out;
 
-    /* Keep only CORE DUMP state */
-    mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
+    if ((level == E_EL_PLATFORM_REBOOT) || (level == E_EL_MODEM_OUT_OF_SERVICE))
+        /* In PLATFORM_REBOOT or MODEM_OOS state, ignore MCD events */
+        mmgr->info.polled_states = 0;
+    else
+        /* Keep only CORE DUMP state */
+        mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
     set_mcd_poll_states(&mmgr->info);
     timer_stop_all(mmgr->timer);
 
