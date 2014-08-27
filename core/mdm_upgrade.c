@@ -76,7 +76,8 @@ static inline void flag_unset(void)
 }
 
 /**
- * Replace tlv extension by a regexp used by sscanf
+ * Create a tlv filter used to extract
+ * tlv files from zip
  *
  * @param [out] filter
  * @param [in] file name of tlv file
@@ -95,8 +96,7 @@ static e_mmgr_errors_t get_tlv_filter(char *filter, const char *file)
     filter[FILTER_SIZE - 1] = '\0';
     char *find = strstr(filter, ".tlv");
     if (find) {
-        static const char *const regexp = "%*1[.]%*1[t]%*1[l]%1[v]";
-        snprintf(find, FILTER_SIZE - (find - filter), "%s", regexp);
+        snprintf(find, FILTER_SIZE - (find - filter), "%s", "\\.tlv$");
     } else {
         LOG_DEBUG("wrong file extension");
         ret = E_ERR_FAILED;
@@ -150,7 +150,7 @@ static void get_fls_filter(char *filter, const char *mdm_name,
 
     if (!strncmp(mdm_name, "6360", 4)) {
         /* This is a 6360 modem. This modem has a different convention naming */
-        snprintf(filter, FILTER_SIZE, "XMM_%s%%1[_]", mdm_name);
+        snprintf(filter, FILTER_SIZE, "XMM_%s_.*\\.fls$", mdm_name);
     } else {
         bool has_hw_rev = strncmp(hw_revision, "NA", 2);
         bool has_sw_rev = strncmp(sw_revision, "NA", 2);
@@ -160,17 +160,18 @@ static void get_fls_filter(char *filter, const char *mdm_name,
         if (has_hw_rev)
             strncat(filter, hw_revision, FILTER_SIZE - strlen(filter));
         else
-            strncat(filter, "%*2[0-9]", FILTER_SIZE - strlen(filter));
+            strncat(filter, "[[:digit:]]{2}", FILTER_SIZE - strlen(filter));
 
-        strncat(filter, "_%*4[0-9].%*2[0-9]_V", FILTER_SIZE - strlen(filter));
+        strncat(filter, "_[[:digit:]]{4}\\.[[:digit:]]{2}_V", FILTER_SIZE -
+                strlen(filter));
 
         if (has_sw_rev)
             strncat(filter, sw_revision, FILTER_SIZE - strlen(filter));
         else
-            strncat(filter, "%*1[0-9].%*1[0-9]", FILTER_SIZE - strlen(filter));
+            strncat(filter, "[[:digit:]]{1}\\.[[:digit:]]{1}", FILTER_SIZE -
+                    strlen(filter));
 
-        strncat(filter, "_%*[^.]%*1[.]%*1[f]%*1[l]%1[s]", FILTER_SIZE -
-                strlen(filter));
+        strncat(filter, "_.*\\.fls$", FILTER_SIZE - strlen(filter));
     }
 }
 

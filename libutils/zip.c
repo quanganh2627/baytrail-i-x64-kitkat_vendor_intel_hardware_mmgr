@@ -25,6 +25,7 @@
 #include "errors.h"
 #include "logs.h"
 #include <minzip/Zip.h>
+#include "regex.h"
 
 #define MIN(a, b)  (((a) < (b)) ? (a) : (b))
 
@@ -32,7 +33,7 @@
  * Extract file from archive
  *
  * @param [in] zip_entry
- * @param [in] filter
+ * @param [in] regexp
  * @param [in] dest
  *
  * @return -2 if no file found
@@ -40,19 +41,18 @@
  * @return 0 if successful
  */
 static int extract(const ZipArchive *zip,
-                   const ZipEntry *zip_entry, const char *filter,
+                   const ZipEntry *zip_entry, regex_t *regexp,
                    const char *dest,
                    mode_t dst_mode)
 {
     int ret = 0;
     char entry[PATH_MAX] = { '\0' };
-    char conv_match[2];
     size_t len = MIN(sizeof(entry) - 1, mzGetZipEntryFileName(zip_entry).len);
 
     strncpy(entry, mzGetZipEntryFileName(zip_entry).str, len);
     entry[len] = '\0';
 
-    if (sscanf(entry, filter, conv_match) == 1) {
+    if (!regexec(regexp, entry, 0, NULL, 0)) {
         LOG_DEBUG("Entry match found: %s", entry);
         int fd = open(dest, O_RDWR | O_TRUNC | O_CREAT, dst_mode);
         if (fd < 0) {
@@ -87,33 +87,40 @@ e_mmgr_errors_t zip_extract_entry(const char *zip_filename,
     ZipArchive zip;
     mode_t old_umask = umask(~dst_mode & 0777);
     MemMapping map;
+    regex_t regexp;
 
     ASSERT(zip_filename != NULL);
     ASSERT(filter != NULL);
     ASSERT(dest != NULL);
 
-    memset(&zip, 0, sizeof(zip));
-    if (sysMapFile(zip_filename, &map) == 0) {
-        if (mzOpenZipArchive(map.addr, map.length, &zip)) {
-            LOG_ERROR("Failed to open the archive");
-        } else {
-            LOG_INFO("Archive %s opened successfully. String match: %s",
-                      zip_filename, filter);
+    if (!regcomp(&regexp, filter, REG_ICASE | REG_EXTENDED)) {
+        memset(&zip, 0, sizeof(zip));
+        if (sysMapFile(zip_filename, &map) == 0) {
+            if (mzOpenZipArchive(map.addr, map.length, &zip)) {
+                LOG_ERROR("Failed to open the archive");
+            } else {
+                LOG_INFO("Archive %s opened successfully. String match: %s",
+                        zip_filename, filter);
 
-            for (size_t i = 0; i < mzZipEntryCount(&zip); i++) {
-                const ZipEntry *zip_entry = mzGetZipEntryAt(&zip, i);
-                int err = extract(&zip, zip_entry, filter, dest, dst_mode);
-                if (err != -2) {
-                    if (err == 0)
-                        ret = E_ERR_SUCCESS;
-                    break;
+                for (size_t i = 0; i < mzZipEntryCount(&zip); i++) {
+                    const ZipEntry *zip_entry = mzGetZipEntryAt(&zip, i);
+                    int err = extract(&zip, zip_entry, &regexp, dest, dst_mode);
+
+                    if (err != -2) {
+                        if (err == 0)
+                            ret = E_ERR_SUCCESS;
+                        break;
+                    }
                 }
+                mzCloseZipArchive(&zip);
+                sysReleaseMap(&map);
             }
-            mzCloseZipArchive(&zip);
-            sysReleaseMap(&map);
+        } else {
+            LOG_ERROR("Failed to map the archive file %s", zip_filename);
         }
+        regfree(&regexp);
     } else {
-        LOG_ERROR("Failed to map the archive file %s", zip_filename);
+        LOG_ERROR("Failed to create regexp %s", filter);
     }
 
     umask(old_umask & 0777);
