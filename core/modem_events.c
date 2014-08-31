@@ -843,9 +843,9 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
     static const char *const msg = "IPC hang-up";
 
     ASSERT(mmgr != NULL);
-    cleanup_ipc_event(mmgr);
-
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
+
+    cleanup_ipc_event(mmgr);
     static const char *const ev_type = "TFT_ERROR_IPC";
     mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg },
                                          { 0, NULL } };
