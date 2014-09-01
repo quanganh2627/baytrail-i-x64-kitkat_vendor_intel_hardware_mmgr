@@ -37,16 +37,16 @@ static inline const char *logs_get_pattern()
 /* define debug LOG functions */
 #define LOG_ERROR(format, args ...) \
     do { ALOGE("%s %s - " format, logs_get_pattern(), \
-              __FUNCTION__, ## args); } while (0)
+               __FUNCTION__, ## args); } while (0)
 #define LOG_DEBUG(format, args ...) \
     do { ALOGD("%s %s - " format, logs_get_pattern(), \
-              __FUNCTION__, ## args); } while (0)
+               __FUNCTION__, ## args); } while (0)
 #define LOG_VERBOSE(format, args ...) \
     do { ALOGV("%s %s - " format, logs_get_pattern(), \
-              __FUNCTION__, ## args); } while (0)
+               __FUNCTION__, ## args); } while (0)
 #define LOG_INFO(format, args ...) \
     do { ALOGI("%s %s - " format, logs_get_pattern(), \
-              __FUNCTION__, ## args); } while (0)
+               __FUNCTION__, ## args); } while (0)
 
 #else                           /* STDIO_LOGS */
 

@@ -28,11 +28,14 @@
 #define SYSFS_OPEN_MODE S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
 #define MMGR_UMASK (S_IXUSR | S_IXGRP | S_IWOTH | S_IXOTH)
 
-e_mmgr_errors_t file_write(char *path, unsigned long mode, char *value,
+e_mmgr_errors_t file_write(const char *path, unsigned long mode, char *value,
                            size_t size);
 
-bool file_exist(const char *path, unsigned long rights);
-int file_find(const char *folder, const char *pattern, char **files, int max);
+e_mmgr_errors_t file_read(const char *path, char *value, size_t size);
+
+bool file_exist(const char *path);
+char **file_find(const char *folder, const char *regexp, size_t *found);
+char **file_find_ext(const char *folder, const char *extension, size_t *nb);
 
 e_mmgr_errors_t file_copy(const char *src, const char *dst, mode_t dst_mode);
 

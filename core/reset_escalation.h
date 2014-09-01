@@ -21,7 +21,7 @@
 
 #include <time.h>
 #include "errors.h"
-#include "modem_info.h"
+#include "mdm_mcd.h"
 #include "tcs_mmgr.h"
 
 #define RECOV_LEVEL \
@@ -79,7 +79,6 @@ e_escalation_level_t recov_get_level(reset_handle_t *h);
 e_reset_operation_state_t recov_get_state(reset_handle_t *h);
 struct timeval recov_get_last_reset(reset_handle_t *h);
 
-e_mmgr_errors_t platform_reboot(modem_info_t *unused);
-e_mmgr_errors_t out_of_service(modem_info_t *info);
+e_mmgr_errors_t platform_reboot(const mdm_mcd_hdle_t *unused);
 
 #endif                          /* __MMGR_RESET_ESCALATION_HEADER__ */

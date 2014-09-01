@@ -20,26 +20,45 @@
 #define __MMGR_MDM_FLASHING_HEADER__
 
 #define MMGR_FW_OPERATIONS
-#include "modem_info.h"
+#include <stdbool.h>
 #include "security.h"
 #include "bus_events.h"
+#include "pm.h"
+#include "mdm_fw.h"
 #include "mmgr.h"
+
+typedef enum mdm_flash_err {
+    MDM_UPDATE_ERR_NONE = 0,
+    MDM_UPDATE_ERR_FLASH = 0x1 << 0,
+        MDM_UPDATE_ERR_TLV = 0x1 << 1,
+} mdm_flash_upgrade_err_t;
 
 typedef void *mdm_flash_handle_t;
 
-mdm_flash_handle_t *mdm_flash_init(const modem_info_t *mdm_info,
+mdm_flash_handle_t *mdm_flash_init(const link_t *link_ebl,
+                                   const link_t *link_fw,
+                                   const mdm_info_t *mdm_info,
+                                   const mdm_fw_hdle_t *fw,
                                    const secure_handle_t *secure,
-                                   const bus_ev_hdle_t *bus_ev);
+                                   const bus_ev_hdle_t *bus_ev, pm_handle_t *pm,
+                                   int inst_id);
+void mdm_flash_dispose(mdm_flash_handle_t *hdle);
 
+e_mmgr_errors_t mdm_flash_prepare(mdm_flash_handle_t *hdle);
 e_mmgr_errors_t mdm_flash_start(mdm_flash_handle_t *hdle);
 void mdm_flash_finalize(mdm_flash_handle_t *hdle);
-
-int mdm_flash_get_fd(mdm_flash_handle_t *hdle);
-e_modem_fw_error_t mdm_flash_get_verdict(mdm_flash_handle_t *hdle);
-int mdm_flash_get_attempts(mdm_flash_handle_t *hdle);
-void mdm_flash_reset_attempts(mdm_flash_handle_t *hdle);
-
 void mdm_flash_cancel(mdm_flash_handle_t *hdle);
-void mdm_flash_dispose(mdm_flash_handle_t *hdle);
+
+const char *mdm_flash_streamline(mdm_flash_handle_t *hdle,
+                                 mmgr_cli_nvm_update_result_t *err);
+
+int mdm_flash_get_fd(const mdm_flash_handle_t *hdle);
+
+bool mdm_flash_is_required(const mdm_flash_handle_t *hdle);
+
+e_modem_fw_error_t mdm_flash_get_flashing_err(mdm_flash_handle_t *hdle);
+mdm_flash_upgrade_err_t mdm_flash_get_upgrade_err(const mdm_flash_handle_t *hdle);
+int mdm_flash_get_attempts(const mdm_flash_handle_t *hdle);
+void mdm_flash_reset_attempts(mdm_flash_handle_t *hdle);
 
 #endif /* __MMGR_MDM_FLASHING_HEADER__ */

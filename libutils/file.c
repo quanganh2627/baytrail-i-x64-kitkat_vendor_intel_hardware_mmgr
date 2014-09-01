@@ -19,6 +19,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <regex.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/sendfile.h>
@@ -27,6 +28,8 @@
 #include "logs.h"
 
 #define MASK_ALL (S_IRWXU | S_IRWXG | S_IRWXO)
+#define SIZE_CHUNK 20
+#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 
 /**
  * write a string to a file
@@ -39,7 +42,7 @@
  * @return E_ERR_FAILED if open fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t file_write(char *path, unsigned long mode, char *value,
+e_mmgr_errors_t file_write(const char *path, unsigned long mode, char *value,
                            size_t size)
 {
     int fd;
@@ -67,31 +70,57 @@ e_mmgr_errors_t file_write(char *path, unsigned long mode, char *value,
 }
 
 /**
+ * Reads a string to a file
+ *
+ * @param [in] path complete file path
+ * @param [out] value string to read
+ * @param [in] size string size
+ *
+ * @return E_ERR_FAILED if open fails
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t file_read(const char *path, char *value, size_t size)
+{
+    int fd;
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+
+    ASSERT(path != NULL);
+    ASSERT(value != NULL);
+
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        LOG_ERROR("open of (%s) failed (%s)", path, strerror(errno));
+    } else {
+        ssize_t read_size = 0;
+        if (size > 0)
+            read_size = read(fd, value, size);
+        if ((close(fd) == 0) && ((size_t)read_size > 0)) {
+            ret = E_ERR_SUCCESS;
+            LOG_DEBUG("read from (%s) succeed", path);
+            value[MIN(read_size, (ssize_t)size - 1)] = '\0';
+        } else {
+            LOG_ERROR("read to (%s) failed. (%s)", path, strerror(errno));
+        }
+    }
+
+    return ret;
+}
+
+/**
  * Look for file
  *
  * @param [in] path file path
- * @param [in] rights file rights should be equal to rights. if rights is 0 the
- * check is not performed
  *
  * @return false by default
  * @return true if file exist
  */
-bool file_exist(const char *path, unsigned long rights)
+bool file_exist(const char *path)
 {
     struct stat st;
-    bool result = false;
 
     ASSERT(path != NULL);
 
-    if (!stat(path, &st) && S_ISREG(st.st_mode)) {
-        result = true;
-        if (rights && ((st.st_mode & MASK_ALL) != (rights & ~MMGR_UMASK))) {
-            LOG_DEBUG("bad file permissions");
-            result = false;
-        }
-    }
-
-    return result;
+    return !stat(path, &st) && S_ISREG(st.st_mode);
 }
 
 /**
@@ -106,7 +135,7 @@ bool file_exist(const char *path, unsigned long rights)
  */
 e_mmgr_errors_t file_copy(const char *src, const char *dst, mode_t dst_mode)
 {
-    int in_fd = -1;
+    int in_fd;
     int out_fd = -1;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     mode_t old_umask = 0;
@@ -121,14 +150,15 @@ e_mmgr_errors_t file_copy(const char *src, const char *dst, mode_t dst_mode)
     in_fd = open(src, O_RDONLY);
     if (in_fd < 0) {
         ret = E_ERR_FAILED;
-        LOG_DEBUG("Cannot open source file, errno = %d", errno);
+        LOG_DEBUG("Cannot open source file (%s), errno = %d", src, errno);
         goto out;
     }
 
     out_fd = open(dst, O_CREAT | O_WRONLY | O_TRUNC, dst_mode);
     if (out_fd < 0) {
         ret = E_ERR_FAILED;
-        LOG_DEBUG("Cannot create destination file, errno = %d", errno);
+        LOG_DEBUG("Cannot create destination file: (%s), errno = %d", dst,
+                  errno);
         goto out;
     }
 
@@ -162,48 +192,64 @@ out:
  * NB: Caller shall deallocate all pointer listed in files
  *
  * @param [in] folder
- * @param [in] pattern
- * @param [out] files list of files found files
+ * @param [in] reg regcomp context
+ * @param [in] files array of files. Must be NULL at first call
  * @param [out] found number of files found
- * @param [in] max size of files
  *
- * @return none
+ * @return an array of files
+ * @return NULL if no file found
  */
-static void find(const char *folder, const char *pattern, char **files,
-                 int *found, int max)
+static char **file_find_op(const char *folder, regex_t *reg, char **files,
+                           size_t *found)
 {
     DIR *dir = NULL;
 
     ASSERT(folder != NULL);
-    ASSERT(pattern != NULL);
-    ASSERT(files != NULL);
+    ASSERT(reg != NULL);
     ASSERT(found != NULL);
+    /* files can be NULL */
 
     dir = opendir(folder);
     if (!dir) {
-        LOG_ERROR("wrong path: %s", folder);
+        LOG_DEBUG("Path (%s) does not exist", folder);
     } else {
         struct dirent *entry = NULL;
-        while ((entry = readdir(dir)) && *found < max) {
-            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
+        while ((entry = readdir(dir))) {
+            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
                 continue;
-            } else if (entry->d_type == DT_DIR) {
-                char subfolder[PATH_MAX] = "";
-                snprintf(subfolder, sizeof(subfolder) - 1, "%s/%s", folder,
+
+            if (entry->d_type == DT_DIR) {
+                char subfolder[PATH_MAX];
+
+                snprintf(subfolder, sizeof(subfolder), "%s/%s", folder,
                          entry->d_name);
                 /* recursive call: will stop when the last subfolder is reached
                 **/
-                find(subfolder, pattern, files, found, max);
-            } else if (strstr(entry->d_name, pattern)) {
-                int size = strlen(folder) + strlen(entry->d_name) + 2;
-                files[*found] = malloc(sizeof(char) * size);
+                files = file_find_op(subfolder, reg, files, found);
+            } else if (!regexec(reg, entry->d_name, 0, NULL, 0)) {
+                if (!(*found % SIZE_CHUNK)) {
+                    size_t size = *found + SIZE_CHUNK;
+                    files = realloc(files, size * sizeof(char *));
+                    ASSERT(files != NULL);
+                }
+
+                int len = strlen(folder) + strlen(entry->d_name) + 2;
+                files[*found] = malloc(sizeof(char) * len);
                 ASSERT(files[*found] != NULL);
-                snprintf(files[*found], size, "%s/%s", folder, entry->d_name);
+                snprintf(files[*found], len, "%s/%s", folder,
+                         entry->d_name);
                 (*found)++;
             }
         }
         closedir(dir);
     }
+
+    return files;
+}
+
+static int file_cmp_str(const void *p1, const void *p2)
+{
+    return strcmp(*(char *const *)p1, *(char *const *)p2);
 }
 
 /**
@@ -211,16 +257,50 @@ static void find(const char *folder, const char *pattern, char **files,
  * NB: Caller shall deallocate all pointers listed in files
  *
  * @param [in] folder
- * @param [in] pattern
- * @param [out] files list of files found files
- * @param [in] max size of files
+ * @param [in] regexp
+ * @param [out] nb number of files found
  *
- * @return the number of files found
+ * @return an array of files
+ * @return NULL if no file found
  */
-int file_find(const char *folder, const char *pattern, char **files, int max)
+char **file_find(const char *folder, const char *regexp, size_t *found)
 {
-    int found = 0;
+    char **files = NULL;
+    regex_t reg;
 
-    find(folder, pattern, files, &found, max);
-    return found;
+    ASSERT(found != NULL);
+
+    LOG_DEBUG("regexp: %s", regexp);
+
+    *found = 0;
+    if (!regcomp(&reg, regexp, REG_ICASE | REG_EXTENDED))
+        files = file_find_op(folder, &reg, files, found);
+
+    /* files are sorted to always provide the same list */
+    if (files && *found > 0)
+        qsort(files, *found, sizeof(char *), file_cmp_str);
+
+    regfree(&reg);
+
+    return files;
+}
+
+/**
+ * This function looks for all files matching the extension in all subfolders.
+ * NB: Caller shall deallocate all pointers listed in files
+ *
+ * @param [in] folder
+ * @param [in] extension file extension
+ * @param [out] found number of files found
+ *
+ * @return an array of files
+ * @return NULL if no file found
+ */
+char **file_find_ext(const char *folder, const char *extension, size_t *found)
+{
+    char regexp[10];
+
+    snprintf(regexp, sizeof(regexp), ".*\\.%s$", extension);
+
+    return file_find(folder, regexp, found);
 }

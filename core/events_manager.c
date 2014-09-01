@@ -35,9 +35,8 @@
 #include "security.h"
 #include "timer_events.h"
 #include "tty.h"
-#include "modem_specific.h"
 #include "ctrl.h"
-#include "delay_do.h"
+#include "mdm_mcd.h"
 
 #include "hardware_legacy/power.h"
 
@@ -159,11 +158,11 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
     if (ret != E_ERR_SUCCESS)
         goto out;
 
-    ret = tty_listen_fd(mmgr->epollfd, mmgr->info.fd_mcd, EPOLLIN);
-    if (ret != E_ERR_SUCCESS)
+    ret = tty_listen_fd(mmgr->epollfd, mdm_mcd_get_fd(mmgr->mcd), EPOLLIN);
+    if (E_ERR_SUCCESS != ret)
         goto out;
 
-    ret = tty_listen_fd(mmgr->epollfd, mdm_flash_get_fd(mmgr->mdm_flash),
+    ret = tty_listen_fd(mmgr->epollfd, mdm_flash_get_fd(mmgr->flash),
                         EPOLLIN);
     if (ret != E_ERR_SUCCESS)
         goto out;
@@ -173,9 +172,6 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
         if (ret != E_ERR_SUCCESS)
             goto out;
     }
-
-    ret = set_mcd_poll_states(&mmgr->info);
-    LOG_DEBUG("MCD driver added to poll list");
 
     if (mmgr->info.mdm_link == E_LINK_USB) {
         if (E_ERR_SUCCESS != (ret = bus_ev_start(mmgr->events.bus_events)))
@@ -206,7 +202,6 @@ out:
 static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    int fd;
 
     ASSERT(mmgr != NULL);
 
@@ -232,18 +227,18 @@ static e_mmgr_errors_t wait_for_event(mmgr_data_t *mmgr)
     if (mmgr->events.nfds == 0) {
         mmgr->events.state = E_EVENT_TIMEOUT;
     } else {
-        fd = mmgr->events.ev[mmgr->events.cur_ev].data.fd;
+        int fd = mmgr->events.ev[mmgr->events.cur_ev].data.fd;
         if (fd == mmgr->fd_cnx)
             mmgr->events.state = E_EVENT_NEW_CLIENT;
         else if (fd == mmgr->fd_tty)
             mmgr->events.state = E_EVENT_IPC;
-        else if (fd == mmgr->info.fd_mcd)
+        else if (fd == mdm_mcd_get_fd(mmgr->mcd))
             mmgr->events.state = E_EVENT_MCD;
         else if (fd == bus_ev_get_fd(mmgr->events.bus_events))
             mmgr->events.state = E_EVENT_BUS;
         else if (fd == secure_get_fd(mmgr->secure))
             mmgr->events.state = E_EVENT_SECUR;
-        else if (fd == mdm_flash_get_fd(mmgr->mdm_flash))
+        else if (fd == mdm_flash_get_fd(mmgr->flash))
             mmgr->events.state = E_EVENT_FLASHING;
         else if (fd == mcdr_get_fd(mmgr->mcdr))
             mmgr->events.state = E_EVENT_MCDR;
@@ -272,7 +267,7 @@ static inline void flush_pipe(int fd)
  *
  * @return E_ERR_SUCCESS
  */
-e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id)
+e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     bool wakelock = false;
@@ -310,9 +305,6 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id)
             wakelock = true;
             acquire_wake_lock(PARTIAL_WAKE_LOCK, MODULE_NAME);
         }
-
-        if (mmgr->dsda && (inst_id == 2))
-            mdm_upgrade(mmgr->info.mdm_upgrade);
 
         LOG_DEBUG("event type: %s", events_str[mmgr->events.state]);
         switch (mmgr->events.state) {
@@ -362,7 +354,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id)
                 clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
                 LOG_INFO("%s", msg);
-                mdm_flash_cancel(mmgr->mdm_flash);
+                mdm_flash_cancel(mmgr->flash);
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             }
             if (mdm_action & E_TIMER_STOP_MCDR) {
@@ -390,22 +382,37 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id)
             break;
         }
         case E_EVENT_FLASHING:
-            flush_pipe(mdm_flash_get_fd(mmgr->mdm_flash));
+            flush_pipe(mdm_flash_get_fd(mmgr->flash));
             timer_stop(mmgr->timer, E_TIMER_MDM_FLASHING);
-            mdm_flash_finalize(mmgr->mdm_flash);
-            if (mmgr->info.need_ssic_po_wa) {
-                /* the link is expected to be restarted 10 secs after the
-                 * flashing */
-                pthread_t thr;
-                static delay_t mdm_up;
-                mdm_up.delay_sec = 15;
-                mdm_up.h = mmgr->info.ctrl;
-                mdm_up.fn = (void (*)(void *))(ctrl_on_mdm_up);
-                pthread_create(&thr, NULL, delay_do, &mdm_up);
-                pthread_detach(thr);
+            mdm_flash_finalize(mmgr->flash);
+            mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_IPC_READY, false);
+
+            if (mmgr->info.ssic_hack)
+                ctrl_on_mdm_up(mmgr->info.ctrl, 15);
+
+            mdm_flash_upgrade_err_t err =
+                mdm_flash_get_upgrade_err(mmgr->flash);
+            if (MDM_UPDATE_ERR_NONE != err)
+                inform_upgrade_err(mmgr->clients, err);
+
+            e_modem_fw_error_t flash_err =
+                mdm_flash_get_flashing_err(mmgr->flash);
+            inform_flash_err(mmgr->clients, flash_err,
+                             timer_get_value(mmgr->timer, E_TIMER_MDM_FLASHING),
+                             mdm_flash_get_attempts(mmgr->flash));
+            if (E_MODEM_FW_SUCCEED == flash_err) {
+                mdm_flash_reset_attempts(mmgr->flash);
+                set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
+                if (mmgr->info.mdm_link == E_LINK_USB)
+                    timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
+                if (mmgr->info.ipc_ready_present)
+                    timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
+            } else {
+                if (E_MODEM_FW_ERROR_UNSPECIFIED != flash_err)
+                    recov_force(mmgr->reset, E_FORCE_OOS);
+                set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             }
-            update_verdict(mmgr);
-            flash_verdict(mmgr, mdm_flash_get_verdict(mmgr->mdm_flash));
+
             break;
         case E_EVENT_MCDR:
             /* For safety */

@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE author [
+	<!ENTITY firmware SYSTEM "mmgr_fw_default.xml" >
+]>
+
 <mmgr_config>
+	&firmware;
 	<modem_link>
 		<flash>
 			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0x07ef" vid="0x8087"/>
@@ -24,20 +30,6 @@
 		type="ioctl"
 		board="aob"
 	/>
-	<flashless>
-		<fw_backup
-			nvm_calib="/factory/telephony/calib.nvm"
-		/>
-		<fw_runtime
-			folder="/config/telephony"
-			mdm_fw="/config/telephony/modembinary.fls"
-			mdm_inj_fw="/config/telephony/injected.modembinary.fls"
-			nvm_static="/config/telephony/static.nvm"
-			nvm_dyn="/config/telephony/dynamic.nvm"
-			nvm_calib="/config/telephony/calib.nvm"
-			rnd="/config/telephony/rnd_cert.bin"
-		/>
-	</flashless>
 	<modem_comm>
 		<mux
 			frame_size="1509"

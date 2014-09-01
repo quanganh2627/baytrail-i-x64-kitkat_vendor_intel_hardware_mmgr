@@ -539,7 +539,7 @@ static int event_core_dump(mmgr_cli_event_t *ev)
     LOG_DEBUG("state: %s", cd_state[cd->state]);
 
     if (cd->state == E_CD_SUCCEED) {
-        if (file_exist(cd->path, 0)) {
+        if (file_exist(cd->path)) {
             LOG_DEBUG("core dump found: %s", cd->path);
             ret = 0;
         } else {
@@ -547,14 +547,19 @@ static int event_core_dump(mmgr_cli_event_t *ev)
             char *folders[] = { "/mnt/shell/emulated/0/logs/", "/sdcard/" };
             for (size_t i = 0; i < ARRAY_SIZE(folders); i++) {
                 LOG_DEBUG("look at: %s", folders[i]);
-                char *files[1];
-                if (!file_find(folders[i], filename, files,
-                               ARRAY_SIZE(files))) {
+                size_t found;
+                char **files = file_find(folders[i], filename, &found);
+                if (found == 1) {
                     LOG_DEBUG("core dump found: %s", files[0]);
                     ret = 0;
-                    free(files[0]);
-                    break;
                 }
+
+                for (size_t i = 0; i < found; i++)
+                    free(files[i]);
+                free(files);
+
+                if (!ret)
+                    break;
             }
         }
         if (ret)

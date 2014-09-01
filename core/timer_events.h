@@ -59,11 +59,11 @@ typedef enum  e_timer_mdm_action {
     E_TIMER_NO_ACTION = 0x0,
     E_TIMER_RESET = 0x1,
     E_TIMER_START_MDM_OFF = 0x1 << 1,
-    E_TIMER_FINALIZE_MDM_OFF = 0x1 << 2,
-    E_TIMER_CD_ERR = 0x1 << 3,
-    E_TIMER_CANCEL_FLASHING = 0x1 << 4,
-    E_TIMER_STOP_MCDR = 0x1 << 5,
-    E_TIMER_STREAMLINE = 0x1 << 6
+        E_TIMER_FINALIZE_MDM_OFF = 0x1 << 2,
+        E_TIMER_CD_ERR = 0x1 << 3,
+        E_TIMER_CANCEL_FLASHING = 0x1 << 4,
+        E_TIMER_STOP_MCDR = 0x1 << 5,
+        E_TIMER_STREAMLINE = 0x1 << 6
 } e_timer_mdm_action_t;
 
 timer_handle_t *timer_init(const mmgr_recovery_t *recov,

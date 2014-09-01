@@ -65,7 +65,9 @@ static void cleanup(void)
     bus_ev_dispose(g_mmgr->events.bus_events);
     pm_dispose(g_mmgr->info.pm);
     ctrl_dispose(g_mmgr->info.ctrl);
-    mdm_flash_dispose(g_mmgr->mdm_flash);
+    mdm_mcd_dispose(g_mmgr->mcd);
+    mdm_flash_dispose(g_mmgr->flash);
+    mdm_fw_dispose(g_mmgr->fw);
     LOG_VERBOSE("Exiting");
 }
 
@@ -189,6 +191,11 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
         mmgr->dsda = false;
     }
 
+    /* SSIC power on work around */
+    bool ssic_hack = (strstr(mmgr_cfg->mdm_link.ctrl.device, "ssic") != NULL);
+    if (ssic_hack)
+        LOG_DEBUG("SSIC Power on sequence used");
+
     ASSERT((mmgr->reset = recov_init(&mmgr_cfg->recov)) != NULL);
 
     ASSERT((mmgr->secure =
@@ -198,23 +205,10 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
     ASSERT((mmgr->mcdr = mcdr_init(&mmgr_cfg->mcdr)) != NULL);
 
     ASSERT(E_ERR_SUCCESS ==
-           modem_info_init(&cfg->mdm[mdm_id], inst_id, mmgr->dsda,
-                           &mmgr_cfg->com,
-                           &cfg->mdm[mdm_id].tlvs,
-                           &mmgr_cfg->mdm_link,
+           modem_info_init(&cfg->mdm[mdm_id], &mmgr_cfg->com,
+                           &cfg->mdm[mdm_id].tlvs, &mmgr_cfg->mdm_link,
                            &cfg->mdm[mdm_id].chs.ch[0].mmgr,
-                           &mmgr_cfg->flash, &mmgr_cfg->mcd,
-                           &mmgr->info));
-
-    ASSERT((mmgr->info.pm = pm_init(cfg->mdm[mdm_id].core.ipc_mdm,
-                                    &mmgr_cfg->mdm_link.power,
-                                    cfg->mdm[mdm_id].core.ipc_cd,
-                                    &mmgr_cfg->mcdr.power)) != NULL);
-
-    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm[mdm_id].core.ipc_mdm,
-                                        &mmgr_cfg->mdm_link.ctrl,
-                                        cfg->mdm[mdm_id].core.ipc_cd,
-                                        &mmgr_cfg->mcdr.ctrl)) != NULL);
+                           &mmgr_cfg->mcd, &mmgr->info, ssic_hack));
 
     ASSERT(E_ERR_SUCCESS == modem_events_init(mmgr));
     ASSERT(E_ERR_SUCCESS == client_events_init(mmgr_cfg->cli.max, mmgr));
@@ -230,8 +224,32 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
 
     ASSERT(E_ERR_SUCCESS == events_init(mmgr_cfg->cli.max, mmgr));
 
-    ASSERT((mmgr->mdm_flash = mdm_flash_init(&mmgr->info, mmgr->secure,
-                                             mmgr->events.bus_events)));
+    ASSERT((mmgr->info.pm = pm_init(cfg->mdm[mdm_id].core.ipc_mdm,
+                                    &mmgr_cfg->mdm_link.power,
+                                    cfg->mdm[mdm_id].core.ipc_cd,
+                                    &mmgr_cfg->mcdr.power)) != NULL);
+
+    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm[mdm_id].core.ipc_mdm,
+                                        &mmgr_cfg->mdm_link.ctrl,
+                                        cfg->mdm[mdm_id].core.ipc_cd,
+                                        &mmgr_cfg->mcdr.ctrl)) != NULL);
+
+    ASSERT((mmgr->mcd = mdm_mcd_init(&mmgr_cfg->mcd, &cfg->mdm[mdm_id].core,
+                                     &mmgr_cfg->mdm_link, mmgr->info.pm,
+                                     mmgr->info.ctrl, !mmgr->dsda,
+                                     ssic_hack)) != NULL);
+
+    ASSERT((mmgr->fw = mdm_fw_init(inst_id, &cfg->mdm[mdm_id], &mmgr_cfg->fw))
+           != NULL);
+
+    ASSERT(E_ERR_SUCCESS == mdm_fw_create_folders(mmgr->fw));
+
+    ASSERT((mmgr->flash = mdm_flash_init(&mmgr_cfg->mdm_link.flash,
+                                         &mmgr_cfg->mdm_link.flash,
+                                         &cfg->mdm[mdm_id], mmgr->fw,
+                                         mmgr->secure,
+                                         mmgr->events.bus_events,
+                                         mmgr->info.pm, inst_id)));
 
     set_amtl_cfg(cfg, mdm_id);
 
@@ -254,25 +272,6 @@ static void disable_telephony(mmgr_data_t *mmgr)
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     } else {
         set_mmgr_state(mmgr, E_MMGR_MDM_OFF);
-    }
-}
-
-static void restore_nvm_after_factory_reset(mmgr_data_t *mmgr)
-{
-    char read[PROPERTY_VALUE_MAX] = { "" };
-    const char *encrypted_state = "unencrypted";
-
-    property_get_string(ENCRYPTION_PROPERTY, read);
-    if (strcmp(encrypted_state, read) == 0) {
-        int flag_value = 0;
-        property_get_int(MMGR_FACTORY_RESET_PROPERTY, &flag_value);
-        if (flag_value == 0) {
-            if (file_exist(mmgr->info.fl_conf.run.nvm_dyn, 0)) {
-                remove(mmgr->info.fl_conf.run.nvm_dyn);
-                mdm_upgrade_extract_tlv_files(mmgr->info.mdm_upgrade);
-            }
-            property_set_int(MMGR_FACTORY_RESET_PROPERTY, 1);
-        }
     }
 }
 
@@ -342,13 +341,12 @@ int main(int argc, char *argv[])
 
     mmgr_init(&mmgr, inst_id);
     disable_telephony(&mmgr);
-    restore_nvm_after_factory_reset(&mmgr);
 
     if (E_ERR_SUCCESS != events_start(&mmgr, inst_id)) {
         LOG_ERROR("failed to start event module");
         ret = EXIT_FAILURE;
     } else {
-        events_manager(&mmgr, inst_id);
+        events_manager(&mmgr);
     }
 
 out:

@@ -32,14 +32,14 @@ typedef struct pm_data {
     pm_link_t cd;
 } pm_ctx_t;
 
-static inline void fill_link(pm_link_t *link, e_link_t type, power_t *p)
+static inline void fill_link(pm_link_t *link, e_link_t type, const power_t *p)
 {
     link->type = type;
     link->power = *p;
 }
 
-pm_handle_t pm_init(e_link_t mdm_type, power_t *mdm_power,
-                    e_link_t cd_type, power_t *cd_power)
+pm_handle_t pm_init(e_link_t mdm_type, const power_t *mdm_power,
+                    e_link_t cd_type, const power_t *cd_power)
 {
     pm_ctx_t *ctx = NULL;
 
@@ -103,39 +103,6 @@ static e_mmgr_errors_t pm_set_state(power_t *p, bool state)
 }
 
 /**
- * Perform the right power management operation when the modem will be flashed
- *
- * @param [in] h power management handle
- *
- * @return E_ERR_SUCCESS if successful
- */
-e_mmgr_errors_t pm_on_mdm_flash(pm_handle_t *h)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    pm_ctx_t *ctx = (pm_ctx_t *)h;
-
-    ASSERT(ctx != NULL);
-
-    switch (ctx->mdm.type) {
-    case E_LINK_HSI:
-        /* Nothing to do */
-        break;
-    case E_LINK_USB:
-        /* Nothing to do */
-        break;
-    case E_LINK_UART:
-        /* Nothing to do */
-        break;
-    default:
-        LOG_ERROR("type %d not handled", ctx->mdm.type);
-        ret = E_ERR_FAILED;
-        break;
-    }
-
-    return ret;
-}
-
-/**
  * Perform the right power management operation when the modem is up
  *
  * @param [in] h power management handle
@@ -155,39 +122,6 @@ e_mmgr_errors_t pm_on_mdm_up(pm_handle_t *h)
         break;
     case E_LINK_USB:
         ret = pm_set_state(&ctx->mdm.power, true);
-        break;
-    case E_LINK_UART:
-        /* Nothing to do */
-        break;
-    default:
-        LOG_ERROR("type %d not handled", ctx->mdm.type);
-        ret = E_ERR_FAILED;
-        break;
-    }
-
-    return ret;
-}
-
-/**
- * Perform the right power management operation when the modem is OOS
- *
- * @param [in] h power management handle
- *
- * @return E_ERR_SUCCESS if successful
- */
-e_mmgr_errors_t pm_on_mdm_oos(pm_handle_t *h)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    pm_ctx_t *ctx = (pm_ctx_t *)h;
-
-    ASSERT(ctx != NULL);
-
-    switch (ctx->mdm.type) {
-    case E_LINK_HSI:
-        /* Nothing to do */
-        break;
-    case E_LINK_USB:
-        /* Nothing to do */
         break;
     case E_LINK_UART:
         /* Nothing to do */

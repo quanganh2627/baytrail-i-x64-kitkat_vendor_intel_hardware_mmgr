@@ -19,6 +19,7 @@
 #include "ctrl.h"
 #include "logs.h"
 #include "file.h"
+#include "delay_do.h"
 
 #include <string.h>
 
@@ -39,7 +40,7 @@ typedef enum e_ctrl_action {
 } e_ctrl_action_t;
 
 static inline void fill_ctrl_link(ctrl_link_t *link, e_link_t type,
-                                  link_ctrl_t *ctrl)
+                                  const link_ctrl_t *ctrl)
 {
     link->type = type;
     link->ctrl = *ctrl;
@@ -56,8 +57,8 @@ static inline void fill_ctrl_link(ctrl_link_t *link, e_link_t type,
  * @return NULL if module initialization has failed
  * @return valid ctrl_handle_t pointer otherwise
  */
-ctrl_handle_t ctrl_init(e_link_t mdm_type, link_ctrl_t *mdm_ctrl,
-                        e_link_t cd_type, link_ctrl_t *cd_ctrl)
+ctrl_handle_t ctrl_init(e_link_t mdm_type, const link_ctrl_t *mdm_ctrl,
+                        e_link_t cd_type, const link_ctrl_t *cd_ctrl)
 {
     ctrl_ctx_t *ctx = NULL;
 
@@ -172,17 +173,9 @@ e_mmgr_errors_t ctrl_on_mdm_down(ctrl_handle_t *h)
     return ret;
 }
 
-/**
- * Performs the right link control operation when modem is up
- *
- * @param [in] h power management handle
- *
- * @return E_ERR_SUCCESS if successful
- */
-e_mmgr_errors_t ctrl_on_mdm_up(ctrl_handle_t *h)
+static e_mmgr_errors_t ctrl_on_mdm_up_op(ctrl_ctx_t *ctx)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    ctrl_ctx_t *ctx = (ctrl_ctx_t *)h;
 
     ASSERT(ctx != NULL);
 
@@ -200,6 +193,36 @@ e_mmgr_errors_t ctrl_on_mdm_up(ctrl_handle_t *h)
         LOG_ERROR("type %d not handled", ctx->mdm.type);
         ret = E_ERR_FAILED;
         break;
+    }
+
+    return ret;
+}
+
+/**
+ * Performs the right link control operation when modem is up
+ *
+ * @param [in] h power management handle
+ * @param [in] delay delay in seconds before starting the operation
+ *
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t ctrl_on_mdm_up(ctrl_handle_t *h, int delay)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    ctrl_ctx_t *ctx = (ctrl_ctx_t *)h;
+
+    ASSERT(ctx != NULL);
+
+    if (delay > 0) {
+        pthread_t thr;
+        static delay_t op;
+        op.delay_sec = delay;
+        op.h = ctx;
+        op.fn = (void (*)(void *))(ctrl_on_mdm_up_op);
+        pthread_create(&thr, NULL, delay_do, &op);
+        pthread_detach(thr);
+    } else {
+        ret = ctrl_on_mdm_up_op(ctx);
     }
 
     return ret;

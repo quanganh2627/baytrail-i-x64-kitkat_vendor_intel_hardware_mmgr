@@ -31,8 +31,7 @@
 #include "errors.h"
 #include "logs.h"
 #include "modem_info.h"
-#include "mdm_upgrade.h"
-#include "modem_specific.h"
+#include "mdm_fw.h"
 #include "reset_escalation.h"
 #include "mux.h"
 #include "tty.h"
@@ -65,60 +64,24 @@ typedef enum e_switch_to_mux_states {
     E_MUX_DRIVER,
 } e_switch_to_mux_states_t;
 
-static e_mmgr_errors_t mcd_configure(int fd, enum mdm_ctrl_board_type board,
-                                     const char *mdm_name)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    struct mdm_ctrl_cfg cfg = { board, MODEM_UNSUP };
-
-    ASSERT(mdm_name != NULL);
-
-    if (!strcmp(mdm_name, "6360"))
-        cfg.type = MODEM_6360;
-    else if (!strcmp(mdm_name, "7160"))
-        cfg.type = MODEM_7160;
-    else if (!strcmp(mdm_name, "7260"))
-        cfg.type = MODEM_7260;
-    else if (!strcmp(mdm_name, "2230"))
-        cfg.type = MODEM_2230;
-
-    LOG_DEBUG("(board type: %d) (family :%d)", cfg.board, cfg.type);
-
-    errno = 0;
-    if (ioctl(fd, MDM_CTRL_SET_CFG, &cfg)) {
-        if (EBUSY == errno) {
-            LOG_DEBUG("MCD already initialized");
-        } else {
-            LOG_ERROR("failed to configure MCD (board type: %d) (family :%d)",
-                      cfg.board, cfg.type);
-            ret = E_ERR_FAILED;
-        }
-    }
-
-    return ret;
-}
-
 /**
  * initialize modem info structure and mcdr
  *
  * @param [in] mdm_info mmgr config
- * @param [in] inst_id MMGR instance id
- * @param [in] dsda boolean indicating if it's a DSDA platform
  * @param [in] com
- * @param [in] tlv
+ * @param [in] tlvs
  * @param [in] mdm_link
  * @param [in] ch channel
- * @param [in] flash
+ * @param [in] mcd
  * @param [in,out] info modem info
  *
  * @return E_ERR_FAILED if mcdr init fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int inst_id, bool dsda,
-                                mmgr_com_t *com, tlvs_info_t *tlvs,
-                                mmgr_mdm_link_t *mdm_link, channels_mmgr_t *ch,
-                                mmgr_flashless_t *flash, mmgr_mcd_t *mcd,
-                                modem_info_t *info)
+e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
+                                tlvs_info_t *tlvs, mmgr_mdm_link_t *mdm_link,
+                                channels_mmgr_t *ch, mmgr_mcd_t *mcd,
+                                modem_info_t *info, bool ssic_hack)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -128,15 +91,13 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int inst_id, bool dsda,
     ASSERT(mdm_link != NULL);
     ASSERT(info != NULL);
 
-    info->polled_states = MDM_CTRL_STATE_COREDUMP;
-    info->is_flashless = mdm_info->core.flashless;
     info->mux = com->mux;
     /* @TODO: handle BOARD_PCIE */
     info->ipc_ready_present = (mcd->board == BOARD_AOB);
-    info->upgrade_err = 0;
     info->cd_generated = E_STATUS_NONE;
     info->cd_link = mdm_info->core.ipc_cd;
     info->mdm_link = mdm_info->core.ipc_mdm;
+    info->ssic_hack = ssic_hack;
 
     switch (mdm_link->baseband.type) {
     case E_LINK_HSI:
@@ -160,53 +121,21 @@ e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, int inst_id, bool dsda,
     /* @TODO: if not DLC, this code should be updated */
     strncpy(info->sanity_check_dlc, ch->sanity_check.device,
             sizeof(info->sanity_check_dlc) - 1);
-    strncpy(info->mdm_custo_dlc, ch->mdm_custo.device,
-            sizeof(info->mdm_custo_dlc) - 1);
     strncpy(info->shtdwn_dlc, ch->shutdown.device,
             sizeof(info->shtdwn_dlc) - 1);
 
     if (!strncmp(info->sanity_check_dlc, "", sizeof(info->sanity_check_dlc)) ||
-        !strncmp(info->mdm_custo_dlc, "", sizeof(info->mdm_custo_dlc)) ||
         !strncmp(info->shtdwn_dlc, "", sizeof(info->shtdwn_dlc))) {
         LOG_ERROR("empty DLC");
         ret = E_ERR_FAILED;
         goto out;
     }
 
-    strncpy(info->mdm_name, mdm_info->core.name, sizeof(info->mdm_name) - 1);
-
-    info->fl_conf = *flash;
-    info->fd_mcd = open(mcd->path, O_RDWR);
-
-    if (info->fd_mcd == -1) {
-        LOG_DEBUG("failed to open Modem Control Driver (%s) interface: %s",
-                  mcd->path, strerror(errno));
-        ret = E_ERR_FAILED;
-        goto out;
-    }
-    if ((ret = mcd_configure(info->fd_mcd, mcd->board, info->mdm_name))
-        != E_ERR_SUCCESS)
-        goto out;
-
     info->wakeup_cfg = E_MDM_WAKEUP_UNKNOWN;
 
-    /* SSIC power on work around */
-    LOG_DEBUG("IPC ctrl link is %s", mdm_link->ctrl.device);
-    info->need_ssic_po_wa = (strstr(mdm_link->ctrl.device, "ssic") != NULL);
-    if (info->need_ssic_po_wa)
-        LOG_DEBUG("SSIC Power on sequence used!");
-
-    ASSERT((info->mdm_upgrade =
-                mdm_upgrade_init(tlvs, inst_id, dsda, mdm_info,
-                                 info->fl_conf.run.mdm_fw,
-                                 info->fl_conf.run.path)) != NULL);
-
-    ret = mdm_specific_init(info);
-
-    if (dsda)
-        info->shtdwn_allowed = false;
-    else
-        info->shtdwn_allowed = true;
+    /* @TODO: remove ME. W/A for DSDA */
+    if (!strcmp(mdm_info->core.name, "2230"))
+        info->delay_open = true;
 
 out:
     return ret;
@@ -221,19 +150,9 @@ out:
  * @return E_ERR_FAILED if mcdr init fails
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t modem_info_dispose(modem_info_t *info)
+void modem_info_dispose(modem_info_t *info)
 {
-    /* do not use ASSERT in dispose function */
-
-    if (info) {
-        if (info->fd_mcd != CLOSED_FD) {
-            close(info->fd_mcd);
-            info->fd_mcd = CLOSED_FD;
-        }
-        mdm_upgrade_dispose(info->mdm_upgrade);
-    }
-
-    return mdm_specific_dispose(info);
+    (void)info;
 }
 
 /**

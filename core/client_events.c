@@ -28,7 +28,8 @@
 #include "file.h"
 #include "logs.h"
 #include "modem_events.h"
-#include "modem_specific.h"
+#include "mdm_mcd.h"
+#include "mdm_fw.h"
 #include "property.h"
 #include "timer_events.h"
 #include "reset_escalation.h"
@@ -192,12 +193,12 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
     client_unset_request(mmgr->request.client, E_CNX_RESOURCE_RELEASED);
     /* the modem is off, then wake up the modem */
     LOG_DEBUG("wake up modem");
-    mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
-    set_mcd_poll_states(&mmgr->info);
+    mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_COREDUMP, true);
+
     mmgr->events.link_state = E_MDM_LINK_NONE;
 
-    if (E_ERR_SUCCESS != mdm_prepare(&mmgr->info)) {
-        LOG_ERROR("modem fw is corrupted. Declare modem OOS");
+    if (E_ERR_SUCCESS != mdm_flash_prepare(mmgr->flash)) {
+        LOG_ERROR("modem declared OOS");
         /* Set MMGR state to MDM_RESET to call the recovery module and
          * force modem recovery to OOS. By doing so, MMGR will turn off the
          * modem and declare the modem OOS. Clients will not be able to turn
@@ -206,20 +207,21 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         reset_modem(mmgr);
         ret = E_ERR_FAILED;
     } else {
-        if (mdm_flash_is_required(&mmgr->info))
-            mmgr->info.polled_states |= MDM_CTRL_STATE_FW_DOWNLOAD_READY;
+        if (mdm_flash_is_required(mmgr->flash))
+            mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_FW_DOWNLOAD_READY,
+                             false);
         else if (mmgr->info.ipc_ready_present)
-            mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-        set_mcd_poll_states(&mmgr->info);
+            mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_IPC_READY, false);
 
         /* For UART, the flashing shall be started before powering up the
          * modem. Otherwise, the flashing window will be missed. */
-        if ((mmgr->info.is_flashless) && (mmgr->info.mdm_link == E_LINK_UART))
-            mdm_flash_start(mmgr->mdm_flash);
+        if (mdm_flash_is_required(mmgr->flash) &&
+            (mmgr->info.mdm_link == E_LINK_UART))
+            mdm_flash_start(mmgr->flash);
 
-        if ((ret = mdm_up(&mmgr->info)) == E_ERR_SUCCESS) {
+        if ((ret = mdm_mcd_up(mmgr->mcd)) == E_ERR_SUCCESS) {
             if ((mmgr->info.mdm_link == E_LINK_USB) &&
-                mdm_flash_is_required(&mmgr->info))
+                mdm_flash_is_required(mmgr->flash))
                 set_mmgr_state(mmgr, E_MMGR_MDM_START);
             else
                 set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
@@ -227,7 +229,7 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
             mmgr->events.cli_req = E_CLI_REQ_NONE;
 
             recov_reinit(mmgr->reset);
-            if (!mdm_flash_is_required(&mmgr->info) &&
+            if (!mdm_flash_is_required(mmgr->flash) &&
                 mmgr->info.ipc_ready_present)
                 timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
 
@@ -451,8 +453,7 @@ static e_mmgr_errors_t request_ack_cold_reset(mmgr_data_t *mmgr)
     if (clients_has_ack_cold(mmgr->clients, E_MUTE)) {
         LOG_DEBUG("All clients agreed cold reset");
         if (mmgr->events.cli_req & E_CLI_REQ_PROD) {
-            /* backup nvm files from /config/telephony to /factory/telephony */
-            if (backup_prod_nvm(&mmgr->info) == E_ERR_SUCCESS)
+            if (E_ERR_SUCCESS == mdm_fw_backup_calib(mmgr->fw))
                 clients_inform_all(mmgr->clients,
                                    E_MMGR_RESPONSE_MODEM_BACKUP_PRODUCTION,
                                    NULL);

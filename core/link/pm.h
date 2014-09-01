@@ -24,14 +24,11 @@
 
 typedef void *pm_handle_t;
 
-pm_handle_t pm_init(e_link_t mdm_type, power_t *mdm_power, e_link_t cd_type,
-                    power_t *cd_power);
+pm_handle_t pm_init(e_link_t mdm_type, const power_t *mdm_power,
+                    e_link_t cd_type, const power_t *cd_power);
 e_mmgr_errors_t pm_dispose(pm_handle_t *h);
 
-e_mmgr_errors_t pm_on_mdm_flash(pm_handle_t *h);
 e_mmgr_errors_t pm_on_mdm_up(pm_handle_t *h);
-
-e_mmgr_errors_t pm_on_mdm_oos(pm_handle_t *h);
 
 e_mmgr_errors_t pm_on_mdm_cd(pm_handle_t *h);
 e_mmgr_errors_t pm_on_mdm_cd_complete(pm_handle_t *h);

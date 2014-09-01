@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE author [
+	<!ENTITY firmware SYSTEM "mmgr_fw_default.xml" >
+]>
+
 <mmgr_config>
+	&firmware;
 	<modem_link>
 		<flash>
 			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>
@@ -24,20 +30,6 @@
 		type="ioctl"
 		board="aob"
 	/>
-	<flashless>
-		<fw_backup
-			nvm_calib="/factory/telephony/mmgr2/calib.nvm"
-		/>
-		<fw_runtime
-			folder="/config/telephony/mmgr2"
-			mdm_fw="/config/telephony/mmgr2/modembinary.fls"
-			mdm_inj_fw="/config/telephony/mmgr2/injected.modembinary.fls"
-			nvm_static="/config/telephony/mmgr2/static.nvm"
-			nvm_dyn="/config/telephony/mmgr2/dynamic.nvm"
-			nvm_calib="/config/telephony/mmgr2/calib.nvm"
-			rnd="/config/telephony/mmgr2/rnd_cert.bin"
-		/>
-	</flashless>
 	<modem_comm>
 		<mux
 			frame_size="1509"

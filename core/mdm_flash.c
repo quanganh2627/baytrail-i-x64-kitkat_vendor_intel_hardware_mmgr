@@ -16,137 +16,373 @@
 **
 */
 
+#include <pthread.h>
+#include <stdlib.h>
+#include <openssl/md5.h>
+
 #define MMGR_FW_OPERATIONS
 #include "mdm_flash.h"
+
 #include "errors.h"
+#include "file.h"
+#include "folder.h"
 #include "logs.h"
-#include "modem_specific.h"
-#include "pm.h"
-#include <pthread.h>
-#include <unistd.h>
+#include "mdm_fw.h"
+#include "mdm_mup.h"
+#include "property.h"
+#include "tcs_config.h"
+#include "tty.h"
 
 #define WRITE 1
 #define READ 0
 
+#define MD5_HASH_SIZE 16
+#define HASH_SIZE (2 * MD5_HASH_SIZE + 1)
+
+#if HASH_SIZE > PROPERTY_VALUE_MAX
+#error "HASH_SIZE cannot exceed PROPERTY_VALUE_MAX"
+#endif
+
+typedef struct hash_property {
+    char key[PROPERTY_KEY_MAX];
+    char value[HASH_SIZE];
+} hash_property_t;
+
 typedef struct mdm_flash_ctx {
-    const modem_info_t *mdm_info;
+    mdm_mup_hdle_t mup;
+
+    const mdm_fw_hdle_t *fw;
     const secure_handle_t *secure;
     const bus_ev_hdle_t *bus_ev;
-    bool ch_hw_sw;
-    e_modem_fw_error_t result;
-    int fd_pipe[2];
-    pthread_t id;
-    pthread_mutex_t mtx;
+    const pm_handle_t *pm;
+
+    link_t link_ebl;
+    link_t link_fw;
+    bool flashless;
+
+    bool update;
+    bool flash_ongoing;
     int attempts;
+    e_modem_fw_error_t flash_err;
+    mdm_flash_upgrade_err_t upgrade_err;
+
+    pthread_t id;
+    int fd_pipe[2];
+
+    const char *fw_file;
+    /* @TODO: This should be removed once the MUP API is updated to package and
+     * push directly a modem fw */
+    const char *fw_packaged;
+
+    hash_property_t blob_hash;
+    hash_property_t cfg_hash;
 } mdm_flash_ctx_t;
 
-static e_modem_fw_error_t get_verdict(mdm_flash_ctx_t *ctx)
+static inline void mdm_flash_set_upgrade_err(mdm_flash_ctx_t *flash,
+                                             mdm_flash_upgrade_err_t upgrade_err)
 {
-    ASSERT(ctx != NULL);
-    pthread_mutex_lock(&ctx->mtx);
-    e_modem_fw_error_t result = ctx->result;
-    pthread_mutex_unlock(&ctx->mtx);
-    return result;
+    flash->upgrade_err |= upgrade_err;
 }
 
-static void set_verdict(mdm_flash_ctx_t *ctx, e_modem_fw_error_t result)
+static inline bool mdm_flash_is_property_equal(const char *key,
+                                               const char *value)
 {
-    ASSERT(ctx != NULL);
+    char read[PROPERTY_VALUE_MAX];
 
-    pthread_mutex_lock(&ctx->mtx);
-    ctx->result = result;
-    pthread_mutex_unlock(&ctx->mtx);
+    property_get_string(key, read);
+    return 0 == strcmp(read, value);
 }
 
-static void mdm_flash(mdm_flash_ctx_t *ctx)
+static inline bool mdm_flash_are_property_hashes_empty(mdm_flash_ctx_t *flash)
 {
-    e_modem_fw_error_t verdict = E_MODEM_FW_ERROR_UNSPECIFIED;
+    return mdm_flash_is_property_equal(flash->blob_hash.key, "")
+           && mdm_flash_is_property_equal(flash->cfg_hash.key, "");
+}
+
+static void mdm_flash_compute_cfg_hash(mdm_flash_ctx_t *flash, const char *fw)
+{
+    MD5_CTX md5_ctx;
+    unsigned char md5[MD5_HASH_SIZE];
+
+    ASSERT(flash != NULL);
+    ASSERT(fw != NULL);
+
+    const tlvs_info_t *tlvs = mdm_fw_get_tlvs(flash->fw);
+
+    MD5_Init(&md5_ctx);
+
+    for (size_t i = 0; i < tlvs->nb; i++)
+        MD5_Update(&md5_ctx, tlvs->tlv[i].filename,
+                   strlen(tlvs->tlv[i].filename));
+
+    MD5_Update(&md5_ctx, fw, strlen(fw));
+
+    MD5_Final(md5, &md5_ctx);
+
+    /* convert in hexa */
+    for (size_t i = 0; i < sizeof(md5); i++)
+        sprintf(&flash->cfg_hash.value[i * 2], "%02x", md5[i]);
+}
+
+/**
+ * Detects if both hashes (blob_hash and config_hash) have been updated.
+ *
+ * @param [in] flash module context
+ * @param [in] fw_path
+ *
+ * @return true if an update is detected
+ */
+static bool mdm_flash_is_hash_changed(mdm_flash_ctx_t *flash,
+                                      const char *fw_path)
+{
+    bool ret = false;
+
+    ASSERT(flash != NULL);
+
+    if (!mdm_flash_is_property_equal(flash->blob_hash.key,
+                                     flash->blob_hash.value)) {
+        LOG_INFO("Change in firmware folder detected");
+        ret = true;
+    }
+
+    mdm_flash_compute_cfg_hash(flash, fw_path);
+    if (!mdm_flash_is_property_equal(flash->cfg_hash.key,
+                                     flash->cfg_hash.value)) {
+        LOG_INFO("Change in configuration detected");
+        ret = true;
+    }
+
+    return ret;
+}
+
+static e_mmgr_errors_t mdm_flash_init_hash(mdm_flash_ctx_t *flash, int inst_id)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+
+    ASSERT(flash != NULL);
+
+    snprintf(flash->blob_hash.key, sizeof(flash->blob_hash.key),
+             "persist.sys.mmgr%d.blob_hash", inst_id);
+    snprintf(flash->cfg_hash.key, sizeof(flash->blob_hash.key),
+             "persist.sys.mmgr%d.config_hash", inst_id);
+
+    /* Blob hash is only updated during a phone update (OTA or fastboot). That
+     * is why, this value is read during the init */
+    if (E_ERR_SUCCESS != file_read(mdm_fw_get_blob_hash_path(flash->fw),
+                                   flash->blob_hash.value,
+                                   sizeof(flash->blob_hash.value))) {
+        LOG_ERROR("failed to read blob hash content");
+        ret = E_ERR_FAILED;
+    }
+
+    return ret;
+}
+
+static const char *mdm_flash_get_link_path(const link_t *link,
+                                           const bus_ev_hdle_t *bus)
+{
+    const char *path = NULL;
+
+    ASSERT(link != NULL);
+    ASSERT(bus != NULL);
+
+    if (E_LINK_USB == link->type)
+        path = bus_ev_get_flash_interface(bus);
+    else if (E_LINK_HSI == link->type)
+        path = link->hsi.device;
+    else if (E_LINK_UART == link->type)
+        path = link->uart.device;
+    /* @TODO: add SPI */
+
+    return path;
+}
+
+static void mdm_flash_push(mdm_flash_ctx_t *ctx)
+{
     char msg = 0;
-    const char *eb_port = NULL;
-    const char *fls_port = NULL;
 
     ASSERT(ctx != NULL);
+    ASSERT(ctx->fw_file != NULL);
+
+    const char *ebl_port = mdm_flash_get_link_path(&ctx->link_ebl, ctx->bus_ev);
+    const char *fw_port = mdm_flash_get_link_path(&ctx->link_fw, ctx->bus_ev);
 
     LOG_DEBUG("[SLAVE-FLASH] start modem flashing");
-    set_verdict(ctx, verdict);
+    mdm_mup_toggle_flashing(ctx->mup, true);
+    ctx->flash_err = mdm_mup_push_fw(ctx->mup, ctx->fw_file, ebl_port, fw_port);
+    mdm_mup_toggle_flashing(ctx->mup, false);
 
-    if (ctx->mdm_info->mdm_link == E_LINK_HSI) {
-        eb_port = "/dev/ttyIFX1";
-        fls_port = "/dev/ttyIFX1";
-    } else if (ctx->mdm_info->mdm_link == E_LINK_UART) {
-        eb_port = ctx->mdm_info->mdm_ipc_path;
-        fls_port = ctx->mdm_info->mdm_ipc_path; /* @TODO: set SPI here */
-    } else {
-        eb_port = bus_ev_get_flash_interface(ctx->bus_ev);
-        fls_port = bus_ev_get_flash_interface(ctx->bus_ev);
-    }
-
-    toggle_flashing_mode(ctx->mdm_info, true);
-    pm_on_mdm_flash(ctx->mdm_info->pm);
-
-    mdm_push_fw(ctx->mdm_info, eb_port, fls_port, ctx->ch_hw_sw, ctx->secure,
-                &verdict);
-
-    toggle_flashing_mode(ctx->mdm_info, false);
-
-    set_verdict(ctx, verdict);
-
-    if (!ctx->mdm_info->is_flashless && (verdict == E_MODEM_FW_SUCCEED)) {
-        /* delete the fls file after flashing ok the flashbased modem */
-        if (unlink(ctx->mdm_info->fl_conf.run.mdm_fw) != 0)
-            LOG_ERROR("couldn't delete %s:", ctx->mdm_info->fl_conf.run.mdm_fw);
-
-    }
     LOG_DEBUG("[SLAVE-FLASH] flashing done. Notify main thread");
     write(ctx->fd_pipe[WRITE], &msg, sizeof(msg));
 }
 
-/**
- * Returns modem flashing verdict
- *
- * @param [in] hdle modem flashing handle
- *
- * @return verdict
- */
-e_modem_fw_error_t mdm_flash_get_verdict(mdm_flash_handle_t *hdle)
+static void mdm_flash_remove_fw_packaged(mdm_flash_ctx_t *flash)
 {
-    return get_verdict((mdm_flash_ctx_t *)hdle);
+    ASSERT(flash != NULL);
+
+    if (flash->fw_file) {
+        if (flash->flashless)
+            unlink(flash->fw_file);
+        flash->fw_file = NULL;
+    }
 }
 
 /**
- * Initialize modem flashing module
- * The function will assert in case of error
+ * Returns modem flashing state
  *
- * @param [in] mdm_info
- * @param [in] secure
- * @param [in] bus_ev
+ * @param [in] hdle modem flashing handle
  *
- * @return a valid handle or NULL if modem is flashbased
+ * @return flashing state
  */
-mdm_flash_handle_t *mdm_flash_init(const modem_info_t *mdm_info,
-                                   const secure_handle_t *secure,
-                                   const bus_ev_hdle_t *bus_ev)
+e_modem_fw_error_t mdm_flash_get_flashing_err(mdm_flash_handle_t *hdle)
 {
-    mdm_flash_ctx_t *ctx = NULL;
-
-    ctx = calloc(1, sizeof(mdm_flash_ctx_t));
+    mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
 
     ASSERT(ctx != NULL);
 
-    ctx->mdm_info = mdm_info;
+    return ctx->flash_err;
+}
+
+/**
+ * Returns the provisioning error status
+ *
+ * @param hdle module handle
+ *
+ * @return mdm_flash_upgrade_err_t
+ */
+mdm_flash_upgrade_err_t mdm_flash_get_upgrade_err(const mdm_flash_handle_t *hdle)
+{
+    const mdm_flash_ctx_t *flash = (mdm_flash_ctx_t *)hdle;
+
+    ASSERT(flash != NULL);
+
+    return flash->upgrade_err;
+}
+
+/**
+ * Initializes modem flashing module. The function will assert in case of error
+ *
+ * @param [in] link flashing link
+ * @param [in] mdm_info modem info
+ * @param [in] fw pointer to fw module
+ * @param [in] secure pointer to secure module
+ * @param [in] bus_ev pointer to bus event module
+ * @param [in] pm pointer to power module
+ * @param [in] inst_id MMGR instance id
+ *
+ * @return a valid handle. Must be freed by calling mdm_flash_dispose
+ */
+mdm_flash_handle_t *mdm_flash_init(const link_t *link_ebl,
+                                   const link_t *link_fw,
+                                   const mdm_info_t *mdm_info,
+                                   const mdm_fw_hdle_t *fw,
+                                   const secure_handle_t *secure,
+                                   const bus_ev_hdle_t *bus_ev,
+                                   pm_handle_t *pm, int inst_id)
+{
+    bool channel_switching = true;
+    mdm_flash_ctx_t *ctx = calloc(1, sizeof(mdm_flash_ctx_t));
+
+    ASSERT(ctx != NULL);
+    ASSERT(link_ebl != NULL);
+    ASSERT(link_fw != NULL);
+    ASSERT(mdm_info != NULL);
+    ASSERT(fw != NULL);
+    ASSERT(secure != NULL);
+    ASSERT(bus_ev != NULL);
+    ASSERT(pm != NULL);
+
+    if ((E_LINK_UNKNOWN == link_ebl->type) ||
+        (E_LINK_UNKNOWN == link_fw->type)) {
+        LOG_ERROR("IPC type not handled");
+        mdm_flash_dispose((mdm_flash_handle_t *)ctx);
+        ctx = NULL;
+        goto out;
+    }
+
+    ctx->fw = fw;
+    ctx->pm = pm;
     ctx->secure = secure;
     ctx->bus_ev = bus_ev;
-    pthread_mutex_init(&ctx->mtx, NULL);
+    ctx->flashless = mdm_info->core.flashless;
+    ctx->upgrade_err = MDM_UPDATE_ERR_NONE;
+    ctx->flash_err = E_MODEM_FW_ERROR_UNSPECIFIED;
+    ctx->fw_packaged = mdm_fw_get_fw_package_path(fw);
+    ctx->link_ebl = *link_ebl;
+    ctx->link_fw = *link_fw;
+    ctx->flash_ongoing = false;
     ctx->attempts = 0;
 
-    if (mdm_info->mdm_link == E_LINK_HSI)
-        ctx->ch_hw_sw = true;
-    else if (mdm_info->mdm_link == E_LINK_USB)
-        ctx->ch_hw_sw = false;
+    if (link_ebl->type == E_LINK_USB)
+        channel_switching = false;
+
+    ctx->mup = mdm_mup_init(mdm_info->core.name,
+                            mdm_info->chs.ch->mmgr.mdm_custo.device,
+                            mdm_fw_get_rnd_path(fw), channel_switching,
+                            link_ebl->type, secure);
+    ASSERT(ctx->mup != NULL);
+
+    ASSERT(E_ERR_SUCCESS == mdm_flash_init_hash(ctx, inst_id));
+
+    /* After a factory reset, hash properties are empty. Dynamic NVM file and
+     * miu provisioning files must be deleted */
+    if (mdm_flash_are_property_hashes_empty(ctx)) {
+        LOG_DEBUG("factory reset detected");
+        errno = 0;
+        if (!unlink(mdm_fw_get_nvm_dyn_path(fw)))
+            LOG_INFO("dynamic NVM file removed");
+        else
+            LOG_DEBUG("dynamic file not removed: %s", strerror(errno));
+        if (!folder_remove(mdm_fw_dbg_get_miu_folder(fw)))
+            LOG_INFO("RnD provisioning folder removed");
+    }
 
     ASSERT(pipe(ctx->fd_pipe) == 0);
 
+out:
     return (mdm_flash_handle_t *)ctx;
+}
+
+/**
+ * Prepares modem fw. It packages the fw with the NVM data
+ *
+ * @param [in] hdle module handle
+ *
+ * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_FAILED otherwise
+ */
+e_mmgr_errors_t mdm_flash_prepare(mdm_flash_handle_t *hdle)
+{
+    e_mmgr_errors_t ret = E_ERR_FAILED;
+    mdm_flash_ctx_t *flash = (mdm_flash_ctx_t *)hdle;
+
+    ASSERT(flash != NULL);
+
+    flash->upgrade_err = MDM_UPDATE_ERR_NONE;
+
+    const char *input = mdm_fw_get_fw_path(flash->fw);
+    if (input) {
+        flash->update = mdm_flash_is_hash_changed(flash, input);
+        if (flash->flashless) {
+            mdm_mup_package(flash->mup, mdm_fw_get_runtime_path(flash->fw),
+                            input, flash->fw_packaged);
+            flash->fw_file = flash->fw_packaged;
+        } else {
+            flash->fw_file = input;
+        }
+
+        if (flash->fw_file && file_exist(flash->fw_file)) {
+            LOG_INFO("Modem firmware ready: %s", flash->fw_file);
+            ret = E_ERR_SUCCESS;
+        } else {
+            flash->fw_file = NULL;
+        }
+    }
+
+    if (E_ERR_SUCCESS != ret)
+        mdm_flash_set_upgrade_err(flash, MDM_UPDATE_ERR_FLASH);
+
+    return ret;
 }
 
 /**
@@ -159,14 +395,17 @@ mdm_flash_handle_t *mdm_flash_init(const modem_info_t *mdm_info,
  */
 e_mmgr_errors_t mdm_flash_start(mdm_flash_handle_t *hdle)
 {
-    mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
+    mdm_flash_ctx_t *flash = (mdm_flash_ctx_t *)hdle;
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
-    ASSERT(ctx != NULL);
+    ASSERT(flash != NULL);
 
-    if (!ctx->id) {
-        ctx->attempts++;
-        pthread_create(&ctx->id, NULL, (void *)mdm_flash, (void *)ctx);
+    if (!flash->flash_ongoing) {
+        flash->attempts++;
+        flash->flash_err = E_MODEM_FW_ERROR_UNSPECIFIED;
+
+        pthread_create(&flash->id, NULL, (void *)mdm_flash_push, (void *)flash);
+        flash->flash_ongoing = true;
     } else {
         ret = E_ERR_FAILED;
         LOG_ERROR("thread already running");
@@ -176,22 +415,76 @@ e_mmgr_errors_t mdm_flash_start(mdm_flash_handle_t *hdle)
 }
 
 /**
- * Finalize the flashing operation. It joins the thread
+ * Finalizes the flashing operation. It joins the thread
  *
  * @param [in] hdle flashing module
  *
  */
 void mdm_flash_finalize(mdm_flash_handle_t *hdle)
 {
-    mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
+    mdm_flash_ctx_t *flash = (mdm_flash_ctx_t *)hdle;
 
-    ASSERT(ctx != NULL);
+    ASSERT(flash != NULL);
 
-    if (ctx->id) {
-        pthread_join(ctx->id, NULL);
-        ctx->id = 0;
+    if (flash->flash_ongoing) {
+        pthread_join(flash->id, NULL);
+        flash->flash_ongoing = false;
+        mdm_flash_remove_fw_packaged(flash);
         LOG_DEBUG("[MASTER] flashing thread is stopped");
     }
+}
+
+/**
+ * Pushes all streamline updates
+ *
+ * @param [in] hdle module handle
+ * @param [out] err provides an NVM status
+ *
+ * @return NULL in case of success
+ * @return the TLV file creating the error. This pointer must NOT be freed
+ */
+const char *mdm_flash_streamline(mdm_flash_handle_t *hdle,
+                                 mmgr_cli_nvm_update_result_t *err)
+{
+    mdm_flash_ctx_t *flash = (mdm_flash_ctx_t *)hdle;
+    char *filename = NULL;
+
+    ASSERT(flash != NULL);
+    ASSERT(err != NULL);
+
+
+    if (!flash->update) {
+        LOG_INFO("No streamline update");
+        err->id = E_MODEM_NVM_NO_NVM_PATCH;
+        err->sub_error_code = E_MODEM_NVM_SUCCEED;
+    } else {
+        /* If this function is called after a flashing failure, we have a logic
+         * issue */
+        ASSERT(E_MODEM_FW_SUCCEED == mdm_flash_get_flashing_err(hdle));
+        const tlvs_info_t *tlvs = mdm_fw_get_tlvs(flash->fw);
+
+        for (size_t i = 0; i < tlvs->nb; i++) {
+            *err = mdm_mup_push_tlv(flash->mup, tlvs->tlv[i].filename);
+            if (E_MODEM_NVM_SUCCEED != err->id) {
+                mdm_flash_set_upgrade_err(flash, MDM_UPDATE_ERR_TLV);
+                filename = tlvs->tlv[i].filename;
+                break;
+            }
+        }
+        if (E_MODEM_NVM_SUCCEED == err->id)
+            LOG_INFO("Streamline updates successfully applied");
+        flash->update = false;
+    }
+
+    /* Properties are updated after a successful modem flashing and TLV
+     * application */
+    if ((E_MODEM_NVM_NO_NVM_PATCH == err->id) ||
+        (E_MODEM_NVM_SUCCEED == err->id)) {
+        property_set(flash->blob_hash.key, flash->blob_hash.value);
+        property_set(flash->cfg_hash.key, flash->cfg_hash.value);
+    }
+
+    return (const char *)filename;
 }
 
 /**
@@ -201,9 +494,9 @@ void mdm_flash_finalize(mdm_flash_handle_t *hdle)
  *
  * @return a valid fd or CLOSED_FD
  */
-int mdm_flash_get_fd(mdm_flash_handle_t *hdle)
+int mdm_flash_get_fd(const mdm_flash_handle_t *hdle)
 {
-    mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
+    const mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
     int fd = CLOSED_FD;
 
     if (ctx)
@@ -213,36 +506,33 @@ int mdm_flash_get_fd(mdm_flash_handle_t *hdle)
 }
 
 /**
- * Cancel flashing operation. This function will be called
+ * Cancels flashing operation. This function will be called
  * when the flashing operation reaches timeout.
  * Because it isn't possible to properly stop the flashing
  * thread, MMGR is stopped here in order to be re-launched by the
  * Android framework, because it is a persistent service.
  *
  * @param [in] hdle flashing module
- *
  */
 void mdm_flash_cancel(mdm_flash_handle_t *hdle)
 {
-    ASSERT(hdle != NULL);
-
+    mdm_flash_remove_fw_packaged((mdm_flash_ctx_t *)hdle);
     exit(EXIT_FAILURE);
 }
 
 /**
- * Free the module memory
+ * Frees the module memory
  *
  * @param [in] hdle flashing module
- *
  */
 void mdm_flash_dispose(mdm_flash_handle_t *hdle)
 {
     mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
 
     if (ctx) {
+        mdm_mup_dispose(ctx->mup);
         close(ctx->fd_pipe[READ]);
         close(ctx->fd_pipe[WRITE]);
-
         free(ctx);
     }
 }
@@ -254,9 +544,9 @@ void mdm_flash_dispose(mdm_flash_handle_t *hdle)
  *
  * @return the number of flashing attempts
  */
-int mdm_flash_get_attempts(mdm_flash_handle_t *hdle)
+int mdm_flash_get_attempts(const mdm_flash_handle_t *hdle)
 {
-    mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
+    const mdm_flash_ctx_t *ctx = (mdm_flash_ctx_t *)hdle;
 
     ASSERT(ctx != NULL);
 
@@ -264,10 +554,9 @@ int mdm_flash_get_attempts(mdm_flash_handle_t *hdle)
 }
 
 /**
- * Reset the number of flashing attempts
+ * Resets the number of flashing attempts
  *
  * @param [in] hdle flashing module
- *
  */
 void mdm_flash_reset_attempts(mdm_flash_handle_t *hdle)
 {
@@ -276,4 +565,20 @@ void mdm_flash_reset_attempts(mdm_flash_handle_t *hdle)
     ASSERT(ctx != NULL);
 
     ctx->attempts = 0;
+}
+
+/**
+ * Detects if a modem firmware upload is needed
+ *
+ * @param [in] hdle module handle
+ *
+ * @return true if a modem upload is needed
+ */
+bool mdm_flash_is_required(const mdm_flash_handle_t *hdle)
+{
+    mdm_flash_ctx_t *flash = (mdm_flash_ctx_t *)hdle;
+
+    ASSERT(flash != NULL);
+
+    return flash->flashless || flash->update;
 }

@@ -12,10 +12,9 @@ MY_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libtcs \
     $(TARGET_OUT_HEADERS)/libmcdr \
     $(TARGET_OUT_HEADERS)/telephony/libmmgr_utils \
-    $(TARGET_OUT_HEADERS)/telephony/libmmgr_cnx
-
-common_c_includes := \
+    $(TARGET_OUT_HEADERS)/telephony/libmmgr_cnx \
     external/libusb/libusb \
+    external/openssl/include \
 
 MY_SRC_FILES := $(call all-c-files-under, .)
 
@@ -28,7 +27,7 @@ COMMIT_ID := $(shell git --git-dir=$(MMGR_PATH)/.git \
 MY_C_FLAGS := -Wall -Werror -Wvla -DLIBUSBHOST \
     -DGIT_COMMIT_ID=\"$(COMMIT_ID)\" -DMODULE_NAME=\"MMGR\" -std=c99
 
-MY_SHARED_LIBS := libcutils libdl libusbhost liblog libpower
+MY_SHARED_LIBS := libcutils libdl libusbhost liblog libpower libcrypto
 MY_LOCAL_IMPORT := libtcs libmmgr_utils libmmgr_cnx
 
 #############################################
@@ -38,8 +37,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := $(MY_MODULE)
 LOCAL_MODULE_TAGS := $(MY_MODULE_TAGS)
 
-LOCAL_C_INCLUDES := $(common_c_includes)
-LOCAL_C_INCLUDES += $(MY_INCLUDES)
+LOCAL_C_INCLUDES := $(MY_INCLUDES)
 LOCAL_SRC_FILES :=  $(MY_SRC_FILES)
 LOCAL_CFLAGS := $(MY_C_FLAGS)
 
@@ -66,8 +64,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := $(addsuffix -gcov, $(MY_MODULE))
 LOCAL_MODULE_TAGS := $(MY_MODULE_TAGS)
 
-LOCAL_C_INCLUDES := $(common_c_includes)
-LOCAL_C_INCLUDES += $(MY_INCLUDES)
+LOCAL_C_INCLUDES := $(MY_INCLUDES)
 LOCAL_SRC_FILES :=  $(MY_SRC_FILES)
 LOCAL_CFLAGS := $(MY_C_FLAGS) -fprofile-arcs -ftest-coverage -DGOCV_MMGR
 

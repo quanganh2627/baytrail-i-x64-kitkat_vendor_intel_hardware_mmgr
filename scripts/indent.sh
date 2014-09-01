@@ -56,5 +56,5 @@ fi
 
 indent_c_code
 indent_java_code
-android_mk_remove_tabs
+#android_mk_remove_tabs
 xml_remove_spaces

@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE author [
+	<!ENTITY firmware SYSTEM "mmgr_fw_default.xml" >
+]>
+
 <mmgr_config>
+	&firmware;
 	<modem_link>
 		<flash>
 			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0x0716" vid="0x8087"/>
@@ -27,13 +33,6 @@
 		type="ioctl"
 		board="ngff"
 	/>
-	<flashless>
-		<fw_runtime
-			folder="/config/telephony"
-			mdm_fw="/config/telephony/modembinary.fls"
-			rnd="/config/telephony/rnd_cert.bin"
-		/>
-	</flashless>
 	<modem_comm>
 		<mux
 			frame_size="1509"

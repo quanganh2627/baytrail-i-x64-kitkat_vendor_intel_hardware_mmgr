@@ -29,7 +29,6 @@
 #include "logs.h"
 #include "property.h"
 #include "reset_escalation.h"
-#include "modem_specific.h"
 #include "tty.h"
 
 typedef struct reset_operation {
@@ -59,7 +58,7 @@ typedef struct reset_management {
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED otherwise
  */
-e_mmgr_errors_t platform_reboot(modem_info_t *unused)
+e_mmgr_errors_t platform_reboot(const mdm_mcd_hdle_t *unused)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -70,25 +69,6 @@ e_mmgr_errors_t platform_reboot(modem_info_t *unused)
     sync();
     broadcast_action(E_ACTION_INTENT_REBOOT);
     return ret;
-}
-
-/**
- * Perform a out of service operation
- *
- * @param [in] info modem info
- *
- * @return E_ERR_SUCCESS ALWAYS
- */
-e_mmgr_errors_t out_of_service(modem_info_t *info)
-{
-    if (info->shtdwn_allowed) {
-        mdm_down(info);
-    } else {
-        LOG_DEBUG("modem shutdown not allowed. Cold reset performed instead");
-        mdm_cold_reset(info);
-    }
-
-    return E_ERR_SUCCESS;
 }
 
 /**

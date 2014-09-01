@@ -23,7 +23,9 @@
 #include "bus_events.h"
 #include "client.h"
 #include "core_dump.h"
+#include "mdm_mcd.h"
 #include "mdm_flash.h"
+#include "mdm_fw.h"
 #include "mmgr.h"
 #include "modem_info.h"
 #include "bus_events.h"
@@ -74,7 +76,7 @@ typedef struct current_request {
 
 struct mmgr_data;
 typedef e_mmgr_errors_t (*event_hdler_t) (struct mmgr_data *mmgr);
-typedef e_mmgr_errors_t (*reset_mdm_op_t) (modem_info_t *modem_info);
+typedef e_mmgr_errors_t (*reset_mdm_op_t) (const mdm_mcd_hdle_t *hdle);
 
 typedef struct mmgr_data {
     int epollfd;
@@ -85,12 +87,14 @@ typedef struct mmgr_data {
     reset_handle_t *reset;
     clients_hdle_t *clients;
     timer_handle_t *timer;
-    mdm_flash_handle_t *mdm_flash;
     mcdr_handle_t *mcdr;
     modem_info_t info;
     mmgr_events_t events;
     current_request_t request;
     secure_handle_t *secure;
+    mdm_mcd_hdle_t *mcd;
+    mdm_flash_handle_t *flash;
+    mdm_fw_hdle_t *fw;
     /* functions handlers: */
     event_hdler_t hdler_client[E_MMGR_NUM][E_MMGR_NUM_REQUESTS];
     event_hdler_t hdler_pre_mdm[E_EL_NUMBER_OF];
@@ -100,7 +104,7 @@ typedef struct mmgr_data {
 e_mmgr_errors_t events_init(int nb_client, mmgr_data_t *mmgr);
 e_mmgr_errors_t events_dispose(mmgr_data_t *mmgr);
 
-e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id);
+e_mmgr_errors_t events_manager(mmgr_data_t *mmgr);
 e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id);
 void set_mmgr_state(mmgr_data_t *mmgr, e_mmgr_state_t state);
 

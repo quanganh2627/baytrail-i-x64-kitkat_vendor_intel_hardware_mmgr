@@ -27,12 +27,10 @@
 #include "at.h"
 #include "common.h"
 #include "errors.h"
-#include "mdm_flash.h"
 #include "file.h"
 #include "java_intent.h"
 #include "logs.h"
 #include "modem_events.h"
-#include "modem_specific.h"
 #include "mux.h"
 #include "security.h"
 #include "timer_events.h"
@@ -107,46 +105,34 @@ out:
  * Checks if the modem flashing has succeed and informs MMGR clients
  *
  * @param [in] mmgr
- * @param [in] verdict
  *
  * @return none
  */
-void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
+void inform_flash_err(const clients_hdle_t *clients,
+                      e_modem_fw_error_t flash_err, int attempts, long timer)
 {
-    mmgr_cli_fw_update_result_t fw_result = { .id = verdict };
     static const char *const ev_type = "TFT_STAT_FLASH";
 
-    ASSERT(mmgr != NULL);
+    ASSERT(clients != NULL);
 
-    clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
+    mmgr_cli_fw_update_result_t fw_result = { .id = flash_err };
+
+    clients_inform_all(clients, E_MMGR_RESPONSE_MODEM_FW_RESULT,
                        &fw_result);
 
     switch (fw_result.id) {
     case E_MODEM_FW_BAD_FAMILY: {
-        broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
-
         static const char *const msg = "Modem FW bad family";
         mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
         mmgr_cli_tft_event_t ev =
         { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+        clients_inform_all(clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
-        /* Set MMGR state to MDM_RESET to call the recovery module and
-         * force modem recovery to OOS. By doing so, MMGR will turn off the
-         * modem and declare the modem OOS. Clients will not be able to turn
-         * on the modem */
-        recov_force(mmgr->reset, E_FORCE_OOS);
-        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        broadcast_msg(E_MSG_INTENT_MODEM_FW_BAD_FAMILY);
         break;
     }
 
     case E_MODEM_FW_SUCCEED: {
-        set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
-        /* @TODO: fix that into flash_modem/modem_specific */
-        if (mmgr->info.mdm_link == E_LINK_USB)
-            timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-        timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-
         static const char *const msg = "Modem flashing succeed";
         mmgr_cli_tft_event_data_t data[] =
         { { strlen(msg), msg }, { 0, NULL }, { 0, NULL } };
@@ -157,16 +143,14 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
         if (data[1].value != NULL) {
             data[1].len = snprintf((char *)data[1].value,
                                    MMGR_CLI_MAX_TFT_EVENT_DATA_LEN, "%d",
-                                   mdm_flash_get_attempts(mmgr->mdm_flash));
+                                   attempts);
 
             data[2].value =
                 calloc(MMGR_CLI_MAX_TFT_EVENT_DATA_LEN, sizeof(char));
             if (data[2].value != NULL) {
                 data[2].len = snprintf((char *)data[2].value,
                                        MMGR_CLI_MAX_TFT_EVENT_DATA_LEN,
-                                       "%ld",
-                                       timer_get_value(mmgr->timer,
-                                                       E_TIMER_MDM_FLASHING));
+                                       "%ld", timer);
             } else {
                 LOG_DEBUG("Memory allocation failed for data 2. Data 2 not set.");
                 ev.num_data = 2;
@@ -177,8 +161,7 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
             ev.num_data = 1;
         }
 
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
-        mdm_flash_reset_attempts(mmgr->mdm_flash);
+        clients_inform_all(clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
         if (data[1].value != NULL)
             free((char *)data[1].value);
@@ -193,14 +176,7 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
         mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
         mmgr_cli_tft_event_t ev =
         { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
-
-        /* Set MMGR state to MDM_RESET to call the recovery module and
-         * force modem recovery to OOS. By doing so, MMGR will turn off the
-         * modem and declare the modem OOS. Clients will not be able to turn
-         * on the modem */
-        recov_force(mmgr->reset, E_FORCE_OOS);
-        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        clients_inform_all(clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
         break;
     }
 
@@ -210,55 +186,35 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
         mmgr_cli_tft_event_t ev =
         { E_EVENT_STATS, strlen(ev_type), ev_type, MMGR_CLI_TFT_AP_LOG_MASK, 1,
           data };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
-
-        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
-        break;
-    }
-
-    case E_MODEM_FW_READY_TIMEOUT: {
-        /* This error is already reported: "IPC ready not received" */
-        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        clients_inform_all(clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
         break;
     }
 
     case E_MODEM_FW_OUTDATED: {
-        broadcast_msg(E_MSG_INTENT_MODEM_FW_OUTDATED);
         static const char *const msg = "Modem FW outdated";
         mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
         mmgr_cli_tft_event_t ev =
         { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
-
-        /* Set MMGR state to MDM_RESET to call the recovery module and
-         * force modem recovery to OOS. By doing so, MMGR will turn off the
-         * modem and declare the modem OOS. Clients will not be able to turn
-         * on the modem */
-        recov_force(mmgr->reset, E_FORCE_OOS);
-        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        clients_inform_all(clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+        broadcast_msg(E_MSG_INTENT_MODEM_FW_OUTDATED);
         break;
     }
 
     case E_MODEM_FW_SECURITY_CORRUPTED: {
-        broadcast_msg(E_MSG_INTENT_MODEM_FW_SECURITY_CORRUPTED);
         static const char *const msg = "Modem FW security corrupted";
         mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
         mmgr_cli_tft_event_t ev =
         { E_EVENT_STATS, strlen(ev_type), ev_type, 0, 1, data };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
-
-        /* Set MMGR state to MDM_RESET to call the recovery module and
-         * force modem recovery to OOS. By doing so, MMGR will turn off the
-         * modem and declare the modem OOS. Clients will not be able to turn
-         * on the modem */
-        recov_force(mmgr->reset, E_FORCE_OOS);
-        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+        clients_inform_all(clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+        broadcast_msg(E_MSG_INTENT_MODEM_FW_SECURITY_CORRUPTED);
         break;
     }
 
+    case E_MODEM_FW_READY_TIMEOUT: {
     case E_MODEM_FW_NUM:
         /* nothing to do */
         break;
+    }
     }
 }
 
@@ -269,35 +225,33 @@ void flash_verdict(mmgr_data_t *mmgr, e_modem_fw_error_t verdict)
  *
  * @return none
  */
-void update_verdict(mmgr_data_t *mmgr)
+void inform_upgrade_err(clients_hdle_t *clients, mdm_flash_upgrade_err_t err)
 {
-    ASSERT(mmgr != NULL);
+    static const char *const ev_type = "TFT_MDM_UPDATE";
+    mmgr_cli_tft_event_data_t data[] = { { 0, NULL }, { 0, NULL } };
+    int elem_nb = 0;
 
-    if (mmgr->info.upgrade_err) {
-        static const char *const ev_type = "TFT_MDM_UPDATE";
-        mmgr_cli_tft_event_data_t data[] = { { 0, NULL }, { 0, NULL } };
-        int elem_nb = 0;
+    ASSERT(clients != NULL);
 
-        if (mmgr->info.upgrade_err & MDM_UPGRADE_FLS_ERROR) {
-            broadcast_msg(E_MSG_INTENT_MODEM_FW_UPDATE_FAILURE);
-            data[elem_nb].value = "FLS UPDATE FAILURE";
-            data[elem_nb].len = strlen(data[elem_nb].value);
-            elem_nb++;
-        }
-
-        if (mmgr->info.upgrade_err & MDM_UPGRADE_TLV_ERROR) {
-            data[elem_nb].value = "TLV UPDATE FAILURE";
-            data[elem_nb].len = strlen(data[elem_nb].value);
-            elem_nb++;
-        }
-
-        mmgr_cli_tft_event_t ev =
-        { E_EVENT_ERROR, strlen(ev_type), ev_type, MMGR_CLI_TFT_AP_LOG_MASK,
-          elem_nb, data };
-        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+    if (err & MDM_UPDATE_ERR_FLASH) {
+        broadcast_msg(E_MSG_INTENT_MODEM_FW_UPDATE_FAILURE);
+        data[elem_nb].value = "FLS UPDATE FAILURE";
+        data[elem_nb].len = strlen(data[elem_nb].value);
+        elem_nb++;
     }
-}
 
+    if (err & MDM_UPDATE_ERR_TLV) {
+        data[elem_nb].value = "TLV UPDATE FAILURE";
+        data[elem_nb].len = strlen(data[elem_nb].value);
+        elem_nb++;
+    }
+
+    mmgr_cli_tft_event_t ev =
+    { E_EVENT_ERROR, strlen(ev_type), ev_type, MMGR_CLI_TFT_AP_LOG_MASK,
+      elem_nb, data };
+
+    clients_inform_all(clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+}
 
 /**
  * Apply TLV update. All TLV's available in the folder specified by TCS will be
@@ -305,58 +259,34 @@ void update_verdict(mmgr_data_t *mmgr)
  *
  * @param [in,out] mmgr mmgr context
  *
- * @return true if a TLV file has been applied
+ * @return true if all TLV files have been applied successfuly
  * @return false otherwise
  */
-static bool apply_tlv(mmgr_data_t *mmgr)
+static bool streamline(mmgr_data_t *mmgr)
 {
-    bool applied = false;
-    mmgr_cli_nvm_update_result_t nvm_result =
-    { .id = E_MODEM_NVM_ERROR_UNSPECIFIED };
-    static const char *const ev_type = "TFT_ERROR_TLV";
+    const char *filename = NULL;
+    mmgr_cli_nvm_update_result_t err;
 
     ASSERT(mmgr != NULL);
 
-    char *files[MAX_TLV + 1];
-    char *path = mdm_upgrade_get_tlv_path(mmgr->info.mdm_upgrade);
-    ASSERT(path != NULL);
+    if ((filename = mdm_flash_streamline(mmgr->flash, &err)) != NULL) {
+        static const char *const ev_type = "TFT_ERROR_TLV";
+        static const char *const msg = "TLV failure: failed to apply TLV";
+        mmgr_cli_tft_event_data_t data[] =
+        { { strlen(msg), msg }, { strlen(filename), filename } };
+        mmgr_cli_tft_event_t ev = { E_EVENT_ERROR, strlen(ev_type), ev_type,
+                                    MMGR_CLI_TFT_AP_LOG_MASK |
+                                    MMGR_CLI_TFT_BP_LOG_MASK,
+                                    2, data };
+        clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
 
-    int found = file_find(path, ".tlv", files, ARRAY_SIZE(files));
-    if (found <= 0) {
-        nvm_result.id = E_MODEM_NVM_NO_NVM_PATCH;
-        LOG_DEBUG("no TLV file found at %s; skipping nvm update", path);
-    } else {
-        ASSERT(found <= MAX_TLV);
-        for (int i = 0; i < found; i++) {
-            LOG_DEBUG("TLV file to apply: %s", files[i]);
-            if (E_ERR_SUCCESS !=
-                flash_modem_nvm(&mmgr->info, mmgr->info.mdm_custo_dlc,
-                                files[i], &nvm_result.id,
-                                &nvm_result.sub_error_code)) {
-                static const char *const msg =
-                    "TLV failure: failed to apply TLV";
-                LOG_ERROR("%s", msg);
-
-                mmgr_cli_tft_event_data_t data[] =
-                { { strlen(msg), msg }, { strlen(files[i]), files[i] } };
-                mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
-                                            strlen(ev_type), ev_type,
-                                            MMGR_CLI_TFT_AP_LOG_MASK |
-                                            MMGR_CLI_TFT_BP_LOG_MASK,
-                                            2, data };
-                clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT,
-                                   &ev);
-            } else {
-                applied = true;
-            }
-            free(files[i]);
-        }
+        recov_force(mmgr->reset, E_FORCE_OOS);
+        set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
     }
 
-    clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT,
-                       &nvm_result);
+    clients_inform_all(mmgr->clients, E_MMGR_RESPONSE_MODEM_NVM_RESULT, &err);
 
-    return applied;
+    return E_MODEM_NVM_SUCCEED == err.id;
 }
 
 static void core_dump_prepare(mmgr_data_t *mmgr)
@@ -385,9 +315,8 @@ void core_dump_finalize(mmgr_data_t *mmgr, e_core_dump_state_t state)
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
     notify_core_dump(mmgr->clients, mmgr->mcdr, state);
 
-    mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-    mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
-    set_mcd_poll_states(&mmgr->info);
+    mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_IPC_READY, false);
+    mdm_mcd_unregister(mmgr->mcd, MDM_CTRL_STATE_WARM_BOOT);
 
     if (mmgr->info.mdm_link == E_LINK_USB)
         mmgr->events.link_state = E_MDM_LINK_NONE;
@@ -607,13 +536,10 @@ static e_mmgr_errors_t update_modem_tty(mmgr_data_t *mmgr)
     ASSERT(mmgr != NULL);
 
     ret = tty_listen_fd(mmgr->epollfd, mmgr->fd_tty, EPOLLIN);
-    if (ret == E_ERR_SUCCESS) {
-        mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP | MDM_CTRL_STATE_OFF;
-        mmgr->info.polled_states |=
-            MDM_CTRL_STATE_WARM_BOOT | MDM_CTRL_STATE_COLD_BOOT;
-
-        ret = set_mcd_poll_states(&mmgr->info);
-    }
+    if (E_ERR_SUCCESS == ret)
+        ret = mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_COREDUMP |
+                               MDM_CTRL_STATE_OFF | MDM_CTRL_STATE_WARM_BOOT |
+                               MDM_CTRL_STATE_COLD_BOOT, true);
 
     return ret;
 }
@@ -651,7 +577,7 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
             broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
 
         if ((mmgr->info.mdm_link == E_LINK_USB) &&
-            mdm_flash_is_required(&mmgr->info))
+            mdm_flash_is_required(mmgr->flash))
             set_mmgr_state(mmgr, E_MMGR_MDM_START);
         else
             set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
@@ -733,9 +659,8 @@ e_mmgr_errors_t mdm_start_shtdwn(mmgr_data_t *mmgr)
 
     ASSERT(mmgr != NULL);
 
-    mmgr->info.polled_states = MDM_CTRL_STATE_WARM_BOOT |
-                               MDM_CTRL_STATE_COREDUMP;
-    set_mcd_poll_states(&mmgr->info);
+    mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_WARM_BOOT |
+                     MDM_CTRL_STATE_COREDUMP, true);
 
     tty_open(mmgr->info.shtdwn_dlc, &fd);
     if (fd < 0) {
@@ -757,7 +682,7 @@ e_mmgr_errors_t mdm_finalize_shtdwn(mmgr_data_t *mmgr)
     /* Reset state at this stage because we won't call recov_done anymore */
     recov_set_state(mmgr->reset, E_OPERATION_NONE);
     mdm_close_fds(mmgr);
-    return mdm_down(&mmgr->info);
+    return mdm_mcd_down(mmgr->mcd);
 }
 
 /**
@@ -774,6 +699,14 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 
     ASSERT(mmgr != NULL);
 
+    if ((level != E_EL_PLATFORM_REBOOT) &&
+        (level != E_EL_MODEM_OUT_OF_SERVICE)) {
+        if (E_ERR_SUCCESS != mdm_flash_prepare(mmgr->flash)) {
+            LOG_ERROR("modem firmware is corrupted");
+            recov_force(mmgr->reset, E_FORCE_OOS);
+        }
+    }
+
     /* Do pre-process operation */
     recov_start(mmgr->reset);
     level = recov_get_level(mmgr->reset);
@@ -785,38 +718,24 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 
     if ((level == E_EL_PLATFORM_REBOOT) || (level == E_EL_MODEM_OUT_OF_SERVICE))
         /* In PLATFORM_REBOOT or MODEM_OOS state, ignore MCD events */
-        mmgr->info.polled_states = 0;
+        mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_UNKNOWN, true);
     else
         /* Keep only CORE DUMP state */
-        mmgr->info.polled_states = MDM_CTRL_STATE_COREDUMP;
-    set_mcd_poll_states(&mmgr->info);
+        mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_COREDUMP, true);
     timer_stop_all(mmgr->timer);
 
     /* initialize modules */
     mdm_close_fds(mmgr);
-    if ((level != E_EL_PLATFORM_REBOOT) &&
-        (level != E_EL_MODEM_OUT_OF_SERVICE)) {
-        if (E_ERR_SUCCESS != mdm_prepare(&mmgr->info)) {
-            LOG_ERROR("modem fw is corrupted. Declare modem OOS");
-            /* Set MMGR state to MDM_RESET to call the recovery module and
-             * force modem recovery to OOS. By doing so, MMGR will turn off the
-             * modem and declare the modem OOS. Clients will not be able to turn
-             * on the modem */
-            recov_force(mmgr->reset, E_FORCE_OOS);
-            return reset_modem(mmgr);
-        }
-    }
 
-    if (!mmgr->info.need_ssic_po_wa)
-        /* restart modem */
-        mdm_prepare_link(&mmgr->info);
+    if (!mmgr->info.ssic_hack)
+        ctrl_on_mdm_flash(mmgr->info.ctrl);
 
     /* The level can change between the pre operation and the operation in a
      * specific case: if we are in PLATFORM_REBOOT state and we reached the
      * maximum allowed attempts */
     level = recov_get_level(mmgr->reset);
     ASSERT(mmgr->hdler_mdm[level] != NULL);
-    mmgr->hdler_mdm[level] (&mmgr->info);
+    mmgr->hdler_mdm[level] (mmgr->mcd);
 
     /* configure events handling */
     if ((level == E_EL_PLATFORM_REBOOT) || (level == E_EL_MODEM_OUT_OF_SERVICE))
@@ -824,8 +743,14 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
 
     recov_done(mmgr->reset);
 
-    mdm_subscribe_start_ev(&mmgr->info);
-    if (!mdm_flash_is_required(&mmgr->info) && mmgr->info.ipc_ready_present)
+    if (mdm_flash_is_required(mmgr->flash))
+        mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_FW_DOWNLOAD_READY |
+                         MDM_CTRL_STATE_COREDUMP, true);
+    else
+        mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_IPC_READY |
+                         MDM_CTRL_STATE_COREDUMP, true);
+
+    if (!mdm_flash_is_required(mmgr->flash) && mmgr->info.ipc_ready_present)
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
     if (mmgr->info.mdm_link == E_LINK_USB) {
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
@@ -848,10 +773,6 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     ASSERT(mmgr != NULL);
-
-    /* @TODO: remove me */
-    if (!strcmp(mmgr->info.mdm_name, "2230"))
-        sleep(2);
 
     ret = tty_open(mmgr->info.mdm_ipc_path, &mmgr->fd_tty);
     if (ret != E_ERR_SUCCESS) {
@@ -879,8 +800,6 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
     }
     set_mmgr_state(mmgr, E_MMGR_MDM_UP);
     update_modem_tty(mmgr);
-
-    return ret;
 
 out:
     return ret;
@@ -978,24 +897,22 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
     ASSERT(mmgr != NULL);
 
     if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS) {
-        if (apply_tlv(mmgr)) {
+        if (streamline(mmgr)) {
             clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_NFLUSH, NULL);
             timer_start(mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
-        }
-        else {
+        } else {
             ret = launch_secur(mmgr);
             clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
         }
 
-        LOG_DEBUG(
-            "Mmgr state:%d, Mmgr events state:%d, Mmgr events link state:%d",
-            mmgr->state, mmgr->events.state, mmgr->events.link_state);
+        LOG_DEBUG("state:%d, events state:%d, events link state:%d",
+                  mmgr->state, mmgr->events.state, mmgr->events.link_state);
 
         if (mmgr->mcdr != NULL) {
             if (mmgr->info.cd_generated != E_STATUS_NONE) {
-                LOG_INFO(
-                    "A Core dump was generated before last modem reset! CD Status:%s",
-                    get_core_dump_status_string(mmgr->info.cd_generated));
+                LOG_INFO("A Core dump was generated before last modem reset. "
+                         "CD Status:%s",
+                         get_core_dump_status_string(mmgr->info.cd_generated));
                 /* Request core dump logs */
                 if (mcdr_log_is_enabled(mmgr->mcdr)) {
                     ret = mdm_start_core_dump_logs(mmgr);
@@ -1021,41 +938,36 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
 e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    e_modem_events_type_t mcd_state;
 
     ASSERT(mmgr != NULL);
 
-    mdm_get_state(mmgr->info.fd_mcd, &mcd_state);
-
+    e_modem_events_type_t mcd_state = mdm_mcd_get_state(mmgr->mcd);
     if (mcd_state & E_EV_FW_DOWNLOAD_READY) {
         /* manage fw update request */
-        LOG_DEBUG("current state: E_EV_FW_DOWNLOAD_READY");
         mmgr->events.link_state |= E_MDM_LINK_FW_DL_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_IPC_READY;
-        mmgr->info.polled_states &= ~MDM_CTRL_STATE_FW_DOWNLOAD_READY;
-        mmgr->info.polled_states |= MDM_CTRL_STATE_IPC_READY;
-        set_mcd_poll_states(&mmgr->info);
+        mdm_mcd_unregister(mmgr->mcd, MDM_CTRL_STATE_FW_DOWNLOAD_READY);
 
         if (((mmgr->info.mdm_link == E_LINK_USB) &&
              mmgr->events.link_state & E_MDM_LINK_FLASH_READY) ||
             (mmgr->info.mdm_link == E_LINK_HSI)) {
-            ret = mdm_flash_start(mmgr->mdm_flash);
-            timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
+            if (E_ERR_SUCCESS == (ret = mdm_flash_start(mmgr->flash)))
+                timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
+            else
+                set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         }
     } else if (mcd_state & E_EV_IPC_READY) {
-        LOG_DEBUG("current state: E_EV_IPC_READY");
         timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         mmgr->events.link_state |= E_MDM_LINK_IPC_READY;
-        mmgr->info.polled_states &= ~MDM_CTRL_STATE_IPC_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_FW_DL_READY;
-        set_mcd_poll_states(&mmgr->info);
+        mdm_mcd_unregister(mmgr->mcd, MDM_CTRL_STATE_IPC_READY);
+
         if ((mmgr->state == E_MMGR_MDM_CONF_ONGOING) &&
             ((mmgr->info.mdm_link != E_LINK_USB) ||
              ((mmgr->info.mdm_link == E_LINK_USB) &&
               (mmgr->events.link_state & E_MDM_LINK_BB_READY))))
             ret = do_configure(mmgr);
     } else if (mcd_state & E_EV_CORE_DUMP) {
-        LOG_DEBUG("current state: E_EV_CORE_DUMP");
         set_mmgr_state(mmgr, E_MMGR_MDM_CORE_DUMP);
         timer_stop_all(mmgr->timer);
 
@@ -1065,8 +977,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         }
 
         mmgr->events.link_state |= E_MDM_LINK_CORE_DUMP_READY;
-        mmgr->info.polled_states &= ~MDM_CTRL_STATE_COREDUMP;
-        set_mcd_poll_states(&mmgr->info);
+        mdm_mcd_unregister(mmgr->mcd, MDM_CTRL_STATE_COREDUMP);
 
         LOG_DEBUG("start timer for core dump ready");
         timer_start(mmgr->timer, E_TIMER_CORE_DUMP_IPC_RESET);
@@ -1083,8 +994,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
     } else if (mcd_state & E_EV_MODEM_SELF_RESET) {
         /* Deregister to WARM boot event or MMGR will receive endlessly
          * this event */
-        mmgr->info.polled_states &= ~MDM_CTRL_STATE_WARM_BOOT;
-        set_mcd_poll_states(&mmgr->info);
+        mdm_mcd_unregister(mmgr->mcd, MDM_CTRL_STATE_WARM_BOOT);
 
         if (E_MMGR_MDM_CORE_DUMP == mmgr->state) {
             if (E_CD_SUCCEED != mcdr_get_result(mmgr->mcdr)) {
@@ -1149,8 +1059,10 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
         if ((mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) ||
             (!mmgr->info.ipc_ready_present)) {
-            timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
-            mdm_flash_start(mmgr->mdm_flash);
+            if (E_ERR_SUCCESS == (ret = mdm_flash_start(mmgr->flash)))
+                timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
+            else
+                set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         }
     } else if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_CD_READY) &&
                (mmgr->state == E_MMGR_MDM_CORE_DUMP)) {
@@ -1220,9 +1132,9 @@ e_mmgr_errors_t modem_events_init(mmgr_data_t *mmgr)
     mmgr->hdler_pre_mdm[E_EL_PLATFORM_REBOOT] = pre_platform_reboot;
     mmgr->hdler_pre_mdm[E_EL_MODEM_OUT_OF_SERVICE] = pre_modem_out_of_service;
 
-    mmgr->hdler_mdm[E_EL_MODEM_COLD_RESET] = mdm_cold_reset;
+    mmgr->hdler_mdm[E_EL_MODEM_COLD_RESET] = mdm_mcd_cold_reset;
     mmgr->hdler_mdm[E_EL_PLATFORM_REBOOT] = platform_reboot;
-    mmgr->hdler_mdm[E_EL_MODEM_OUT_OF_SERVICE] = out_of_service;
+    mmgr->hdler_mdm[E_EL_MODEM_OUT_OF_SERVICE] = mdm_mcd_off;
 
     return E_ERR_SUCCESS;
 }
