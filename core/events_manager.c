@@ -335,29 +335,24 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id)
             ret = security_event(mmgr);
             break;
         case E_EVENT_TIMEOUT: {
-            bool reset = false;
-            bool start_mdm_off = false;
-            bool finalize_mdm_off = false;
-            bool cd_ipc = false;
-            bool cancel_flashing = false;
-            bool stop_mcdr = false;
+            e_timer_mdm_action_t mdm_action = E_TIMER_NO_ACTION;
             bool core_dump_signal_hw_working = true;
 
             if (mmgr->state == E_MMGR_MDM_LINK_USB_DISC)
                 core_dump_signal_hw_working = false;
 
             ret = timer_event(mmgr->timer, mmgr->state,
-                              &reset, &start_mdm_off,
-                              &finalize_mdm_off, &cd_ipc,
-                              &cancel_flashing, &stop_mcdr,
-                              core_dump_signal_hw_working);
-            if (reset) {
+                              core_dump_signal_hw_working, &mdm_action);
+
+            if (mdm_action & E_TIMER_STREAMLINE) {
                 recov_force(mmgr->reset, E_FORCE_NO_COUNT);
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             }
-            if (cd_ipc)
+            if (mdm_action & E_TIMER_RESET)
+                set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
+            if (mdm_action & E_TIMER_CD_ERR)
                 ctrl_on_cd_ipc_failure(mmgr->info.ctrl);
-            if (cancel_flashing) {
+            if (mdm_action & E_TIMER_CANCEL_FLASHING) {
                 static const char *const msg = "Timeout during modem flashing. "
                                                "Operation cancelled";
                 static const char *const ev_type = "TFT_STAT_FLASH";
@@ -370,14 +365,14 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr, int inst_id)
                 mdm_flash_cancel(mmgr->mdm_flash);
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             }
-            if (stop_mcdr) {
+            if (mdm_action & E_TIMER_STOP_MCDR) {
                 mcdr_cancel(mmgr->mcdr);
                 core_dump_finalize(mmgr, E_CD_TIMEOUT);
                 flush_pipe(mcdr_get_fd(mmgr->mcdr));
             }
-            if (start_mdm_off) {
+            if (mdm_action & E_TIMER_START_MDM_OFF) {
                 mmgr->events.cli_req = E_CLI_REQ_OFF;
-            } else if (finalize_mdm_off) {
+            } else if (mdm_action & E_TIMER_FINALIZE_MDM_OFF) {
                 static const char *const msg = "Timeout during FMMO. Force "
                                                "modem shutdown";
                 static const char *const ev_type = "TFT_ERROR_MISC";

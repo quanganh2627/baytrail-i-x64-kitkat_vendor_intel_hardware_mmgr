@@ -169,37 +169,23 @@ e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type)
  *
  * @param [in] h timer module handle
  * @param [in] state current state of MMGR
- * @param [out] reset true if MMGR should reset the modem
- * @param [out] start_mdm_off true if MMGR should start the modem shutdown
- * @param [out] finalize_mdm_off true if MMGR should finalize the modem shutdown
- * @param [out] cd_err true if MMGR should restart cd IPC
- * @param [out] cancel_flashing flashing thread timeout. cancel the operation
- * @param [out] stop_mcdr stop mcdr thread.
  * @param [in] core_dump_signal_hw_working core dump hw signal is working or not
+ * @param [out] bitmap of e_timer_mdm_action_t type defined in timer_events.h
  * @return E_ERR_SUCCESS if successful
  */
 e_mmgr_errors_t timer_event(timer_handle_t *h, e_mmgr_state_t state,
-                            bool *reset, bool *start_mdm_off,
-                            bool *finalize_mdm_off, bool *cd_err,
-                            bool *cancel_flashing, bool *stop_mcdr,
-                            bool core_dump_signal_hw_working)
+                            bool core_dump_signal_hw_working,
+                            e_timer_mdm_action_t *action)
 {
     struct timespec cur;
     mmgr_timer_t *t = (mmgr_timer_t *)h;
     bool handled = false;
 
     ASSERT(t != NULL);
-    ASSERT(reset != NULL);
-    ASSERT(start_mdm_off != NULL);
-    ASSERT(finalize_mdm_off != NULL);
-    ASSERT(cd_err != NULL);
-    ASSERT(stop_mcdr != NULL);
+    ASSERT(action != NULL);
 
-    *reset = false;
-    *start_mdm_off = false;
-    *finalize_mdm_off = false;
-    *cd_err = false;
-    *stop_mcdr = false;
+    /* Reset modem action */
+    *action = E_TIMER_NO_ACTION;
 
     clock_gettime(CLOCK_BOOTTIME, &cur);
 
@@ -207,15 +193,14 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, e_mmgr_state_t state,
         handled = true;
         clients_has_ack_cold(t->clients, E_PRINT);
         timer_stop(h, E_TIMER_COLD_RESET_ACK);
-        *reset = true;
+        *action |= E_TIMER_RESET;
     }
 
     if (timer_is_elapsed(t, E_TIMER_MODEM_SHUTDOWN_ACK, &cur)) {
         handled = true;
         clients_has_ack_shtdwn(t->clients, E_PRINT);
         timer_stop(h, E_TIMER_MODEM_SHUTDOWN_ACK);
-        *reset = true;
-        *start_mdm_off = true;
+        *action |= E_TIMER_RESET | E_TIMER_START_MDM_OFF;
     }
 
     if (timer_is_elapsed(t, E_TIMER_WAIT_FOR_IPC_READY, &cur)) {
@@ -235,7 +220,7 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, e_mmgr_state_t state,
 
         handled = true;
         timer_stop(h, E_TIMER_WAIT_FOR_IPC_READY);
-        *reset = true;
+        *action |= E_TIMER_RESET;
     }
 
     if (timer_is_elapsed(t, E_TIMER_WAIT_FOR_BUS_READY, &cur)) {
@@ -256,27 +241,27 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, e_mmgr_state_t state,
 
         handled = true;
         timer_stop(h, E_TIMER_WAIT_FOR_BUS_READY);
-        *reset = true;
+        *action |= E_TIMER_RESET;
     }
 
     if (timer_is_elapsed(t, E_TIMER_REBOOT_MODEM_DELAY, &cur)) {
         handled = true;
         timer_stop(h, E_TIMER_REBOOT_MODEM_DELAY);
-        *reset = true;
+        *action |= E_TIMER_STREAMLINE;
     }
 
     if (timer_is_elapsed(t, E_TIMER_CORE_DUMP_IPC_RESET, &cur)) {
         handled = true;
         timer_stop(h, E_TIMER_CORE_DUMP_IPC_RESET);
         LOG_DEBUG("Timeout while waiting for core dump IPC. Reset IPC");
-        *cd_err = true;
+        *action |= E_TIMER_CD_ERR;
     }
 
     if (timer_is_elapsed(t, E_TIMER_WAIT_CORE_DUMP_READY, &cur)) {
         handled = true;
         LOG_DEBUG("timeout while waiting for core dump ipc. reset modem");
         timer_stop(h, E_TIMER_WAIT_CORE_DUMP_READY);
-        *reset = true;
+        *action |= E_TIMER_RESET;
 
         if (!core_dump_signal_hw_working) {
             /* core dump hw signal is neither present nor working,
@@ -293,19 +278,19 @@ e_mmgr_errors_t timer_event(timer_handle_t *h, e_mmgr_state_t state,
     if (timer_is_elapsed(t, E_TIMER_MDM_FLASHING, &cur)) {
         handled = true;
         timer_stop(h, E_TIMER_MDM_FLASHING);
-        *cancel_flashing = true;
+        *action |= E_TIMER_CANCEL_FLASHING;
     }
 
     if (timer_is_elapsed(t, E_TIMER_CORE_DUMP_READING, &cur)) {
         handled = true;
         timer_stop(h, E_TIMER_CORE_DUMP_READING);
-        *stop_mcdr = true;
+        *action |= E_TIMER_STOP_MCDR;
     }
 
     if (timer_is_elapsed(t, E_TIMER_FMMO, &cur)) {
         handled = true;
         timer_stop(h, E_TIMER_FMMO);
-        *finalize_mdm_off = true;
+        *action |= E_TIMER_FINALIZE_MDM_OFF;
     }
 
     if (!handled)

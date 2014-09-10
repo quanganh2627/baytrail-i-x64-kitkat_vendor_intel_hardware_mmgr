@@ -45,6 +45,27 @@ typedef enum e_timer_type {
     TIMER
 } e_timer_type_t;
 
+/* Defines for bitfield describing current context (up to 32 bits):
+ *    bit   value
+ *    0     reset: 1 if MMGR should reset the modem
+ *    1     start_mdm_off: 1 if MMGR should start the modem shutdown
+ *    2     finalize_mdm_off: 1 if MMGR should finalize the modem shutdown
+ *    3     cd_err: 1 if MMGR should restart cd IPC
+ *    4     cancel_flashing flashing thread timeout. 1 to cancel the operation
+ *    5     stop_mcdr: 1 to stop mcdr thread
+ *    6     streamline: 1 if tlv application is on going
+ */
+typedef enum  e_timer_mdm_action {
+    E_TIMER_NO_ACTION = 0x0,
+    E_TIMER_RESET = 0x1,
+    E_TIMER_START_MDM_OFF = 0x1 << 1,
+    E_TIMER_FINALIZE_MDM_OFF = 0x1 << 2,
+    E_TIMER_CD_ERR = 0x1 << 3,
+    E_TIMER_CANCEL_FLASHING = 0x1 << 4,
+    E_TIMER_STOP_MCDR = 0x1 << 5,
+    E_TIMER_STREAMLINE = 0x1 << 6
+} e_timer_mdm_action_t;
+
 timer_handle_t *timer_init(const mmgr_recovery_t *recov,
                            const mmgr_timings_t *timings,
                            const mcdr_info_t *mcdr,
@@ -54,10 +75,8 @@ e_mmgr_errors_t timer_dispose(timer_handle_t *h);
 e_mmgr_errors_t timer_start(timer_handle_t *h, e_timer_type_t type);
 e_mmgr_errors_t timer_stop(timer_handle_t *h, e_timer_type_t type);
 e_mmgr_errors_t timer_event(timer_handle_t *h, e_mmgr_state_t state,
-                            bool *reset, bool *start_mdm_off,
-                            bool *finalize_mdm_off, bool *cd_err,
-                            bool *cancel_flashing, bool *stop_mcdr,
-                            bool core_dump_signal_hw_working);
+                            bool core_dump_signal_hw_working,
+                            unsigned int *context);
 e_mmgr_errors_t timer_stop_all(timer_handle_t *h);
 
 int timer_get_timeout(timer_handle_t *h);
