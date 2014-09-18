@@ -754,7 +754,8 @@ e_mmgr_errors_t mdm_finalize_shtdwn(mmgr_data_t *mmgr)
 {
     ASSERT(mmgr != NULL);
     clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_DOWN, NULL);
-
+    /* Reset state at this stage because we won't call recov_done anymore */
+    recov_set_state(mmgr->reset, E_OPERATION_NONE);
     mdm_close_fds(mmgr);
     return mdm_down(&mmgr->info);
 }
