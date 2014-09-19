@@ -68,15 +68,16 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     /* MMGR -> Clients */
     public final static int STATUS_MODEM_DOWN = 0;
     public final static int STATUS_MODEM_UP = 1;
-    public final static int STATUS_MODEM_OUT_OF_SERVICE = 2;
+    public final static int STATUS_MODEM_NFLUSH = 2;
+    public final static int STATUS_MODEM_OUT_OF_SERVICE = 3;
 
-    public final static int NOTIFY_MODEM_COLD_RESET = 3;
-    public final static int NOTIFY_MODEM_SHUTDOWN = 4;
-    public final static int NOTIFY_PLATFORM_REBOOT = 5;
-    public final static int NOTIFY_MODEM_CORE_DUMP = 6;
+    public final static int NOTIFY_MODEM_COLD_RESET = 4;
+    public final static int NOTIFY_MODEM_SHUTDOWN = 5;
+    public final static int NOTIFY_PLATFORM_REBOOT = 6;
+    public final static int NOTIFY_MODEM_CORE_DUMP = 7;
 
-    public final static int NOTIFY_ACK = 7;
-    public final static int NOTIFY_NACK = 8;
+    public final static int NOTIFY_ACK = 8;
+    public final static int NOTIFY_NACK = 9;
 
     public LocalSocket clientSocket = null;
     public Handler handler = null;

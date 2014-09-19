@@ -23,6 +23,7 @@ public enum ModemStatus {
     DOWN(1),
     UP(2),
     DEAD(4),
+    NFLUSH(8),
     ALL(0xFF);
 
     private int value;

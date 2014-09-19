@@ -401,6 +401,8 @@ public class ModemStatusManager implements Callback {
                 case UP:
                     this.eventListener.onModemUp();
                     break;
+                case NFLUSH:
+                    break;
                 case DOWN:
                     this.eventListener.onModemDown();
                     break;

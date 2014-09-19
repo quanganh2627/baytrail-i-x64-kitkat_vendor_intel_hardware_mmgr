@@ -977,11 +977,14 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
     ASSERT(mmgr != NULL);
 
     if ((ret = configure_modem(mmgr)) == E_ERR_SUCCESS) {
-        if (apply_tlv(mmgr))
+        if (apply_tlv(mmgr)) {
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_NFLUSH, NULL);
             timer_start(mmgr->timer, E_TIMER_REBOOT_MODEM_DELAY);
-        else
+        }
+        else {
             ret = launch_secur(mmgr);
-        clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
+            clients_inform_all(mmgr->clients, E_MMGR_EVENT_MODEM_UP, NULL);
+        }
 
         LOG_DEBUG(
             "Mmgr state:%d, Mmgr events state:%d, Mmgr events link state:%d",
