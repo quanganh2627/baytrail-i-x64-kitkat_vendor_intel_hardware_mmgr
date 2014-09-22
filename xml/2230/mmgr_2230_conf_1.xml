@@ -66,6 +66,7 @@
 			protocol="ymodem"
 			folder="/logs/modemcrash/mmgr2"
 			timeout="180"
+			enable_cd_log="false"
 		/>
 		<link>
 			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>

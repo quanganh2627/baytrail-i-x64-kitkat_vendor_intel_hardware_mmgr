@@ -66,6 +66,7 @@
 			protocol="ymodem"
 			folder="/logs/modemcrash"
 			timeout="420"
+			enable_cd_log="false"
 		/>
 		<link>
 			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0xF000" vid="0x1519"/>

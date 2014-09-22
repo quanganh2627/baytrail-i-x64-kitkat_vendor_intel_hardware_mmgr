@@ -36,6 +36,7 @@
 			protocol="ymodem"
 			folder="/logs/modemcrash"
 			timeout="600"
+			enable_cd_log="false"
 		/>
 		<link>
 			<link_uart device="![CDATA[/dev/ttyMFD1]]" baudrate="3000000"/>

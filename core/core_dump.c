@@ -295,6 +295,25 @@ bool mcdr_is_enabled(mcdr_handle_t *h)
 }
 
 /**
+ * Returns true if core dump logs feature is enabled
+ *
+ * @param [in] h module handle
+ *
+ * @return false by default
+ * @return valid state otherwise
+ */
+bool mcdr_log_is_enabled(mcdr_handle_t *h)
+{
+    bool enable = false;
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
+
+    if (ctx)
+        enable = ctx->data.mcdr_info.gnl.enable_cd_log;
+
+    return enable;
+}
+
+/**
  * Return core dump retrieval operation status
  *
  * @param [in] h module handle

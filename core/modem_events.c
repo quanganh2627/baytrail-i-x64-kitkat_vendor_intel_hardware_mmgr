@@ -997,9 +997,11 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
                     "A Core dump was generated before last modem reset! CD Status:%s",
                     get_core_dump_status_string(mmgr->info.cd_generated));
                 /* Request core dump logs */
-                ret = mdm_start_core_dump_logs(mmgr);
-                if (ret != E_ERR_SUCCESS)
-                    LOG_ERROR("ERROR creating core dump log file.");
+                if (mcdr_log_is_enabled(mmgr->mcdr)) {
+                    ret = mdm_start_core_dump_logs(mmgr);
+                    if (ret != E_ERR_SUCCESS)
+                        LOG_ERROR("ERROR creating core dump log file.");
+                }
             }
         }
         pm_on_mdm_up(mmgr->info.pm);

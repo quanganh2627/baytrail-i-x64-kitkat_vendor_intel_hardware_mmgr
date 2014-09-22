@@ -41,6 +41,7 @@ const char *mcdr_get_path(mcdr_handle_t *h);
 const char *mcdr_get_filename(mcdr_handle_t *h);
 const char *mcdr_get_error_reason(mcdr_handle_t *h);
 bool mcdr_is_enabled(mcdr_handle_t *h);
+bool mcdr_log_is_enabled(mcdr_handle_t *h);
 e_core_dump_state_t mcdr_get_result(mcdr_handle_t *h);
 
 #endif                          /* __CORE_DUMP_HEADER__ */
