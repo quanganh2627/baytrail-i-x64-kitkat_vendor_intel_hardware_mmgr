@@ -29,6 +29,7 @@ typedef struct mmgr_mcd_ctx {
     int fd;
     bool ssic_hack;
     bool off_allowed;
+    bool flashless;
     int filter;
     pm_handle_t *pm;
     ctrl_handle_t *ctrl;
@@ -163,6 +164,12 @@ e_mmgr_errors_t mdm_mcd_up(const mdm_mcd_hdle_t *hdle)
             if (ioctl(mcd->fd, MDM_CTRL_POWER_ON)) {
                 LOG_ERROR("failed to power on the modem: %s", strerror(errno));
                 ret = E_ERR_FAILED;
+            }
+            /* W/A: For flashbased modem, the flashing window is missed after
+             * a power on sequence. A cold reset is needed */
+            if (!mcd->flashless) {
+                sleep(1);
+                ret = mdm_mcd_cold_reset((mdm_mcd_hdle_t *)mcd);
             }
         } else {
             ret = mdm_mcd_cold_reset((mdm_mcd_hdle_t *)mcd);
@@ -402,6 +409,7 @@ mdm_mcd_hdle_t *mdm_mcd_init(const mmgr_mcd_t *mcd_cfg,
         mcd->ctrl = ctrl;
         mcd->off_allowed = off_allowed;
         mcd->ssic_hack = ssic_hack;
+        mcd->flashless = mdm_core->flashless;
 
         mcd->filter = MDM_CTRL_STATE_COREDUMP;
         mdm_mcd_update_filter(mcd);
