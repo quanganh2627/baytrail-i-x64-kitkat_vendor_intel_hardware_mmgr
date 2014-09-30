@@ -25,11 +25,6 @@
 #define FAKE_CD_REASON "(fake reason)"
 #define FAKE_EVENTS_BUILD_TYPE "eng"
 
-/* persistent android property to count the platform reboot.
- * NB: The key length can't exceed PROPERTY_KEY_MAX */
-#define PLATFORM_REBOOT_KEY "persist.service.mmgr.reboot"
-#define PROPERTY_BUILD_TYPE "ro.build.type"
-
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*a))
 
 #endif /* __MMGR_COMMON_DATA_HEADER__ */

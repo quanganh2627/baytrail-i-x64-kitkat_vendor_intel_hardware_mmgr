@@ -22,6 +22,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <semaphore.h>
+#include "key.h"
 #include "logs.h"
 #include "mmgr.h"
 #include "mmgr_cli.h"
@@ -49,6 +50,8 @@ typedef struct test_cfg {
     int reboot;
     int reset_escalation_delay;
     char shtdwn_dlc[PATH_MAX];
+    char *key_reboot;
+    char build_type[PROPERTY_VALUE_MAX];
 } test_cfg_t;
 
 typedef struct monkey_ctx {

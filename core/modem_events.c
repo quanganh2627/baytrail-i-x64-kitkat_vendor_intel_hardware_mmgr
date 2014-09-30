@@ -600,7 +600,7 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
  */
 static e_mmgr_errors_t pre_platform_reboot(mmgr_data_t *mmgr)
 {
-    int reboot_counter = recov_get_reboot();
+    int reboot_counter = recov_get_reboot(mmgr->reset);
 
     ASSERT(mmgr != NULL);
 
@@ -611,7 +611,7 @@ static e_mmgr_errors_t pre_platform_reboot(mmgr_data_t *mmgr)
         recov_next(mmgr->reset);
         pre_modem_out_of_service(mmgr);
     } else {
-        recov_set_reboot(++reboot_counter);
+        recov_set_reboot(mmgr->reset, ++reboot_counter);
 
         clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_PLATFORM_REBOOT, NULL);
         broadcast_msg(E_MSG_INTENT_PLATFORM_REBOOT);

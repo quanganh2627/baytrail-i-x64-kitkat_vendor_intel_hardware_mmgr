@@ -985,16 +985,11 @@ out:
     return ret;
 }
 
-static bool is_fake_events_allowed(void)
+static bool is_fake_events_allowed(test_data_t *test)
 {
-    char build_type[PROPERTY_VALUE_MAX];
-    bool answer = false;
+    ASSERT(test != NULL);
 
-    property_get_string(PROPERTY_BUILD_TYPE, build_type);
-    if (strncmp(build_type, FAKE_EVENTS_BUILD_TYPE, PROPERTY_VALUE_MAX) == 0)
-        answer = true;
-
-    return answer;
+    return strcmp(test->cfg.build_type, FAKE_EVENTS_BUILD_TYPE) == 0;
 }
 
 e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
@@ -1010,7 +1005,7 @@ e_mmgr_errors_t request_fake_ev(test_data_t *test, e_mmgr_requests_t id,
 
     err = mmgr_cli_send_msg(test->lib, &request);
 
-    if (!is_fake_events_allowed()) {
+    if (!is_fake_events_allowed(test)) {
         if (err == E_ERR_CLI_SUCCEED) {
             LOG_ERROR("fake request APPROVED in production");
         } else {

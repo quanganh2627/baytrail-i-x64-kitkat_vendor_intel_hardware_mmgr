@@ -23,6 +23,7 @@
 #include "bus_events.h"
 #include "client.h"
 #include "core_dump.h"
+#include "key.h"
 #include "mdm_mcd.h"
 #include "mdm_flash.h"
 #include "mdm_fw.h"
@@ -95,6 +96,7 @@ typedef struct mmgr_data {
     mdm_mcd_hdle_t *mcd;
     mdm_flash_handle_t *flash;
     mdm_fw_hdle_t *fw;
+    key_hdle_t *keys;
     /* functions handlers: */
     event_hdler_t hdler_client[E_MMGR_NUM][E_MMGR_NUM_REQUESTS];
     event_hdler_t hdler_pre_mdm[E_EL_NUMBER_OF];

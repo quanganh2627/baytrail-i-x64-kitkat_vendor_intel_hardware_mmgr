@@ -243,7 +243,7 @@ e_mmgr_errors_t full_recovery(test_data_t *test)
     }
 
     printf("\nCheck Reboot mechanism\n");
-    property_get_int(PLATFORM_REBOOT_KEY, &reboot);
+    property_get_int(test->cfg.key_reboot, &reboot);
     if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED) {
         ret = E_ERR_FAILED;
         goto out;
@@ -359,7 +359,7 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
 
     ASSERT(test != NULL);
 
-    property_set_int(PLATFORM_REBOOT_KEY, 123);
+    property_set_int(test->cfg.key_reboot, 123);
     LOG_DEBUG("waiting during %ds. Please, do not use your phone",
               test->cfg.reset_escalation_delay + 1);
     sleep(test->cfg.reset_escalation_delay + 1);
@@ -372,7 +372,7 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
                                   E_MMGR_EVENT_MODEM_UP);
 
     if (ret == E_ERR_SUCCESS) {
-        property_get_int(PLATFORM_REBOOT_KEY, &counter);
+        property_get_int(test->cfg.key_reboot, &counter);
         if (counter != 0) {
             LOG_DEBUG("reset escalation not reseted");
             ret = E_ERR_FAILED;

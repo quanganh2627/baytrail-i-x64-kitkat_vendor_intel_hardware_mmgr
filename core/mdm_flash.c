@@ -44,7 +44,7 @@
 #endif
 
 typedef struct hash_property {
-    char key[PROPERTY_KEY_MAX];
+    const char *key;
     char value[HASH_SIZE];
 } hash_property_t;
 
@@ -155,16 +155,16 @@ static bool mdm_flash_is_hash_changed(mdm_flash_ctx_t *flash,
     return ret;
 }
 
-static e_mmgr_errors_t mdm_flash_init_hash(mdm_flash_ctx_t *flash, int inst_id)
+static e_mmgr_errors_t mdm_flash_init_hash(mdm_flash_ctx_t *flash,
+                                           const key_hdle_t *keys)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
     ASSERT(flash != NULL);
+    ASSERT(keys != NULL);
 
-    snprintf(flash->blob_hash.key, sizeof(flash->blob_hash.key),
-             "persist.sys.mmgr%d.blob_hash", inst_id);
-    snprintf(flash->cfg_hash.key, sizeof(flash->blob_hash.key),
-             "persist.sys.mmgr%d.config_hash", inst_id);
+    flash->blob_hash.key = key_get_blob(keys);
+    flash->cfg_hash.key = key_get_cfg(keys);
 
     /* Blob hash is only updated during a phone update (OTA or fastboot). That
      * is why, this value is read during the init */
@@ -268,7 +268,6 @@ mdm_flash_upgrade_err_t mdm_flash_get_upgrade_err(const mdm_flash_handle_t *hdle
  * @param [in] secure pointer to secure module
  * @param [in] bus_ev pointer to bus event module
  * @param [in] pm pointer to power module
- * @param [in] inst_id MMGR instance id
  *
  * @return a valid handle. Must be freed by calling mdm_flash_dispose
  */
@@ -278,7 +277,8 @@ mdm_flash_handle_t *mdm_flash_init(const link_t *link_ebl,
                                    const mdm_fw_hdle_t *fw,
                                    const secure_handle_t *secure,
                                    const bus_ev_hdle_t *bus_ev,
-                                   pm_handle_t *pm, int inst_id)
+                                   const key_hdle_t *keys,
+                                   pm_handle_t *pm)
 {
     bool channel_switching = true;
     mdm_flash_ctx_t *ctx = calloc(1, sizeof(mdm_flash_ctx_t));
@@ -291,6 +291,7 @@ mdm_flash_handle_t *mdm_flash_init(const link_t *link_ebl,
     ASSERT(secure != NULL);
     ASSERT(bus_ev != NULL);
     ASSERT(pm != NULL);
+    ASSERT(keys != NULL);
 
     if ((E_LINK_UNKNOWN == link_ebl->type) ||
         (E_LINK_UNKNOWN == link_fw->type)) {
@@ -322,7 +323,7 @@ mdm_flash_handle_t *mdm_flash_init(const link_t *link_ebl,
                             link_ebl->type, secure);
     ASSERT(ctx->mup != NULL);
 
-    ASSERT(E_ERR_SUCCESS == mdm_flash_init_hash(ctx, inst_id));
+    ASSERT(E_ERR_SUCCESS == mdm_flash_init_hash(ctx, keys));
 
     /* After a factory reset, hash properties are empty. Dynamic NVM file and
      * miu provisioning files must be deleted */

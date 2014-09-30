@@ -26,6 +26,7 @@
 #include "common.h"
 #include "errors.h"
 #include "file.h"
+#include "key.h"
 #include "logs.h"
 #include "modem_events.h"
 #include "mdm_mcd.h"
@@ -837,9 +838,7 @@ e_mmgr_errors_t client_events_init(int nb_client, mmgr_data_t *mmgr)
         goto out;
     }
 
-    /* NB: Never accept client request during MDM_RESET or MDM_CONF_ONGOING
-     * event */
-    property_get_string(PROPERTY_BUILD_TYPE, build_type);
+    property_get_string(key_get_build_type(mmgr->keys), build_type);
     mmgr->events.cli_req = E_CLI_REQ_NONE;
 
     /* Only enable fake requests for eng build */

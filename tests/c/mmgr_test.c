@@ -100,49 +100,53 @@ enum {
  */
 static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg, int id)
 {
-    tcs_handle_t *h = NULL;
+    tcs_handle_t *tcs = tcs_init();
     e_mmgr_errors_t ret = E_ERR_FAILED;
+    key_hdle_t *keys = key_init(id);
 
-    h = tcs_init();
-    if (h) {
-        tcs_cfg_t *tcs_cfg = tcs_get_config(h);
-        ASSERT(tcs_cfg != NULL);
-        ASSERT(tcs_cfg->nb >= (size_t)id);
-        ASSERT(tcs_cfg->mdm != NULL);
+    ASSERT(cfg != NULL);
+    ASSERT(tcs != NULL);
 
-        mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(h, &tcs_cfg->mdm[id]);
-        ASSERT(mmgr_cfg != NULL);
+    tcs_cfg_t *tcs_cfg = tcs_get_config(tcs);
 
-        cfg->cold_reset = mmgr_cfg->recov.cold_reset;
-        cfg->reboot = mmgr_cfg->recov.reboot;
-        cfg->reset_escalation_delay = mmgr_cfg->recov.reset_delay;
-        strncpy(cfg->shtdwn_dlc,
-                tcs_cfg->mdm[id].chs.ch[0].mmgr.shutdown.device,
-                sizeof(cfg->shtdwn_dlc) - 1);
-        cfg->shtdwn_dlc[sizeof(cfg->shtdwn_dlc) - 1] = '\0';
+    ASSERT(tcs_cfg != NULL);
+    ASSERT(tcs_cfg->nb >= (size_t)id);
+    ASSERT(tcs_cfg->mdm != NULL);
+    ASSERT(keys != NULL);
 
-        cfg->timeout_cd_detection = MMGR_DELAY +
-                                    mmgr_cfg->timings.cd_ipc_ready;
-        cfg->timeout_cd_complete = mmgr_cfg->mcdr.gnl.timeout;
-        cfg->timeout_mdm_dwn = mmgr_cfg->recov.cold_timeout +
-                               MMGR_DELAY;
-        /* After a modem recovery request, the modem should be up after:
-         * - MMGR_DELAY: MMGR delay to take into account the request
-         * - MMGR client timeout to acknowledge the reset
-         * - IPC READY: modem boot
-         * - modem configuration : #3s */
-        cfg->timeout_mdm_up = MMGR_DELAY + MDM_CONFIGURATION +
-                              mmgr_cfg->recov.cold_timeout +
-                              mmgr_cfg->timings.ipc_ready;
+    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(tcs, &tcs_cfg->mdm[id]);
+    ASSERT(mmgr_cfg != NULL);
 
-        if (tcs_cfg->mdm[id].core.flashless)
-            cfg->timeout_mdm_up += mmgr_cfg->timings.mdm_flash;
+    cfg->cold_reset = mmgr_cfg->recov.cold_reset;
+    cfg->reboot = mmgr_cfg->recov.reboot;
+    cfg->reset_escalation_delay = mmgr_cfg->recov.reset_delay;
+    snprintf(cfg->shtdwn_dlc, sizeof(cfg->shtdwn_dlc), "%s",
+             tcs_cfg->mdm[id].chs.ch[0].mmgr.shutdown.device);
 
-        ret = E_ERR_SUCCESS;
-    }
+    cfg->timeout_cd_detection = MMGR_DELAY + mmgr_cfg->timings.cd_ipc_ready;
+    cfg->timeout_cd_complete = mmgr_cfg->mcdr.gnl.timeout;
+    cfg->timeout_mdm_dwn = mmgr_cfg->recov.cold_timeout + MMGR_DELAY;
+    /* After a modem recovery request, the modem should be up after:
+     * - MMGR_DELAY: MMGR delay to take into account the request
+     * - MMGR client timeout to acknowledge the reset
+     * - IPC READY: modem boot
+     * - modem configuration : #3s */
+    cfg->timeout_mdm_up = MMGR_DELAY + MDM_CONFIGURATION +
+                          mmgr_cfg->recov.cold_timeout +
+                          mmgr_cfg->timings.ipc_ready;
 
-    if (h && tcs_dispose(h))
+    if (tcs_cfg->mdm[id].core.flashless)
+        cfg->timeout_mdm_up += mmgr_cfg->timings.mdm_flash;
+
+    property_get_string(key_get_build_type(keys), cfg->build_type);
+    cfg->key_reboot = strdup(key_get_reboot_counter(keys));
+    key_dispose(keys);
+
+    if (tcs_dispose(tcs))
         ret = E_ERR_FAILED;
+    else
+        ret = E_ERR_SUCCESS;
+
     return ret;
 }
 
@@ -218,11 +222,12 @@ e_mmgr_errors_t run_test(test_case_t *test, int id, const char *option_string)
     }
     printf(PRINT_TEST, test->desc, state[result]);
 
+out:
+    free(test_data.cfg.key_reboot);
     ret = cleanup_client_library(&test_data);
     if (ret != E_ERR_SUCCESS)
         LOG_ERROR("failed to disconnect properly the client");
 
-out:
     LOG_DEBUG("end");
     return ret;
 }

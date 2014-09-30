@@ -23,6 +23,7 @@
 #include "errors.h"
 #include "logs.h"
 #include "file.h"
+#include "key.h"
 #include "client_events.h"
 #include "events_manager.h"
 #include "modem_events.h"
@@ -40,11 +41,6 @@
     "-v\t\t: show "MODULE_NAME " version\n" \
     "-i\t\t: specify instance number\n" \
 
-#define TEL_STACK_PROPERTY "persist.service.telephony.off"
-#define AMTL_PROPERTY "service.amtl.config"
-#define AMTL2_PROPERTY "service.amtl.config2"
-#define ENCRYPTION_PROPERTY "ro.crypto.state"
-#define MMGR_FACTORY_RESET_PROPERTY "persist.sys.mmgr.factory_reset"
 
 /* global values used to cleanup */
 static mmgr_data_t *g_mmgr = NULL;
@@ -68,6 +64,7 @@ static void cleanup(void)
     mdm_mcd_dispose(g_mmgr->mcd);
     mdm_flash_dispose(g_mmgr->flash);
     mdm_fw_dispose(g_mmgr->fw);
+    key_dispose(g_mmgr->keys);
     LOG_VERBOSE("Exiting");
 }
 
@@ -127,27 +124,28 @@ end_set_signal_handler:
  * to use
  *
  * @param [in] cfg TCS configuration
- * @param [in] id modem id in TCS
+ * @param [in] keys
+ * @param [in] mdm_id modem id in TCS
  *
  */
-static void set_amtl_cfg(tcs_cfg_t *cfg, int id)
+static void set_amtl_cfg(tcs_cfg_t *cfg, const key_hdle_t *keys, size_t mdm_id)
 {
-    char platform[PROPERTY_VALUE_MAX] = { "" };
-    char amtl[PROPERTY_VALUE_MAX] = { "" };
-    const char *property = NULL;
+    char amtl_cfg[PROPERTY_VALUE_MAX] = { "" };
 
-    if (id == 0)
-        property = AMTL_PROPERTY;
-    else
-        property = AMTL2_PROPERTY;
+    ASSERT(cfg != NULL);
+    ASSERT(keys != NULL);
 
-    property_get_string(property, amtl);
-    if (amtl[0] == '\0') {
+    const char *amtl_key = key_get_amtl(keys);
+
+    property_get_string(amtl_key, amtl_cfg);
+    if (amtl_cfg[0] == '\0') {
+        char platform[PROPERTY_VALUE_MAX] = { "" };
+
         LOG_DEBUG("amtl property not set");
-        property_get_string("ro.board.platform", platform);
-        snprintf(amtl, sizeof(amtl), "%s_XMM_%s", platform,
-                 cfg->mdm[id].core.name);
-        property_set(property, amtl);
+        property_get_string(key_get_platform(keys), platform);
+        snprintf(amtl_cfg, sizeof(amtl_cfg), "%s_XMM_%s", platform,
+                 cfg->mdm[mdm_id].core.name);
+        property_set(amtl_key, amtl_cfg);
     }
 }
 
@@ -184,6 +182,9 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
 
     tcs_print(h);
 
+    mmgr->keys = key_init(inst_id);
+    ASSERT(mmgr->keys != NULL);
+
     if (cfg->nb == 2) {
         LOG_INFO("DSDA platform");
         mmgr->dsda = true;
@@ -196,7 +197,8 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
     if (ssic_hack)
         LOG_DEBUG("SSIC Power on sequence used");
 
-    ASSERT((mmgr->reset = recov_init(&mmgr_cfg->recov)) != NULL);
+    mmgr->reset = recov_init(&mmgr_cfg->recov, mmgr->keys);
+    ASSERT(mmgr->reset != NULL);
 
     ASSERT((mmgr->secure =
                 secure_init(cfg->mdm[mdm_id].core.secured,
@@ -248,10 +250,10 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
                                          &mmgr_cfg->mdm_link.flash,
                                          &cfg->mdm[mdm_id], mmgr->fw,
                                          mmgr->secure,
-                                         mmgr->events.bus_events,
-                                         mmgr->info.pm, inst_id)));
+                                         mmgr->events.bus_events, mmgr->keys,
+                                         mmgr->info.pm)));
 
-    set_amtl_cfg(cfg, mdm_id);
+    set_amtl_cfg(cfg, mmgr->keys, mdm_id);
 
     tcs_dispose(h);
 }
@@ -260,7 +262,7 @@ static void disable_telephony(mmgr_data_t *mmgr)
 {
     int disable_telephony = 1;
 
-    property_get_int(TEL_STACK_PROPERTY, &disable_telephony);
+    property_get_int(key_get_telephony_state(mmgr->keys), &disable_telephony);
 
     if (disable_telephony == 1) {
         LOG_DEBUG("telephony stack is disabled");

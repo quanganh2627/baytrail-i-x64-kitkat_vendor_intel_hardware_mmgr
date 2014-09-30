@@ -21,6 +21,7 @@
 
 #include <time.h>
 #include "errors.h"
+#include "key.h"
 #include "mdm_mcd.h"
 #include "tcs_mmgr.h"
 
@@ -58,7 +59,8 @@ typedef enum e_force_operation {
     E_FORCE_OOS,
 } e_force_operation_t;
 
-reset_handle_t *recov_init(const mmgr_recovery_t *recov);
+reset_handle_t *recov_init(const mmgr_recovery_t *recov,
+                           const key_hdle_t *keys);
 e_mmgr_errors_t recov_dispose(reset_handle_t *h);
 
 e_mmgr_errors_t recov_do_reset(reset_handle_t *h);
@@ -73,8 +75,8 @@ e_mmgr_errors_t recov_set_state(reset_handle_t *h,
                                 e_reset_operation_state_t st);
 
 int recov_get_retry_allowed(reset_handle_t *h);
-int recov_get_reboot(void);
-void recov_set_reboot(int reboot);
+int recov_get_reboot(reset_handle_t *h);
+void recov_set_reboot(reset_handle_t *h, int reboot);
 e_escalation_level_t recov_get_level(reset_handle_t *h);
 e_reset_operation_state_t recov_get_state(reset_handle_t *h);
 struct timeval recov_get_last_reset(reset_handle_t *h);

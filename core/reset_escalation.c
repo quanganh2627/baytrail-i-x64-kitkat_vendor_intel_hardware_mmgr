@@ -48,6 +48,7 @@ typedef struct reset_management {
     struct timeval last_reset_time;
     e_force_operation_t op;
     int reset_delay;
+    const char *key_reboot;
 } reset_management_t;
 
 /**
@@ -105,7 +106,7 @@ e_mmgr_errors_t recov_start(reset_handle_t *h)
                 LOG_DEBUG("Last reset occurred at least %ds ago",
                           reset->reset_delay);
                 recov_reinit(h);
-                property_set_int(PLATFORM_REBOOT_KEY, reboot_counter);
+                property_set_int(reset->key_reboot, reboot_counter);
             }
         }
     }
@@ -136,24 +137,34 @@ e_escalation_level_t recov_get_level(reset_handle_t *h)
 /**
  * This function returns the current platform reboot performed
  *
+ * @param [in] h reset module handler
+ *
  * @return current platform reboot performed
  */
-int recov_get_reboot(void)
+int recov_get_reboot(reset_handle_t *h)
 {
     int reboot_counter;
+    reset_management_t *reset = (reset_management_t *)h;
 
-    property_get_int(PLATFORM_REBOOT_KEY, &reboot_counter);
+    ASSERT(reset != NULL);
+
+    property_get_int(reset->key_reboot, &reboot_counter);
     return reboot_counter;
 }
 
 /**
  * This function sets the current platform reboot performed
  *
+ * @param [in] h reset module handler
  * @param [in] reboot current performed reboot
  */
-void recov_set_reboot(int reboot)
+void recov_set_reboot(reset_handle_t *h, int reboot)
 {
-    property_set_int(PLATFORM_REBOOT_KEY, reboot);
+    reset_management_t *reset = (reset_management_t *)h;
+
+    ASSERT(reset != NULL);
+
+    property_set_int(reset->key_reboot, reboot);
 }
 
 /**
@@ -251,28 +262,21 @@ out:
  * initialize the escalation recovery
  *
  * @param [in] recov TCS params
+ * @param [in] keys key handler
  *
  * @return a valid pointer to reset module
- * @return NULL otherwise
  */
-reset_handle_t *recov_init(const mmgr_recovery_t *recov)
+reset_handle_t *recov_init(const mmgr_recovery_t *recov, const key_hdle_t *keys)
 {
     reset_operation_t *p_process = NULL;
     reset_management_t *reset = calloc(1, sizeof(reset_management_t));
 
-    if (!reset) {
-        LOG_ERROR("memory allocation failed");
-        goto out;
-    }
-
-    if (!recov) {
-        LOG_ERROR("recov is NULL");
-        recov_dispose((reset_handle_t *)reset);
-        reset = NULL;
-        goto out;
-    }
+    ASSERT(reset != NULL);
+    ASSERT(recov != NULL);
+    ASSERT(keys != NULL);
 
     reset->reset_delay = recov->reset_delay;
+    reset->key_reboot = key_get_reboot_counter(keys);
 
     /* initialize structure */
     for (int i = 0; i < E_EL_NUMBER_OF; i++) {
@@ -304,7 +308,6 @@ reset_handle_t *recov_init(const mmgr_recovery_t *recov)
     p_process = &reset->process[E_EL_MODEM_OUT_OF_SERVICE];
     p_process->retry_allowed = -1;
 
-out:
     return (reset_handle_t *)reset;
 }
 
