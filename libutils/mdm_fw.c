@@ -520,8 +520,7 @@ mdm_fw_hdle_t *mdm_fw_init(int inst_id, const mdm_info_t *mdm,
     get_fw_regexp(fw->fw_regexp, mdm->core.name, fw->flashless,
                   mdm->core.hw_revision, mdm->core.sw_revision);
 
-    /* update runtime, factory and injection folders: add instance ID
-     * sub-directory */
+    /* update runtime and injection folders: add instance ID sub-directory */
     if (fw->flashless) {
         char subfolder[10];
         snprintf(subfolder, sizeof(subfolder), "/%d/", inst_id);
@@ -529,9 +528,12 @@ mdm_fw_hdle_t *mdm_fw_init(int inst_id, const mdm_info_t *mdm,
         strncat(fw->cfg.folders.injection, subfolder,
                 sizeof(fw->cfg.folders.injection) -
                 strlen(fw->cfg.folders.injection) - 1);
-        strncat(fw->cfg.folders.factory, subfolder,
-                sizeof(fw->cfg.folders.factory) -
-                strlen(fw->cfg.folders.factory) - 1);
+        /* To ensure a backward compatibility, calib.nvm of first MMGR instance
+         * is stored at the root of factory telephony folder */
+        if (inst_id != 1)
+            strncat(fw->cfg.folders.factory, subfolder,
+                    sizeof(fw->cfg.folders.factory) -
+                    strlen(fw->cfg.folders.factory) - 1);
         strncat(fw->cfg.folders.runtime, subfolder,
                 sizeof(fw->cfg.folders.runtime) -
                 strlen(fw->cfg.folders.runtime) - 1);
