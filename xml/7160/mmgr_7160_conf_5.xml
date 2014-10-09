@@ -8,7 +8,7 @@
 	&firmware;
 	<modem_link>
 		<flash>
-			<link_hsi device="![CDATA[/dev/ttyIFX0]]"/>
+			<link_hsi device="![CDATA[/dev/ttyIFX1]]"/>
 		</flash>
 		<baseband>
 			<link_hsi device="![CDATA[/dev/ttyIFX0]]"/>
