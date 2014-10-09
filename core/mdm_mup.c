@@ -45,7 +45,7 @@ typedef struct mup_op {
     e_mup_err_t (*dispose)(mup_interface_t *handle);
 
     e_mup_err_t (*config_secur_channel)(mup_interface_t *handle, void *func,
-                                        const char *rnd_path, size_t l);
+                                        const char *rnd_path);
     e_mup_err_t (*gen_fls)(const char *in, const char *out, const char *dir,
                            const char *certificate, const char *secur);
 } mup_op_t;
@@ -140,17 +140,15 @@ e_modem_fw_error_t mdm_mup_push_fw(const mdm_mup_hdle_t *hdle, const char *fw,
     }
 
     const char *rnd = NULL;
-    size_t rnd_len = 0;
 
     if (file_exist(mup->cfg.rnd)) {
         rnd = mup->cfg.rnd;
-        rnd_len = strlen(mup->cfg.rnd);
     }
 
     if (E_MUP_SUCCEED !=
         mup->ops.config_secur_channel(mup_ctx,
                                       secure_get_callback(mup->sec_hdle),
-                                      rnd, rnd_len)) {
+                                      rnd)) {
         LOG_ERROR("failed to configure the secured channel");
         goto out;
     }
