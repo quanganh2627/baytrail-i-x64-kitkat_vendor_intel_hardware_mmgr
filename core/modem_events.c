@@ -600,9 +600,11 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
  */
 static e_mmgr_errors_t pre_platform_reboot(mmgr_data_t *mmgr)
 {
-    int reboot_counter = recov_get_reboot(mmgr->reset);
+    int reboot_counter;
 
     ASSERT(mmgr != NULL);
+
+    reboot_counter = recov_get_reboot(mmgr->reset);
 
     recov_set_state(mmgr->reset, E_OPERATION_CONTINUE);
     if (reboot_counter >= recov_get_retry_allowed(mmgr->reset)) {
