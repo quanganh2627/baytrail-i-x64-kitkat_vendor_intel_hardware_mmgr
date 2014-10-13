@@ -211,18 +211,12 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
         if (mdm_flash_is_required(mmgr->flash))
             mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_FW_DOWNLOAD_READY,
                              false);
-        else if (mmgr->info.ipc_ready_present)
+        else if (mdm_mcd_is_ipc_ready_present(mmgr->mcd))
             mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_IPC_READY, false);
 
-        /* For UART, the flashing shall be started before powering up the
-         * modem. Otherwise, the flashing window will be missed. */
-        if (mdm_flash_is_required(mmgr->flash) &&
-            (mmgr->info.mdm_link == E_LINK_UART))
-            mdm_flash_start(mmgr->flash);
-
         if ((ret = mdm_mcd_up(mmgr->mcd)) == E_ERR_SUCCESS) {
-            if ((mmgr->info.mdm_link == E_LINK_USB) &&
-                mdm_flash_is_required(mmgr->flash))
+            e_link_t ebl_type = link_get_flash_ebl_type(mmgr->link);
+            if ((E_LINK_USB == ebl_type) && mdm_flash_is_required(mmgr->flash))
                 set_mmgr_state(mmgr, E_MMGR_MDM_START);
             else
                 set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
@@ -231,12 +225,10 @@ static e_mmgr_errors_t resource_acquire_wakeup_modem(mmgr_data_t *mmgr)
 
             recov_reinit(mmgr->reset);
             if (!mdm_flash_is_required(mmgr->flash) &&
-                mmgr->info.ipc_ready_present)
+                mdm_mcd_is_ipc_ready_present(mmgr->mcd))
                 timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
 
-            /* if the modem is usb, add wait_for_bus_ready */
-            /* @TODO: push that into modem_specific */
-            if (mmgr->info.mdm_link == E_LINK_USB)
+            if (E_LINK_USB == ebl_type)
                 timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         }
     }

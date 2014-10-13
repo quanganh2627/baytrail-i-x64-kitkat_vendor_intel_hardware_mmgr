@@ -27,9 +27,9 @@
 #include "mdm_mcd.h"
 #include "mdm_flash.h"
 #include "mdm_fw.h"
+#include "mdm_dlc.h"
 #include "mmgr.h"
 #include "modem_info.h"
-#include "bus_events.h"
 #include "reset_escalation.h"
 #include "security.h"
 #include "timer_events.h"
@@ -60,6 +60,16 @@ typedef enum e_client_req {
         E_CLI_REQ_PROD = 0x1 << 3,
 } e_client_req_t;
 
+typedef enum e_mdm_link_state {
+    E_MDM_LINK_NONE = 0x0,
+    E_MDM_LINK_BB_READY = 0x1,         /* configure modem */
+    E_MDM_LINK_FLASH_READY = 0x1 << 1, /* flash modem */
+        E_MDM_LINK_FW_DL_READY = 0x1 << 2,
+        E_MDM_LINK_IPC_READY = 0x1 << 3,
+        E_MDM_LINK_CORE_DUMP_READY = 0x1 << 4,
+        E_MDM_LINK_CORE_DUMP_READ_READY = 0x1 << 5,
+} e_mdm_link_state_t;
+
 typedef struct mmgr_events {
     int nfds;
     struct epoll_event *ev;
@@ -84,19 +94,22 @@ typedef struct mmgr_data {
     int fd_tty;
     int fd_cnx;
     bool dsda;
+    bool cd_retrieved;
     e_mmgr_state_t state;
+    e_mdm_wakeup_cfg_t wakeup_cfg;
     reset_handle_t *reset;
     clients_hdle_t *clients;
     timer_handle_t *timer;
     mcdr_handle_t *mcdr;
-    modem_info_t info;
     mmgr_events_t events;
     current_request_t request;
     secure_handle_t *secure;
     mdm_mcd_hdle_t *mcd;
     mdm_flash_handle_t *flash;
     mdm_fw_hdle_t *fw;
+    mdm_dlc_hdlt_t *mdm_dlc;
     key_hdle_t *keys;
+    link_hdle_t *link;
     /* functions handlers: */
     event_hdler_t hdler_client[E_MMGR_NUM][E_MMGR_NUM_REQUESTS];
     event_hdler_t hdler_pre_mdm[E_EL_NUMBER_OF];

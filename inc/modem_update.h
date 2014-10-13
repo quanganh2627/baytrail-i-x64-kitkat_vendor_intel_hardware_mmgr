@@ -57,6 +57,7 @@ typedef struct mup_fw_update_params {
     const char *fw_file_path;
     size_t fw_file_path_len;
     int erase_all;
+    int baudrate;
 } mup_fw_update_params_t;
 
 typedef struct mup_rndcert_read_params {

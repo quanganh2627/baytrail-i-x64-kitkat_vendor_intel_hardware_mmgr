@@ -173,7 +173,9 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
             goto out;
     }
 
-    if (mmgr->info.mdm_link == E_LINK_USB) {
+    if ((E_LINK_USB == link_get_flash_ebl_type(mmgr->link)) ||
+        (E_LINK_USB == link_get_flash_fw_type(mmgr->link)) ||
+        (E_LINK_USB == link_get_bb_type(mmgr->link))) {
         if (E_ERR_SUCCESS != (ret = bus_ev_start(mmgr->events.bus_events)))
             goto out;
 
@@ -182,9 +184,10 @@ e_mmgr_errors_t events_start(mmgr_data_t *mmgr, int inst_id)
         if (ret != E_ERR_SUCCESS)
             goto out;
         LOG_DEBUG("bus event fd added to poll list");
-    } else {
-        mmgr->events.link_state |= E_MDM_LINK_BB_READY;
     }
+
+    if (E_LINK_USB != link_get_bb_type(mmgr->link))
+        mmgr->events.link_state |= E_MDM_LINK_BB_READY;
 
 out:
     return ret;
@@ -343,7 +346,7 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             if (mdm_action & E_TIMER_RESET)
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
             if (mdm_action & E_TIMER_CD_ERR)
-                ctrl_on_cd_ipc_failure(mmgr->info.ctrl);
+                link_on_cd_failure(mmgr->link);
             if (mdm_action & E_TIMER_CANCEL_FLASHING) {
                 static const char *const msg = "Timeout during modem flashing. "
                                                "Operation cancelled";
@@ -387,9 +390,6 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             mdm_flash_finalize(mmgr->flash);
             mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_IPC_READY, false);
 
-            if (mmgr->info.ssic_hack)
-                ctrl_on_mdm_up(mmgr->info.ctrl, 15);
-
             mdm_flash_upgrade_err_t err =
                 mdm_flash_get_upgrade_err(mmgr->flash);
             if (MDM_UPDATE_ERR_NONE != err)
@@ -403,9 +403,9 @@ e_mmgr_errors_t events_manager(mmgr_data_t *mmgr)
             if (E_MODEM_FW_SUCCEED == flash_err) {
                 mdm_flash_reset_attempts(mmgr->flash);
                 set_mmgr_state(mmgr, E_MMGR_MDM_CONF_ONGOING);
-                if (mmgr->info.mdm_link == E_LINK_USB)
+                if (E_LINK_USB == link_get_bb_type(mmgr->link))
                     timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
-                if (mmgr->info.ipc_ready_present)
+                if (mdm_mcd_is_ipc_ready_present(mmgr->mcd))
                     timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
             } else {
                 if (E_MODEM_FW_ERROR_UNSPECIFIED != flash_err)

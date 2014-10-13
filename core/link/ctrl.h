@@ -30,8 +30,7 @@ ctrl_handle_t ctrl_init(e_link_t mdm_type, const link_ctrl_t *mdm_ctrl,
 e_mmgr_errors_t ctrl_dispose(ctrl_handle_t *h);
 
 e_mmgr_errors_t ctrl_on_mdm_down(ctrl_handle_t *h);
-e_mmgr_errors_t ctrl_on_mdm_up(ctrl_handle_t *h, int delay);
-e_mmgr_errors_t ctrl_on_mdm_flash(ctrl_handle_t *h);
+e_mmgr_errors_t ctrl_on_mdm_reset(ctrl_handle_t *h, int delay);
 e_mmgr_errors_t ctrl_on_cd_ipc_failure(ctrl_handle_t *h);
 
 #endif                          /* __MMGR_IPC_CTRL_HEADER__ */

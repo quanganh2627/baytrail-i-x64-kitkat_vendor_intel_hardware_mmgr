@@ -56,14 +56,13 @@ static void cleanup(void)
     secure_stop(g_mmgr->secure);
     secure_dispose(g_mmgr->secure);
     mcdr_dispose(g_mmgr->mcdr);
-    modem_info_dispose(&g_mmgr->info);
     client_events_dispose(g_mmgr);
     bus_ev_dispose(g_mmgr->events.bus_events);
-    pm_dispose(g_mmgr->info.pm);
-    ctrl_dispose(g_mmgr->info.ctrl);
     mdm_mcd_dispose(g_mmgr->mcd);
     mdm_flash_dispose(g_mmgr->flash);
     mdm_fw_dispose(g_mmgr->fw);
+    mdm_dlc_dispose(g_mmgr->mdm_dlc);
+    link_dispose(g_mmgr->link);
     key_dispose(g_mmgr->keys);
     LOG_VERBOSE("Exiting");
 }
@@ -206,12 +205,6 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
 
     ASSERT((mmgr->mcdr = mcdr_init(&mmgr_cfg->mcdr)) != NULL);
 
-    ASSERT(E_ERR_SUCCESS ==
-           modem_info_init(&cfg->mdm[mdm_id], &mmgr_cfg->com,
-                           &cfg->mdm[mdm_id].tlvs, &mmgr_cfg->mdm_link,
-                           &cfg->mdm[mdm_id].chs.ch[0].mmgr,
-                           &mmgr_cfg->mcd, &mmgr->info, ssic_hack));
-
     ASSERT(E_ERR_SUCCESS == modem_events_init(mmgr));
     ASSERT(E_ERR_SUCCESS == client_events_init(mmgr_cfg->cli.max, mmgr));
 
@@ -219,39 +212,33 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
                                      &mmgr_cfg->mcdr, mmgr->clients)) != NULL);
 
     ASSERT((mmgr->events.bus_events =
-                bus_ev_init(&mmgr_cfg->mdm_link.flash,
+                bus_ev_init(&mmgr_cfg->mdm_link.flash_ebl,
                             &mmgr_cfg->mdm_link.baseband,
                             &mmgr_cfg->mdm_link.reconfig_usb,
                             &mmgr_cfg->mcdr.link)) != NULL);
 
+    ASSERT((mmgr->link = link_init(&mmgr_cfg->mdm_link, &mmgr_cfg->mcdr,
+                                   mmgr->events.bus_events, ssic_hack))
+           != NULL);
+
+    ASSERT((mmgr->mdm_dlc = mdm_dlc_init(&mmgr_cfg->com,
+                                         &cfg->mdm[mdm_id].chs.ch[0].mmgr))
+           != NULL);
+
     ASSERT(E_ERR_SUCCESS == events_init(mmgr_cfg->cli.max, mmgr));
 
-    ASSERT((mmgr->info.pm = pm_init(cfg->mdm[mdm_id].core.ipc_mdm,
-                                    &mmgr_cfg->mdm_link.power,
-                                    cfg->mdm[mdm_id].core.ipc_cd,
-                                    &mmgr_cfg->mcdr.power)) != NULL);
-
-    ASSERT((mmgr->info.ctrl = ctrl_init(cfg->mdm[mdm_id].core.ipc_mdm,
-                                        &mmgr_cfg->mdm_link.ctrl,
-                                        cfg->mdm[mdm_id].core.ipc_cd,
-                                        &mmgr_cfg->mcdr.ctrl)) != NULL);
-
     ASSERT((mmgr->mcd = mdm_mcd_init(&mmgr_cfg->mcd, &cfg->mdm[mdm_id].core,
-                                     &mmgr_cfg->mdm_link, mmgr->info.pm,
-                                     mmgr->info.ctrl, !mmgr->dsda,
-                                     ssic_hack)) != NULL);
+                                     mmgr->link, !mmgr->dsda, ssic_hack))
+           != NULL);
 
     ASSERT((mmgr->fw = mdm_fw_init(inst_id, &cfg->mdm[mdm_id], &mmgr_cfg->fw))
            != NULL);
 
     ASSERT(E_ERR_SUCCESS == mdm_fw_create_folders(mmgr->fw));
 
-    ASSERT((mmgr->flash = mdm_flash_init(&mmgr_cfg->mdm_link.flash,
-                                         &mmgr_cfg->mdm_link.flash,
-                                         &cfg->mdm[mdm_id], mmgr->fw,
+    ASSERT((mmgr->flash = mdm_flash_init(&cfg->mdm[mdm_id], mmgr->fw,
                                          mmgr->secure,
-                                         mmgr->events.bus_events, mmgr->keys,
-                                         mmgr->info.pm)));
+                                         mmgr->keys, mmgr->link)) != NULL);
 
     set_amtl_cfg(cfg, mmgr->keys, mdm_id);
 

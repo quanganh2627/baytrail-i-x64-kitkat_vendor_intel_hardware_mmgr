@@ -28,7 +28,6 @@
 #define MUP_LIB "libmodemupdate.so"
 #define MUP_FUNC_INIT "mup_initialize"
 #define MUP_FUNC_OPEN "mup_open_device"
-#define MUP_FUNC_TOGGLE_HSI_FLASHING_MODE "mup_toggle_hsi_flashing_mode"
 #define MUP_FUNC_UP_FW "mup_update_fw"
 #define MUP_FUNC_UP_NVM "mup_update_nvm"
 #define MUP_FUNC_DISPOSE "mup_dispose"
@@ -40,7 +39,6 @@ typedef struct mup_op {
     e_mup_err_t (*initialize)(mup_interface_t **handle,
                               mup_ap_log_callback_t ap_log_callback);
     e_mup_err_t (*open_device)(mup_fw_update_params_t *params);
-    e_mup_err_t (*toggle_hsi_flashing_mode)(bool flashing_mode);
     e_mup_err_t (*update_fw)(mup_fw_update_params_t *params);
     e_mup_err_t (*update_nvm)(mup_nvm_update_params_t *params);
     e_mup_err_t (*check_fw_version)(const char *fw_path, const char *version);
@@ -53,11 +51,11 @@ typedef struct mup_op {
 } mup_op_t;
 
 typedef struct mup_cfg {
-    e_link_t mdm_link;
     char *mdm_name;
     char *streamline_dlc;
     char *rnd;
     bool channel_switching;
+    int baudrate;
 } mup_cfg_t;
 
 typedef struct mdm_mup_ctx {
@@ -83,32 +81,6 @@ static void mup_log(const char *msg, ...)
         LOG_DEBUG("%s", buff);
         va_end(ap);
     }
-}
-
-/**
- * Toggles the modem in flashing mode
- *
- * @param [in] hdle module handle
- * @param [in] mode true: set modem in flashing mode
- *
- * @return E_ERR_SUCCESS
- * @return E_ERR_FAILED
- */
-e_mmgr_errors_t mdm_mup_toggle_flashing(const mdm_mup_hdle_t *hdle, bool mode)
-{
-    const mdm_mup_ctx_t *mup = (mdm_mup_ctx_t *)hdle;
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    ASSERT(mup != NULL);
-    ASSERT(mup->ops.toggle_hsi_flashing_mode != NULL);
-
-    if (mup->cfg.mdm_link == E_LINK_HSI)
-        ret = (mup->ops.toggle_hsi_flashing_mode(mode) ==
-               E_MUP_SUCCEED) ? E_ERR_SUCCESS : E_ERR_FAILED;
-    else
-        ret = E_ERR_SUCCESS;
-
-    return ret;
 }
 
 /**
@@ -158,7 +130,8 @@ e_modem_fw_error_t mdm_mup_push_fw(const mdm_mup_hdle_t *hdle, const char *fw,
         .channel_hw_sw = mup->cfg.channel_switching,
         .fw_file_path = fw,
         .fw_file_path_len = strlen(fw),
-        .erase_all = false
+        .erase_all = false,
+        .baudrate = mup->cfg.baudrate,
     };
 
     if (E_MUP_SUCCEED != mup->ops.open_device(&params)) {
@@ -308,15 +281,14 @@ mmgr_cli_nvm_update_result_t mdm_mup_push_tlv(const mdm_mup_hdle_t *hdle,
  * @param [in] mdm_name modem name
  * @param [in] streamline_dlc DLC to use to push streamline updates
  * @param [in] rnd RnD certificate path
- * @param [in] channel_switching Channel secured
- * @param [in] mdm_link link type
+ * @param [in] link link module
  * @param [in] sec_hdle secure module
  *
  * @return a valid pointer. must be freed by caller by calling mdm_mup_dispose
  */
 mdm_mup_hdle_t *mdm_mup_init(const char *mdm_name, const char *streamline_dlc,
-                             const char *rnd, bool channel_switching,
-                             e_link_t mdm_link, const secure_handle_t *sec_hdle)
+                             const char *rnd, const link_hdle_t *link,
+                             const secure_handle_t *sec_hdle)
 {
     mdm_mup_ctx_t *mup = calloc(1, sizeof(mdm_mup_ctx_t));
 
@@ -331,8 +303,6 @@ mdm_mup_hdle_t *mdm_mup_init(const char *mdm_name, const char *streamline_dlc,
 
     mup->ops.initialize = dlsym(mup->hdle, MUP_FUNC_INIT);
     mup->ops.open_device = dlsym(mup->hdle, MUP_FUNC_OPEN);
-    mup->ops.toggle_hsi_flashing_mode = dlsym(mup->hdle,
-                                              MUP_FUNC_TOGGLE_HSI_FLASHING_MODE);
     mup->ops.update_fw = dlsym(mup->hdle, MUP_FUNC_UP_FW);
     mup->ops.update_nvm = dlsym(mup->hdle, MUP_FUNC_UP_NVM);
     mup->ops.dispose = dlsym(mup->hdle, MUP_FUNC_DISPOSE);
@@ -348,9 +318,13 @@ mdm_mup_hdle_t *mdm_mup_init(const char *mdm_name, const char *streamline_dlc,
         mup->cfg.mdm_name = strdup(mdm_name);
         mup->cfg.streamline_dlc = strdup(streamline_dlc);
         mup->cfg.rnd = strdup(rnd);
-        mup->cfg.mdm_link = mdm_link;
-        mup->cfg.channel_switching = channel_switching;
         mup->sec_hdle = sec_hdle;
+        mup->cfg.baudrate = link_get_ebl_baudrate(link);
+
+        if (E_LINK_USB == link_get_flash_ebl_type(link))
+            mup->cfg.channel_switching = false;
+        else
+            mup->cfg.channel_switching = true;
     }
 
     return (mdm_mup_hdle_t *)mup;

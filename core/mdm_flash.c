@@ -53,11 +53,8 @@ typedef struct mdm_flash_ctx {
 
     const mdm_fw_hdle_t *fw;
     const secure_handle_t *secure;
-    const bus_ev_hdle_t *bus_ev;
-    const pm_handle_t *pm;
+    const link_hdle_t *link;
 
-    link_t link_ebl;
-    link_t link_fw;
     bool flashless;
 
     bool update;
@@ -178,25 +175,6 @@ static e_mmgr_errors_t mdm_flash_init_hash(mdm_flash_ctx_t *flash,
     return ret;
 }
 
-static const char *mdm_flash_get_link_path(const link_t *link,
-                                           const bus_ev_hdle_t *bus)
-{
-    const char *path = NULL;
-
-    ASSERT(link != NULL);
-    ASSERT(bus != NULL);
-
-    if (E_LINK_USB == link->type)
-        path = bus_ev_get_flash_interface(bus);
-    else if (E_LINK_HSI == link->type)
-        path = link->hsi.device;
-    else if (E_LINK_UART == link->type)
-        path = link->uart.device;
-    /* @TODO: add SPI */
-
-    return path;
-}
-
 static void mdm_flash_push(mdm_flash_ctx_t *ctx)
 {
     char msg = 0;
@@ -204,13 +182,11 @@ static void mdm_flash_push(mdm_flash_ctx_t *ctx)
     ASSERT(ctx != NULL);
     ASSERT(ctx->fw_file != NULL);
 
-    const char *ebl_port = mdm_flash_get_link_path(&ctx->link_ebl, ctx->bus_ev);
-    const char *fw_port = mdm_flash_get_link_path(&ctx->link_fw, ctx->bus_ev);
+    const char *ebl_port = link_get_flash_ebl_interface(ctx->link);
+    const char *fw_port = link_get_flash_fw_interface(ctx->link);
 
     LOG_DEBUG("[SLAVE-FLASH] start modem flashing");
-    mdm_mup_toggle_flashing(ctx->mup, true);
     ctx->flash_err = mdm_mup_push_fw(ctx->mup, ctx->fw_file, ebl_port, fw_port);
-    mdm_mup_toggle_flashing(ctx->mup, false);
 
     LOG_DEBUG("[SLAVE-FLASH] flashing done. Notify main thread");
     write(ctx->fd_pipe[WRITE], &msg, sizeof(msg));
@@ -262,65 +238,41 @@ mdm_flash_upgrade_err_t mdm_flash_get_upgrade_err(const mdm_flash_handle_t *hdle
 /**
  * Initializes modem flashing module. The function will assert in case of error
  *
- * @param [in] link flashing link
  * @param [in] mdm_info modem info
  * @param [in] fw pointer to fw module
  * @param [in] secure pointer to secure module
- * @param [in] bus_ev pointer to bus event module
- * @param [in] pm pointer to power module
+ * @param [in] link modem links module
  *
  * @return a valid handle. Must be freed by calling mdm_flash_dispose
  */
-mdm_flash_handle_t *mdm_flash_init(const link_t *link_ebl,
-                                   const link_t *link_fw,
-                                   const mdm_info_t *mdm_info,
+mdm_flash_handle_t *mdm_flash_init(const mdm_info_t *mdm_info,
                                    const mdm_fw_hdle_t *fw,
                                    const secure_handle_t *secure,
-                                   const bus_ev_hdle_t *bus_ev,
                                    const key_hdle_t *keys,
-                                   pm_handle_t *pm)
+                                   link_hdle_t *link)
 {
-    bool channel_switching = true;
     mdm_flash_ctx_t *ctx = calloc(1, sizeof(mdm_flash_ctx_t));
 
     ASSERT(ctx != NULL);
-    ASSERT(link_ebl != NULL);
-    ASSERT(link_fw != NULL);
     ASSERT(mdm_info != NULL);
     ASSERT(fw != NULL);
     ASSERT(secure != NULL);
-    ASSERT(bus_ev != NULL);
-    ASSERT(pm != NULL);
+    ASSERT(link != NULL);
     ASSERT(keys != NULL);
 
-    if ((E_LINK_UNKNOWN == link_ebl->type) ||
-        (E_LINK_UNKNOWN == link_fw->type)) {
-        LOG_ERROR("IPC type not handled");
-        mdm_flash_dispose((mdm_flash_handle_t *)ctx);
-        ctx = NULL;
-        goto out;
-    }
-
     ctx->fw = fw;
-    ctx->pm = pm;
+    ctx->link = link;
     ctx->secure = secure;
-    ctx->bus_ev = bus_ev;
     ctx->flashless = mdm_info->core.flashless;
     ctx->upgrade_err = MDM_UPDATE_ERR_NONE;
     ctx->flash_err = E_MODEM_FW_ERROR_UNSPECIFIED;
     ctx->fw_packaged = mdm_fw_get_fw_package_path(fw);
-    ctx->link_ebl = *link_ebl;
-    ctx->link_fw = *link_fw;
     ctx->flash_ongoing = false;
     ctx->attempts = 0;
 
-    if (link_ebl->type == E_LINK_USB)
-        channel_switching = false;
-
     ctx->mup = mdm_mup_init(mdm_info->core.name,
                             mdm_info->chs.ch->mmgr.mdm_custo.device,
-                            mdm_fw_get_rnd_path(fw), channel_switching,
-                            link_ebl->type, secure);
+                            mdm_fw_get_rnd_path(fw), link, secure);
     ASSERT(ctx->mup != NULL);
 
     ASSERT(E_ERR_SUCCESS == mdm_flash_init_hash(ctx, keys));
@@ -340,7 +292,6 @@ mdm_flash_handle_t *mdm_flash_init(const link_t *link_ebl,
 
     ASSERT(pipe(ctx->fd_pipe) == 0);
 
-out:
     return (mdm_flash_handle_t *)ctx;
 }
 
@@ -405,6 +356,7 @@ e_mmgr_errors_t mdm_flash_start(mdm_flash_handle_t *hdle)
         flash->attempts++;
         flash->flash_err = E_MODEM_FW_ERROR_UNSPECIFIED;
 
+        link_on_mdm_flash(flash->link);
         pthread_create(&flash->id, NULL, (void *)mdm_flash_push, (void *)flash);
         flash->flash_ongoing = true;
     } else {
@@ -431,6 +383,7 @@ void mdm_flash_finalize(mdm_flash_handle_t *hdle)
         pthread_join(flash->id, NULL);
         flash->flash_ongoing = false;
         mdm_flash_remove_fw_packaged(flash);
+        link_on_mdm_flash_complete(flash->link);
         LOG_DEBUG("[MASTER] flashing thread is stopped");
     }
 }

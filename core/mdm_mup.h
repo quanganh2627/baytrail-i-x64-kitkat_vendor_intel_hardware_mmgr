@@ -23,14 +23,14 @@
 #include <stdbool.h>
 #include "errors.h"
 #include "mmgr.h"
+#include "link.h"
 #include "security.h"
 #include "tcs_config.h"
 
 typedef void *mdm_mup_hdle_t;
 
 mdm_mup_hdle_t *mdm_mup_init(const char *mdm_name, const char *streamline_dlc,
-                             const char *rnd, bool channel_switching,
-                             e_link_t mdm_link,
+                             const char *rnd, const link_hdle_t *link,
                              const secure_handle_t *sec_hdle);
 void mdm_mup_dispose(mdm_mup_hdle_t *hdle);
 

@@ -21,8 +21,7 @@
 
 #include <stdbool.h>
 #include "errors.h"
-#include "pm.h"
-#include "ctrl.h"
+#include "link.h"
 #include "tcs.h"
 
 typedef void *mdm_mcd_hdle_t;
@@ -38,10 +37,8 @@ typedef enum e_modem_events_type {
 } e_modem_events_type_t;
 
 mdm_mcd_hdle_t *mdm_mcd_init(const mmgr_mcd_t *mcd_cfg,
-                             const mdm_core_t *mdm_core,
-                             const mmgr_mdm_link_t *mdm_link, pm_handle_t *pm,
-                             ctrl_handle_t *ctrl, bool off_allowed,
-                             bool ssic_hack);
+                             const mdm_core_t *mdm_core, link_hdle_t *link,
+                             bool off_allowed, bool ssic_hack);
 
 void mdm_mcd_dispose(mdm_mcd_hdle_t *hdle);
 
@@ -59,5 +56,7 @@ e_mmgr_errors_t mdm_mcd_off(const mdm_mcd_hdle_t *hdle);
 e_mmgr_errors_t mdm_mcd_cold_reset(const mdm_mcd_hdle_t *hdle);
 
 int mdm_mcd_get_fd(const mdm_mcd_hdle_t *hdle);
+
+bool mdm_mcd_is_ipc_ready_present(const mdm_mcd_hdle_t *hdle);
 
 #endif

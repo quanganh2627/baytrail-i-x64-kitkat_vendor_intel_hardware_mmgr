@@ -7,11 +7,22 @@
 <mmgr_config>
 	&firmware;
 	<modem_link>
-		<flash>
+		<flash_ebl>
+			<link_hsi
+				device="![CDATA[/dev/ttyIFX1]]"
+				control="![CDATA[/sys/module/hsi_dlp/parameters/set_flashing_mode]]"
+				command="1"
+			/>
+		</flash_ebl>
+		<flash_fw>
 			<link_hsi device="![CDATA[/dev/ttyIFX1]]"/>
-		</flash>
+		</flash_fw>
 		<baseband>
-			<link_hsi device="![CDATA[/dev/ttyIFX0]]"/>
+			<link_hsi
+				device="![CDATA[/dev/ttyIFX0]]"
+				control="![CDATA[/sys/module/hsi_dlp/parameters/set_flashing_mode]]"
+				command="0"
+			/>
 		</baseband>
 	</modem_link>
 	<mdm_ctrl

@@ -65,97 +65,6 @@ typedef enum e_switch_to_mux_states {
 } e_switch_to_mux_states_t;
 
 /**
- * initialize modem info structure and mcdr
- *
- * @param [in] mdm_info mmgr config
- * @param [in] com
- * @param [in] tlvs
- * @param [in] mdm_link
- * @param [in] ch channel
- * @param [in] mcd
- * @param [in,out] info modem info
- *
- * @return E_ERR_FAILED if mcdr init fails
- * @return E_ERR_SUCCESS if successful
- */
-e_mmgr_errors_t modem_info_init(mdm_info_t *mdm_info, mmgr_com_t *com,
-                                tlvs_info_t *tlvs, mmgr_mdm_link_t *mdm_link,
-                                channels_mmgr_t *ch, mmgr_mcd_t *mcd,
-                                modem_info_t *info, bool ssic_hack)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-
-    ASSERT(mdm_info != NULL);
-    ASSERT(com != NULL);
-    ASSERT(tlvs != NULL);
-    ASSERT(mdm_link != NULL);
-    ASSERT(info != NULL);
-
-    info->mux = com->mux;
-    /* @TODO: handle BOARD_PCIE */
-    info->ipc_ready_present = (mcd->board == BOARD_AOB);
-    info->cd_generated = E_STATUS_NONE;
-    info->cd_link = mdm_info->core.ipc_cd;
-    info->mdm_link = mdm_info->core.ipc_mdm;
-    info->ssic_hack = ssic_hack;
-
-    switch (mdm_link->baseband.type) {
-    case E_LINK_HSI:
-        strncpy(info->mdm_ipc_path, mdm_link->baseband.hsi.device,
-                sizeof(info->mdm_ipc_path));
-        break;
-    case E_LINK_USB:
-        strncpy(info->mdm_ipc_path, mdm_link->baseband.usb.device,
-                sizeof(info->mdm_ipc_path));
-        break;
-    case E_LINK_UART:
-        strncpy(info->mdm_ipc_path, mdm_link->baseband.uart.device,
-                sizeof(info->mdm_ipc_path));
-        break;
-    default:
-        LOG_ERROR("type not handled");
-        ret = E_ERR_FAILED;
-        goto out;
-    }
-
-    /* @TODO: if not DLC, this code should be updated */
-    strncpy(info->sanity_check_dlc, ch->sanity_check.device,
-            sizeof(info->sanity_check_dlc) - 1);
-    strncpy(info->shtdwn_dlc, ch->shutdown.device,
-            sizeof(info->shtdwn_dlc) - 1);
-
-    if (!strncmp(info->sanity_check_dlc, "", sizeof(info->sanity_check_dlc)) ||
-        !strncmp(info->shtdwn_dlc, "", sizeof(info->shtdwn_dlc))) {
-        LOG_ERROR("empty DLC");
-        ret = E_ERR_FAILED;
-        goto out;
-    }
-
-    info->wakeup_cfg = E_MDM_WAKEUP_UNKNOWN;
-
-    /* @TODO: remove ME. W/A for DSDA */
-    if (!strcmp(mdm_info->core.name, "2230"))
-        info->delay_open = true;
-
-out:
-    return ret;
-}
-
-/**
- * This functions disposes the modem info module
- * @TODO: update this module to use getters/setters
- *
- * @param [in] info
- *
- * @return E_ERR_FAILED if mcdr init fails
- * @return E_ERR_SUCCESS if successful
- */
-void modem_info_dispose(modem_info_t *info)
-{
-    (void)info;
-}
-
-/**
  * Log the self reset reason
  *
  * @param [in] fd_tty tty file descriptor
@@ -223,19 +132,20 @@ out_xlog:
  * @return E_ERR_TTY_TIMEOUT no response from modem
  * @return E_ERR_SUCCESS if successful
  */
-static e_mmgr_errors_t retrieve_streamline_cfg(int fd_tty, modem_info_t *info)
+static e_mdm_wakeup_cfg_t get_wakeup_cfg(int fd_tty)
 {
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    e_mmgr_errors_t err = E_ERR_SUCCESS;
     struct timespec current, start;
     char data[AT_STREAMLINE_REPLY_SIZE + 1];
     size_t in_buffer = 0;
+    e_mdm_wakeup_cfg_t wakeup_cfg = E_MDM_WAKEUP_UNKNOWN;
 
     tcflush(fd_tty, TCIOFLUSH);
 
     LOG_DEBUG("Sending %s", AT_STREAMLINE_GET);
 
-    ret = tty_write(fd_tty, AT_STREAMLINE_GET, strlen(AT_STREAMLINE_GET));
-    if (ret != E_ERR_SUCCESS)
+    err = tty_write(fd_tty, AT_STREAMLINE_GET, strlen(AT_STREAMLINE_GET));
+    if (err != E_ERR_SUCCESS)
         goto out_streamline;
 
     clock_gettime(CLOCK_BOOTTIME, &start);
@@ -247,12 +157,10 @@ static e_mmgr_errors_t retrieve_streamline_cfg(int fd_tty, modem_info_t *info)
         timeout = AT_STREAMLINE_TIMEOUT -
                   ((current.tv_sec - start.tv_sec) * 1000 +
                    ((current.tv_nsec - start.tv_nsec) / 1000000));
-        if (timeout < 0) {
-            ret = E_ERR_TTY_TIMEOUT;
+        if (timeout < 0)
             goto out_streamline;
-        }
-        ret = tty_wait_for_event(fd_tty, timeout);
-        if (ret != E_ERR_SUCCESS)
+        err = tty_wait_for_event(fd_tty, timeout);
+        if (err != E_ERR_SUCCESS)
             goto out_streamline;
 
         while (1) {
@@ -266,8 +174,8 @@ static e_mmgr_errors_t retrieve_streamline_cfg(int fd_tty, modem_info_t *info)
             }
 
             /* max_retries is set to 1 as retries are handled in this loop. */
-            ret = tty_read(fd_tty, &data[in_buffer], &read_size, 1);
-            if (ret != E_ERR_SUCCESS)
+            err = tty_read(fd_tty, &data[in_buffer], &read_size, 1);
+            if (err != E_ERR_SUCCESS)
                 goto out_streamline;
             if (read_size <= 0)
                 break;
@@ -318,10 +226,10 @@ static e_mmgr_errors_t retrieve_streamline_cfg(int fd_tty, modem_info_t *info)
                          */
                         if (strstr(cr, "NO_REMOTE_WAKEUP") != NULL) {
                             LOG_INFO("OUTBAND configuration detected");
-                            info->wakeup_cfg = E_MDM_WAKEUP_OUTBAND;
+                            wakeup_cfg = E_MDM_WAKEUP_OUTBAND;
                         } else {
                             LOG_INFO("INBAND configuration detected");
-                            info->wakeup_cfg = E_MDM_WAKEUP_INBAND;
+                            wakeup_cfg = E_MDM_WAKEUP_INBAND;
                         }
                     }
 
@@ -346,8 +254,7 @@ static e_mmgr_errors_t retrieve_streamline_cfg(int fd_tty, modem_info_t *info)
 out_streamline:
     tcflush(fd_tty, TCIOFLUSH);
 
-    // Do not consider failure to get streamline configuration an error
-    return E_ERR_SUCCESS;
+    return wakeup_cfg;
 }
 
 /**
@@ -386,53 +293,6 @@ bool generate_timestamp(char *timestamp, int size)
 }
 
 /**
- * Debug utility function to display core dump status string.
- */
-const char *get_core_dump_status_string(e_cd_status_t status)
-{
-    switch (status) {
-    case E_STATUS_COMPLETE:
-        return "E_STATUS_COMPLETE";
-    case E_STATUS_UNCOMPLETED:
-        return "E_STATUS_UNCOMPLETED";
-    case E_STATUS_NONE:
-        return "E_STATUS_NONE";
-    case E_STATUS_FAILED:
-        return "E_STATUS_FAILED";
-    default:
-        break;
-    }
-
-    return "UNKNOWN";
-}
-
-/**
- * Function returning a cd status according to current core dump state.
- */
-e_cd_status_t get_core_dump_status(e_core_dump_state_t state)
-{
-    e_cd_status_t cd_status;
-
-    switch (state) {
-    case E_CD_SUCCEED:
-        cd_status = E_STATUS_COMPLETE;
-        break;
-    case E_CD_TIMEOUT:
-    case E_CD_LINK_ERROR:
-        cd_status = E_STATUS_UNCOMPLETED;
-        break;
-    case E_CD_SELF_RESET:
-        cd_status = E_STATUS_NONE;
-        break;
-    default:
-        cd_status = E_STATUS_FAILED;
-    }
-
-    LOG_INFO("CD Status:%s", get_core_dump_status_string(cd_status));
-    return cd_status;
-}
-
-/**
  * Read characters from tty fd then process these data by the given callback
  * function.
  * The fd_fs parameter is passed along to the callback function.
@@ -441,13 +301,13 @@ e_cd_status_t get_core_dump_status(e_core_dump_state_t state)
  * @param [in] fd_fs Core dump log file descriptor
  * @param [in] parseFct Callback function processing data received
  *
- * @return E_STATUS_COMPLETE All data have been parsed.
- * @return E_STATUS_UNCOMPLETED Not all data have been read from fd_tty
- * @return E_STATUS_FAILED A critical error happened
+ * @return 0 All data have been parsed.
+ * @return -1 Not all data have been read from fd_tty
+ * @return -2 A critical error happened
  */
-e_cd_status_t read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct)
+int read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct)
 {
-    e_cd_status_t ret = E_STATUS_FAILED;
+    int ret = -2;
     char data[AT_DEFAULT_RESPONSE_SIZE + 1] = { 0 };
     int read_size = AT_DEFAULT_RESPONSE_SIZE;
     char *cr = NULL;
@@ -482,7 +342,7 @@ e_cd_status_t read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct)
 
         /* No data */
         if (read_size <= 0) {
-            ret = E_STATUS_UNCOMPLETED;
+            ret = -1;
             goto out_read;
         }
 
@@ -508,12 +368,11 @@ e_cd_status_t read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct)
             /* Check if end of data detected */
             if (res > 0) {
                 LOG_INFO("Core Dump logs data end.");
-                ret = E_STATUS_COMPLETE;
+                ret = 0;
                 goto out_read;
             } else if (res == 0) {
-                ret = E_STATUS_UNCOMPLETED;
+                ret = -1;
             } else {
-                ret = E_STATUS_FAILED;
                 goto out_read;
             }
             /* Go to next line */
@@ -531,7 +390,6 @@ e_cd_status_t read_cd_logs(int fd_tty, int fd_fs, PFN_PARSE_RESP parseFct)
     } while (nOffsetBytes > 0);
 
 out_read:
-    LOG_INFO("EXIT, Status:%s", get_core_dump_status_string(ret));
     return ret;
 }
 
@@ -554,7 +412,12 @@ out_read:
  * @return E_ERR_TTY_TIMEOUT no response from modem
  * @return E_ERR_SUCCESS
  */
-e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
+e_mmgr_errors_t switch_to_mux(int *fd_tty,
+                              const char *mdm_bb_path,
+                              e_link_t mdm_bb_type,
+                              const mux_t *mux,
+                              const char *sanity_check_dlc,
+                              e_mdm_wakeup_cfg_t *wakeup_cfg)
 {
     e_mmgr_errors_t ret = E_ERR_FAILED;
     e_switch_to_mux_states_t state;
@@ -562,25 +425,29 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
     bool retry_bad_fd_done = false;
 
     ASSERT(fd_tty != NULL);
-    ASSERT(info != NULL);
+    ASSERT(mdm_bb_path != NULL);
+    ASSERT(mux != NULL);
+    ASSERT(sanity_check_dlc != NULL);
+    ASSERT(wakeup_cfg != NULL);
 
     for (state = E_MUX_HANDSHAKE; state != E_MUX_DRIVER; /* none */) {
         switch (state) {
         case E_MUX_HANDSHAKE:
-            ret = modem_handshake(*fd_tty, info->mux.retry);
+            ret = modem_handshake(*fd_tty, mux->retry);
             break;
         case E_MUX_XLOG:
-            ret = run_at_xlog(*fd_tty, info->mux.retry);
+            ret = run_at_xlog(*fd_tty, mux->retry);
             break;
         case E_MUX_GET_STREAMLINE:
-            // Only do the streamline step for HSIC-based modems
-            if (info->mdm_link == E_LINK_USB)
-                ret = retrieve_streamline_cfg(*fd_tty, info);
+            ret = E_ERR_SUCCESS;
+            /* Only do the streamline step for USB based modems */
+            if (E_LINK_USB == mdm_bb_type)
+                *wakeup_cfg = get_wakeup_cfg(*fd_tty);
             else
-                ret = E_ERR_SUCCESS;
+                *wakeup_cfg = E_MDM_WAKEUP_UNKNOWN;
             break;
         case E_MUX_AT_CMD:
-            ret = send_at_cmux(*fd_tty, &info->mux);
+            ret = send_at_cmux(*fd_tty, mux);
             break;
         case E_MUX_DRIVER:
             /* nothing to do here */
@@ -595,10 +462,10 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
             /* states are ordered. go to next one */
             state++;
         } else if ((ret == E_ERR_TTY_BAD_FD) && (retry_bad_fd_done == false)) {
-            LOG_DEBUG("reopening tty device: %s", info->mdm_ipc_path);
+            LOG_DEBUG("reopening tty device: %s", mdm_bb_path);
             retry_bad_fd_done = true;
             tty_close(fd_tty);
-            if ((ret = tty_open(info->mdm_ipc_path, fd_tty)) != E_ERR_SUCCESS)
+            if ((ret = tty_open(mdm_bb_path, fd_tty)) != E_ERR_SUCCESS)
                 goto out;
         } else {
             ret = E_ERR_FAILED;
@@ -606,21 +473,21 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
         }
     }
 
-    ret = configure_cmux_driver(*fd_tty, info->mux.frame_size);
+    ret = configure_cmux_driver(*fd_tty, mux->frame_size);
     if (ret != E_ERR_SUCCESS)
         goto out;
 
     /* Wait to be able to open a GSM TTY before sending MODEM_UP to clients
      * (this guarantees that the MUX control channel has been established with
      * the modem). Will retry for up to MAX_TIME_DELAY seconds. */
-    LOG_DEBUG("looking for TTY %s", info->sanity_check_dlc);
+    LOG_DEBUG("looking for TTY %s", sanity_check_dlc);
     ret = E_ERR_FAILED;
     clock_gettime(CLOCK_MONOTONIC, &start);
     do {
         int tmp_fd;
 
         usleep(STAT_DELAY * 1000);
-        if ((tmp_fd = open(info->sanity_check_dlc, O_RDWR)) >= 0) {
+        if ((tmp_fd = open(sanity_check_dlc, O_RDWR)) >= 0) {
             close(tmp_fd);
             ret = E_ERR_SUCCESS;
             break;
@@ -632,9 +499,9 @@ e_mmgr_errors_t switch_to_mux(int *fd_tty, modem_info_t *info)
               (current.tv_nsec < start.tv_nsec)));
 
     if (ret != E_ERR_SUCCESS) {
-        LOG_ERROR("was not able to open TTY %s", info->sanity_check_dlc);
+        LOG_ERROR("was not able to open TTY %s", sanity_check_dlc);
     } else {
-        LOG_DEBUG("TTY %s open success", info->sanity_check_dlc);
+        LOG_DEBUG("TTY %s open success", sanity_check_dlc);
         /* It's necessary to reset the terminal configuration after MUX init */
         ret = tty_set_termio(*fd_tty);
     }

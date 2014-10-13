@@ -7,9 +7,12 @@
 <mmgr_config>
 	&firmware;
 	<modem_link>
-		<flash>
+		<flash_ebl>
 			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0x07ef" vid="0x8087"/>
-		</flash>
+		</flash_ebl>
+		<flash_fw>
+			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0x07ef" vid="0x8087"/>
+		</flash_fw>
 		<baseband>
 			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0x1451" vid="0x1519"/>
 		</baseband>

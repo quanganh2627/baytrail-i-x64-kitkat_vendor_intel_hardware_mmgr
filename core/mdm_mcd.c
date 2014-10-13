@@ -30,9 +30,9 @@ typedef struct mmgr_mcd_ctx {
     bool ssic_hack;
     bool off_allowed;
     bool flashless;
+    bool ipc_ready_present;
     int filter;
-    pm_handle_t *pm;
-    ctrl_handle_t *ctrl;
+    link_hdle_t *link;
 } mmgr_mcd_ctx_t;
 
 /**
@@ -120,7 +120,7 @@ e_mmgr_errors_t mdm_mcd_down(const mdm_mcd_hdle_t *hdle)
     ASSERT(mcd != NULL);
 
     if (!mcd->ssic_hack)
-        ctrl_on_mdm_down(mcd->ctrl);
+        link_on_mdm_down(mcd->link);
 
     if (!ioctl(mcd->fd, MDM_CTRL_POWER_OFF)) {
         LOG_INFO("MODEM ELECTRICALLY SHUTDOWN");
@@ -131,7 +131,7 @@ e_mmgr_errors_t mdm_mcd_down(const mdm_mcd_hdle_t *hdle)
 
     if (mcd->ssic_hack) {
         sleep(8);
-        ctrl_on_mdm_down(mcd->ctrl);
+        link_on_mdm_down(mcd->link);
     }
 
     return ret;
@@ -156,7 +156,7 @@ e_mmgr_errors_t mdm_mcd_up(const mdm_mcd_hdle_t *hdle)
     int delay = 0;
     if (mcd->ssic_hack)
         delay = 1;
-    ctrl_on_mdm_up(mcd->ctrl, delay);
+    link_on_mdm_reset(mcd->link, delay);
 
     errno = 0;
     if (!ioctl(mcd->fd, MDM_CTRL_GET_STATE, &state)) {
@@ -178,7 +178,7 @@ e_mmgr_errors_t mdm_mcd_up(const mdm_mcd_hdle_t *hdle)
         if (ret == E_ERR_SUCCESS)
             LOG_DEBUG("Modem successfully POWERED-UP");
         else
-            ctrl_on_mdm_down(mcd->ctrl);
+            link_on_mdm_down(mcd->link);
     } else {
         LOG_ERROR("failed to get current modem state");
         ret = E_ERR_FAILED;
@@ -369,14 +369,21 @@ int mdm_mcd_get_fd(const mdm_mcd_hdle_t *hdle)
     return mcd->fd;
 }
 
+bool mdm_mcd_is_ipc_ready_present(const mdm_mcd_hdle_t *hdle)
+{
+    const mmgr_mcd_ctx_t *mcd = (mmgr_mcd_ctx_t *)hdle;
+
+    ASSERT(mcd != NULL);
+
+    return mcd->ipc_ready_present;
+}
+
 /**
  * Initializes the MCD module
  *
  * @param [in] mcd_cfg MCD configuration
  * @param [in] mdm_core modem configuration
- * @param [in] mdm_link modem link configuration
- * @param [in] pm power link module
- * @param [in] ctrl control link module
+ * @param [in] link link control module
  * @param [in] off_allowed off_allowed boolean
  * @param [in] ssic_hack
  *
@@ -384,8 +391,8 @@ int mdm_mcd_get_fd(const mdm_mcd_hdle_t *hdle)
  */
 mdm_mcd_hdle_t *mdm_mcd_init(const mmgr_mcd_t *mcd_cfg,
                              const mdm_core_t *mdm_core,
-                             const mmgr_mdm_link_t *mdm_link, pm_handle_t *pm,
-                             ctrl_handle_t *ctrl, bool off_allowed,
+                             link_hdle_t *link,
+                             bool off_allowed,
                              bool ssic_hack)
 {
     mmgr_mcd_ctx_t *mcd = calloc(1, sizeof(mmgr_mcd_ctx_t));
@@ -394,7 +401,7 @@ mdm_mcd_hdle_t *mdm_mcd_init(const mmgr_mcd_t *mcd_cfg,
 
     ASSERT(mcd_cfg != NULL);
     ASSERT(mdm_core != NULL);
-    ASSERT(mdm_link != NULL);
+    ASSERT(link != NULL);
 
     mcd->fd = open(mcd_cfg->path, O_RDWR);
 
@@ -405,11 +412,11 @@ mdm_mcd_hdle_t *mdm_mcd_init(const mmgr_mcd_t *mcd_cfg,
         mcd = NULL;
     } else {
         mdm_mcd_configure(mcd->fd, mcd_cfg->board, mdm_core->name);
-        mcd->pm = pm;
-        mcd->ctrl = ctrl;
+        mcd->link = link;
         mcd->off_allowed = off_allowed;
         mcd->ssic_hack = ssic_hack;
         mcd->flashless = mdm_core->flashless;
+        mcd->ipc_ready_present = mcd_cfg->board == BOARD_AOB;
 
         mcd->filter = MDM_CTRL_STATE_COREDUMP;
         mdm_mcd_update_filter(mcd);

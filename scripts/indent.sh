@@ -45,7 +45,7 @@ function android_mk_remove_tabs()
 function xml_remove_spaces()
 {
     local xml_files=$(find $PWD -name "*.xml")
-    [ "$xml_files" != "" ] && sed -i 's:\s\{4,4\}:\t:g' $xml_files
+    [ "$xml_files" != "" ] && sed -i 's:    :\t:g' $xml_files
 }
 
 if [ ! -d .git ]; then

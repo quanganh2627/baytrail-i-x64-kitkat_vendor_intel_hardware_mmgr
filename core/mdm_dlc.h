@@ -1,6 +1,6 @@
-/* Modem Manager - link power management source file
+/* Modem Manager - modem DLC header file
 **
-** Copyright (C) Intel 2013
+** Copyright (C) Intel 2014
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -16,20 +16,21 @@
 **
 */
 
-#ifndef __MMGR_IPC_PM_HEADER__
-#define __MMGR_IPC_PM_HEADER__
+#ifndef __MMGR_MDM_DLC_HEADER__
+#define __MMGR_MDM_DLC_HEADER__
 
-#include "errors.h"
+#include "tcs.h"
 #include "tcs_mmgr.h"
 
-typedef void *pm_handle_t;
+typedef void *mdm_dlc_hdlt_t;
 
-pm_handle_t pm_init(e_link_t mdm_type, const power_t *mdm_power,
-                    e_link_t cd_type, const power_t *cd_power);
-e_mmgr_errors_t pm_dispose(pm_handle_t *h);
+mdm_dlc_hdlt_t *mdm_dlc_init(mmgr_com_t *com, channels_mmgr_t *ch);
+void mdm_dlc_dispose(mdm_dlc_hdlt_t *hdle);
 
-e_mmgr_errors_t pm_on_mdm_up(pm_handle_t *h);
-e_mmgr_errors_t pm_on_cd(pm_handle_t *h);
-e_mmgr_errors_t pm_on_cd_complete(pm_handle_t *h);
+const char *mdm_dlc_get_shutdown(const mdm_dlc_hdlt_t *hdle);
+const char *mdm_dlc_get_streamline(const mdm_dlc_hdlt_t *hdle);
+const char *mdm_dlc_get_sanity(const mdm_dlc_hdlt_t *hdle);
 
-#endif                          /* __MMGR_IPC_PM_HEADER__ */
+const mux_t *mdm_dlc_get_mux_cfg(const mdm_dlc_hdlt_t *hdle);
+
+#endif /* __MMGR_MDM_DLC_HEADER__ */

@@ -36,7 +36,8 @@
 #include "timer_events.h"
 #include "tty.h"
 #include "mmgr.h"
-#include "pm.h"
+#include "link.h"
+#include "modem_info.h"
 
 /* AT command to shutdown modem */
 #define POWER_OFF_MODEM             "AT+CFUN=0\r"
@@ -298,8 +299,9 @@ static void core_dump_prepare(mmgr_data_t *mmgr)
         timer_stop(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
         timer_start(mmgr->timer, E_TIMER_CORE_DUMP_READING);
 
-        pm_on_mdm_cd(mmgr->info.pm);
+        link_on_cd(mmgr->link);
         mcdr_start(mmgr->mcdr);
+        mmgr->cd_retrieved = true;
     } else {
         timer_stop_all(mmgr->timer);
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
@@ -310,7 +312,7 @@ void core_dump_finalize(mmgr_data_t *mmgr, e_core_dump_state_t state)
 {
     ASSERT(mmgr != NULL);
 
-    pm_on_mdm_cd_complete(mmgr->info.pm);
+    link_on_cd_complete(mmgr->link);
 
     broadcast_msg(E_MSG_INTENT_CORE_DUMP_COMPLETE);
     notify_core_dump(mmgr->clients, mmgr->mcdr, state);
@@ -318,12 +320,8 @@ void core_dump_finalize(mmgr_data_t *mmgr, e_core_dump_state_t state)
     mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_IPC_READY, false);
     mdm_mcd_unregister(mmgr->mcd, MDM_CTRL_STATE_WARM_BOOT);
 
-    if (mmgr->info.mdm_link == E_LINK_USB)
+    if (E_LINK_USB == link_get_bb_type(mmgr->link))
         mmgr->events.link_state = E_MDM_LINK_NONE;
-
-    /* Set flag to notify there was a modem crash */
-    /* and core dump was generated (success or failed) */
-    mmgr->info.cd_generated = get_core_dump_status(state);
 
     /* The modem will be reset. No need to launch
      * a timer */
@@ -447,8 +445,8 @@ e_mmgr_errors_t mdm_start_core_dump_logs(mmgr_data_t *mmgr)
     errno = 0;
     dir_fd = open(path, O_DIRECTORY);
     if (dir_fd <= 0) {
-        LOG_ERROR("Cannot open core dump path, errno:%d:%s",
-                  errno, strerror(errno));
+        LOG_ERROR("Cannot open core dump path (%s), errno:%s",
+                  path, strerror(errno));
         goto Exit;
     }
     filename = mcdr_get_filename(mmgr->mcdr);
@@ -467,7 +465,6 @@ e_mmgr_errors_t mdm_start_core_dump_logs(mmgr_data_t *mmgr)
     }
 
     /* Retrieve core dump log file */
-    e_cd_status_t read_status = E_STATUS_UNCOMPLETED;
     snprintf(cd_log_file, sizeof(cd_log_file), "%s.txt", cd_log_basename);
     fs_fd = openat(dir_fd, cd_log_file, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
 
@@ -476,7 +473,8 @@ e_mmgr_errors_t mdm_start_core_dump_logs(mmgr_data_t *mmgr)
         goto Exit;
     }
 
-    while (read_status == E_STATUS_UNCOMPLETED) {
+    int read_status;
+    do {
         errno = 0;
         ret = send_at_retry(fd, cd_dumplog_cmd, strlen(cd_dumplog_cmd),
                             0, AT_ANSWER_NO_TIMEOUT);
@@ -486,9 +484,9 @@ e_mmgr_errors_t mdm_start_core_dump_logs(mmgr_data_t *mmgr)
             goto Exit;
         }
         read_status = read_cd_logs(fd, fs_fd, write_to_cd_log_file);
-    }
+    } while (read_status == -1);
 
-    if (read_status != E_STATUS_COMPLETE) {
+    if (read_status) {
         LOG_ERROR("Failed to read core dump logs.");
         ret = E_ERR_FAILED;
         goto Exit;
@@ -514,10 +512,6 @@ Exit:
     if (dir_fd > 0)
         close(dir_fd);
 
-    /* We got the core dump logs, reset CD status */
-    mmgr->info.cd_generated = get_core_dump_status(E_CD_SELF_RESET);
-
-    LOG_INFO("EXIT, ret:%d", ret);
     return ret;
 }
 
@@ -576,7 +570,7 @@ static e_mmgr_errors_t pre_mdm_cold_reset(mmgr_data_t *mmgr)
         if (recov_get_operation(mmgr->reset) != E_FORCE_NO_COUNT)
             broadcast_msg(E_MSG_INTENT_MODEM_COLD_RESET);
 
-        if ((mmgr->info.mdm_link == E_LINK_USB) &&
+        if ((E_LINK_USB == link_get_bb_type(mmgr->link)) &&
             mdm_flash_is_required(mmgr->flash))
             set_mmgr_state(mmgr, E_MMGR_MDM_START);
         else
@@ -664,7 +658,7 @@ e_mmgr_errors_t mdm_start_shtdwn(mmgr_data_t *mmgr)
     mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_WARM_BOOT |
                      MDM_CTRL_STATE_COREDUMP, true);
 
-    tty_open(mmgr->info.shtdwn_dlc, &fd);
+    tty_open(mdm_dlc_get_shutdown(mmgr->mdm_dlc), &fd);
     if (fd < 0) {
         LOG_ERROR("operation FAILED");
         ret = E_ERR_FAILED;
@@ -729,8 +723,7 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     /* initialize modules */
     mdm_close_fds(mmgr);
 
-    if (!mmgr->info.ssic_hack)
-        ctrl_on_mdm_flash(mmgr->info.ctrl);
+    link_on_mdm_reset(mmgr->link, 0);
 
     /* The level can change between the pre operation and the operation in a
      * specific case: if we are in PLATFORM_REBOOT state and we reached the
@@ -752,9 +745,10 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
         mdm_mcd_register(mmgr->mcd, MDM_CTRL_STATE_IPC_READY |
                          MDM_CTRL_STATE_COREDUMP, true);
 
-    if (!mdm_flash_is_required(mmgr->flash) && mmgr->info.ipc_ready_present)
+    if (!mdm_flash_is_required(mmgr->flash) &&
+        mdm_mcd_is_ipc_ready_present(mmgr->mcd))
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
-    if (mmgr->info.mdm_link == E_LINK_USB) {
+    if (E_LINK_USB == link_get_bb_type(mmgr->link)) {
         timer_start(mmgr->timer, E_TIMER_WAIT_FOR_BUS_READY);
         mmgr->events.link_state = E_MDM_LINK_NONE;
     }
@@ -776,14 +770,19 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
 
     ASSERT(mmgr != NULL);
 
-    ret = tty_open(mmgr->info.mdm_ipc_path, &mmgr->fd_tty);
+    const char *mdm_bb_path = link_get_bb_interface(mmgr->link);
+    ret = tty_open(mdm_bb_path, &mmgr->fd_tty);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("open fails");
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         goto out;
     }
 
-    ret = switch_to_mux(&mmgr->fd_tty, &mmgr->info);
+    ret = switch_to_mux(&mmgr->fd_tty, mdm_bb_path,
+                        link_get_bb_type(mmgr->link),
+                        mdm_dlc_get_mux_cfg(mmgr->mdm_dlc),
+                        mdm_dlc_get_sanity(mmgr->mdm_dlc),
+                        &mmgr->wakeup_cfg);
     if (ret == E_ERR_SUCCESS) {
         LOG_VERBOSE("Switch to MUX succeed");
     } else {
@@ -848,7 +847,7 @@ e_mmgr_errors_t ipc_event(mmgr_data_t *mmgr)
                                 MMGR_CLI_TFT_AP_LOG_MASK,
                                 2, data };
 
-    switch (mmgr->info.wakeup_cfg) {
+    switch (mmgr->wakeup_cfg) {
     case E_MDM_WAKEUP_OUTBAND:
         data[1].value = "Streamline OUTBAND";
         break;
@@ -910,20 +909,16 @@ static e_mmgr_errors_t do_configure(mmgr_data_t *mmgr)
         LOG_DEBUG("state:%d, events state:%d, events link state:%d",
                   mmgr->state, mmgr->events.state, mmgr->events.link_state);
 
-        if (mmgr->mcdr != NULL) {
-            if (mmgr->info.cd_generated != E_STATUS_NONE) {
-                LOG_INFO("A Core dump was generated before last modem reset. "
-                         "CD Status:%s",
-                         get_core_dump_status_string(mmgr->info.cd_generated));
-                /* Request core dump logs */
-                if (mcdr_log_is_enabled(mmgr->mcdr)) {
-                    ret = mdm_start_core_dump_logs(mmgr);
-                    if (ret != E_ERR_SUCCESS)
-                        LOG_ERROR("ERROR creating core dump log file.");
-                }
-            }
+        if ((mmgr->mcdr) && (mmgr->cd_retrieved)) {
+            mmgr->cd_retrieved = false;
+
+            if (mcdr_log_is_enabled(mmgr->mcdr) &&
+                (E_CD_SUCCEED != mcdr_get_result(mmgr->mcdr)))
+                if (E_ERR_SUCCESS != mdm_start_core_dump_logs(mmgr))
+                    LOG_ERROR("ERROR creating core dump log file.");
         }
-        pm_on_mdm_up(mmgr->info.pm);
+
+        link_on_mdm_up(mmgr->link);
     }
 
     return ret;
@@ -944,32 +939,36 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
     ASSERT(mmgr != NULL);
 
     e_modem_events_type_t mcd_state = mdm_mcd_get_state(mmgr->mcd);
+
     if (mcd_state & E_EV_FW_DOWNLOAD_READY) {
+        e_link_t ebl_type = link_get_flash_ebl_type(mmgr->link);
         /* manage fw update request */
         mmgr->events.link_state |= E_MDM_LINK_FW_DL_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_IPC_READY;
         mdm_mcd_unregister(mmgr->mcd, MDM_CTRL_STATE_FW_DOWNLOAD_READY);
 
-        if (((mmgr->info.mdm_link == E_LINK_USB) &&
+        if (((E_LINK_USB == ebl_type) &&
              mmgr->events.link_state & E_MDM_LINK_FLASH_READY) ||
-            (mmgr->info.mdm_link == E_LINK_HSI)) {
+            (E_LINK_HSI == ebl_type) || (E_LINK_SPI == ebl_type)) {
             if (E_ERR_SUCCESS == (ret = mdm_flash_start(mmgr->flash)))
                 timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
             else
                 set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         }
     } else if (mcd_state & E_EV_IPC_READY) {
+        e_link_t bb_type = link_get_bb_type(mmgr->link);
         timer_stop(mmgr->timer, E_TIMER_WAIT_FOR_IPC_READY);
         mmgr->events.link_state |= E_MDM_LINK_IPC_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_FW_DL_READY;
         mdm_mcd_unregister(mmgr->mcd, MDM_CTRL_STATE_IPC_READY);
 
         if ((mmgr->state == E_MMGR_MDM_CONF_ONGOING) &&
-            ((mmgr->info.mdm_link != E_LINK_USB) ||
-             ((mmgr->info.mdm_link == E_LINK_USB) &&
-              (mmgr->events.link_state & E_MDM_LINK_BB_READY))))
+            ((E_LINK_USB != bb_type) ||
+             (mmgr->events.link_state & E_MDM_LINK_BB_READY)))
             ret = do_configure(mmgr);
     } else if (mcd_state & E_EV_CORE_DUMP) {
+        e_link_t cd_type = link_get_cd_type(mmgr->link);
+
         set_mmgr_state(mmgr, E_MMGR_MDM_CORE_DUMP);
         timer_stop_all(mmgr->timer);
 
@@ -988,7 +987,7 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_CORE_DUMP, NULL);
         broadcast_msg(E_MSG_INTENT_CORE_DUMP_WARNING);
 
-        if ((mmgr->info.mdm_link == E_LINK_USB) &&
+        if ((E_LINK_USB == cd_type) &&
             !(mmgr->events.link_state & E_MDM_LINK_CORE_DUMP_READ_READY))
             LOG_DEBUG("waiting for bus enumeration");
         else
@@ -1033,6 +1032,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
     bus_ev_read(mmgr->events.bus_events);
     if (bus_ev_hdle_events(mmgr->events.bus_events) != E_ERR_SUCCESS)
         goto out;
+
     if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) &&
         (mmgr->state == E_MMGR_MDM_CONF_ONGOING)) {
         is_mdm_bb_ready = true;
@@ -1041,7 +1041,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         mmgr->events.link_state &= ~E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
         if ((mmgr->events.link_state & E_MDM_LINK_IPC_READY) ||
-            (!mmgr->info.ipc_ready_present))
+            (!mdm_mcd_is_ipc_ready_present(mmgr->mcd)))
             ret = do_configure(mmgr);
     } else if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_BB_READY) &&
                (mmgr->state == E_MMGR_MDM_LINK_USB_DISC)) {
@@ -1051,7 +1051,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         timer_stop(mmgr->timer, E_TIMER_WAIT_CORE_DUMP_READY);
         mmgr->events.link_state |= E_MDM_LINK_BB_READY;
         if ((mmgr->events.link_state & E_MDM_LINK_IPC_READY) ||
-            (!mmgr->info.ipc_ready_present))
+            (!mdm_mcd_is_ipc_ready_present(mmgr->mcd)))
             ret = do_configure(mmgr);
     } else if ((bus_ev_get_state(mmgr->events.bus_events) & MDM_FLASH_READY) &&
                (mmgr->state == E_MMGR_MDM_START)) {
@@ -1060,7 +1060,7 @@ e_mmgr_errors_t bus_events(mmgr_data_t *mmgr)
         mmgr->events.link_state |= E_MDM_LINK_FLASH_READY;
         mmgr->events.link_state &= ~E_MDM_LINK_BB_READY;
         if ((mmgr->events.link_state & E_MDM_LINK_FW_DL_READY) ||
-            (!mmgr->info.ipc_ready_present)) {
+            (!mdm_mcd_is_ipc_ready_present(mmgr->mcd))) {
             if (E_ERR_SUCCESS == (ret = mdm_flash_start(mmgr->flash)))
                 timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
             else

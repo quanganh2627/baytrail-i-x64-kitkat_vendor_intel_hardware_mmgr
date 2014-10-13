@@ -164,7 +164,7 @@ out:
  * @return E_ERR_TTY_BAD_FD bad file descriptor
  * @return E_ERR_FAILED if AT+CMUX creation command failed
  */
-e_mmgr_errors_t send_at_cmux(int fd_tty, mux_t *mux)
+e_mmgr_errors_t send_at_cmux(int fd_tty, const mux_t *mux)
 {
     char at_cmux_config[AT_MUX_CMD_SIZE];
     e_mmgr_errors_t ret = E_ERR_FAILED;

@@ -126,6 +126,9 @@ e_mmgr_errors_t pm_on_mdm_up(pm_handle_t *h)
     case E_LINK_UART:
         /* Nothing to do */
         break;
+    case E_LINK_SPI:
+        /* Nothing to do */
+        break;
     default:
         LOG_ERROR("type %d not handled", ctx->mdm.type);
         ret = E_ERR_FAILED;
@@ -142,7 +145,7 @@ e_mmgr_errors_t pm_on_mdm_up(pm_handle_t *h)
  *
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t pm_on_mdm_cd(pm_handle_t *h)
+e_mmgr_errors_t pm_on_cd(pm_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     pm_ctx_t *ctx = (pm_ctx_t *)h;
@@ -154,6 +157,9 @@ e_mmgr_errors_t pm_on_mdm_cd(pm_handle_t *h)
         /* Nothing to do */
         break;
     case E_LINK_USB:
+        /* Nothing to do */
+        break;
+    case E_LINK_SPI:
         /* Nothing to do */
         break;
     case E_LINK_UART:
@@ -175,7 +181,7 @@ e_mmgr_errors_t pm_on_mdm_cd(pm_handle_t *h)
  *
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t pm_on_mdm_cd_complete(pm_handle_t *h)
+e_mmgr_errors_t pm_on_cd_complete(pm_handle_t *h)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     pm_ctx_t *ctx = (pm_ctx_t *)h;
@@ -187,6 +193,9 @@ e_mmgr_errors_t pm_on_mdm_cd_complete(pm_handle_t *h)
         /* Nothing to do */
         break;
     case E_LINK_USB:
+        /* Nothing to do */
+        break;
+    case E_LINK_SPI:
         /* Nothing to do */
         break;
     case E_LINK_UART:

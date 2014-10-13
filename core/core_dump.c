@@ -36,6 +36,7 @@ typedef struct mcdr_lib {
 
 typedef struct mcdr_ctx {
     bool enabled;
+    bool running;
     int fd_pipe[2];
     pthread_t id;
     mcdr_lib_t mcdr;
@@ -81,6 +82,7 @@ mcdr_handle_t *mcdr_init(const mcdr_info_t *cfg)
         } else {
             ctx->enabled = true;
             ctx->data.mcdr_info = *cfg;
+            ctx->running = false;
 
             ctx->mcdr.read = dlsym(ctx->mcdr.hdle, MCDR_GET_CORE_DUMP);
             ctx->mcdr.cleanup = dlsym(ctx->mcdr.hdle, MCDR_CLEANUP);
@@ -155,7 +157,8 @@ e_mmgr_errors_t mcdr_start(mcdr_handle_t *h)
 
     ASSERT(ctx != NULL);
 
-    if (!ctx->id) {
+    if (!ctx->running) {
+        ctx->running = true;
         pthread_create(&ctx->id, NULL, (void *)mcdr_read, (void *)ctx);
     } else {
         ret = E_ERR_FAILED;
@@ -177,9 +180,9 @@ void mcdr_finalize(mcdr_handle_t *h)
 
     ASSERT(ctx != NULL);
 
-    if (ctx->id) {
+    if (ctx->running) {
+        ctx->running = false;
         pthread_join(ctx->id, NULL);
-        ctx->id = 0;
         LOG_DEBUG("[MASTER] MCDR thread is stopped");
     }
 }
@@ -196,14 +199,15 @@ void mcdr_cancel(mcdr_handle_t *h)
 
     ASSERT(ctx != NULL);
 
-    if (MCDR_ARCHIVE_IN_PROGRESS == ctx->mcdr.get_state()) {
-        LOG_DEBUG("Archiving still on-going");
-    } else {
-        LOG_ERROR("Core dump retrieval stopped. Aborting");
-        ctx->mcdr.cleanup();
+    if (ctx->running) {
+        if (MCDR_ARCHIVE_IN_PROGRESS == ctx->mcdr.get_state()) {
+            LOG_DEBUG("Archiving still on-going");
+        } else {
+            LOG_ERROR("Core dump retrieval stopped. Aborting");
+            ctx->mcdr.cleanup();
+        }
+        mcdr_finalize(h);
     }
-
-    mcdr_finalize(h);
 }
 
 /**
@@ -325,30 +329,31 @@ e_core_dump_state_t mcdr_get_result(mcdr_handle_t *h)
     mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
     e_core_dump_state_t state = E_CD_OTHER;
 
-    if (ctx) {
-        LOG_DEBUG("MCDR state:%d", ctx->mcdr.get_state());
-        switch (ctx->mcdr.get_state()) {
-        case MCDR_ARCHIVE_IN_PROGRESS:
-        case MCDR_SUCCEED:
-            state = E_CD_SUCCEED;
-            break;
+    ASSERT(ctx != NULL);
 
-        case MCDR_CLEANING_UP:
-        case MCDR_FS_ERROR:
-        case MCDR_INIT_ERROR:
-        case MCDR_IO_ERROR:
-            state = E_CD_LINK_ERROR;
-            break;
+    LOG_DEBUG("MCDR state:%d", ctx->mcdr.get_state());
 
-        case MCDR_START_PROT_ERR:
-        case MCDR_PROT_ERROR:
-            state = E_CD_PROTOCOL_ERROR;
-            break;
+    switch (ctx->mcdr.get_state()) {
+    case MCDR_ARCHIVE_IN_PROGRESS:
+    case MCDR_SUCCEED:
+        state = E_CD_SUCCEED;
+        break;
 
-        default:
-            /* nothing to do */
-            break;
-        }
+    case MCDR_CLEANING_UP:
+    case MCDR_FS_ERROR:
+    case MCDR_INIT_ERROR:
+    case MCDR_IO_ERROR:
+        state = E_CD_LINK_ERROR;
+        break;
+
+    case MCDR_START_PROT_ERR:
+    case MCDR_PROT_ERROR:
+        state = E_CD_PROTOCOL_ERROR;
+        break;
+
+    default:
+        /* nothing to do */
+        break;
     }
 
     return state;

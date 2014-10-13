@@ -161,6 +161,9 @@ e_mmgr_errors_t ctrl_on_mdm_down(ctrl_handle_t *h)
     case E_LINK_USB:
         ret = ctrl_set_state(&ctx->mdm.ctrl, E_ACTION_OFF);
         break;
+    case E_LINK_SPI:
+        /* Nothing to do */
+        break;
     case E_LINK_UART:
         /* Nothing to do */
         break;
@@ -173,7 +176,7 @@ e_mmgr_errors_t ctrl_on_mdm_down(ctrl_handle_t *h)
     return ret;
 }
 
-static e_mmgr_errors_t ctrl_on_mdm_up_op(ctrl_ctx_t *ctx)
+static e_mmgr_errors_t ctrl_on_mdm_reset_op(ctrl_ctx_t *ctx)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
 
@@ -189,6 +192,9 @@ static e_mmgr_errors_t ctrl_on_mdm_up_op(ctrl_ctx_t *ctx)
     case E_LINK_UART:
         /* Nothing to do */
         break;
+    case E_LINK_SPI:
+        /* Nothing to do */
+        break;
     default:
         LOG_ERROR("type %d not handled", ctx->mdm.type);
         ret = E_ERR_FAILED;
@@ -199,14 +205,14 @@ static e_mmgr_errors_t ctrl_on_mdm_up_op(ctrl_ctx_t *ctx)
 }
 
 /**
- * Performs the right link control operation when modem is up
+ * Performs the right link control operation when modem is reset
  *
  * @param [in] h power management handle
  * @param [in] delay delay in seconds before starting the operation
  *
  * @return E_ERR_SUCCESS if successful
  */
-e_mmgr_errors_t ctrl_on_mdm_up(ctrl_handle_t *h, int delay)
+e_mmgr_errors_t ctrl_on_mdm_reset(ctrl_handle_t *h, int delay)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
     ctrl_ctx_t *ctx = (ctrl_ctx_t *)h;
@@ -218,48 +224,16 @@ e_mmgr_errors_t ctrl_on_mdm_up(ctrl_handle_t *h, int delay)
         static delay_t op;
         op.delay_sec = delay;
         op.h = ctx;
-        op.fn = (void (*)(void *))(ctrl_on_mdm_up_op);
+        op.fn = (void (*)(void *))(ctrl_on_mdm_reset_op);
         pthread_create(&thr, NULL, delay_do, &op);
         pthread_detach(thr);
     } else {
-        ret = ctrl_on_mdm_up_op(ctx);
+        ret = ctrl_on_mdm_reset_op(ctx);
     }
 
     return ret;
 }
 
-/**
- * Performs the right link control operation when modem is flashed
- *
- * @param [in] h power management handle
- *
- * @return E_ERR_SUCCESS if successful
- */
-e_mmgr_errors_t ctrl_on_mdm_flash(ctrl_handle_t *h)
-{
-    e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    ctrl_ctx_t *ctx = (ctrl_ctx_t *)h;
-
-    ASSERT(ctx != NULL);
-
-    switch (ctx->mdm.type) {
-    case E_LINK_HSI:
-        /* Nothing to do */
-        break;
-    case E_LINK_USB:
-        ret = ctrl_set_state(&ctx->mdm.ctrl, E_ACTION_RESET);
-        break;
-    case E_LINK_UART:
-        /* Nothing to do */
-        break;
-    default:
-        LOG_ERROR("type %d not handled", ctx->mdm.type);
-        ret = E_ERR_FAILED;
-        break;
-    }
-
-    return ret;
-}
 
 /**
  * Performs the right link control operation when core dump enumeration has
@@ -284,6 +258,9 @@ e_mmgr_errors_t ctrl_on_cd_ipc_failure(ctrl_handle_t *h)
         ret = ctrl_set_state(&ctx->cd.ctrl, E_ACTION_RESET);
         break;
     case E_LINK_UART:
+        /* Nothing to do */
+        break;
+    case E_LINK_SPI:
         /* Nothing to do */
         break;
     default:

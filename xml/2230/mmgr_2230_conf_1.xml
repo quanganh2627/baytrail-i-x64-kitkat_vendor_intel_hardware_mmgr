@@ -7,11 +7,14 @@
 <mmgr_config>
 	&firmware;
 	<modem_link>
-		<flash>
-			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>
-		</flash>
+		<flash_ebl>
+			<link_uart device="![CDATA[/dev/ttyMFD2]]" baudrate="115200"/>
+		</flash_ebl>
+		<flash_fw>
+			<link_spi device="![CDATA[/dev/ttyXMM0]]" high_speed="true"/>
+		</flash_fw>
 		<baseband>
-			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>
+			<link_spi device="![CDATA[/dev/ttyXMM0]]" high_speed="false"/>
 		</baseband>
 		<power
 			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
@@ -39,7 +42,7 @@
 	<modem_timings
 		ipc_ready="55"
 		cd_ipc_ready="10"
-		mdm_flash="15"
+		mdm_flash="150"
 		fmmo="30"
 	/>
 	<modem_recovery

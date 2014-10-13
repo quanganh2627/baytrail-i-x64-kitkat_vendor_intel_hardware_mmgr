@@ -22,9 +22,8 @@
 #define MMGR_FW_OPERATIONS
 #include <stdbool.h>
 #include "security.h"
-#include "bus_events.h"
 #include "key.h"
-#include "pm.h"
+#include "link.h"
 #include "mdm_fw.h"
 #include "mmgr.h"
 
@@ -36,13 +35,10 @@ typedef enum mdm_flash_err {
 
 typedef void *mdm_flash_handle_t;
 
-mdm_flash_handle_t *mdm_flash_init(const link_t *link_ebl,
-                                   const link_t *link_fw,
-                                   const mdm_info_t *mdm_info,
+mdm_flash_handle_t *mdm_flash_init(const mdm_info_t *mdm_info,
                                    const mdm_fw_hdle_t *fw,
                                    const secure_handle_t *secure,
-                                   const bus_ev_hdle_t *bus_ev,
-                                   const key_hdle_t *keys, pm_handle_t *pm);
+                                   const key_hdle_t *keys, link_hdle_t *link);
 
 void mdm_flash_dispose(mdm_flash_handle_t *hdle);
 
