@@ -27,6 +27,7 @@
 #include "folder.h"
 
 #define TELEPHONY_USER "radio"
+#define SYSTEM_USER "system"
 #define FOLDER_PERMISSION (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | \
                            S_IXGRP)
 
@@ -44,7 +45,7 @@ int folder_create(const char *path)
         else
             LOG_ERROR("Failed to create %s: %s", path, strerror(errno));
     } else {
-        struct passwd *pwd = getpwnam(TELEPHONY_USER);
+        struct passwd *pwd = getpwnam(SYSTEM_USER);
         struct group *gp = getgrnam(TELEPHONY_USER);
         if (pwd && gp) {
             if (!chown(path, pwd->pw_uid, gp->gr_gid) &&
