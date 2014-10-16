@@ -38,6 +38,8 @@ void mcdr_cancel(mcdr_handle_t *h);
 int mcdr_get_fd(mcdr_handle_t *h);
 
 const char *mcdr_get_path(mcdr_handle_t *h);
+const char *mcdr_get_mdm_version(mcdr_handle_t *h);
+void mcdr_set_mdm_version(mcdr_handle_t *h, char *pmdm_version);
 const char *mcdr_get_filename(mcdr_handle_t *h);
 const char *mcdr_get_error_reason(mcdr_handle_t *h);
 bool mcdr_is_enabled(mcdr_handle_t *h);

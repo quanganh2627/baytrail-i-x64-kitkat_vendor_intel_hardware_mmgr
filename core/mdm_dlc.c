@@ -23,6 +23,7 @@ typedef struct mdm_dlc {
     char sanity_check[PATH_MAX];
     char shtdwn[PATH_MAX];
     char custom[PATH_MAX];
+    char cd_logs[PATH_MAX];
     mux_t mux;
 } mdm_dlc_t;
 
@@ -75,6 +76,22 @@ const char *mdm_dlc_get_sanity(const mdm_dlc_hdlt_t *hdle)
 }
 
 /**
+ * Gets core dump logs DLC
+ *
+ * @param [în] hdle
+ *
+ * @return DLC. must not be freed by caller
+ */
+const char *mdm_dlc_get_cd_logs(const mdm_dlc_hdlt_t *hdle)
+{
+    mdm_dlc_t *mdm_dlc = (mdm_dlc_t *)hdle;
+
+    ASSERT(mdm_dlc != NULL);
+
+    return mdm_dlc->cd_logs;
+}
+
+/**
  * Gets mux configuration
  *
  * @param [in] hdle
@@ -114,9 +131,12 @@ mdm_dlc_hdlt_t *mdm_dlc_init(mmgr_com_t *com, channels_mmgr_t *ch)
             sizeof(mdm_dlc->shtdwn) - 1);
     strncpy(mdm_dlc->custom, ch->mdm_custo.device,
             sizeof(mdm_dlc->custom) - 1);
+    strncpy(mdm_dlc->cd_logs, ch->cd_logs.device,
+            sizeof(mdm_dlc->cd_logs) - 1);
 
     if (mdm_dlc->sanity_check[0] == '\0' ||
         mdm_dlc->shtdwn[0] == '\0' ||
+        mdm_dlc->cd_logs[0] == '\0' ||
         mdm_dlc->custom[0] == '\0') {
         LOG_ERROR("empty DLC");
         mdm_dlc_dispose((mdm_dlc_hdlt_t *)mdm_dlc);

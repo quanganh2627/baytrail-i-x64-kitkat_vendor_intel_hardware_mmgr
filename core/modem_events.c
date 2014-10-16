@@ -38,11 +38,11 @@
 #include "mmgr.h"
 #include "link.h"
 #include "modem_info.h"
+#include "client_cnx.h"
 
 /* AT command to shutdown modem */
 #define POWER_OFF_MODEM             "AT+CFUN=0\r"
 #define NB_CD_LOG_CMDS              4
-#define CMD_MAX_SIZE                100
 
 #define TIMESTAMP_LEN   32
 #define READ_SIZE       64
@@ -50,7 +50,7 @@
 #define MAX_TLV         30
 
 /* At cmd to be sent to retrieve core dump logs */
-const char cd_dumplog_cmd[CMD_MAX_SIZE] = "at@cdd:dumpLog()\r";
+#define CD_DUMPLOG_CMD "at@cdd:dumpLog()\r"
 
 static e_mmgr_errors_t pre_modem_out_of_service(mmgr_data_t *mmgr);
 
@@ -292,7 +292,14 @@ static bool streamline(mmgr_data_t *mmgr)
 
 static void core_dump_prepare(mmgr_data_t *mmgr)
 {
+    char mdm_version[PROPERTY_VALUE_MAX];
+
     ASSERT(mmgr != NULL);
+
+    /* Get the modem FW version. */
+    property_get(key_get_mdm_version(mmgr->keys), mdm_version, "");
+
+    mcdr_set_mdm_version(mmgr->mcdr, mdm_version);
 
     if (mcdr_is_enabled(mmgr->mcdr)) {
         timer_stop(mmgr->timer, E_TIMER_CORE_DUMP_IPC_RESET);
@@ -416,22 +423,22 @@ e_mmgr_errors_t mdm_start_core_dump_logs(mmgr_data_t *mmgr)
     char cd_log_file[PATH_MAX] = { 0 };
     int dir_fd = -1;
     int fs_fd = -1;
-    const char *const PROP_MDM_VERSION = "gsm.version.baseband";
-    /* TTY dedicated to retrieve core dump logs */
-    const char *const CORE_DUMP_LOG_TTY = "/dev/gsmtty10";
-    char mdm_version[PATH_MAX];
+    const char *mdm_version = NULL;
+    const char *core_dump_log_port = NULL;
     char timestamp[TIMESTAMP_LEN] = { "00000000000000" };
 
     ASSERT(mmgr != NULL);
 
-    ret = tty_open(CORE_DUMP_LOG_TTY, &fd);
+    mdm_version = mcdr_get_mdm_version(mmgr->mcdr);
+    core_dump_log_port = mdm_dlc_get_cd_logs(mmgr->mdm_dlc);
+
+    ASSERT(core_dump_log_port != NULL);
+
+    ret = tty_open(core_dump_log_port, &fd);
     if (fd <= 0) {
         LOG_ERROR("Opening TTY FAILED, err:%d", ret);
         goto Exit;
     }
-
-    /* Get the modem FW version. */
-    property_get(PROP_MDM_VERSION, mdm_version, "");
 
     if (!mmgr->mcdr) {
         LOG_ERROR("Failed to find mcdr handle.");
@@ -476,11 +483,11 @@ e_mmgr_errors_t mdm_start_core_dump_logs(mmgr_data_t *mmgr)
     int read_status;
     do {
         errno = 0;
-        ret = send_at_retry(fd, cd_dumplog_cmd, strlen(cd_dumplog_cmd),
+        ret = send_at_retry(fd, CD_DUMPLOG_CMD, strlen(CD_DUMPLOG_CMD),
                             0, AT_ANSWER_NO_TIMEOUT);
         if (ret != E_ERR_SUCCESS) {
             LOG_ERROR("Failed to send %s AT command, errno:%d:%s",
-                      cd_dumplog_cmd, errno, strerror(errno));
+                      CD_DUMPLOG_CMD, errno, strerror(errno));
             goto Exit;
         }
         read_status = read_cd_logs(fd, fs_fd, write_to_cd_log_file);

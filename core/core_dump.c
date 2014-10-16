@@ -246,6 +246,43 @@ const char *mcdr_get_path(mcdr_handle_t *h)
 }
 
 /**
+ * Returns the modem baseband version of which core dump has occured
+ * The returned value must not be freed
+ *
+ * @param [in] h module handle
+ *
+ * @return modem baseband version
+ */
+const char *mcdr_get_mdm_version(mcdr_handle_t *h)
+{
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
+
+    ASSERT(ctx != NULL);
+
+    return ctx->data.mdm_version;
+}
+
+/**
+ * Sets the modem baseband version of which core dump has occured
+ * no return value
+ *
+ * @param [in] h module handle
+ * @param [in] pmdm_version modem version string
+ *
+ * @void
+ */
+void mcdr_set_mdm_version(mcdr_handle_t *h, char *pmdm_version)
+{
+    mcdr_ctx_t *ctx = (mcdr_ctx_t *)h;
+
+    ASSERT(ctx != NULL);
+    ASSERT(pmdm_version != NULL);
+
+    snprintf(ctx->data.mdm_version, sizeof(ctx->data.mdm_version), "%s",
+             pmdm_version);
+}
+
+/**
  * Returns the filename where core dump is stored
  * The returned value must not be freed
  *

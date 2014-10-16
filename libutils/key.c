@@ -24,12 +24,14 @@
 #include "key.h"
 #include "logs.h"
 
+#define MDM_VERSION_KEY "gsm.version.baseband"
 
 typedef struct key_ctx {
     char blob[PROPERTY_KEY_MAX];
     char cfg[PROPERTY_KEY_MAX];
     char amtl[PROPERTY_KEY_MAX];
     char reboot[PROPERTY_KEY_MAX];
+    char mdm_version[PROPERTY_KEY_MAX];
 } key_ctx_t;
 
 key_hdle_t *key_init(size_t inst_id)
@@ -46,6 +48,13 @@ key_hdle_t *key_init(size_t inst_id)
              inst_id);
 
     snprintf(key->amtl, sizeof(key->amtl), "service.amtl%d.cfg", inst_id);
+
+    if (1 == inst_id)
+        snprintf(key->mdm_version, sizeof(key->mdm_version), "%s",
+                 MDM_VERSION_KEY);
+    else
+        snprintf(key->mdm_version, sizeof(key->mdm_version), "%s%d",
+                 MDM_VERSION_KEY, inst_id);
 
     return (key_hdle_t *)key;
 }
@@ -89,4 +98,13 @@ const char *key_get_amtl(const key_hdle_t *hdle)
     ASSERT(key != NULL);
 
     return key->amtl;
+}
+
+const char *key_get_mdm_version(const key_hdle_t *hdle)
+{
+    key_ctx_t *key = (key_ctx_t *)hdle;
+
+    ASSERT(key != NULL);
+
+    return key->mdm_version;
 }

@@ -23,7 +23,7 @@ void key_dispose(key_hdle_t *hdle);
 /**
  * Gets the platform key
  *
- * @param [in] inst_id MMGR instance id
+ * @param [in] unused unused parameter
  *
  * @return the key. Must not be freed by caller
  */
@@ -36,7 +36,7 @@ inline const char *key_get_platform(const key_hdle_t *unused)
 /**
  * Gets the build type key
  *
- * @param [in] inst_id MMGR instance id
+ * @param [in] unused unused parameter
  *
  * @return the key. Must not be freed by caller
  */
@@ -49,7 +49,7 @@ inline const char *key_get_build_type(const key_hdle_t *unused)
 /**
  * Gets the telephony state key
  *
- * @param [in] inst_id MMGR instance id
+ * @param [in] unused unused parameter
  *
  * @return the key. Must not be freed by caller
  */
@@ -62,7 +62,7 @@ inline const char *key_get_telephony_state(const key_hdle_t *unused)
 /**
  * Gets AMTL configuration key
  *
- * @param [in] inst_id MMGR instance id
+ * @param [in] hdle key handler
  *
  * @return the key. Must not be freed by caller
  */
@@ -71,7 +71,7 @@ const char *key_get_amtl(const key_hdle_t *hdle);
 /**
  * Gets the hash configuration key
  *
- * @param [in] inst_id MMGR instance id
+ * @param [in] hdle key handler
  *
  * @return the key. Must not be freed by caller
  */
@@ -80,7 +80,7 @@ const char *key_get_cfg(const key_hdle_t *hdle);
 /**
  * Gets the hash blob key
  *
- * @param [in] inst_id MMGR instance id
+ * @param [in] hdle key handler
  *
  * @return the key. Must not be freed by caller
  */
@@ -89,10 +89,19 @@ const char *key_get_blob(const key_hdle_t *hdle);
 /**
  * Gets the modem reboot key
  *
- * @param [in] inst_id MMGR instance id
+ * @param [in] hdle key handler
  *
  * @return the key. Must not be freed by caller
  */
 const char *key_get_reboot_counter(const key_hdle_t *hdle);
+
+/**
+ * Gets the modem version key
+ *
+ * @param [in] hdle key handler
+ *
+ * @return the key. Must not be freed by caller
+ */
+const char *key_get_mdm_version(const key_hdle_t *hdle);
 
 #endif

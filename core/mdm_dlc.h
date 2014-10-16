@@ -30,6 +30,7 @@ void mdm_dlc_dispose(mdm_dlc_hdlt_t *hdle);
 const char *mdm_dlc_get_shutdown(const mdm_dlc_hdlt_t *hdle);
 const char *mdm_dlc_get_streamline(const mdm_dlc_hdlt_t *hdle);
 const char *mdm_dlc_get_sanity(const mdm_dlc_hdlt_t *hdle);
+const char *mdm_dlc_get_cd_logs(const mdm_dlc_hdlt_t *hdle);
 
 const mux_t *mdm_dlc_get_mux_cfg(const mdm_dlc_hdlt_t *hdle);
 
