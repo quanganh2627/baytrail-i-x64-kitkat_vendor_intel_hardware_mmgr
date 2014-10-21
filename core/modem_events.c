@@ -954,9 +954,8 @@ e_mmgr_errors_t modem_control_event(mmgr_data_t *mmgr)
         mmgr->events.link_state &= ~E_MDM_LINK_IPC_READY;
         mdm_mcd_unregister(mmgr->mcd, MDM_CTRL_STATE_FW_DOWNLOAD_READY);
 
-        if (((E_LINK_USB == ebl_type) &&
-             mmgr->events.link_state & E_MDM_LINK_FLASH_READY) ||
-            (E_LINK_HSI == ebl_type) || (E_LINK_SPI == ebl_type)) {
+        if ((E_LINK_USB != ebl_type) ||
+            (mmgr->events.link_state & E_MDM_LINK_FLASH_READY)) {
             if (E_ERR_SUCCESS == (ret = mdm_flash_start(mmgr->flash)))
                 timer_start(mmgr->timer, E_TIMER_MDM_FLASHING);
             else
