@@ -93,16 +93,17 @@ enum {
  * It reads the current platform configuration via TCS
  *
  * @param [in, out] cfg
- * @param id modem number in libtcs
+ * @param inst_id MMGR instance id
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if failed
  */
-static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg, int id)
+static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg, size_t inst_id)
 {
     tcs_handle_t *tcs = tcs_init();
     e_mmgr_errors_t ret = E_ERR_FAILED;
-    key_hdle_t *keys = key_init(id);
+    key_hdle_t *keys = key_init(inst_id);
+    size_t mdm_id = inst_id - 1;
 
     ASSERT(cfg != NULL);
     ASSERT(tcs != NULL);
@@ -110,18 +111,18 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg, int id)
     tcs_cfg_t *tcs_cfg = tcs_get_config(tcs);
 
     ASSERT(tcs_cfg != NULL);
-    ASSERT(tcs_cfg->nb >= (size_t)id);
+    ASSERT(tcs_cfg->nb > mdm_id);
     ASSERT(tcs_cfg->mdm != NULL);
     ASSERT(keys != NULL);
 
-    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(tcs, &tcs_cfg->mdm[id]);
+    mmgr_info_t *mmgr_cfg = tcs_get_mmgr_config(tcs, &tcs_cfg->mdm[mdm_id]);
     ASSERT(mmgr_cfg != NULL);
 
     cfg->cold_reset = mmgr_cfg->recov.cold_reset;
     cfg->reboot = mmgr_cfg->recov.reboot;
     cfg->reset_escalation_delay = mmgr_cfg->recov.reset_delay;
     snprintf(cfg->shtdwn_dlc, sizeof(cfg->shtdwn_dlc), "%s",
-             tcs_cfg->mdm[id].chs.ch[0].mmgr.shutdown.device);
+             tcs_cfg->mdm[mdm_id].chs.ch[0].mmgr.shutdown.device);
 
     cfg->timeout_cd_detection = MMGR_DELAY + mmgr_cfg->timings.cd_ipc_ready;
     cfg->timeout_cd_complete = mmgr_cfg->mcdr.gnl.timeout;
@@ -135,7 +136,7 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg, int id)
                           mmgr_cfg->recov.cold_timeout +
                           mmgr_cfg->timings.ipc_ready;
 
-    if (tcs_cfg->mdm[id].core.flashless)
+    if (tcs_cfg->mdm[mdm_id].core.flashless)
         cfg->timeout_mdm_up += mmgr_cfg->timings.mdm_flash;
 
     property_get_string(key_get_build_type(keys), cfg->build_type);
@@ -154,14 +155,14 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg, int id)
  * Run selected test
  *
  * @param [in,out] test test data
- * @param [in] id MMGR instance id
+ * @param [in] inst_id MMGR instance id
  * @param [in] option_string
  *
  * @return E_ERR_SUCCESS if successful
  * @return E_ERR_FAILED if test failed
  * @return E_ERR_OUT_OF_SERVICE if modem is out of service
  */
-e_mmgr_errors_t run_test(test_case_t *test, int id, const char *option_string)
+e_mmgr_errors_t run_test(test_case_t *test, size_t inst_id, const char *option_string)
 {
     test_data_t test_data;
     e_mmgr_errors_t ret = E_ERR_FAILED;
@@ -185,12 +186,12 @@ e_mmgr_errors_t run_test(test_case_t *test, int id, const char *option_string)
 
     ASSERT(pipe(test_data.fd_pipe) == 0);
 
-    if (E_ERR_SUCCESS != mmgr_test_init(&test_data.cfg, id - 1)) {
+    if (E_ERR_SUCCESS != mmgr_test_init(&test_data.cfg, inst_id)) {
         LOG_ERROR("failed to read platform configuration");
         goto out;
     }
 
-    ret = configure_client_library(&test_data, id);
+    ret = configure_client_library(&test_data, inst_id);
     if (ret != E_ERR_SUCCESS) {
         LOG_ERROR("Failed to configure mmgr_cli library");
         goto out;
@@ -323,7 +324,7 @@ int main(int argc, char *argv[])
     int nb_tests = 0;
     int index = 0;
     char *option_string = NULL;
-    int inst_id = DEFAULT_INST_ID;
+    size_t inst_id = DEFAULT_INST_ID;
 
     /* *INDENT-OFF* */
     test_case_t tests[] = {
