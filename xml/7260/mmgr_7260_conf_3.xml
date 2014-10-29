@@ -14,7 +14,7 @@
 			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0x07ef" vid="0x8087"/>
 		</flash_fw>
 		<baseband>
-			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0x1451" vid="0x1519"/>
+			<link_usb device="![CDATA[/dev/ttyACM0]]" pid="0x0452" vid="0x1519"/>
 		</baseband>
 		<power
 			device="![CDATA[/sys/devices/pci0000:00/0000:00:14.0/ssic/Nautosuspend_enable]]"
