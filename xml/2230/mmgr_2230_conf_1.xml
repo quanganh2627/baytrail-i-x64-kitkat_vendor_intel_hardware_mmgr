@@ -8,7 +8,7 @@
 	&firmware;
 	<modem_link>
 		<flash_ebl>
-			<link_uart device="![CDATA[/dev/ttyMFD2]]" baudrate="115200"/>
+			<link_uart device="![CDATA[/dev/ttyMFD2]]" baudrate="921600"/>
 		</flash_ebl>
 		<flash_fw>
 			<link_spi device="![CDATA[/dev/ttyXMM0]]" high_speed="true"/>
