@@ -738,6 +738,7 @@ e_mmgr_errors_t reset_modem(mmgr_data_t *mmgr)
     level = recov_get_level(mmgr->reset);
     ASSERT(mmgr->hdler_mdm[level] != NULL);
     mmgr->hdler_mdm[level] (mmgr->mcd);
+    clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_MDM_STARTING, NULL);
 
     /* configure events handling */
     if ((level == E_EL_PLATFORM_REBOOT) || (level == E_EL_MODEM_OUT_OF_SERVICE))

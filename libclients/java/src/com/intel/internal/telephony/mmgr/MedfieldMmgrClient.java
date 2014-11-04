@@ -74,10 +74,11 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
     public final static int NOTIFY_MODEM_COLD_RESET = 4;
     public final static int NOTIFY_MODEM_SHUTDOWN = 5;
     public final static int NOTIFY_PLATFORM_REBOOT = 6;
-    public final static int NOTIFY_MODEM_CORE_DUMP = 7;
+    public final static int NOTIFY_MODEM_STARTING = 7;
+    public final static int NOTIFY_MODEM_CORE_DUMP = 8;
 
-    public final static int NOTIFY_ACK = 8;
-    public final static int NOTIFY_NACK = 9;
+    public final static int NOTIFY_ACK = 9;
+    public final static int NOTIFY_NACK = 10;
 
     public LocalSocket clientSocket = null;
     public Handler handler = null;
@@ -407,6 +408,12 @@ public class MedfieldMmgrClient implements ModemStatusMonitor, Runnable {
                 Log.i(Constants.LOG_TAG,
                       "Modem notification = NOTIFY_PLATFORM_REBOOT");
                 notification = ModemNotification.PLATFORM_REBOOT;
+                break;
+
+            case MedfieldMmgrClient.NOTIFY_MODEM_STARTING:
+                Log.i(Constants.LOG_TAG,
+                      "Modem notification = NOTIFY_MODEM_STARTING");
+                notification = ModemNotification.STARTING;
                 break;
 
             case MedfieldMmgrClient.NOTIFY_ACK:

@@ -23,9 +23,10 @@ public enum ModemNotification {
     COLD_RESET(1),
     SHUTDOWN(2),
     PLATFORM_REBOOT(4),
-    CORE_DUMP(8),
-    ACK(16),
-    NACK(32),
+    STARTING(8),
+    CORE_DUMP(16),
+    ACK(32),
+    NACK(64),
     ALL(0xFFFFFFFF);
 
     private int value;

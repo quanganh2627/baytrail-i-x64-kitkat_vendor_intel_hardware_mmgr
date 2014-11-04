@@ -67,6 +67,7 @@
     X(NOTIFY_MODEM_COLD_RESET), \
     X(NOTIFY_MODEM_SHUTDOWN), \
     X(NOTIFY_PLATFORM_REBOOT), \
+    X(NOTIFY_MDM_STARTING), \
     X(NOTIFY_CORE_DUMP), \
     /* ACK: MMGR -> Clients */ \
     X(ACK), \
