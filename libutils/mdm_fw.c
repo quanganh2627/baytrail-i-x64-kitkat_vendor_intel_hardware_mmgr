@@ -311,6 +311,22 @@ const char *mdm_fw_get_rnd_path(const mdm_fw_hdle_t *hdle)
 }
 
 /**
+ * Returns the input folder path
+ *
+ * @param hdle module handle
+ *
+ * @return a string containing the input folder path
+ */
+const char *mdm_fw_get_input_folder_path(const mdm_fw_hdle_t *hdle)
+{
+    mdm_fw_t *fw = (mdm_fw_t *)hdle;
+
+    ASSERT(fw != NULL);
+
+    return fw->cfg.folders.input;
+}
+
+/**
  * Returns the NVM dynamic path
  *
  * @param hdle module handle

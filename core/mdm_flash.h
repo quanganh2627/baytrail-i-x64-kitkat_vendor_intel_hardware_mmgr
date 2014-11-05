@@ -35,7 +35,7 @@ typedef enum mdm_flash_err {
 
 typedef void *mdm_flash_handle_t;
 
-mdm_flash_handle_t *mdm_flash_init(const mdm_info_t *mdm_info,
+mdm_flash_handle_t *mdm_flash_init(int inst_id, const mdm_info_t *mdm_info,
                                    const mdm_fw_hdle_t *fw,
                                    const secure_handle_t *secure,
                                    const key_hdle_t *keys, link_hdle_t *link);

@@ -234,11 +234,11 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
     ASSERT((mmgr->fw = mdm_fw_init(inst_id, &cfg->mdm[mdm_id], &mmgr_cfg->fw))
            != NULL);
 
-    ASSERT(E_ERR_SUCCESS == mdm_fw_create_folders(mmgr->fw));
-
-    ASSERT((mmgr->flash = mdm_flash_init(&cfg->mdm[mdm_id], mmgr->fw,
+    ASSERT((mmgr->flash = mdm_flash_init(inst_id, &cfg->mdm[mdm_id], mmgr->fw,
                                          mmgr->secure,
                                          mmgr->keys, mmgr->link)) != NULL);
+
+    ASSERT(E_ERR_SUCCESS == mdm_fw_create_folders(mmgr->fw));
 
     set_amtl_cfg(cfg, mmgr->keys, mdm_id);
 

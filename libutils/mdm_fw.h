@@ -33,6 +33,7 @@ e_mmgr_errors_t mdm_fw_create_folders(const mdm_fw_hdle_t *hdle);
 const char *mdm_fw_get_fw_path(const mdm_fw_hdle_t *hdle);
 const char *mdm_fw_get_fw_package_path(const mdm_fw_hdle_t *hdle);
 const char *mdm_fw_get_rnd_path(const mdm_fw_hdle_t *hdle);
+const char *mdm_fw_get_input_folder_path(const mdm_fw_hdle_t *hdle);
 const char *mdm_fw_get_blob_hash_path(const mdm_fw_hdle_t *hdle);
 const char *mdm_fw_get_runtime_path(const mdm_fw_hdle_t *hdle);
 const char *mdm_fw_get_factory_folder(const mdm_fw_hdle_t *hdle);

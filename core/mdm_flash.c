@@ -18,6 +18,7 @@
 
 #include <pthread.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <openssl/md5.h>
 
 #define MMGR_FW_OPERATIONS
@@ -175,6 +176,43 @@ static e_mmgr_errors_t mdm_flash_init_hash(mdm_flash_ctx_t *flash,
     return ret;
 }
 
+static void mdm_flash_mmgr_upgrade_script(int inst_id, mdm_flash_ctx_t *ctx)
+{
+    ASSERT(ctx != NULL);
+
+    if (ctx->flashless && !mdm_flash_is_property_equal(ctx->blob_hash.key,
+                                                       ctx->blob_hash.value)) {
+        pid_t child = fork();
+        if (child == -1) {
+            LOG_ERROR("Fork failed");
+        } else if (child == 0) {
+            const char *input_folder = mdm_fw_get_input_folder_path(ctx->fw);
+            char script_path[PATH_MAX];
+            char instance[2] = { '\0' };
+            snprintf(instance, sizeof(instance), "%d", inst_id);
+            snprintf(script_path, sizeof(script_path), "%s%s", input_folder,
+                     "/mmgr_upgrade.sh");
+            execl("/system/bin/sh", "/system/bin/sh", script_path, instance,
+                  (char *)0);
+            LOG_ERROR("Execl failed: %s", strerror(errno));
+            exit(1);
+        } else {
+            pid_t status;
+            waitpid(child, &status, 0);
+            if (WIFEXITED(status)) {
+                if (WEXITSTATUS(status) != 0)
+                    LOG_ERROR("Modem upgrade script exit status %d",
+                              WEXITSTATUS(status));
+                else
+                    LOG_INFO("Modem upgrade script executed");
+            } else if (WIFSIGNALED(status)) {
+                LOG_ERROR("Modem upgrade script terminated by signal %d",
+                          WTERMSIG(status));
+            }
+        }
+    }
+}
+
 static void mdm_flash_push(mdm_flash_ctx_t *ctx)
 {
     char msg = 0;
@@ -238,6 +276,7 @@ mdm_flash_upgrade_err_t mdm_flash_get_upgrade_err(const mdm_flash_handle_t *hdle
 /**
  * Initializes modem flashing module. The function will assert in case of error
  *
+ * @param [in] inst_id mmgr instance
  * @param [in] mdm_info modem info
  * @param [in] fw pointer to fw module
  * @param [in] secure pointer to secure module
@@ -245,7 +284,8 @@ mdm_flash_upgrade_err_t mdm_flash_get_upgrade_err(const mdm_flash_handle_t *hdle
  *
  * @return a valid handle. Must be freed by calling mdm_flash_dispose
  */
-mdm_flash_handle_t *mdm_flash_init(const mdm_info_t *mdm_info,
+mdm_flash_handle_t *mdm_flash_init(int inst_id,
+                                   const mdm_info_t *mdm_info,
                                    const mdm_fw_hdle_t *fw,
                                    const secure_handle_t *secure,
                                    const key_hdle_t *keys,
@@ -289,6 +329,8 @@ mdm_flash_handle_t *mdm_flash_init(const mdm_info_t *mdm_info,
         if (!folder_remove(mdm_fw_dbg_get_miu_folder(fw)))
             LOG_INFO("RnD provisioning folder removed");
     }
+
+    mdm_flash_mmgr_upgrade_script(inst_id, ctx);
 
     ASSERT(pipe(ctx->fd_pipe) == 0);
 
