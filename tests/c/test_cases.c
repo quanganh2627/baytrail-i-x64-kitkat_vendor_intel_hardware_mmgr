@@ -28,7 +28,6 @@
 #include "test_cases.h"
 
 #define MAX_MOVING_FILE_SLEEP 20
-#define RIL_PROPERTY "persist.ril-daemon.disable"
 #define MAX_RECOVERY_CAUSE 64
 #define APIMR_CAUSE_STRING "Requested by mmgr-test application"
 
@@ -377,44 +376,6 @@ e_mmgr_errors_t reset_counter(test_data_t *test)
             LOG_DEBUG("reset escalation not reseted");
             ret = E_ERR_FAILED;
         }
-    }
-
-    return ret;
-}
-
-/**
- * Turn on the modem
- *
- * @param [in] test test data
- *
- * @return E_ERR_FAILED test fails
- * @return E_ERR_OUT_OF_SERVICE test fails because MODEM is OUT
- * @return E_ERR_SUCCESS if successful
- */
-e_mmgr_errors_t turn_on_modem(test_data_t *test)
-{
-    e_mmgr_errors_t ret = E_ERR_FAILED;
-    mmgr_cli_requests_t request;
-
-    MMGR_CLI_INIT_REQUEST(request, E_MMGR_RESOURCE_ACQUIRE);
-
-    ASSERT(test != NULL);
-
-    ret = wait_for_state(test, E_MMGR_EVENT_MODEM_DOWN, MMGR_DELAY);
-    if (ret != E_ERR_SUCCESS) {
-        LOG_DEBUG("modem is up");
-    } else {
-        LOG_DEBUG("starting the RIL");
-        ret = property_set_int(RIL_PROPERTY, 0);
-
-        if (mmgr_cli_send_msg(test->lib, &request) != E_ERR_CLI_SUCCEED)
-            ret = E_ERR_FAILED;
-        else
-            ret = wait_for_state(test, E_MMGR_EVENT_MODEM_UP,
-                                 test->cfg.timeout_mdm_up);
-
-        if (ret == E_ERR_SUCCESS)
-            ret = check_wakelock(false);
     }
 
     return ret;
