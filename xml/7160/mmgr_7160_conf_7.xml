@@ -35,6 +35,8 @@
 		path="/dev/mdm_ctrl0"
 		type="ioctl"
 		board="ngff"
+		pwr_on_ctrl="pmic"
+		usb_hub_ctrl="true"
 	/>
 	<modem_comm>
 		<mux

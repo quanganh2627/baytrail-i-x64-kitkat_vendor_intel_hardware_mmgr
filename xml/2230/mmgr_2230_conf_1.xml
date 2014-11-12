@@ -32,6 +32,8 @@
 		path="/dev/mdm_ctrl1"
 		type="ioctl"
 		board="aob"
+		pwr_on_ctrl="gpio"
+		usb_hub_ctrl="false"
 	/>
 	<modem_comm>
 		<mux

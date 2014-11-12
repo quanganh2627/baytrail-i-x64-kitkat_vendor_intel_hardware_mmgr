@@ -321,10 +321,13 @@ e_mmgr_errors_t mdm_mcd_unregister(mdm_mcd_hdle_t *hdle, int events)
 }
 
 static e_mmgr_errors_t mdm_mcd_configure(int fd, enum mdm_ctrl_board_type board,
-                                         const char *mdm_name)
+                                         const char *mdm_name,
+                                         bool usb_hub_ctrl,
+                                         enum mdm_ctrl_pwr_on_type pwr_on_ctrl)
 {
     e_mmgr_errors_t ret = E_ERR_SUCCESS;
-    struct mdm_ctrl_cfg cfg = { board, MODEM_UNSUP };
+    struct mdm_ctrl_cfg cfg = { board, MODEM_UNSUP, pwr_on_ctrl,
+                                usb_hub_ctrl ? 1 : 0 };
 
     ASSERT(mdm_name != NULL);
 
@@ -337,7 +340,8 @@ static e_mmgr_errors_t mdm_mcd_configure(int fd, enum mdm_ctrl_board_type board,
     else if (!strcmp(mdm_name, "2230"))
         cfg.type = MODEM_2230;
 
-    LOG_DEBUG("(board type: %d) (family :%d)", cfg.board, cfg.type);
+    LOG_DEBUG("(board type: %d) (family :%d) (pwr_on type: %d) (hub_ctr: %d)",
+              cfg.board, cfg.type, pwr_on_ctrl, usb_hub_ctrl ? 1 : 0 );
 
     errno = 0;
     if (ioctl(fd, MDM_CTRL_SET_CFG, &cfg)) {
@@ -411,7 +415,8 @@ mdm_mcd_hdle_t *mdm_mcd_init(const mmgr_mcd_t *mcd_cfg,
         mdm_mcd_dispose((mdm_mcd_hdle_t *)mcd);
         mcd = NULL;
     } else {
-        mdm_mcd_configure(mcd->fd, mcd_cfg->board, mdm_core->name);
+        mdm_mcd_configure(mcd->fd, mcd_cfg->board, mdm_core->name,
+                          mcd_cfg->usb_hub_ctrl, mcd_cfg->pwr_on_ctrl);
         mcd->link = link;
         mcd->off_allowed = off_allowed;
         mcd->ssic_hack = ssic_hack;
