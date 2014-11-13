@@ -4,7 +4,10 @@ LOCAL_PATH:= $(call my-dir)
 # General rules:
 #############################################
 MY_MODULE := mmgr-test
-MY_MODULE_TAGS := optional tests
+MY_MODULE_TAGS := optional
+ifeq ($(BOARD_HAVE_MODEM),true)
+MY_MODULE_TAGS += tests
+endif
 
 MY_INCLUDES := \
     $(MMGR_PATH)/inc \
