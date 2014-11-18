@@ -50,7 +50,7 @@ void deserialize_int(char **buffer, int *value)
     uint32_t tmp = 0;
 
     deserialize_uint32(buffer, &tmp);
-    memcpy(value, &tmp, sizeof(int));
+    *value = tmp;
 }
 
 /**
@@ -63,13 +63,10 @@ void deserialize_int(char **buffer, int *value)
  */
 void deserialize_size_t(char **buffer, size_t *value)
 {
-    memcpy(value, *buffer, sizeof(size_t));
-#ifndef __x86_64
-    *value = ntohl(*value);
-#else
-    *value = ntohq(*value);
-#endif
-    *buffer += sizeof(size_t);
+    uint32_t tmp = 0;
+
+    deserialize_uint32(buffer, &tmp);
+    *value = tmp;
 }
 
 
@@ -98,10 +95,7 @@ void serialize_uint32(char **buffer, uint32_t value)
  */
 void serialize_int(char **buffer, int value)
 {
-    uint32_t tmp;
-
-    memcpy(&tmp, &value, sizeof(int));
-    serialize_uint32(buffer, tmp);
+    serialize_uint32(buffer, (uint32_t)value);
 }
 
 /**
@@ -114,13 +108,7 @@ void serialize_int(char **buffer, int value)
  */
 void serialize_size_t(char **buffer, size_t value)
 {
-#ifndef __x86_64
-    value = htonl(value);
-#else
-    value = htonq(value);
-#endif
-    memcpy(*buffer, &value, sizeof(size_t));
-    *buffer += sizeof(size_t);
+    serialize_uint32(buffer, (uint32_t)value);
 }
 
 /**
@@ -133,7 +121,6 @@ void serialize_size_t(char **buffer, size_t value)
 e_mmgr_errors_t msg_set_header(msg_t *msg)
 {
     struct timeval ts;
-    size_t tmp;
     char *msg_data = NULL;
 
     ASSERT(msg != NULL);
@@ -145,8 +132,7 @@ e_mmgr_errors_t msg_set_header(msg_t *msg)
 
     /* setting timestamp */
     gettimeofday(&ts, NULL);
-    memcpy(&tmp, &ts.tv_sec, sizeof(ts.tv_sec));
-    serialize_size_t(&msg_data, tmp);
+    serialize_uint32(&msg_data, (uint32_t)ts.tv_sec);
 
     /* setting size */
     serialize_uint32(&msg_data, msg->hdr.len);
