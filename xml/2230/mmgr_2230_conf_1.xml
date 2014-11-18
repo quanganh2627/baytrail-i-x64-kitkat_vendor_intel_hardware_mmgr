@@ -58,13 +58,13 @@
 	<mcdr>
 		<general
 			enable="true"
-			protocol="ymodem"
+			protocol="lcdp"
 			folder="/logs/modemcrash/mmgr2"
 			timeout="180"
 			enable_cd_log="false"
 		/>
 		<link>
-			<link_uart device="![CDATA[/dev/ttyMFD2]]"/>
+			<link_uart device="![CDATA[/dev/ttyMFD2]]" baudrate="3000000"/>
 		</link>
 		<power
 			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
