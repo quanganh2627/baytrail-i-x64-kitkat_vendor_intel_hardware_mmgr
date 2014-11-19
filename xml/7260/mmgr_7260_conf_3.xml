@@ -59,7 +59,7 @@
 		<general
 			enable="true"
 			protocol="ymodem"
-			folder="/logs/modemcrash"
+			folder="/data/logs/modemcrash"
 			timeout="180"
 			enable_cd_log="false"
 		/>
