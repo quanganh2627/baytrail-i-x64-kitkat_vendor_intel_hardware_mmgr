@@ -127,7 +127,8 @@ end_set_signal_handler:
  * @param [in] mdm_id modem id in TCS
  *
  */
-static void set_amtl_cfg(tcs_cfg_t *cfg, const key_hdle_t *keys, size_t mdm_id)
+static void set_amtl_cfg(tcs_cfg_t *cfg, const key_hdle_t *keys, size_t mdm_id,
+                         bool ssic_ipc)
 {
     char amtl_cfg[PROPERTY_VALUE_MAX] = { "" };
 
@@ -144,6 +145,8 @@ static void set_amtl_cfg(tcs_cfg_t *cfg, const key_hdle_t *keys, size_t mdm_id)
         property_get_string(key_get_platform(keys), platform);
         snprintf(amtl_cfg, sizeof(amtl_cfg), "%s_XMM_%s", platform,
                  cfg->mdm[mdm_id].core.name);
+        if (ssic_ipc)
+            snprintf(amtl_cfg, sizeof(amtl_cfg), "%s_ssic", amtl_cfg);
         property_set(amtl_key, amtl_cfg);
     }
 }
@@ -240,7 +243,7 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
 
     ASSERT(E_ERR_SUCCESS == mdm_fw_create_folders(mmgr->fw));
 
-    set_amtl_cfg(cfg, mmgr->keys, mdm_id);
+    set_amtl_cfg(cfg, mmgr->keys, mdm_id, ssic_hack);
 
     tcs_dispose(h);
 }
