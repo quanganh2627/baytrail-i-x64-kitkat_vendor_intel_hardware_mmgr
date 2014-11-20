@@ -60,6 +60,19 @@ inline const char *key_get_telephony_state(const key_hdle_t *unused)
 }
 
 /**
+ * Gets the modem base band usb up key
+ *
+ * @param [in] unused unused parameter
+ *
+ * @return the key. Must not be freed by caller
+ */
+inline const char *key_get_modem_bb_usb_up(const key_hdle_t *unused)
+{
+    (void)unused;
+    return "sys.usb.modemevt";
+}
+
+/**
  * Gets AMTL configuration key
  *
  * @param [in] hdle key handler

@@ -26,6 +26,7 @@
 #include "tty.h"
 #include "events_manager.h"
 #include "bus_events.h"
+#include "key.h"
 
 typedef enum {
     EV_NONE,
@@ -47,6 +48,7 @@ typedef struct {
     struct usb_host_context *ctx;
     bus_ev_cli_ctx_t cli_ctx;
     int mdm_state;
+    const char *modem_bb_usb_up_key;
     int wd_fd;
     char modem_flash_path[PATH_MAX];
     char modem_bb_path[PATH_MAX];
@@ -206,6 +208,8 @@ e_mmgr_errors_t bus_ev_hdle_events(bus_ev_hdle_t *h)
                     strncpy(bus_events->modem_bb_path,
                             bus_events->cli_ctx.evs[i].path, PATH_MAX);
                     ret = E_ERR_SUCCESS;
+                    /* Modemevt property is unset by RPS init */
+                    property_set(bus_events->modem_bb_usb_up_key, "1");
                     LOG_DEBUG("+Modem base band READY");
                 } else if (is_pid_and_vid(dev,
                                           bus_events->modem_reconfig_pid,
@@ -319,12 +323,13 @@ e_mmgr_errors_t bus_ev_start(bus_ev_hdle_t *h)
  * @param [in] flash
  * @param [in] bb baseband
  * @param [in] mcdr core dump
+ * @param [in] keys key handler
  *
  * @return a valid bus_ev_hdle_t pointer if succeed
  * @return NULL otherwise
  */
 bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *reconfig_usb,
-                           link_t *mcdr)
+                           link_t *mcdr, const key_hdle_t *keys)
 {
     bool err = false;
     bool usb = false;
@@ -333,6 +338,7 @@ bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *reconfig_usb,
     ASSERT(flash != NULL);
     ASSERT(bb != NULL);
     ASSERT(mcdr != NULL);
+    ASSERT(keys != NULL);
 
     bus_events = calloc(1, sizeof(bus_ev_t));
     if (!bus_events) {
@@ -341,6 +347,7 @@ bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *reconfig_usb,
     }
 
     bus_events->wd_fd = CLOSED_FD;
+    bus_events->modem_bb_usb_up_key = key_get_modem_bb_usb_up(keys);
 
     if (flash->type == E_LINK_USB) {
         usb = true;
