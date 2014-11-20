@@ -19,6 +19,7 @@
 
 #include "errors.h"
 #include "tcs_mmgr.h"
+#include "key.h"
 
 #define BUS_EV_CAPACITY 32
 #define MDM_FLASH_READY 1
@@ -28,7 +29,7 @@
 typedef void *bus_ev_hdle_t;
 
 bus_ev_hdle_t *bus_ev_init(link_t *flash, link_t *bb, link_t *reconfig_usb,
-                           link_t *mcdr);
+                           link_t *mcdr, const key_hdle_t *keys);
 e_mmgr_errors_t bus_ev_dispose(bus_ev_hdle_t *h);
 e_mmgr_errors_t bus_ev_start(bus_ev_hdle_t *h);
 

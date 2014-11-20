@@ -218,7 +218,8 @@ static void mmgr_init(mmgr_data_t *mmgr, int inst_id)
                 bus_ev_init(&mmgr_cfg->mdm_link.flash_ebl,
                             &mmgr_cfg->mdm_link.baseband,
                             &mmgr_cfg->mdm_link.reconfig_usb,
-                            &mmgr_cfg->mcdr.link)) != NULL);
+                            &mmgr_cfg->mcdr.link,
+                            mmgr->keys)) != NULL);
 
     ASSERT((mmgr->link = link_init(&mmgr_cfg->mdm_link, &mmgr_cfg->mcdr,
                                    mmgr->events.bus_events, ssic_hack))
