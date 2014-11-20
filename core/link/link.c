@@ -133,6 +133,9 @@ e_mmgr_errors_t link_on_mdm_flash(const link_hdle_t *hdle)
         ret = link_set_spi_speed(&link->flash_fw.spi);
     }
 
+    if (ret == E_ERR_SUCCESS)
+        ret = pm_on_mdm_flash(link->pm);
+
     return ret;
 }
 
@@ -161,6 +164,9 @@ e_mmgr_errors_t link_on_mdm_flash_complete(const link_hdle_t *hdle)
 
     if (link->ssic_hack)
         ctrl_on_mdm_reset(link->ctrl, 15);
+
+    if (ret == E_ERR_SUCCESS)
+        ret = pm_on_mdm_flash_complete(link->pm);
 
     return ret;
 }

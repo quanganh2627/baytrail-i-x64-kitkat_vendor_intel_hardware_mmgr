@@ -32,4 +32,7 @@ e_mmgr_errors_t pm_on_mdm_up(pm_handle_t *h);
 e_mmgr_errors_t pm_on_cd(pm_handle_t *h);
 e_mmgr_errors_t pm_on_cd_complete(pm_handle_t *h);
 
+e_mmgr_errors_t pm_on_mdm_flash(pm_handle_t *h);
+e_mmgr_errors_t pm_on_mdm_flash_complete(pm_handle_t *h);
+
 #endif                          /* __MMGR_IPC_PM_HEADER__ */

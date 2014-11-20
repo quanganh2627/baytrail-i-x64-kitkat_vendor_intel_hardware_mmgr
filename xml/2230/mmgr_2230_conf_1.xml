@@ -17,15 +17,9 @@
 			<link_spi device="![CDATA[/dev/ttyXMM0]]" high_speed="false"/>
 		</baseband>
 		<power
-			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
-			on="1"
-			off="0"
-		/>
-		<link_ctrl
-			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/hsic_enable]]"
-			on="1"
-			off="0"
-			reset="1"
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:04.3/power/control]]"
+			on="auto"
+			off="on"
 		/>
 	</modem_link>
 	<mdm_ctrl
@@ -69,15 +63,9 @@
 			<link_uart device="![CDATA[/dev/ttyMFD2]]" baudrate="3000000"/>
 		</link>
 		<power
-			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
-			on="1"
-			off="0"
-		/>
-		<link_ctrl
-			device="![CDATA[/sys/devices/pci0000:00/0000:00:10.0/L2_autosuspend_enable]]"
-			on="1"
-			off="0"
-			reset="1"
+			device="![CDATA[/sys/devices/pci0000:00/0000:00:04.3/power/control]]"
+			on="auto"
+			off="on"
 		/>
 	</mcdr>
 </mmgr_config>

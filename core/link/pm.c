@@ -103,6 +103,79 @@ static e_mmgr_errors_t pm_set_state(power_t *p, bool state)
 }
 
 /**
+ * Perform the right power management operation during modem flashing
+ *
+ * @param [in] h power management handle
+ *
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t pm_on_mdm_flash(pm_handle_t *h)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    pm_ctx_t *ctx = (pm_ctx_t *)h;
+
+    ASSERT(ctx != NULL);
+
+    switch (ctx->mdm.type) {
+    case E_LINK_HSI:
+        /* Nothing to do */
+        break;
+    case E_LINK_USB:
+        /* Nothing to do */
+        break;
+    case E_LINK_UART:
+        /* Nothing to do */
+        break;
+    case E_LINK_SPI:
+        ret = pm_set_state(&ctx->mdm.power, false);
+        break;
+    default:
+        LOG_ERROR("type %d not handled", ctx->mdm.type);
+        ret = E_ERR_FAILED;
+        break;
+    }
+
+    return ret;
+}
+
+/**
+ * Perform the right power management operation when modem FW download is
+ *complete
+ *
+ * @param [in] h power management handle
+ *
+ * @return E_ERR_SUCCESS if successful
+ */
+e_mmgr_errors_t pm_on_mdm_flash_complete(pm_handle_t *h)
+{
+    e_mmgr_errors_t ret = E_ERR_SUCCESS;
+    pm_ctx_t *ctx = (pm_ctx_t *)h;
+
+    ASSERT(ctx != NULL);
+
+    switch (ctx->mdm.type) {
+    case E_LINK_HSI:
+        /* Nothing to do */
+        break;
+    case E_LINK_USB:
+        /* Nothing to do */
+        break;
+    case E_LINK_UART:
+        /* Nothing to do */
+        break;
+    case E_LINK_SPI:
+        ret = pm_set_state(&ctx->mdm.power, true);
+        break;
+    default:
+        LOG_ERROR("type %d not handled", ctx->mdm.type);
+        ret = E_ERR_FAILED;
+        break;
+    }
+
+    return ret;
+}
+
+/**
  * Perform the right power management operation when the modem is up
  *
  * @param [in] h power management handle
