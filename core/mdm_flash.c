@@ -57,6 +57,7 @@ typedef struct mdm_flash_ctx {
     const link_hdle_t *link;
 
     bool flashless;
+    bool encrypted;
 
     bool update;
     bool flash_ongoing;
@@ -137,20 +138,39 @@ static bool mdm_flash_is_hash_changed(mdm_flash_ctx_t *flash,
 
     ASSERT(flash != NULL);
 
-    if (!mdm_flash_is_property_equal(flash->blob_hash.key,
-                                     flash->blob_hash.value)) {
-        LOG_INFO("Change in firmware folder detected");
-        ret = true;
-    }
+    /* If data partition is encrypted, persistent properties are empty.
+     * Do not check them and pretend that they have not changed. Otherwise,
+     * an unnecessary modem upgrade will be triggered */
+    if (!flash->encrypted) {
+        if (!mdm_flash_is_property_equal(flash->blob_hash.key,
+                                         flash->blob_hash.value)) {
+            LOG_INFO("Change in firmware folder detected");
+            ret = true;
+        }
 
-    mdm_flash_compute_cfg_hash(flash, fw_path);
-    if (!mdm_flash_is_property_equal(flash->cfg_hash.key,
-                                     flash->cfg_hash.value)) {
-        LOG_INFO("Change in configuration detected");
-        ret = true;
+        mdm_flash_compute_cfg_hash(flash, fw_path);
+        if (!mdm_flash_is_property_equal(flash->cfg_hash.key,
+                                         flash->cfg_hash.value)) {
+            LOG_INFO("Change in configuration detected");
+            ret = true;
+        }
     }
 
     return ret;
+}
+
+static bool mdm_flash_is_encrypted(const key_hdle_t *keys)
+{
+    bool encrypted = false;
+    char value[PROPERTY_VALUE_MAX];
+
+    ASSERT(keys != NULL);
+
+    property_get_string(key_get_crypto_state(keys), value);
+    if (!strcmp(value, "trigger_restart_min_framework"))
+        encrypted = true;
+
+    return encrypted;
 }
 
 static e_mmgr_errors_t mdm_flash_init_hash(mdm_flash_ctx_t *flash,
@@ -315,22 +335,26 @@ mdm_flash_handle_t *mdm_flash_init(int inst_id,
                             mdm_fw_get_rnd_path(fw), link, secure);
     ASSERT(ctx->mup != NULL);
 
-    ASSERT(E_ERR_SUCCESS == mdm_flash_init_hash(ctx, keys));
+    ctx->encrypted = mdm_flash_is_encrypted(keys);
+    if (!ctx->encrypted) {
+        ASSERT(E_ERR_SUCCESS == mdm_flash_init_hash(ctx, keys));
 
-    /* After a factory reset, hash properties are empty. Dynamic NVM file and
-     * miu provisioning files must be deleted */
-    if (mdm_flash_are_property_hashes_empty(ctx)) {
-        LOG_DEBUG("factory reset detected");
-        errno = 0;
-        if (!unlink(mdm_fw_get_nvm_dyn_path(fw)))
-            LOG_INFO("dynamic NVM file removed");
-        else
-            LOG_DEBUG("dynamic file not removed: %s", strerror(errno));
-        if (!folder_remove(mdm_fw_dbg_get_miu_folder(fw)))
-            LOG_INFO("RnD provisioning folder removed");
+        /* After a factory reset, hash properties are empty. Dynamic NVM file
+         * and miu provisioning files must be deleted */
+        if (mdm_flash_are_property_hashes_empty(ctx)) {
+            LOG_DEBUG("factory reset detected");
+            errno = 0;
+            if (!unlink(mdm_fw_get_nvm_dyn_path(fw)))
+                LOG_INFO("dynamic NVM file removed");
+            else
+                LOG_DEBUG("dynamic file not removed: %s", strerror(errno));
+            if (!folder_remove(mdm_fw_dbg_get_miu_folder(fw)))
+                LOG_INFO("RnD provisioning folder removed");
+        }
+        mdm_flash_mmgr_upgrade_script(inst_id, ctx);
+    } else {
+        LOG_DEBUG("Data partition is encrypted. Modem will not be updated");
     }
-
-    mdm_flash_mmgr_upgrade_script(inst_id, ctx);
 
     ASSERT(pipe(ctx->fd_pipe) == 0);
 
@@ -357,6 +381,7 @@ e_mmgr_errors_t mdm_flash_prepare(mdm_flash_handle_t *hdle)
     const char *input = mdm_fw_get_fw_path(flash->fw);
     if (input) {
         flash->update = mdm_flash_is_hash_changed(flash, input);
+
         if (flash->flashless) {
             mdm_mup_package(flash->mup, mdm_fw_get_runtime_path(flash->fw),
                             input, flash->fw_packaged);
@@ -448,7 +473,6 @@ const char *mdm_flash_streamline(mdm_flash_handle_t *hdle,
     ASSERT(flash != NULL);
     ASSERT(err != NULL);
 
-
     if (!flash->update) {
         LOG_INFO("No streamline update");
         err->id = E_MODEM_NVM_NO_NVM_PATCH;
@@ -473,9 +497,9 @@ const char *mdm_flash_streamline(mdm_flash_handle_t *hdle,
     }
 
     /* Properties are updated after a successful modem flashing and TLV
-     * application */
-    if ((E_MODEM_NVM_NO_NVM_PATCH == err->id) ||
-        (E_MODEM_NVM_SUCCEED == err->id)) {
+     * application if data partition is not encrypted */
+    if (!flash->encrypted && ((E_MODEM_NVM_NO_NVM_PATCH == err->id) ||
+                              (E_MODEM_NVM_SUCCEED == err->id))) {
         property_set(flash->blob_hash.key, flash->blob_hash.value);
         property_set(flash->cfg_hash.key, flash->cfg_hash.value);
     }

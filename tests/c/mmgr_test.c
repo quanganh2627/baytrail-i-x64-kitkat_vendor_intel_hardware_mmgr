@@ -162,7 +162,8 @@ static e_mmgr_errors_t mmgr_test_init(test_cfg_t *cfg, size_t inst_id)
  * @return E_ERR_FAILED if test failed
  * @return E_ERR_OUT_OF_SERVICE if modem is out of service
  */
-e_mmgr_errors_t run_test(test_case_t *test, size_t inst_id, const char *option_string)
+e_mmgr_errors_t run_test(test_case_t *test, size_t inst_id,
+                         const char *option_string)
 {
     test_data_t test_data;
     e_mmgr_errors_t ret = E_ERR_FAILED;

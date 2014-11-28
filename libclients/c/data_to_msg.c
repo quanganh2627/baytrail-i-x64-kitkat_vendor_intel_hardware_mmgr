@@ -155,8 +155,8 @@ e_mmgr_errors_t set_msg_recovery(msg_t *msg, mmgr_cli_event_t *request)
     for (size_t i = 0; i < req_size; i++) {
         if ((req_extra_data[i].len > MMGR_CLI_MAX_RECOVERY_CAUSE_LEN) ||
             (req_extra_data[i].cause == NULL)) {
-            LOG_ERROR("invalid extra data entry (index %zu, len %zu, ptr %p)", i,
-                      req_extra_data[i].len, req_extra_data[i].cause);
+            LOG_ERROR("invalid extra data entry (index %zu, len %zu, ptr %p)",
+                      i, req_extra_data[i].len, req_extra_data[i].cause);
             req_size = 0;
             break;
         }

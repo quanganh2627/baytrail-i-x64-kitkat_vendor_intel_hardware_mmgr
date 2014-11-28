@@ -341,7 +341,7 @@ static e_mmgr_errors_t mdm_mcd_configure(int fd, enum mdm_ctrl_board_type board,
         cfg.type = MODEM_2230;
 
     LOG_DEBUG("(board type: %d) (family :%d) (pwr_on type: %d) (hub_ctr: %d)",
-              cfg.board, cfg.type, pwr_on_ctrl, usb_hub_ctrl ? 1 : 0 );
+              cfg.board, cfg.type, pwr_on_ctrl, usb_hub_ctrl ? 1 : 0);
 
     errno = 0;
     if (ioctl(fd, MDM_CTRL_SET_CFG, &cfg)) {
