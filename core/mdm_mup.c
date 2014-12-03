@@ -141,8 +141,9 @@ e_modem_fw_error_t mdm_mup_push_fw(const mdm_mup_hdle_t *hdle, const char *fw,
 
     const char *rnd = NULL;
 
-    if (file_exist(mup->cfg.rnd))
+    if (file_exist(mup->cfg.rnd)) {
         rnd = mup->cfg.rnd;
+    }
 
     if (E_MUP_SUCCEED !=
         mup->ops.config_secur_channel(mup_ctx,
