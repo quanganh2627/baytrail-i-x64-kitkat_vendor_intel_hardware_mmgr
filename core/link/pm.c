@@ -140,7 +140,7 @@ e_mmgr_errors_t pm_on_mdm_flash(pm_handle_t *h)
 
 /**
  * Perform the right power management operation when modem FW download is
- *complete
+ * complete
  *
  * @param [in] h power management handle
  *

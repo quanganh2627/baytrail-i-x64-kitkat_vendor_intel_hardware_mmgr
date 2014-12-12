@@ -31,6 +31,8 @@ typedef enum e_mmgr_errors {
     E_ERR_TTY_TIMEOUT,
     /* Client */
     E_ERR_DISCONNECTED,
+    /* Mux */
+    E_ERR_CANNOT_SET_LD,
 } e_mmgr_errors_t;
 
 #define CLOSED_FD -1

@@ -410,6 +410,7 @@ out_read:
  * @return E_ERR_TTY_POLLHUP POLLHUP detected during read
  * @return E_ERR_FAILED bad driver configuration or error during write
  * @return E_ERR_TTY_TIMEOUT no response from modem
+ * @return E_ERR_CANNOT_SET_LD cannot set line discipline
  * @return E_ERR_SUCCESS
  */
 e_mmgr_errors_t switch_to_mux(int *fd_tty,

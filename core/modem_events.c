@@ -797,13 +797,43 @@ static e_mmgr_errors_t configure_modem(mmgr_data_t *mmgr)
         static const char *const msg = "MUX configuration failed";
         LOG_ERROR("%s. reason=%d", msg, ret);
         static const char *const ev_type = "TFT_ERROR_IPC";
-        mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg } };
+        char error_num[32];
+        snprintf(error_num, sizeof(error_num), "%d", ret);
+
+        mmgr_cli_tft_event_data_t data[] = { { strlen(msg), msg },
+                                             { strlen(error_num), error_num } };
         mmgr_cli_tft_event_t ev = { E_EVENT_ERROR,
                                     strlen(ev_type), ev_type,
                                     MMGR_CLI_TFT_AP_LOG_MASK |
                                     MMGR_CLI_TFT_BP_LOG_MASK,
-                                    1, data };
+                                    2, data };
         clients_inform_all(mmgr->clients, E_MMGR_NOTIFY_TFT_EVENT, &ev);
+
+        if (ret == E_ERR_CANNOT_SET_LD) {
+            /* Specific case of error when trying to mux the TTY. In that case,
+             * kill the NVM server as it is known to not properly release all
+             * its TTYs in some case.
+             */
+            char nvm_pid[32];
+            char nvm_pid_path[PATH_MAX];
+
+            snprintf(nvm_pid_path, sizeof(nvm_pid_path), "%s/mmb_pid.txt",
+                     mdm_fw_get_runtime_path(mmgr->fw));
+
+            if (file_read(nvm_pid_path, nvm_pid,
+                          sizeof(nvm_pid)) == E_ERR_SUCCESS) {
+                errno = 0;
+                char *end_ptr;
+                long pid = strtol(nvm_pid, &end_ptr, 10);
+                if ((pid > 1) && (errno == 0) && (end_ptr != nvm_pid)) {
+                    LOG_DEBUG("killing NVM server at pid %ld", pid);
+                    unlink(nvm_pid_path);
+                    kill(pid, SIGTERM);
+                }
+            }
+        }
+
+
         set_mmgr_state(mmgr, E_MMGR_MDM_RESET);
         goto out;
     }

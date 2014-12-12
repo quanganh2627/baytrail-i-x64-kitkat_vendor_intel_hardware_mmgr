@@ -70,6 +70,7 @@ e_mmgr_errors_t modem_handshake(int fd_tty, int retry)
  * @param [in] max_frame_size maximum frame size
  *
  * @return E_ERR_SUCCESS if successful
+ * @return E_ERR_CANNOT_SET_LD if line discipline cannot be set
  * @return E_ERR_FAILED otherwise
  */
 e_mmgr_errors_t configure_cmux_driver(int fd_tty, int max_frame_size)
@@ -83,6 +84,7 @@ e_mmgr_errors_t configure_cmux_driver(int fd_tty, int max_frame_size)
     err = ioctl(fd_tty, TIOCSETD, &ldisc);
     if (err < 0) {
         LOG_ERROR("set ioctl failed (%s)", strerror(errno));
+        ret = E_ERR_CANNOT_SET_LD;
         goto out;
     }
 
